@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, SafeAreaView, ScrollView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { theme } from '../styles/theme';
 
 interface TefeHistoryItem {
   id: string;
@@ -128,8 +129,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   historyDate: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: theme.typography.fontSizes.sm,
+    color: theme.colors.text.secondary.light,
+    marginBottom: theme.spacing.sm,
   },
   historyRight: {
     alignItems: 'flex-end',
@@ -141,9 +143,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   historyPoints: {
-    fontSize: 14,
-    color: '#28a745',
-    fontWeight: '700',
+    fontSize: theme.typography.fontSizes.md,
+    fontWeight: theme.typography.fontWeights.semibold,
+    color: theme.colors.warning.dark,
   },
 });
 

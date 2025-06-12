@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Animated, FlatList, RefreshControl, Image, Alert, Modal, TextInput, SafeAreaView } from 'react-native';
 import Background from '../components/Background';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,6 +8,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@env';
 import { useFocusEffect } from '@react-navigation/native';
 import { LineChart } from 'react-native-chart-kit';
+import { formatDistanceToNow } from 'date-fns';
+import { tr } from 'date-fns/locale';
 
 const { width } = Dimensions.get('window');
 
@@ -141,7 +143,7 @@ const HomeScreen = () => {
   const [insuranceInfo, setInsuranceInfo] = useState<InsuranceInfo | null>(null);
   const [vehicleStatus, setVehicleStatus] = useState<VehicleStatus | null>(null);
 
-  const [quickAccessCards, setQuickAccessCards] = useState<QuickAccessCard[]>([
+  const memoizedQuickAccessCards = useMemo(() => [
     {
       title: 'Son Bakım',
       value: maintenanceRecord ? `${maintenanceRecord.mileage} km önce` : 'Bakım kaydı yok',
@@ -178,9 +180,9 @@ const HomeScreen = () => {
       details: undefined,
       lastUpdate: undefined,
     },
-  ]);
+  ], [maintenanceRecord, vehicleStatus, insuranceInfo]);
 
-  const [statCards, setStatCards] = useState<StatCard[]>([
+  const memoizedStatCards = useMemo(() => [
     {
       title: 'Aylık Bakım',
       value: '₺1.250',
@@ -205,7 +207,7 @@ const HomeScreen = () => {
       change: '',
       trend: 'neutral',
     },
-  ]);
+  ], [maintenanceRecord]);
 
   const [nearbyServices, setNearbyServices] = useState<ServiceCard[]>([
     {
@@ -353,7 +355,7 @@ const HomeScreen = () => {
   const handleSaveUpdate = () => {
     if (!selectedCard) return;
 
-    const updatedCards = quickAccessCards.map(card => {
+    const updatedCards = memoizedQuickAccessCards.map(card => {
       if (card.title === selectedCard.title) {
         return {
           ...card,
@@ -370,45 +372,44 @@ const HomeScreen = () => {
     setUpdateValue('');
   };
 
-  const renderQuickAccessCard = (card: QuickAccessCard) => (
+  const renderQuickAccessCard = useCallback((card: QuickAccessCard, index: number) => (
     <TouchableOpacity
-      key={card.title}
-      style={[styles.quickAccessCard, { borderLeftColor: card.color }]}
+      key={index}
+      style={styles.quickAccessCard}
+      onPress={() => handleUpdateCard(card)}
     >
-      <MaterialCommunityIcons name={card.icon} size={24} color={card.color} />
-      <View style={styles.quickAccessContent}>
-        <Text style={styles.quickAccessTitle}>{card.title}</Text>
-        <Text style={styles.quickAccessValue}>{card.value}</Text>
-        {card.details && card.details.length > 0 && (
-          <View style={styles.detailsContainer}>
-            {card.details.map((detail, index) => (
-              <Text key={index} style={styles.detailText}>• {detail}</Text>
-            ))}
-          </View>
-        )}
-        {card.lastUpdate && (
-          <Text style={styles.lastUpdateText}>Son güncelleme: {card.lastUpdate}</Text>
-        )}
+      <View style={[styles.cardIconWrap, { backgroundColor: card.color + '20' }]}>
+        <MaterialCommunityIcons name={card.icon as any} size={24} color={card.color} />
       </View>
+      <Text style={styles.cardTitle}>{card.title}</Text>
+      <Text style={styles.cardValue}>{card.value}</Text>
+      {card.lastUpdate && (
+        <Text style={styles.cardUpdate}>Son güncelleme: {formatDistanceToNow(new Date(card.lastUpdate), { addSuffix: true, locale: tr })}</Text>
+      )}
     </TouchableOpacity>
-  );
+  ), []);
 
-  const renderStatCard = (card: StatCard, idx: number) => (
-    <View key={card.title} style={[styles.statCard, { marginRight: 16, width: 180, marginLeft: idx === 0 ? 8 : 0 }]}> 
-      <Text style={styles.statTitle}>{card.title}</Text>
-      <Text style={styles.statValue}>{card.value}</Text>
-      {card.change !== '' && (
-        <View style={styles.statChange}>
+  const renderStatCard = useCallback((card: StatCard, index: number) => (
+    <View key={index} style={styles.statCard}>
+      <Text style={styles.statCardTitle}>{card.title}</Text>
+      <Text style={styles.statCardValue}>{card.value}</Text>
+      {card.change && (
+        <View style={styles.statCardChange}>
           <MaterialCommunityIcons
             name={card.trend === 'up' ? 'trending-up' : card.trend === 'down' ? 'trending-down' : 'trending-neutral'}
             size={16}
-            color={card.trend === 'up' ? '#FF3B30' : card.trend === 'down' ? '#34C759' : '#8E8E93'}
+            color={card.trend === 'up' ? '#34C759' : card.trend === 'down' ? '#FF3B30' : '#8E8E93'}
           />
-          <Text style={[styles.statChangeText, { color: card.trend === 'up' ? '#FF3B30' : card.trend === 'down' ? '#34C759' : '#8E8E93' }]}> {card.change}</Text>
+          <Text style={[
+            styles.statCardChangeText,
+            { color: card.trend === 'up' ? '#34C759' : card.trend === 'down' ? '#FF3B30' : '#8E8E93' }
+          ]}>
+            {card.change}
+          </Text>
         </View>
       )}
     </View>
-  );
+  ), []);
 
   const renderServiceCard = (service: ServiceCard) => (
     <TouchableOpacity key={service.name} style={styles.serviceCard}>
@@ -457,7 +458,7 @@ const HomeScreen = () => {
           </TouchableOpacity>
         </View>
         <View style={styles.quickAccessGrid}>
-          {quickAccessCards.map(renderQuickAccessCard)}
+          {memoizedQuickAccessCards.map((card, index) => renderQuickAccessCard(card, index))}
         </View>
       </View>
       {/* İstatistik Kartları */}
@@ -465,7 +466,7 @@ const HomeScreen = () => {
         <Text style={styles.sectionTitle}>İstatistikler</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 8}}>
           <View style={{ flexDirection: 'row', alignItems: 'stretch' }}>
-            {statCards.map((card, idx) => renderStatCard(card, idx))}
+            {memoizedStatCards.map((card, index) => renderStatCard(card, index))}
           </View>
         </ScrollView>
       </View>
@@ -830,23 +831,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'flex-start',
   },
-  statTitle: {
+  statCardTitle: {
     fontSize: 14,
     color: '#fff',
     opacity: 0.8,
   },
-  statValue: {
+  statCardValue: {
     fontSize: 24,
     color: '#fff',
     fontWeight: 'bold',
     marginTop: 8,
   },
-  statChange: {
+  statCardChange: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 8,
   },
-  statChangeText: {
+  statCardChangeText: {
     fontSize: 14,
     marginLeft: 4,
   },

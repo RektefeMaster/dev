@@ -16,6 +16,7 @@ import { API_URL } from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
+import { theme } from '../styles/theme';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -251,10 +252,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
+    color: theme.colors.primary.contrast,
+    fontSize: theme.typography.fontSizes.lg,
+    fontWeight: theme.typography.fontWeights.bold,
+    letterSpacing: theme.typography.letterSpacing.wide,
   },
   altContainer: {
     alignItems: 'center',
