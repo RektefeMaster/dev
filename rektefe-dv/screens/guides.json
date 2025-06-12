@@ -1,0 +1,22 @@
+[
+  {
+    "icon": "car",
+    "title": "Garaj Yönetimi",
+    "desc": "Araç ekle, sil, favori seç. Tüm araçlarını kolayca yönet."
+  },
+  {
+    "icon": "wallet",
+    "title": "Cüzdan & Ödeme",
+    "desc": "Bakiye görüntüle, QR ile ödeme yap, kart ekle."
+  },
+  {
+    "icon": "account-edit",
+    "title": "Profil & Sosyal",
+    "desc": "Profilini düzenle, gönderi paylaş, sosyal özellikleri keşfet."
+  },
+  {
+    "icon": "star-circle",
+    "title": "TEFE Puanları",
+    "desc": "Puan kazan, avantajlardan yararlan, ödülleri takip et."
+  }
+] 

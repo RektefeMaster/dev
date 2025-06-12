@@ -1,0 +1,22 @@
+[
+  {
+    "question": "Nasıl araç eklerim?",
+    "answer": "Garaj sekmesine gidip 'Araç Ekle' butonuna tıklayarak aracınızı ekleyebilirsiniz."
+  },
+  {
+    "question": "TEFE puanları nedir?",
+    "answer": "TEFE puanları, uygulama içi işlemlerden kazandığınız ödül puanlarıdır. Profilinizde görüntüleyebilir ve avantajlardan yararlanabilirsiniz."
+  },
+  {
+    "question": "Favori aracımı nasıl değiştiririm?",
+    "answer": "Garajınızdaki araçlardan birine yıldız ikonuna tıklayarak favori aracınızı değiştirebilirsiniz."
+  },
+  {
+    "question": "QR ile ödeme nasıl yapılır?",
+    "answer": "Cüzdan sekmesinden 'QR ile Öde' butonuna tıklayarak ödeme işlemini başlatabilirsiniz."
+  },
+  {
+    "question": "Profilimi nasıl düzenlerim?",
+    "answer": "Profil sekmesinde 'Profili Düzenle' butonuna tıklayarak bilgilerinizi güncelleyebilirsiniz."
+  }
+] 

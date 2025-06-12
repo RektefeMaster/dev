@@ -1,1 +1,0 @@
-reklefe tüm dizin burada 
