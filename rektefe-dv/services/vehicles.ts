@@ -1,37 +1,38 @@
 import { api } from './api';
 
 export interface Vehicle {
-  id: string;
+  _id: string;
   userId: string;
   brand: string;
-  model: string;
+  modelName: string;
+  package: string;
   year: number;
-  fuelType: string;
+  engineType: string;
+  fuelType: 'Benzin' | 'Dizel' | 'Elektrik' | 'Benzin/Tüp' | 'Hibrit';
+  transmission: string;
   mileage: number;
-  engineSize?: string;
-  transmission?: string;
-  lastMaintenance?: string;
-  insuranceStatus?: string;
-  condition?: string;
-  isFavorite: boolean;
+  plateNumber: string;
+  image?: string;
   createdAt: string;
-  updatedAt: string;
 }
 
 export interface AddVehicleData {
   userId: string;
   brand: string;
-  model: string;
+  modelName: string;
+  package: string;
   year: number;
-  fuelType: string;
+  engineType: string;
+  fuelType: 'Benzin' | 'Dizel' | 'Elektrik' | 'Benzin/Tüp' | 'Hibrit';
+  transmission: string;
   mileage: number;
-  engineSize?: string;
-  transmission?: string;
+  plateNumber: string;
+  image?: string;
 }
 
 export const vehicleService = {
-  getVehicles: async (userId: string) => {
-    const response = await api.get(`/vehicles/${userId}`);
+  getVehicles: async () => {
+    const response = await api.get('/vehicles');
     return response.data;
   },
   
@@ -48,8 +49,8 @@ export const vehicleService = {
     return api.patch(`/vehicles/${vehicleId}/favorite`, { userId, isFavorite });
   },
 
-  getFavoriteVehicle: async (userId: string) => {
-    const response = await api.get(`/vehicles/${userId}`);
-    return response.data.find((v: Vehicle) => v.isFavorite) || null;
+  getFavoriteVehicle: async () => {
+    const response = await api.get('/vehicles');
+    return null;
   }
 }; 

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import mongoose from 'mongoose';
+import { auth } from '../middleware/auth';
 
 const router = Router();
 
@@ -7,7 +8,7 @@ const tireStatusSchema = new mongoose.Schema({
   userId: String,
   status: String, // İyi, Orta, Değişmeli vb.
   lastCheck: String,
-  details: [String],
+  issues: [String],
 });
 
 const TireStatus = mongoose.models.TireStatus || mongoose.model('TireStatus', tireStatusSchema);

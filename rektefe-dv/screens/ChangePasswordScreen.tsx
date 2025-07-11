@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { API_URL } from '@env';
+import { API_URL } from '../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ChangePasswordScreen = ({ navigation }: any) => {

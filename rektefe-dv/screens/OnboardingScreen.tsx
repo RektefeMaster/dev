@@ -12,7 +12,9 @@ import {
   ScrollView,
 } from 'react-native';
 import LottieView from 'lottie-react-native';
-import { API_URL } from '@env';
+import { Ionicons } from '@expo/vector-icons';
+import { API_URL } from '../constants/config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 

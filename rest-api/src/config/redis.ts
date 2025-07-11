@@ -12,13 +12,22 @@ const redisClient = createClient({
   }
 });
 
+let isConnecting = false;
+
 // Redis bağlantısını başlat
 const connectRedis = async () => {
+  if (isConnecting || redisClient.isOpen) {
+    return;
+  }
+
   try {
+    isConnecting = true;
     await redisClient.connect();
     console.log('Redis bağlantısı başarılı!');
   } catch (error) {
     console.error('Redis bağlantı hatası:', error);
+  } finally {
+    isConnecting = false;
   }
 };
 
@@ -29,7 +38,9 @@ connectRedis();
 redisClient.on('error', (err: Error) => {
   console.error('Redis Client Error:', err);
   // Bağlantı koptuğunda yeniden bağlanmayı dene
-  setTimeout(connectRedis, 5000);
+  if (!isConnecting && !redisClient.isOpen) {
+    setTimeout(connectRedis, 5000);
+  }
 });
 
 redisClient.on('connect', () => console.log('Redis Client Connected'));

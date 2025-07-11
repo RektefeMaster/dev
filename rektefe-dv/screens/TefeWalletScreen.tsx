@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import Background from '../components 2/Background';
 import { View, Text, StyleSheet, FlatList, SafeAreaView, ScrollView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { theme } from '../styles/theme';
+import { theme } from '../theme/theme';
 
 interface TefeHistoryItem {
   id: string;
@@ -32,30 +33,32 @@ const TefeWalletScreen = () => {
   );
 
   return (
-    <SafeAreaView style={{flex:1, backgroundColor:'#181A20'}}>
-      <ScrollView style={{flex:1}} contentContainerStyle={{padding: 20, paddingBottom: 100}} showsVerticalScrollIndicator={false}>
-        {/* TEFE Puanları Bölümü */}
-        <View style={styles.tefePointsContainer}>
-          <Text style={styles.tefePointsTitle}>TEFE Puanlarım</Text>
-          <View style={styles.tefePointsCard}>
-            <Text style={styles.tefePointsValue}>{tefePoints}</Text>
-            <Text style={styles.tefePointsInfo}>Her alışverişte TEFE puan kazan!</Text>
-            <Text style={styles.tefePointsInfoSmall}>Geçmiş işlemlerden kazandığın puanları aşağıda inceleyebilirsin.</Text>
+    <Background>
+      <SafeAreaView style={{flex:1}}>
+        <ScrollView style={{flex:1}} contentContainerStyle={{padding: 20, paddingBottom: 100}} showsVerticalScrollIndicator={false}>
+          {/* TEFE Puanları Bölümü */}
+          <View style={styles.tefePointsContainer}>
+            <Text style={styles.tefePointsTitle}>TEFE Puanlarım</Text>
+            <View style={styles.tefePointsCard}>
+              <Text style={styles.tefePointsValue}>{tefePoints}</Text>
+              <Text style={styles.tefePointsInfo}>Her alışverişte TEFE puan kazan!</Text>
+              <Text style={styles.tefePointsInfoSmall}>Geçmiş işlemlerden kazandığın puanları aşağıda inceleyebilirsin.</Text>
+            </View>
           </View>
-        </View>
-        {/* TEFE Puan Geçmişi Bölümü */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>TEFE Puan Geçmişi</Text>
-          <FlatList
-            data={tefeHistory}
-            keyExtractor={(item) => item.id}
-            renderItem={renderTefeHistoryItem}
-            scrollEnabled={false}
-            contentContainerStyle={{ paddingBottom: 8 }}
-          />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+          {/* TEFE Puan Geçmişi Bölümü */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>TEFE Puan Geçmişi</Text>
+            <FlatList
+              data={tefeHistory}
+              keyExtractor={(item) => item.id}
+              renderItem={renderTefeHistoryItem}
+              scrollEnabled={false}
+              contentContainerStyle={{ paddingBottom: 8 }}
+            />
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </Background>
   );
 };
 

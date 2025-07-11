@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import mongoose from 'mongoose';
+import { auth } from '../middleware/auth';
 
 const router = Router();
 
@@ -15,9 +16,13 @@ const maintenanceSchema = new mongoose.Schema({
 const Maintenance = mongoose.models.Maintenance || mongoose.model('Maintenance', maintenanceSchema);
 
 // Kullanıcıya ait bakım kayıtlarını getir
-router.get('/:userId', async (req: Request, res: Response) => {
+router.get('/', auth, async (req: Request, res: Response) => {
   try {
-    const records = await Maintenance.find({ userId: req.params.userId });
+    if (!req.user || !req.user.userId) {
+      return res.status(401).json({ message: 'Kullanıcı doğrulanamadı.' });
+    }
+    const userId = req.user.userId;
+    const records = await Maintenance.find({ userId });
     if (!records || records.length === 0) {
       return res.status(200).json([]);
     }

@@ -1,17 +1,11 @@
-// Bu dosya özel tabbar ve ortada yüzen REKAİ butonunu içerir.
-// Eğer '@react-navigation/bottom-tabs' yüklü değilse: npm install @react-navigation/bottom-tabs
-
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import LottieView from 'lottie-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-
-// Mock ekranlar (gerçek ekranlar ile değiştirilebilir)
 import HomeScreen from '../screens/HomeScreen';
 import WalletScreen from '../screens/WalletScreen';
 import GarageScreen from '../screens/GarageScreen';
-import ProfileScreen from '../screens/ProfileScreen';
 import SupportScreen from '../screens/SupportScreen';
 import RektagramScreen from '../screens/RektagramScreen';
 import RekAiChat from '../screens/RekAiChat';
@@ -25,7 +19,6 @@ interface Route {
 }
 
 const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => {
-  // Eğer aktif ekran Rektagram ise tabbarı hiç gösterme
   const currentRoute = state.routes[state.index]?.name;
   if (currentRoute === 'Rektagram' || currentRoute === 'Rekai') return null;
   return (
@@ -111,21 +104,24 @@ const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
   );
 };
 
-const TabNavigator = () => (
-  <Tab.Navigator
-    initialRouteName="Home"
-    tabBar={(props: BottomTabBarProps) => <CustomTabBar {...props} />}
-    screenOptions={{ headerShown: false }}
-  >
-    <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: 'Anasayfa' }} />
-    <Tab.Screen name="Wallet" component={WalletScreen} options={{ tabBarLabel: '' }} />
-    <Tab.Screen name="Garage" component={GarageScreen} options={{ tabBarLabel: 'Garajım' }} />
-    <Tab.Screen name="Rekai" component={RekAiChat} options={{ tabBarLabel: 'REKAİ' }} />
-    <Tab.Screen name="Rektagram" component={RektagramScreen} options={{ tabBarLabel: 'Rektagram' }} />
-    <Tab.Screen name="TefeWallet" component={TefeWalletScreen} options={{ tabBarLabel: 'TEFE Cüzdan' }} />
-    <Tab.Screen name="Support" component={SupportScreen} options={{ tabBarLabel: 'Destek' }} />
-  </Tab.Navigator>
-);
+const TabNavigator = () => {
+  return (
+    <Tab.Navigator
+      tabBar={(props) => <CustomTabBar {...props} />}
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: 'Anasayfa' }} />
+      <Tab.Screen name="Wallet" component={WalletScreen} options={{ tabBarLabel: '' }} />
+      <Tab.Screen name="Garage" component={GarageScreen} options={{ tabBarLabel: 'Garajım' }} />
+      <Tab.Screen name="Rekai" component={RekAiChat} options={{ tabBarLabel: 'REKAİ' }} />
+      <Tab.Screen name="Rektagram" component={RektagramScreen} options={{ tabBarLabel: 'Rektagram' }} />
+      <Tab.Screen name="TefeWallet" component={TefeWalletScreen} options={{ tabBarLabel: 'TEFE Cüzdan' }} />
+      <Tab.Screen name="Support" component={SupportScreen} options={{ tabBarLabel: 'Destek' }} />
+    </Tab.Navigator>
+  );
+};
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -212,21 +208,10 @@ const styles = StyleSheet.create({
   activeTabItem: {
     backgroundColor: 'rgba(0,122,255,0.08)',
     borderRadius: 18,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
   },
   rekaiButtonActive: {
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 16,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#0055FF',
+    transform: [{ scale: 1.05 }],
   },
 });
 

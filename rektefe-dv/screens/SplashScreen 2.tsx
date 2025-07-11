@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Image, StyleSheet, Dimensions, SafeAreaView } from 'react-native';
-import Background from '../components/Background';
+import Background from '../components 2/Background';
 
 const { width, height } = Dimensions.get('window');
 

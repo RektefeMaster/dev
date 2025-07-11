@@ -15,12 +15,14 @@ const CACHE_DURATION = 300; // 5 dakika
 export const createPost = async (req: Request, res: Response) => {
   try {
     const { content } = req.body;
-    const userId = req.userId;
+    const userId = req.user?.userId;
     if (!userId) return res.status(401).json({ error: 'Kullanıcı doğrulanamadı.' });
-    
-    const post = await Post.create({ user: userId, content });
+    const objectUserId = new mongoose.Types.ObjectId(userId);
+    console.log('Post oluşturuluyor, userId:', objectUserId, typeof objectUserId);
+    const post = await Post.create({ user: objectUserId, content });
+    const populatedPost = await Post.findById(post._id).populate('user', 'name surname username bio avatar cover email city tags');
     await clearCache('posts:*');
-    res.status(201).json(post);
+    res.status(201).json(populatedPost);
   } catch (err) {
     res.status(500).json({ error: 'Gönderi oluşturulamadı.' });
   }
@@ -75,22 +77,21 @@ export const likePost = async (req: Request, res: Response) => {
     const postId = req.params.id;
     const userId = req.userId;
     if (!userId) return res.status(401).json({ error: 'Kullanıcı doğrulanamadı.' });
-    
+    const objectUserId = new mongoose.Types.ObjectId(userId);
     const post = await Post.findById(postId);
     if (!post) return res.status(404).json({ error: 'Gönderi bulunamadı.' });
-    
-    const likeIndex = post.likes.indexOf(new mongoose.Types.ObjectId(userId));
+    const likeIndex = post.likes.findIndex(like => like.equals(objectUserId));
     if (likeIndex === -1) {
-      post.likes.push(new mongoose.Types.ObjectId(userId));
+      post.likes.push(objectUserId);
     } else {
       post.likes.splice(likeIndex, 1);
     }
-    
     await post.save();
     await clearCache('posts:*');
     res.json(post);
   } catch (err) {
-    res.status(500).json({ error: 'Beğeni işlemi başarısız.' });
+    console.error('likePost 500 hatası:', err);
+    res.status(500).json({ error: 'Beğeni işlemi başarısız.', details: err instanceof Error ? err.message : err });
   }
 };
 

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, LayoutAnimation, Platform, UIManager, SafeAreaView, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, LayoutAnimation, Platform, UIManager, SafeAreaView, TextInput, Alert, KeyboardAvoidingView } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import faqsData from './faqs.json';
 import guidesData from './guides.json';
-import { API_URL } from '@env';
-import Background from '../components/Background';
+import { API_URL } from '../constants/config';
+import Background from '../components 2/Background';
 import LottieView from 'lottie-react-native';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -93,6 +93,7 @@ const SupportScreen = () => {
     }
     setSending(true);
     try {
+      // fetch(API_URL + '/contact', { method: 'POST', body: JSON.stringify({ name, email, message }) })
       // Şimdilik sadece console.log, backend endpointi eklenince fetch/axios ile gönderilecek
       console.log('İletişim formu:', { name, email, message });
       setName(''); setEmail(''); setMessage('');
@@ -106,15 +107,17 @@ const SupportScreen = () => {
 
   if (loading) {
     return (
-      <SafeAreaView style={{flex:1, justifyContent:'center', alignItems:'center', backgroundColor:'transparent'}}>
-        <LottieView
-          source={require('../assets/loading.json')}
-          autoPlay
-          loop
-          style={{ width: 120, height: 120 }}
-        />
-        <Text style={{color:'#fff', marginTop:16, fontSize:16}}>Yükleniyor...</Text>
-      </SafeAreaView>
+      <Background>
+        <SafeAreaView style={{flex:1, justifyContent:'center', alignItems:'center', backgroundColor:'transparent'}}>
+          <LottieView
+            source={require('../assets/loading.json')}
+            autoPlay
+            loop
+            style={{ width: 120, height: 120 }}
+          />
+          <Text style={{color:'#fff', marginTop:16, fontSize:16}}>Yükleniyor...</Text>
+        </SafeAreaView>
+      </Background>
     );
   }
 
@@ -125,7 +128,7 @@ const SupportScreen = () => {
           <Text style={styles.title}>Destek & Yardım</Text>
           <Text style={styles.subtitle}>Sık Sorulan Sorular</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { marginBottom: 16 }]}
             placeholder="SSS'de ara..."
             value={faqSearch}
             onChangeText={setFaqSearch}
@@ -134,7 +137,7 @@ const SupportScreen = () => {
             {faqs.map((item, idx) => (
               <View key={idx} style={styles.accordionItem}>
                 <TouchableOpacity style={styles.accordionHeader} onPress={() => handleAccordion(idx)}>
-                  <MaterialCommunityIcons name={openIndex === idx ? 'chevron-down' : 'chevron-right'} size={24} color="#007AFF" />
+                  <MaterialCommunityIcons name={openIndex === idx ? 'minus-circle-outline' : 'plus-circle-outline'} size={24} color="#007AFF" />
                   <Text style={styles.accordionQuestion}>{item.question}</Text>
                 </TouchableOpacity>
                 {openIndex === idx && (
@@ -148,7 +151,7 @@ const SupportScreen = () => {
 
           <Text style={styles.subtitle}>Kısa Rehberler</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { marginBottom: 16 }]}
             placeholder="Rehberlerde ara..."
             value={guideSearch}
             onChangeText={setGuideSearch}
@@ -164,33 +167,38 @@ const SupportScreen = () => {
           </View>
 
           <Text style={styles.subtitle}>Bize Ulaşın</Text>
-          <View style={styles.contactFormBox}>
-            <TextInput
-              style={styles.input}
-              placeholder="Adınız"
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="words"
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="E-posta"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            <TextInput
-              style={[styles.input, { height: 80 }]}
-              placeholder="Mesajınız"
-              value={message}
-              onChangeText={setMessage}
-              multiline
-            />
-            <TouchableOpacity style={styles.sendButton} onPress={handleContactSubmit} disabled={sending}>
-              <Text style={styles.sendButtonText}>{sending ? 'Gönderiliyor...' : 'Gönder'}</Text>
-            </TouchableOpacity>
-          </View>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{flex: 1}}>
+            <View style={styles.contactFormBox}>
+              <TextInput
+                style={styles.input}
+                placeholder="Adınız"
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="E-posta"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              {!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) && email.trim() !== '' && (
+                <Text style={{ color: 'red', marginBottom: 8 }}>Geçerli bir e-posta adresi girin.</Text>
+              )}
+              <TextInput
+                style={[styles.input, { height: 80 }]}
+                placeholder="Mesajınız"
+                value={message}
+                onChangeText={setMessage}
+                multiline
+              />
+              <TouchableOpacity style={styles.sendButton} onPress={handleContactSubmit} disabled={sending}>
+                <Text style={styles.sendButtonText}>{sending ? 'Gönderiliyor...' : 'Gönder'}</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
 
           <View style={styles.contactRow}>
             <TouchableOpacity style={styles.contactButton} onPress={() => Linking.openURL('mailto:destek@rektefe.com')}>
@@ -299,7 +307,7 @@ const styles = StyleSheet.create({
   },
   guideDesc: {
     fontSize: 13,
-    color: '#f5f7fa',
+    color: '#444',
     textAlign: 'center',
   },
   contactRow: {

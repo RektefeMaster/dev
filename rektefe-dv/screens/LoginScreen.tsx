@@ -12,11 +12,12 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { API_URL } from '@env';
+import { API_URL } from '../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { theme } from '../styles/theme';
+import { useAuth } from '../context/AuthContext';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -33,6 +34,8 @@ const LoginScreen = ({ navigation }: any) => {
     webClientId: '509841981751-k21fnh03fhdfr6kc9va2u7ftr7cpne7g.apps.googleusercontent.com',
   });
 
+  const { setToken, setUserId } = useAuth();
+
   useEffect(() => {
     if (response?.type === 'success') {
       const { authentication } = response;
@@ -48,7 +51,7 @@ const LoginScreen = ({ navigation }: any) => {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/google-login`, {
+      const response = await fetch(`${API_URL}/auth/google-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accessToken }),
@@ -58,6 +61,13 @@ const LoginScreen = ({ navigation }: any) => {
         if (data.userId && data.token) {
           await AsyncStorage.setItem('userId', data.userId);
           await AsyncStorage.setItem('token', data.token);
+          if (data.refreshToken) {
+            await AsyncStorage.setItem('refreshToken', data.refreshToken);
+          }
+          setToken(data.token);
+          setUserId(data.userId);
+          console.log('LOGIN SCREEN - TOKEN:', data.token);
+          console.log('LOGIN SCREEN - USERID:', data.userId);
         }
         Alert.alert('Başarılı', 'Google ile giriş başarılı!');
         navigation.reset({
@@ -79,7 +89,8 @@ const LoginScreen = ({ navigation }: any) => {
     setLoading(true);
     try {
       console.log('API_URL:', API_URL);
-      const response = await fetch(`${API_URL}/login`, {
+      console.log('LOGIN SCREEN - API_URL değeri:', API_URL);
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -89,7 +100,13 @@ const LoginScreen = ({ navigation }: any) => {
         if (data.userId && data.token) {
           await AsyncStorage.setItem('userId', data.userId);
           await AsyncStorage.setItem('token', data.token);
-          setFailedAttempts(0); // Başarılı girişte hata sayacını sıfırla
+          if (data.refreshToken) {
+            await AsyncStorage.setItem('refreshToken', data.refreshToken);
+          }
+          setToken(data.token);
+          setUserId(data.userId);
+          console.log('LoginScreen: Token, refreshToken ve userId kaydedildi:', data.token, data.refreshToken, data.userId);
+          setFailedAttempts(0);
         }
         Alert.alert('Başarılı', 'Giriş başarılı!');
         navigation.reset({
@@ -99,20 +116,14 @@ const LoginScreen = ({ navigation }: any) => {
       } else if (data && data.message) {
         const newFailedAttempts = failedAttempts + 1;
         setFailedAttempts(newFailedAttempts);
-        
+        console.log('LoginScreen: Hatalı giriş, mesaj:', data.message);
         if (newFailedAttempts >= 3) {
           Alert.alert(
             'Çok Fazla Başarısız Deneme',
             'Şifrenizi yenilemek ister misiniz?',
             [
-              {
-                text: 'Hayır',
-                style: 'cancel',
-              },
-              {
-                text: 'Evet',
-                onPress: () => navigation.navigate('ForgotPassword'),
-              },
+              { text: 'Hayır', style: 'cancel' },
+              { text: 'Evet', onPress: () => navigation.navigate('ForgotPassword') },
             ]
           );
         } else {
@@ -255,7 +266,6 @@ const styles = StyleSheet.create({
     color: theme.colors.primary.contrast,
     fontSize: theme.typography.fontSizes.lg,
     fontWeight: theme.typography.fontWeights.bold,
-    letterSpacing: theme.typography.letterSpacing.wide,
   },
   altContainer: {
     alignItems: 'center',

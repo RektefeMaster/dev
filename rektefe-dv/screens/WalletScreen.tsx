@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,23 +8,35 @@ import {
   FlatList,
   Alert,
   SafeAreaView,
+  Animated
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
-import { API_URL } from '@env';
-import Background from '../components/Background';
+import * as FileSystem from 'expo-file-system';
+import { API_URL } from '../constants/config';
+import Background from '../components 2/Background';
+// @ts-ignore
+import * as Sharing from 'expo-sharing';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const WalletScreen = ({ navigation }: any) => {
   const [showQR, setShowQR] = useState(false);
+  const [qrOpacity] = useState(new Animated.Value(0));
   const [cards, setCards] = useState([
     {
       id: '1',
-      cardNumber: '**** **** **** 1234',
+      cardNumber: '1234 5678 9012 3456',
       cardHolder: 'John Doe',
       expiryDate: '12/25',
       type: 'visa',
     },
   ]);
+  const [transactions, setTransactions] = useState([
+    { id: '1', title: 'QR Ödeme', date: '12/06/2025', amount: '-45 ₺' },
+    { id: '2', title: 'Bakiye Yükleme', date: '10/06/2025', amount: '+100 ₺' },
+  ]);
+  const [showCardNumbers, setShowCardNumbers] = useState(false);
+  const qrRef = useRef<any>(null);
 
   const handleAddCard = () => {
     Alert.alert('Bilgi', 'Kart ekleme özelliği yakında eklenecek!');
@@ -35,7 +47,19 @@ const WalletScreen = ({ navigation }: any) => {
   };
 
   const handleShowQR = () => {
-    setShowQR(!showQR);
+    setShowQR(true);
+    qrOpacity.setValue(0);
+    Animated.timing(qrOpacity, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+  };
+
+  const handleShareQR = async () => {
+    if (qrRef.current) {
+      qrRef.current.toDataURL(async (data: string) => {
+        const fileUri = FileSystem.cacheDirectory + 'qr.png';
+        await FileSystem.writeAsStringAsync(fileUri, data, { encoding: FileSystem.EncodingType.Base64 });
+        await Sharing.shareAsync(fileUri);
+      });
+    }
   };
 
   return (
@@ -45,6 +69,11 @@ const WalletScreen = ({ navigation }: any) => {
           {/* Kartlarım ve Bakiye Yükle Bölümü */}
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Kartlarım</Text>
+            <TouchableOpacity onPress={() => setShowCardNumbers(!showCardNumbers)}>
+              <Text style={{ color: '#007AFF', fontWeight: '600', marginBottom: 8 }}>
+                {showCardNumbers ? 'Kart Numaralarını Gizle' : 'Kart Numaralarını Göster'}
+              </Text>
+            </TouchableOpacity>
             {cards.map((card) => (
               <View key={card.id} style={styles.card}>
                 <MaterialCommunityIcons
@@ -54,7 +83,9 @@ const WalletScreen = ({ navigation }: any) => {
                   style={styles.cardIcon}
                 />
                 <View style={styles.cardInfo}>
-                  <Text style={styles.cardNumber}>{card.cardNumber}</Text>
+                  <Text style={styles.cardNumber}>
+                    {showCardNumbers ? card.cardNumber : '**** **** **** ****'}
+                  </Text>
                   <Text style={styles.cardHolder}>{card.cardHolder}</Text>
                   <Text style={styles.expiryDate}>{card.expiryDate}</Text>
                 </View>
@@ -68,16 +99,37 @@ const WalletScreen = ({ navigation }: any) => {
               <Text style={styles.loadBalanceText}>Bakiye Yükle</Text>
             </TouchableOpacity>
           </View>
+          {/* İşlem Geçmişi */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>İşlem Geçmişi</Text>
+            {transactions.map((item) => (
+              <View key={item.id} style={styles.historyItem}>
+                <View style={styles.historyLeft}>
+                  <Text style={styles.historyTitle}>{item.title}</Text>
+                  <Text style={styles.historyDate}>{item.date}</Text>
+                </View>
+                <View style={styles.historyRight}>
+                  <Text style={styles.historyAmount}>{item.amount}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
           {/* QR Kod Bölümü */}
           {showQR && (
-            <View style={styles.qrModal}>
+            <Animated.View style={[styles.qrModal, { opacity: qrOpacity }]}>
               <View style={styles.qrContainer}>
                 <QRCode
                   value="REKTEFE_PAYMENT_123456"
                   size={200}
                   backgroundColor="white"
+                  getRef={ref => qrRef.current = ref}
                 />
                 <Text style={styles.qrText}>Ödeme için QR kodu gösterin</Text>
+                <View style={{ flexDirection: 'row', marginTop: 12 }}>
+                  <TouchableOpacity onPress={handleShareQR} style={styles.closeButton}>
+                    <Text style={styles.closeButtonText}>Paylaş</Text>
+                  </TouchableOpacity>
+                </View>
                 <TouchableOpacity
                   style={styles.closeButton}
                   onPress={() => setShowQR(false)}
@@ -85,7 +137,7 @@ const WalletScreen = ({ navigation }: any) => {
                   <Text style={styles.closeButtonText}>Kapat</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </Animated.View>
           )}
           <View style={styles.showQRContainer}>
             <TouchableOpacity style={styles.showQRButton} onPress={handleShowQR}>
@@ -293,21 +345,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   closeButton: {
-    marginTop: 24,
-    backgroundColor: '#007AFF',
-    paddingVertical: 12,
-    paddingHorizontal: 36,
-    borderRadius: 14,
-    shadowColor: '#007AFF',
+    backgroundColor: '#e6f0ff',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginTop: 12,
+    marginHorizontal: 8,
+    shadowColor: '#4c9aff',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 10,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   closeButtonText: {
-    color: 'white',
+    color: '#4c9aff',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   showQRContainer: {
     padding: 16,

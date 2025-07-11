@@ -12,11 +12,12 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { API_URL } from '@env';
+import { API_URL } from '../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
+import { useAuth } from '../context/AuthContext';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -38,6 +39,8 @@ const RegisterScreen = ({ navigation }: any) => {
     webClientId: '509841981751-k21fnh03fhdfr6kc9va2u7ftr7cpne7g.apps.googleusercontent.com',
   });
 
+  const { setToken, setUserId } = useAuth();
+
   useEffect(() => {
     if (response?.type === 'success') {
       const { authentication } = response;
@@ -53,16 +56,23 @@ const RegisterScreen = ({ navigation }: any) => {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/google-register`, {
+      const response = await fetch(`${API_URL}/auth/google-register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accessToken }),
       });
       const data = await response.json();
+      console.log('Backend yanıtı:', data);
       if (response.ok) {
         if (data.userId && data.token) {
           await AsyncStorage.setItem('userId', data.userId);
           await AsyncStorage.setItem('token', data.token);
+          if (data.refreshToken) {
+            await AsyncStorage.setItem('refreshToken', data.refreshToken);
+          }
+          setToken(data.token);
+          setUserId(data.userId);
+          console.log('RegisterScreen: Token, refreshToken ve userId kaydedildi:', data.token, data.refreshToken, data.userId);
         }
         Alert.alert('Başarılı', 'Google ile kayıt başarılı!');
         navigation.reset({
@@ -124,7 +134,7 @@ const RegisterScreen = ({ navigation }: any) => {
     }
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/register`, {
+      const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -135,10 +145,17 @@ const RegisterScreen = ({ navigation }: any) => {
         }),
       });
       const data = await response.json();
+      console.log('Backend yanıtı:', data);
       if (response.ok) {
         if (data.userId && data.token) {
           await AsyncStorage.setItem('userId', data.userId);
           await AsyncStorage.setItem('token', data.token);
+          if (data.refreshToken) {
+            await AsyncStorage.setItem('refreshToken', data.refreshToken);
+          }
+          setToken(data.token);
+          setUserId(data.userId);
+          console.log('RegisterScreen: Token, refreshToken ve userId kaydedildi:', data.token, data.refreshToken, data.userId);
         }
         Alert.alert('Başarılı', 'Kayıt başarılı!');
         navigation.reset({

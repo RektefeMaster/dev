@@ -1,39 +1,124 @@
-import mongoose from 'mongoose';
+import mongoose, { Document, Schema } from 'mongoose';
 
-const userSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  surname: { type: String, required: true },
-  username: String,
-  bio: String,
-  avatar: String,
-  cover: String,
-  tefePoints: { type: Number, default: 0 },
-  tefeHidden: { type: Boolean, default: false },
-  favoriteVehicleId: String,
+export interface IUser extends Document {
+  username: string;
+  email: string;
+  password: string;
+  name: string;
+  surname: string;
+  profileImage?: string;
+  avatar?: string;
+  cover?: string;
+  bio?: string;
+  phone?: string;
+  city?: string;
+  userType: 'user' | 'mechanic' | 'driver';
+  followers: mongoose.Types.ObjectId[];
+  following: mongoose.Types.ObjectId[];
+  favoriteVehicle?: mongoose.Types.ObjectId;
+  emailHidden: boolean;
+  phoneHidden: boolean;
+  notifications: Array<{
+    type: 'follow' | 'like' | 'comment' | 'maintenance' | 'campaign' | 'insurance';
+    from?: mongoose.Types.ObjectId;
+    title: string;
+    message: string;
+    data?: any;
+    read: boolean;
+    createdAt: Date;
+  }>;
+  createdAt: Date;
+}
+
+const userSchema = new Schema<IUser>({
+  username: {
+    type: String,
+    required: false,
+    unique: false,
+    trim: true
+  },
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+    lowercase: true
+  },
+  password: {
+    type: String,
+    required: true
+  },
+  name: {
+    type: String,
+    required: true
+  },
+  surname: {
+    type: String,
+    required: true
+  },
+  profileImage: {
+    type: String,
+    default: null
+  },
+  avatar: {
+    type: String,
+    default: null
+  },
+  cover: {
+    type: String,
+    default: null
+  },
+  bio: {
+    type: String,
+    default: ''
+  },
+  phone: {
+    type: String,
+    default: null
+  },
+  city: {
+    type: String,
+    default: null
+  },
+  userType: {
+    type: String,
+    enum: ['user', 'mechanic', 'driver'],
+    default: 'user'
+  },
   followers: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    default: []
+    type: Schema.Types.ObjectId,
+    ref: 'User'
   }],
   following: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    default: []
+    type: Schema.Types.ObjectId,
+    ref: 'User'
   }],
-  posts: { type: Number, default: 0 },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
+  favoriteVehicle: {
+    type: Schema.Types.ObjectId,
+    ref: 'Vehicle',
+    default: null
+  },
+  emailHidden: {
+    type: Boolean,
+    default: false
+  },
+  phoneHidden: {
+    type: Boolean,
+    default: false
+  },
   notifications: [{
     type: {
       type: String,
-      enum: ['follow', 'like', 'comment'],
+      enum: ['follow', 'like', 'comment', 'maintenance', 'campaign', 'insurance'],
       required: true
     },
     from: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true
+      type: Schema.Types.ObjectId,
+      ref: 'User'
     },
+    title: String,
+    message: String,
+    data: Schema.Types.Mixed,
     read: {
       type: Boolean,
       default: false
@@ -43,8 +128,10 @@ const userSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
-  createdAt: { type: Date, default: Date.now }
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
-const User = mongoose.models.User || mongoose.model('User', userSchema);
-export default User; 
+export const User = mongoose.model<IUser>('User', userSchema); 

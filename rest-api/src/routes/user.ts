@@ -1,25 +1,19 @@
 import { Router, Request, Response } from 'express';
-import User from '../models/User';
-import { auth } from './auth';
+import { User } from '../models/User';
+import { auth } from '../middleware/auth';
+import mongoose from 'mongoose';
+
 const router = Router();
 
-// AuthRequest tipi
-interface AuthRequest extends Request {
-  user?: {
-    userId: string;
-    userType: string;
-  };
-}
-
 // Takip etme
-router.post('/users/follow/:userId', auth, async (req: AuthRequest, res: Response) => {
+router.post('/users/follow/:userId', auth, async (req: Request, res: Response) => {
   console.log(`[POST] /users/follow/${req.params.userId} - İstek geldi. Takip eden:`, req.user?.userId);
   if (!req.user) return res.status(401).json({ message: 'Kullanıcı doğrulanamadı.' });
   try {
-    const followerId = req.user.userId;
-    const followingId = req.params.userId;
+    const followerId = new mongoose.Types.ObjectId(req.user.userId);
+    const followingId = new mongoose.Types.ObjectId(req.params.userId);
 
-    if (followerId === followingId) {
+    if (followerId.toString() === followingId.toString()) {
       console.log('Kendini takip etmeye çalıştı!');
       return res.status(400).json({ message: 'Kendinizi takip edemezsiniz' });
     }
@@ -48,7 +42,9 @@ router.post('/users/follow/:userId', auth, async (req: AuthRequest, res: Respons
           followers: followerId,
           notifications: {
             type: 'follow',
-            from: followerId
+            from: followerId,
+            title: 'Yeni Takipçi',
+            message: `${follower.name} ${follower.surname} sizi takip etmeye başladı!`
           }
         }
       })
@@ -63,12 +59,12 @@ router.post('/users/follow/:userId', auth, async (req: AuthRequest, res: Respons
 });
 
 // Takibi bırakma
-router.post('/users/unfollow/:userId', auth, async (req: AuthRequest, res: Response) => {
+router.post('/users/unfollow/:userId', auth, async (req: Request, res: Response) => {
   console.log(`[POST] /users/unfollow/${req.params.userId} - İstek geldi. Takipten çıkan:`, req.user?.userId);
   if (!req.user) return res.status(401).json({ message: 'Kullanıcı doğrulanamadı.' });
   try {
-    const followerId = req.user.userId;
-    const followingId = req.params.userId;
+    const followerId = new mongoose.Types.ObjectId(req.user.userId);
+    const followingId = new mongoose.Types.ObjectId(req.params.userId);
 
     const [follower, following] = await Promise.all([
       User.findById(followerId),
@@ -103,7 +99,7 @@ router.post('/users/unfollow/:userId', auth, async (req: AuthRequest, res: Respo
 });
 
 // Takipçileri getir
-router.get('/users/followers/:userId', auth, async (req: AuthRequest, res: Response) => {
+router.get('/users/followers/:userId', auth, async (req: Request, res: Response) => {
   console.log(`[GET] /users/followers/${req.params.userId} - Takipçi listesi isteniyor.`);
   try {
     const user = await User.findById(req.params.userId)
@@ -121,7 +117,7 @@ router.get('/users/followers/:userId', auth, async (req: AuthRequest, res: Respo
 });
 
 // Takip edilenleri getir
-router.get('/users/following/:userId', auth, async (req: AuthRequest, res: Response) => {
+router.get('/users/following/:userId', auth, async (req: Request, res: Response) => {
   console.log(`[GET] /users/following/${req.params.userId} - Takip edilenler listesi isteniyor.`);
   try {
     const user = await User.findById(req.params.userId)
@@ -139,7 +135,7 @@ router.get('/users/following/:userId', auth, async (req: AuthRequest, res: Respo
 });
 
 // Bildirimleri getir
-router.get('/users/notifications', auth, async (req: AuthRequest, res: Response) => {
+router.get('/users/notifications', auth, async (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ message: 'Kullanıcı doğrulanamadı.' });
   try {
     const user = await User.findById(req.user.userId)
@@ -156,7 +152,7 @@ router.get('/users/notifications', auth, async (req: AuthRequest, res: Response)
 });
 
 // Bildirimleri okundu olarak işaretle
-router.put('/users/notifications/read', auth, async (req: AuthRequest, res: Response) => {
+router.put('/users/notifications/read', auth, async (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ message: 'Kullanıcı doğrulanamadı.' });
   try {
     await User.findByIdAndUpdate(req.user.userId, {
@@ -170,12 +166,12 @@ router.put('/users/notifications/read', auth, async (req: AuthRequest, res: Resp
 });
 
 // Takip durumu kontrolü
-router.get('/users/check-follow/:userId', auth, async (req: AuthRequest, res: Response) => {
+router.get('/users/check-follow/:userId', auth, async (req: Request, res: Response) => {
   console.log(`[GET] /users/check-follow/${req.params.userId} - Takip durumu kontrol ediliyor. Sorgulayan:`, req.user?.userId);
   if (!req.user) return res.status(401).json({ message: 'Kullanıcı doğrulanamadı.' });
   try {
-    const followerId = req.user.userId;
-    const followingId = req.params.userId;
+    const followerId = new mongoose.Types.ObjectId(req.user.userId);
+    const followingId = new mongoose.Types.ObjectId(req.params.userId);
 
     const follower = await User.findById(followerId);
     if (!follower) {
@@ -188,6 +184,56 @@ router.get('/users/check-follow/:userId', auth, async (req: AuthRequest, res: Re
     res.json({ isFollowing });
   } catch (error) {
     console.error('Takip durumu kontrolü sunucu hatası:', error);
+    res.status(500).json({ message: 'Sunucu hatası', error });
+  }
+});
+
+// Kullanıcıya sistem bildirimi ekle
+router.post('/users/:userId/notifications', auth, async (req: Request, res: Response) => {
+  if (!req.user) return res.status(401).json({ message: 'Kullanıcı doğrulanamadı.' });
+  try {
+    const { type, title, message, data } = req.body;
+    await User.findByIdAndUpdate(req.params.userId, {
+      $push: { notifications: { type, title, message, data, from: req.user.userId } }
+    });
+    res.json({ message: 'Bildirim eklendi' });
+  } catch (error) {
+    res.status(500).json({ message: 'Sunucu hatası', error });
+  }
+});
+
+// Bildirim silme
+router.delete('/users/notifications/:notificationId', auth, async (req: Request, res: Response) => {
+  if (!req.user) return res.status(401).json({ message: 'Kullanıcı doğrulanamadı.' });
+  try {
+    await User.findByIdAndUpdate(req.user.userId, {
+      $pull: { notifications: { _id: req.params.notificationId } }
+    });
+    res.json({ message: 'Bildirim silindi' });
+  } catch (error) {
+    res.status(500).json({ message: 'Sunucu hatası', error });
+  }
+});
+
+// Kullanıcı bilgisi getir
+router.get('/users/:userId', auth, async (req: Request, res: Response) => {
+  try {
+    let userId = req.params.userId;
+    if (userId === 'me') {
+      if (!req.user || !req.user.userId) {
+        return res.status(401).json({ message: 'Kullanıcı doğrulanamadı.' });
+      }
+      userId = req.user.userId;
+    }
+    console.log('Kullanıcı bilgisi get endpointi: req.user:', req.user, 'req.params.userId:', req.params.userId);
+    const user = await User.findById(userId);
+    if (!user) {
+      console.log('Kullanıcı bulunamadı! userId:', userId);
+      return res.status(404).json({ message: 'Kullanıcı bulunamadı' });
+    }
+    res.json(user);
+  } catch (error) {
+    console.log('Kullanıcı bilgisi get endpointi hata:', error);
     res.status(500).json({ message: 'Sunucu hatası', error });
   }
 });

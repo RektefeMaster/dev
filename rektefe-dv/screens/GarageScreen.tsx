@@ -11,28 +11,31 @@ import {
   SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_URL } from '@env';
+import { API_URL } from '../constants/config';
 import { useFocusEffect } from '@react-navigation/native';
-import Background from '../components/Background';
+import Background from '../components 2/Background';
 import LottieView from 'lottie-react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
-import carData from '../assets/carData.json';
+import carData from '../constants/carData.json';
 
 interface Vehicle {
   _id: string;
   userId: string;
   brand: string;
-  model: string;
+  modelName: string;
   package: string;
-  year: string;
+  year: number;
+  engineType: string;
   fuelType: string;
-  mileage: string;
-  plate: string;
-  isFavorite: boolean;
+  transmission: string;
+  mileage: number;
+  plateNumber: string;
+  image?: string;
   createdAt: string;
+  isFavorite?: boolean;
 }
 
 const GarageScreen = () => {
@@ -48,7 +51,7 @@ const GarageScreen = () => {
   const [transmissionOpen, setTransmissionOpen] = useState(false);
 
   const [brandValue, setBrandValue] = useState<string | null>(null);
-  const [modelValue, setModelValue] = useState<string | null>(null);
+  const [modelNameValue, setModelNameValue] = useState<string | null>(null);
   const [packageValue, setPackageValue] = useState<string | null>(null);
   const [fuelValue, setFuelValue] = useState<string | null>(null);
   const [transmissionValue, setTransmissionValue] = useState<string | null>(null);
@@ -95,7 +98,7 @@ const GarageScreen = () => {
       } else {
         setModelItems([]);
       }
-      setModelValue(null);
+      setModelNameValue(null);
       setPackageValue(null);
       setFuelValue(null);
       setTransmissionValue(null);
@@ -106,9 +109,9 @@ const GarageScreen = () => {
   }, [brandValue]);
 
   useEffect(() => {
-    if (brandValue && modelValue) {
+    if (brandValue && modelNameValue) {
       const selectedBrand = carData.find(c => c.brand === brandValue);
-      const selectedModel = selectedBrand?.models.find(m => m.name === modelValue);
+      const selectedModel = selectedBrand?.models.find(m => m.name === modelNameValue);
       if (selectedModel) {
         setPackageItems(selectedModel.packages.map(p => ({ label: p, value: p })));
         setFuelItems(selectedModel.fuelTypes.map(f => ({ label: f, value: f })));
@@ -122,13 +125,18 @@ const GarageScreen = () => {
       setFuelValue(null);
       setTransmissionValue(null);
     }
-  }, [modelValue]);
+  }, [modelNameValue]);
 
   const fetchVehicles = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/vehicles/${userId}`);
-      setVehicles(response.data);
+      const token = await AsyncStorage.getItem('token');
+      const [vehiclesRes, userRes] = await Promise.all([
+        axios.get(`${API_URL}/vehicles`, { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      const favoriteVehicleId = userRes.data.favoriteVehicle;
+      setVehicles(vehiclesRes.data.map((v: any) => ({ ...v, isFavorite: v._id === favoriteVehicleId })));
     } catch (error) {
       Alert.alert('Hata', 'Araçlar yüklenirken bir hata oluştu.');
       console.error('Araçlar yüklenirken hata:', error);
@@ -138,26 +146,28 @@ const GarageScreen = () => {
   };
 
   const handleAddVehicle = async () => {
-    if (!brandValue || !modelValue || !newVehicle.year || !fuelValue || !newVehicle.plate || !transmissionValue) {
+    if (!brandValue || !modelNameValue || !newVehicle.year || !fuelValue || !newVehicle.plateNumber || !transmissionValue) {
       Alert.alert('Uyarı', 'Lütfen tüm zorunlu alanları doldurun.');
       return;
     }
     try {
+      const token = await AsyncStorage.getItem('token');
       const response = await axios.post(`${API_URL}/vehicles`, {
         userId,
         brand: brandValue,
-        model: modelValue,
+        modelName: modelNameValue,
         package: packageValue || 'Standart',
         year: newVehicle.year,
+        engineType: 'Bilinmiyor',
         fuelType: fuelValue,
         transmission: transmissionValue,
         mileage: newVehicle.mileage || '0',
-        plate: newVehicle.plate,
-      });
+        plateNumber: newVehicle.plateNumber,
+      }, { headers: { Authorization: `Bearer ${token}` } });
       setVehicles([...vehicles, response.data]);
       setNewVehicle({});
       setBrandValue(null);
-      setModelValue(null);
+      setModelNameValue(null);
       setPackageValue(null);
       setFuelValue(null);
       setTransmissionValue(null);
@@ -171,7 +181,8 @@ const GarageScreen = () => {
 
   const handleDeleteVehicle = async (vehicleId: string) => {
     try {
-      await axios.delete(`${API_URL}/vehicles/${vehicleId}`);
+      const token = await AsyncStorage.getItem('token');
+      await axios.delete(`${API_URL}/vehicles/${vehicleId}`, { headers: { Authorization: `Bearer ${token}` } });
       setVehicles(vehicles.filter(vehicle => vehicle._id !== vehicleId));
       Alert.alert('Başarılı', 'Araç başarıyla silindi.');
     } catch (error) {
@@ -181,27 +192,18 @@ const GarageScreen = () => {
   };
 
   const handleSetFavorite = async (vehicleId: string) => {
-    const currentFavorite = vehicles.find(v => v.isFavorite);
-    // Eğer tıklanan zaten favoriyse kaldır
-    if (currentFavorite && currentFavorite._id === vehicleId) {
-      try {
-        await axios.patch(`${API_URL}/vehicles/${vehicleId}/favorite`, { userId, isFavorite: false });
-        setVehicles(vehicles.map(v => v._id === vehicleId ? { ...v, isFavorite: false } : v));
-        // Favori kaldırıldığında anasayfayı güncelle
-        fetchVehicles();
-      } catch (error) {
-        Alert.alert('Hata', 'Favori araç kaldırılırken bir hata oluştu.');
-      }
-      return;
-    }
-    // Değilse favori olarak ayarla
+    // 1. Önce ekranda anında güncelle
+    setVehicles(prev =>
+      prev.map(v => ({ ...v, isFavorite: v._id === vehicleId ? !v.isFavorite : false }))
+    );
+
     try {
-      await axios.patch(`${API_URL}/vehicles/${vehicleId}/favorite`, { userId });
-      setVehicles(vehicles.map(v => ({ ...v, isFavorite: v._id === vehicleId })));
-      // Favori değiştiğinde anasayfayı güncelle
-      fetchVehicles();
+      const token = await AsyncStorage.getItem('token');
+      await axios.put(`${API_URL}/vehicles/${vehicleId}/favorite`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      // fetchVehicles() çağırmaya gerek yok, çünkü state zaten güncel
     } catch (error) {
       Alert.alert('Hata', 'Favori araç seçilirken bir hata oluştu.');
+      fetchVehicles(); // Hata olursa geri yükle
     }
   };
 
@@ -211,8 +213,8 @@ const GarageScreen = () => {
         <MaterialCommunityIcons name="car" size={32} color="#007AFF" />
         <View style={styles.vehicleTitle}>
           <Text style={styles.vehicleBrand}>{vehicle.brand}</Text>
-          <Text style={styles.vehicleModel}>{vehicle.model}</Text>
-          <Text style={styles.vehiclePlate}>{vehicle.plate}</Text>
+          <Text style={styles.vehicleModel}>{vehicle.modelName}</Text>
+          <Text style={styles.vehiclePlate}>{vehicle.plateNumber}</Text>
         </View>
         <TouchableOpacity
           style={styles.favoriteButton}
@@ -327,10 +329,10 @@ const GarageScreen = () => {
                 />
                 <DropDownPicker
                   open={modelOpen}
-                  value={modelValue}
+                  value={modelNameValue}
                   items={modelItems}
                   setOpen={setModelOpen}
-                  setValue={setModelValue}
+                  setValue={setModelNameValue}
                   setItems={setModelItems}
                   placeholder="Model Seç"
                   style={styles.input}
@@ -349,15 +351,15 @@ const GarageScreen = () => {
                   placeholder="Paket Seç (Opsiyonel)"
                   style={styles.input}
                   zIndex={3500}
-                  disabled={!modelValue}
+                  disabled={!modelNameValue}
                   searchable={true}
                   searchPlaceholder="Ara..."
                 />
                 <TextInput
                   style={styles.input}
                   placeholder="Yıl"
-                  value={newVehicle.year}
-                  onChangeText={(text) => setNewVehicle({ ...newVehicle, year: text })}
+                  value={newVehicle.year ? String(newVehicle.year) : ''}
+                  onChangeText={(text) => setNewVehicle({ ...newVehicle, year: Number(text) })}
                   keyboardType="numeric"
                 />
                 <DropDownPicker
@@ -370,7 +372,7 @@ const GarageScreen = () => {
                   placeholder="Yakıt Türü Seç"
                   style={styles.input}
                   zIndex={3000}
-                  disabled={!modelValue}
+                  disabled={!modelNameValue}
                   searchable={true}
                   searchPlaceholder="Ara..."
                 />
@@ -384,22 +386,22 @@ const GarageScreen = () => {
                   placeholder="Vites Türü Seç"
                   style={styles.input}
                   zIndex={2500}
-                  disabled={!modelValue}
+                  disabled={!modelNameValue}
                   searchable={true}
                   searchPlaceholder="Ara..."
                 />
                 <TextInput
                   style={styles.input}
                   placeholder="Kilometre"
-                  value={newVehicle.mileage}
-                  onChangeText={(text) => setNewVehicle({ ...newVehicle, mileage: text })}
+                  value={newVehicle.mileage ? String(newVehicle.mileage) : ''}
+                  onChangeText={(text) => setNewVehicle({ ...newVehicle, mileage: Number(text) })}
                   keyboardType="numeric"
                 />
                 <TextInput
                   style={styles.input}
                   placeholder="Plaka (örn: 34ABC123)"
-                  value={newVehicle.plate}
-                  onChangeText={(text) => setNewVehicle({ ...newVehicle, plate: text.toUpperCase() })}
+                  value={newVehicle.plateNumber}
+                  onChangeText={(text) => setNewVehicle({ ...newVehicle, plateNumber: text.toUpperCase() })}
                   autoCapitalize="characters"
                   keyboardType="default"
                   maxLength={9}
@@ -503,6 +505,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   vehicleHeader: {
     flexDirection: 'row',

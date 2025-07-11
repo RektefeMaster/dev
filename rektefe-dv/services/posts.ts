@@ -2,28 +2,15 @@ import { api } from './api';
 
 export interface Post {
   _id: string;
-  user: {
-    _id: string;
-    name: string;
-    email: string;
-    avatar?: string;
-    city?: string;
-    tags?: string[];
-  };
+  user: string;
   content: string;
   likes: string[];
   createdAt: string;
-  commentsCount?: number;
-  imageUrl?: string;
-  city?: string;
-  tags?: string[];
 }
 
 export interface CreatePostData {
+  user: string;
   content: string;
-  imageUrl?: string;
-  city?: string;
-  tags?: string[];
 }
 
 export const postService = {
@@ -47,6 +34,12 @@ export const postService = {
 
   getUserPosts: async (userId: string) => {
     const response = await api.get('/posts');
-    return response.data.filter((post: Post) => post.user && String(post.user._id) === String(userId));
+    return response.data.filter((post: Post) => {
+      const userObj = post.user as any;
+      if (typeof userObj === 'object' && userObj !== null) {
+        return String(userObj._id) === String(userId);
+      }
+      return String(post.user) === String(userId);
+    });
   }
 }; 

@@ -1,0 +1,945 @@
+[
+  {
+    "brand": "Audi",
+    "models": [
+      {
+        "name": "A3",
+        "packages": ["Standart", "Sportback", "Sedan", "S-Line"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.0 TFSI", "1.5 TFSI", "2.0 TDI"],
+        "transmissions": ["Manuel", "S-Tronic"]
+      },
+      {
+        "name": "A3 e-tron",
+        "packages": ["Sportback"],
+        "fuelTypes": ["Hybrid"],
+        "engineTypes": ["1.4 TFSI Hybrid"],
+        "transmissions": ["Otomatik"]
+      },
+      {
+        "name": "A4",
+        "packages": ["Standart", "Avant", "Allroad", "S-Line"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.4 TFSI", "2.0 TFSI", "2.0 TDI"],
+        "transmissions": ["Manuel", "S-Tronic", "Otomatik"]
+      },
+      {
+        "name": "A6",
+        "packages": ["Standart", "Long", "S-Line", "Avant"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["2.0 TFSI", "3.0 TDI", "2.0 TDI"],
+        "transmissions": ["Otomatik", "S-Tronic"]
+      },
+      {
+        "name": "Q5",
+        "packages": ["Standart", "S-Line", "Sportback"],
+        "fuelTypes": ["Benzin", "Dizel", "Hybrid", "Benzin/Tüp"],
+        "engineTypes": ["2.0 TFSI", "2.0 TDI", "3.0 TDI", "2.0 TFSI Hybrid"],
+        "transmissions": ["Otomatik", "S-Tronic"]
+      },
+      {
+        "name": "e-tron",
+        "packages": ["Standart", "Sportback"],
+        "fuelTypes": ["Elektrik"],
+        "engineTypes": ["Single Motor", "Dual Motor"],
+        "transmissions": ["Otomatik"]
+      },
+      {
+        "name": "Q3",
+        "packages": ["Standart", "S-Line"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.5 TFSI", "2.0 TDI"],
+        "transmissions": ["Otomatik", "S-Tronic"]
+      }
+    ]
+  },
+  {
+    "brand": "BMW",
+    "models": [
+      {
+        "name": "3 Serisi",
+        "packages": ["Standart", "M Sport", "Luxury Line"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.5 Turbo", "2.0 Turbo", "3.0 Turbo"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "330e",
+        "packages": ["M Sport", "Luxury Line"],
+        "fuelTypes": ["Hybrid"],
+        "engineTypes": ["2.0 Turbo Hybrid"],
+        "transmissions": ["Otomatik"]
+      },
+      {
+        "name": "5 Serisi",
+        "packages": ["Standart", "M Sport", "Luxury Line"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["2.0 Turbo", "3.0 Turbo", "2.0 Dizel"],
+        "transmissions": ["Otomatik"]
+      },
+      {
+        "name": "X5",
+        "packages": ["Standart", "M Sport", "xDrive"],
+        "fuelTypes": ["Benzin", "Dizel", "Hybrid", "Benzin/Tüp"],
+        "engineTypes": ["3.0 Turbo", "3.0 Dizel", "4.4 Turbo", "3.0 Hybrid"],
+        "transmissions": ["Otomatik"]
+      },
+      {
+        "name": "i3",
+        "packages": ["Standart"],
+        "fuelTypes": ["Elektrik"],
+        "engineTypes": ["Electric Motor"],
+        "transmissions": ["Otomatik"]
+      },
+      {
+        "name": "X1",
+        "packages": ["Standart", "xLine", "M Sport"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.5 Turbo", "2.0 Dizel"],
+        "transmissions": ["Otomatik"]
+      }
+    ]
+  },
+  {
+    "brand": "Mercedes-Benz",
+    "models": [
+      {
+        "name": "C Serisi",
+        "packages": ["Standart", "AMG", "Avantgarde"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.6 Turbo", "2.0 Turbo", "2.1 Dizel"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "C 300e",
+        "packages": ["AMG", "Avantgarde"],
+        "fuelTypes": ["Hybrid"],
+        "engineTypes": ["2.0 Turbo Hybrid"],
+        "transmissions": ["Otomatik"]
+      },
+      {
+        "name": "E Serisi",
+        "packages": ["Standart", "AMG", "Avantgarde"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["2.0 Turbo", "3.0 Turbo", "2.1 Dizel"],
+        "transmissions": ["Otomatik"]
+      },
+      {
+        "name": "GLC",
+        "packages": ["Standart", "AMG", "Coupe"],
+        "fuelTypes": ["Benzin", "Dizel", "Hybrid", "Benzin/Tüp"],
+        "engineTypes": ["2.0 Turbo", "2.1 Dizel", "3.0 Turbo", "2.0 Hybrid"],
+        "transmissions": ["Otomatik"]
+      },
+      {
+        "name": "EQC",
+        "packages": ["Standart", "AMG"],
+        "fuelTypes": ["Elektrik"],
+        "engineTypes": ["Electric Motor"],
+        "transmissions": ["Otomatik"]
+      },
+      {
+        "name": "GLA",
+        "packages": ["Standart", "AMG", "Progressive"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.3 Turbo", "2.0 Turbo"],
+        "transmissions": ["Otomatik"]
+      }
+    ]
+  },
+  {
+    "brand": "Toyota",
+    "models": [
+      {
+        "name": "Corolla",
+        "packages": ["Vision", "Dream", "Flame", "Passion"],
+        "fuelTypes": ["Benzin", "Hybrid", "Benzin/Tüp"],
+        "engineTypes": ["1.5 VVT-i", "1.8 Hybrid"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "C-HR",
+        "packages": ["Active", "Advance", "Passion"],
+        "fuelTypes": ["Benzin", "Hybrid", "Benzin/Tüp"],
+        "engineTypes": ["1.2 Turbo", "1.8 Hybrid"],
+        "transmissions": ["Otomatik"]
+      },
+      {
+        "name": "Yaris",
+        "packages": ["Active", "Advance", "Passion"],
+        "fuelTypes": ["Benzin", "Hybrid", "Benzin/Tüp"],
+        "engineTypes": ["1.0 VVT-i", "1.5 Hybrid"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Prius",
+        "packages": ["Standart"],
+        "fuelTypes": ["Hybrid"],
+        "engineTypes": ["1.8 Hybrid"],
+        "transmissions": ["Otomatik"]
+      },
+      {
+        "name": "RAV4",
+        "packages": ["Active", "Passion", "Adventure"],
+        "fuelTypes": ["Hybrid", "Plug-in Hybrid", "Benzin/Tüp"],
+        "engineTypes": ["2.5 Hybrid"],
+        "transmissions": ["Otomatik"]
+      }
+    ]
+  },
+  {
+    "brand": "Renault",
+    "models": [
+      {
+        "name": "Clio",
+        "packages": ["Joy", "Touch", "Icon"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.0 TCe", "1.5 dCi"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Megane",
+        "packages": ["Joy", "Touch", "Icon"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.3 TCe", "1.5 dCi"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "ZOE",
+        "packages": ["Standart"],
+        "fuelTypes": ["Elektrik"],
+        "engineTypes": ["Electric Motor"],
+        "transmissions": ["Otomatik"]
+      },
+      {
+        "name": "Talisman",
+        "packages": ["Icon", "Touch"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.3 TCe", "1.5 dCi", "1.6 TCe"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Taliant",
+        "packages": ["Joy", "Touch", "Icon"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.0 SCe", "1.5 dCi"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Kangoo",
+        "packages": ["Express", "Multix", "Symbol"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.5 BlueHDi"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Laguna",
+        "packages": ["Dynamique", "Privilege"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.5 BlueHDi"],
+        "transmissions": ["Manuel", "Otomatik"]
+      }
+    ]
+  },
+  {
+    "brand": "Ford",
+    "models": [
+      {
+        "name": "Focus",
+        "packages": ["Trend", "Titanium", "ST-Line"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.0 EcoBoost", "1.5 Dizel", "2.0 Dizel"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Kuga",
+        "packages": ["Trend", "Titanium", "ST-Line"],
+        "fuelTypes": ["Benzin", "Dizel", "Hybrid", "Benzin/Tüp"],
+        "engineTypes": ["1.5 EcoBoost", "2.0 Dizel", "2.5 Hybrid"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Fiesta",
+        "packages": ["Trend", "Titanium", "ST-Line"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.0 EcoBoost", "1.1 Benzin"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Puma",
+        "packages": ["Titanium", "ST-Line"],
+        "fuelTypes": ["Benzin", "Hybrid", "Benzin/Tüp"],
+        "engineTypes": ["1.0 EcoBoost", "1.0 mHEV"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Mondeo",
+        "packages": ["Trend", "Titanium", "Ghia"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.5 TSI", "2.0 TSI", "2.0 TDI", "1.4 TSI Hybrid"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Connect",
+        "packages": ["Van", "Kombi", "Trend", "Deluxe"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.3 Multijet"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "B-Max",
+        "packages": ["Trend", "Titanium"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.5 Turbo"],
+        "transmissions": ["Manuel", "Otomatik"]
+      }
+    ]
+  },
+  {
+    "brand": "Fiat",
+    "models": [
+      {
+        "name": "Egea",
+        "packages": ["Easy", "Urban", "Lounge", "Street", "Mirror", "Cross"],
+        "fuelTypes": ["Benzin", "Dizel", "LPG", "Benzin/Tüp"],
+        "engineTypes": ["1.4 Fire", "1.3 Multijet", "1.6 Multijet", "1.0 FireFly"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Punto Evo",
+        "packages": ["Dynamic", "Emotion", "Sport"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.4 Multiair", "1.4 Fire"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Bravo",
+        "packages": ["Active", "Dynamic", "Sport"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.4 T-Jet", "1.6 Multijet"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Seicento",
+        "packages": ["S", "SX", "Sporting"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.1 Fire"],
+        "transmissions": ["Manuel"]
+      },
+      {
+        "name": "Tipo",
+        "packages": ["Pop", "Easy", "Lounge"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.4 Fire", "1.6 Multijet"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "500",
+        "packages": ["Pop", "Lounge", "Sport", "Dolcevita"],
+        "fuelTypes": ["Benzin", "Elektrik", "Hybrid", "Benzin/Tüp"],
+        "engineTypes": ["1.0 Hybrid", "1.2 Fire", "Electric Motor"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Panda",
+        "packages": ["Pop", "Lounge", "Cross"],
+        "fuelTypes": ["Benzin", "Hybrid", "LPG", "Benzin/Tüp"],
+        "engineTypes": ["1.2 Fire", "1.0 Hybrid"],
+        "transmissions": ["Manuel"]
+      },
+      {
+        "name": "Punto",
+        "packages": ["Pop", "Easy", "Lounge"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.2", "1.3 Multijet"],
+        "transmissions": ["Manuel"]
+      },
+      {
+        "name": "Linea",
+        "packages": ["Active", "Dynamic", "Emotion"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.4 Fire", "1.3 Multijet", "1.6 Multijet"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Doblo",
+        "packages": ["Standart", "Premio", "Safeline", "Trekking", "Combi"],
+        "fuelTypes": ["Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.3 Multijet", "1.6 Multijet"],
+        "transmissions": ["Manuel"]
+      },
+      {
+        "name": "Fiorino",
+        "packages": ["Pop", "Combi", "Premio", "Safeline"],
+        "fuelTypes": ["Benzin", "Dizel", "LPG", "Benzin/Tüp"],
+        "engineTypes": ["1.3 Multijet", "1.4 Fire"],
+        "transmissions": ["Manuel"]
+      },
+      {
+        "name": "Siena",
+        "packages": ["EL", "HL", "Fire"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.2", "1.3 Multijet"],
+        "transmissions": ["Manuel"]
+      },
+      {
+        "name": "Tempra",
+        "packages": ["SX", "SLX"],
+        "fuelTypes": ["Benzin", "Benzin/Tüp"],
+        "engineTypes": ["1.4", "1.3 Multijet"],
+        "transmissions": ["Manuel"]
+      },
+      {
+        "name": "Marea",
+        "packages": ["SX", "ELX"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.4", "1.3 Multijet"],
+        "transmissions": ["Manuel"]
+      },
+      {
+        "name": "Uno",
+        "packages": ["S", "SX", "Turbo"],
+        "fuelTypes": ["Benzin", "Benzin/Tüp"],
+        "engineTypes": ["1.2", "1.3 Multijet"],
+        "transmissions": ["Manuel"]
+      }
+    ]
+  },
+  {
+    "brand": "Volkswagen",
+    "models": [
+      {
+        "name": "Polo",
+        "packages": ["Trendline", "Comfortline", "Highline"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.0 MPI", "1.0 TSI", "1.6 TDI"],
+        "transmissions": ["Manuel", "Otomatik", "DSG"]
+      },
+      {
+        "name": "Golf",
+        "packages": ["Trendline", "Comfortline", "Highline", "R"],
+        "fuelTypes": ["Benzin", "Dizel", "Hybrid", "Benzin/Tüp"],
+        "engineTypes": ["1.0 TSI", "1.5 TSI", "2.0 TDI", "1.4 TSI Hybrid"],
+        "transmissions": ["Manuel", "Otomatik", "DSG"]
+      },
+      {
+        "name": "Jetta",
+        "packages": ["Trendline", "Comfortline"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.4 TSI", "1.6 MPI"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Passat",
+        "packages": ["Trendline", "Comfortline", "Highline"],
+        "fuelTypes": ["Benzin", "Dizel", "Hybrid", "Benzin/Tüp"],
+        "engineTypes": ["1.5 TSI", "2.0 TSI", "2.0 TDI", "1.4 TSI Hybrid"],
+        "transmissions": ["Manuel", "Otomatik", "DSG"]
+      },
+      {
+        "name": "Tiguan",
+        "packages": ["Trendline", "Comfortline", "Highline"],
+        "fuelTypes": ["Benzin", "Dizel", "Hybrid", "Benzin/Tüp"],
+        "engineTypes": ["1.5 TSI", "2.0 TSI", "2.0 TDI", "1.4 TSI Hybrid"],
+        "transmissions": ["Otomatik", "DSG"]
+      },
+      {
+        "name": "T-Roc",
+        "packages": ["Life", "Style", "R-Line"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.0 TSI", "1.5 TSI", "2.0 TDI"],
+        "transmissions": ["Manuel", "Otomatik", "DSG"]
+      },
+      {
+        "name": "Bora",
+        "packages": ["Comfortline", "Trendline"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.5 Turbo", "2.0 Turbo"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Polo Classic",
+        "packages": ["Trendline", "Comfortline"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.0 MPI", "1.0 TSI"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Sharan",
+        "packages": ["Trendline", "Comfortline"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.5 Turbo", "2.0 Turbo"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Transporter",
+        "packages": ["Panelvan", "Kombi", "Caravelle"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["2.0 TDI"],
+        "transmissions": ["Manuel", "DSG"]
+      }
+    ]
+  },
+  {
+    "brand": "Hyundai",
+    "models": [
+      {
+        "name": "i10",
+        "packages": ["Jump", "Style", "Elite"],
+        "fuelTypes": ["Benzin", "Benzin/Tüp"],
+        "engineTypes": ["1.0 MPI", "1.2 MPI"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "i20",
+        "packages": ["Jump", "Style", "Elite"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.2 MPI", "1.0 T-GDI", "1.5 CRDi"],
+        "transmissions": ["Manuel", "Otomatik", "DCT"]
+      },
+      {
+        "name": "Accent Blue",
+        "packages": ["Prime", "Elite", "Mode Plus"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.4 MPI", "1.6 MPI", "1.6 CRDi"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Elantra",
+        "packages": ["Style", "Smart", "Elite"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.6 MPI"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Tucson",
+        "packages": ["Style", "Elite", "N Line"],
+        "fuelTypes": ["Benzin", "Dizel", "Hybrid", "Plug-in Hybrid", "Benzin/Tüp"],
+        "engineTypes": ["1.6 T-GDI", "2.0 CRDi", "1.6 Hybrid"],
+        "transmissions": ["Otomatik", "DCT"]
+      },
+      {
+        "name": "Getz",
+        "packages": ["GL", "GLS", "Prime"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.0 MPI", "1.2 MPI"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Matrix",
+        "packages": ["GL", "GLS"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.0 MPI", "1.2 MPI"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Starex",
+        "packages": ["H-1", "Panelvan"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.5 BlueHDi"],
+        "transmissions": ["Manuel", "Otomatik"]
+      }
+    ]
+  },
+  {
+    "brand": "Peugeot",
+    "models": [
+      {
+        "name": "208",
+        "packages": ["Active", "Allure", "GT"],
+        "fuelTypes": ["Benzin", "Dizel", "Elektrik", "Benzin/Tüp"],
+        "engineTypes": ["1.2 PureTech", "1.5 BlueHDi", "Electric Motor"],
+        "transmissions": ["Manuel", "Otomatik", "EAT8"]
+      },
+      {
+        "name": "2008",
+        "packages": ["Active", "Allure", "GT"],
+        "fuelTypes": ["Benzin", "Dizel", "Elektrik", "Benzin/Tüp"],
+        "engineTypes": ["1.2 PureTech", "1.5 BlueHDi", "Electric Motor"],
+        "transmissions": ["Manuel", "Otomatik", "EAT8"]
+      },
+      {
+        "name": "206",
+        "packages": ["XR", "XT", "X-Line", "GTI"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.2 PureTech", "1.5 BlueHDi", "Electric Motor"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "207",
+        "packages": ["Trendy", "Sportium", "GTI"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.2 PureTech", "1.5 BlueHDi", "Electric Motor"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "307",
+        "packages": ["XR", "XS", "XSI", "SW"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.2 PureTech", "1.5 BlueHDi", "Electric Motor"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "308",
+        "packages": ["Active", "Allure", "GT"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.2 PureTech", "1.5 BlueHDi", "Electric Motor"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Partner",
+        "packages": ["Combi", "Tepee", "Van"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.5 BlueHDi"],
+        "transmissions": ["Manuel", "Otomatik"]
+      }
+    ]
+  },
+  {
+    "brand": "Dacia",
+    "models": [
+      {
+        "name": "Duster",
+        "packages": ["Essential", "Comfort", "Prestige"],
+        "fuelTypes": ["Benzin", "Dizel", "LPG", "Benzin/Tüp"],
+        "engineTypes": ["1.0 ECO-G", "1.3 TCe", "1.5 dCi"],
+        "transmissions": ["Manuel", "Otomatik", "EDC"]
+      },
+      {
+        "name": "Sandero",
+        "packages": ["Essential", "Comfort", "Stepway"],
+        "fuelTypes": ["Benzin", "LPG", "Benzin/Tüp"],
+        "engineTypes": ["1.0 SCe", "1.0 ECO-G", "1.0 TCe"],
+        "transmissions": ["Manuel", "CVT"]
+      },
+      {
+        "name": "Logan",
+        "packages": ["Ambiance", "Laureate", "Stepway"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.0 ECO-G", "1.3 TCe", "1.5 dCi"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Lodgy",
+        "packages": ["Ambiance", "Laureate", "Stepway"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.0 ECO-G", "1.3 TCe", "1.5 dCi"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Dokker",
+        "packages": ["Ambiance", "Laureate", "Stepway"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.0 ECO-G", "1.3 TCe", "1.5 dCi"],
+        "transmissions": ["Manuel", "Otomatik"]
+      }
+    ]
+  },
+  {
+    "brand": "Opel",
+    "models": [
+      {
+        "name": "Corsa",
+        "packages": ["Edition", "Elegance", "GS"],
+        "fuelTypes": ["Benzin", "Dizel", "Elektrik", "Benzin/Tüp"],
+        "engineTypes": ["1.2 Turbo", "1.5 Diesel", "Electric Motor"],
+        "transmissions": ["Manuel", "Otomatik", "EAT8"]
+      },
+      {
+        "name": "Astra",
+        "packages": ["Edition", "GS Line", "Ultimate"],
+        "fuelTypes": ["Benzin", "Dizel", "Hybrid", "Benzin/Tüp"],
+        "engineTypes": ["1.2 Turbo", "1.5 Diesel", "1.6 Hybrid"],
+        "transmissions": ["Manuel", "Otomatik", "EAT8"]
+      },
+      {
+        "name": "Vectra",
+        "packages": ["GL", "GLS", "CD", "CDX"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.6 Turbo", "1.8 Turbo"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Zafira",
+        "packages": ["Enjoy", "Cosmo", "Design"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.6 Turbo", "1.8 Turbo"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Meriva",
+        "packages": ["Essentia", "Enjoy", "Cosmo"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.6 Turbo", "1.8 Turbo"],
+        "transmissions": ["Manuel", "Otomatik"]
+      }
+    ]
+  },
+  {
+    "brand": "Skoda",
+    "models": [
+      {
+        "name": "Octavia",
+        "packages": ["Ambition", "Style", "RS"],
+        "fuelTypes": ["Benzin", "Dizel", "Hybrid", "Benzin/Tüp"],
+        "engineTypes": ["1.0 TSI", "1.5 TSI", "2.0 TDI", "1.4 TSI Hybrid"],
+        "transmissions": ["Manuel", "DSG"]
+      },
+      {
+        "name": "Scala",
+        "packages": ["Active", "Ambition", "Style"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.0 TSI", "1.5 TSI", "1.6 TDI"],
+        "transmissions": ["Manuel", "DSG"]
+      },
+      {
+        "name": "Fabia",
+        "packages": ["Active", "Ambition", "Style"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.0 TSI", "1.5 TSI", "1.6 TDI"],
+        "transmissions": ["Manuel", "DSG"]
+      },
+      {
+        "name": "Roomster",
+        "packages": ["Active", "Ambition", "Style"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.0 TSI", "1.5 TSI", "1.6 TDI"],
+        "transmissions": ["Manuel", "DSG"]
+      }
+    ]
+  },
+  {
+    "brand": "Nissan",
+    "models": [
+      {
+        "name": "Qashqai",
+        "packages": ["Tekna", "Platinum", "Black Edition"],
+        "fuelTypes": ["Benzin", "Hybrid", "Benzin/Tüp"],
+        "engineTypes": ["1.3 DIG-T", "1.5 e-Power"],
+        "transmissions": ["Manuel", "Otomatik", "CVT"]
+      },
+      {
+        "name": "Micra",
+        "packages": ["Visia", "Acenta", "Tekna"],
+        "fuelTypes": ["Benzin", "Benzin/Tüp"],
+        "engineTypes": ["1.0 IG-T"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Almera",
+        "packages": ["Comfort", "Tekna"],
+        "fuelTypes": ["Benzin", "Benzin/Tüp"],
+        "engineTypes": ["1.6 MPI"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Note",
+        "packages": ["Visia", "Tekna"],
+        "fuelTypes": ["Benzin", "Benzin/Tüp"],
+        "engineTypes": ["1.0 IG-T"],
+        "transmissions": ["Manuel", "Otomatik"]
+      }
+    ]
+  },
+  {
+    "brand": "Seat",
+    "models": [
+      {
+        "name": "Leon",
+        "packages": ["Reference", "Style", "FR"],
+        "fuelTypes": ["Benzin", "Dizel", "Hybrid", "Benzin/Tüp"],
+        "engineTypes": ["1.0 TSI", "1.5 TSI", "2.0 TDI", "1.4 eHybrid"],
+        "transmissions": ["Manuel", "DSG"]
+      },
+      {
+        "name": "Arona",
+        "packages": ["Reference", "Style", "FR"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.0 TSI", "1.6 TDI"],
+        "transmissions": ["Manuel", "DSG"]
+      },
+      {
+        "name": "Ibiza",
+        "packages": ["Reference", "Style", "FR"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.0 TSI", "1.6 TDI"],
+        "transmissions": ["Manuel", "DSG"]
+      },
+      {
+        "name": "Toledo",
+        "packages": ["Reference", "Style", "FR"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.0 TSI", "1.6 TDI"],
+        "transmissions": ["Manuel", "DSG"]
+      }
+    ]
+  },
+  {
+    "brand": "Citroën",
+    "models": [
+      {
+        "name": "C3",
+        "packages": ["Feel", "Shine"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.2 PureTech", "1.5 BlueHDi"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "C4",
+        "packages": ["Feel", "Shine", "ë-C4"],
+        "fuelTypes": ["Benzin", "Dizel", "Elektrik", "Benzin/Tüp"],
+        "engineTypes": ["1.2 PureTech", "1.5 BlueHDi", "Electric Motor"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Saxo",
+        "packages": ["SX", "VTS"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.2", "1.3 Multijet"],
+        "transmissions": ["Manuel"]
+      },
+      {
+        "name": "Xsara",
+        "packages": ["SX", "VTS", "Picasso"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.2", "1.3 Multijet"],
+        "transmissions": ["Manuel"]
+      },
+      {
+        "name": "Nemo",
+        "packages": ["Combi", "Van"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.2", "1.3 Multijet"],
+        "transmissions": ["Manuel"]
+      }
+    ]
+  },
+  {
+    "brand": "Isuzu",
+    "models": [
+      {
+        "name": "D-Max",
+        "packages": ["V-Go", "V-Life", "V-Cross"],
+        "fuelTypes": ["Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.9 Ddi"],
+        "transmissions": ["Manuel", "Otomatik"]
+      }
+    ]
+  },
+  {
+    "brand": "Kia",
+    "models": [
+      {
+        "name": "Cerato",
+        "packages": ["Cool", "Elegance", "Prestige"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.6 T-GDI"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Picanto",
+        "packages": ["Cool", "Elegance", "Prestige"],
+        "fuelTypes": ["Benzin", "Benzin/Tüp"],
+        "engineTypes": ["1.0 MPI", "1.2 MPI"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Sportage",
+        "packages": ["Cool", "Elegance", "Prestige"],
+        "fuelTypes": ["Benzin", "Hybrid", "Plug-in Hybrid", "Benzin/Tüp"],
+        "engineTypes": ["1.6 T-GDI", "1.6 Hybrid"],
+        "transmissions": ["Otomatik", "DCT"]
+      },
+      {
+        "name": "Ceed",
+        "packages": ["Cool", "Elegance", "Prestige"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.0 MPI", "1.2 MPI"],
+        "transmissions": ["Manuel", "Otomatik"]
+      }
+    ]
+  },
+  {
+    "brand": "Suzuki",
+    "models": [
+      {
+        "name": "Swift",
+        "packages": ["GL", "GLX"],
+        "fuelTypes": ["Benzin", "Hybrid", "Benzin/Tüp"],
+        "engineTypes": ["1.2 MPI", "1.4 MPI"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "SX4",
+        "packages": ["GL", "GLX"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.2", "1.4"],
+        "transmissions": ["Manuel", "Otomatik"]
+      }
+    ]
+  },
+  {
+    "brand": "Mitsubishi",
+    "models": [
+      {
+        "name": "Lancer",
+        "packages": ["Invite", "Intense", "CZT"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.5 MPI", "1.8 MPI"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Space Star",
+        "packages": ["Invite", "Intense"],
+        "fuelTypes": ["Benzin", "Benzin/Tüp"],
+        "engineTypes": ["1.2", "1.5"],
+        "transmissions": ["Manuel", "Otomatik"]
+      }
+    ]
+  },
+  {
+    "brand": "Chevrolet",
+    "models": [
+      {
+        "name": "Aveo",
+        "packages": ["LS", "LT", "LTZ"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.4", "1.6", "1.8"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Lacetti",
+        "packages": ["1.4", "1.6", "1.8"],
+        "fuelTypes": ["Benzin", "Benzin/Tüp"],
+        "engineTypes": ["1.4", "1.6", "1.8"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "Cruze",
+        "packages": ["LS", "LT", "LTZ"],
+        "fuelTypes": ["Benzin", "Dizel", "Benzin/Tüp"],
+        "engineTypes": ["1.4", "1.6", "1.8"],
+        "transmissions": ["Manuel", "Otomatik"]
+      }
+    ]
+  },
+  {
+    "brand": "Mazda",
+    "models": [
+      {
+        "name": "3",
+        "packages": ["Prime", "Power", "Sport"],
+        "fuelTypes": ["Benzin", "Benzin/Tüp"],
+        "engineTypes": ["1.5", "2.0"],
+        "transmissions": ["Manuel", "Otomatik"]
+      },
+      {
+        "name": "6",
+        "packages": ["Prime", "Power", "Sport"],
+        "fuelTypes": ["Benzin", "Benzin/Tüp"],
+        "engineTypes": ["2.0"],
+        "transmissions": ["Manuel", "Otomatik"]
+      }
+    ]
+  }
+]

@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
 import axios from 'axios';
-import { MotiView, AnimatePresence } from 'moti';
+import { MotiView, AnimatePresence, MotiTransitionProp, MotiTransition } from 'moti';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import rekaiLottie from '../assets/rekai_wave.json';
-import { API_URL } from '@env';
+import rekaichatLottie from '../assets/rekaichat.json';
+import { API_URL } from '../constants/config';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -27,10 +28,15 @@ interface Vehicle {
   year: string;
   fuelType: string;
   mileage: string;
-  plate: string;
+  plateNumber: string;
   isFavorite: boolean;
   createdAt: string;
-  // Ekstra alanlar varsa ekle
+}
+
+interface User {
+  _id: string;
+  avatar?: string;
+  // Diğer user özellikleri buraya eklenebilir
 }
 
 export default function RekAiChat() {
@@ -44,6 +50,10 @@ export default function RekAiChat() {
   const navigation = useNavigation();
   const [sendAnim, setSendAnim] = useState(false);
   const [favoriteCar, setFavoriteCar] = useState<Vehicle | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [newComment, setNewComment] = useState('');
+  const [sendingComment, setSendingComment] = useState(false);
+  const defaultAvatar = require('../assets/default_avatar.png');
 
   useEffect(() => {
     // AsyncStorage veya context'ten userId'yi al
@@ -75,6 +85,18 @@ export default function RekAiChat() {
     };
     fetchFavoriteCar();
   }, []);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/users/${userId}`);
+        setUser(response.data);
+      } catch (e) {
+        setUser(null);
+      }
+    };
+    fetchUser();
+  }, [userId]);
 
   const handleTyping = () => {
     setIsTyping(true);
@@ -207,6 +229,11 @@ export default function RekAiChat() {
 
   const renderItem = ({ item, index }: { item: ChatMessage; index: number }) => {
     const isUser = item.role === 'user';
+    const isAssistant = item.role === 'assistant';
+    // Determine icon for assistant messages (simple example: use tool icon for all)
+    const assistantIcon = (
+      <Ionicons name="construct-outline" size={20} color="#4a90e2" style={{ marginRight: 6, marginTop: 4 }} />
+    );
     return (
       <View style={{ flexDirection: isUser ? 'row-reverse' : 'row', alignItems: 'flex-end', marginVertical: 8 }}>
         {/* Avatar */}
@@ -215,9 +242,10 @@ export default function RekAiChat() {
             <LottieView source={rekaiLottie} autoPlay loop style={{ width: 28, height: 28 }} />
           </View>
         )}
-        <View style={{ alignItems: isUser ? 'flex-end' : 'flex-start' }}>
+        <View style={{ alignItems: isUser ? 'flex-end' : 'flex-start', flexDirection: isAssistant ? 'row' : 'column' }}>
+          {isAssistant && assistantIcon}
           <LinearGradient
-            colors={isUser ? ['#e3f0ff', '#b6d0e2'] : ['#f7f7fa', '#e9e9ef']}
+            colors={isUser ? ['#e3f0ff', '#b6d0e2'] : ['#e6f0fa', '#cde4f7']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{
@@ -241,8 +269,8 @@ export default function RekAiChat() {
               width: 12,
               height: 12,
               marginTop: -2,
-              marginLeft: isUser ? 0 : 8,
-              marginRight: isUser ? 8 : 0,
+              marginLeft: isUser ? 0 : 10,
+              marginRight: isUser ? 10 : 0,
               alignSelf: isUser ? 'flex-end' : 'flex-start',
               overflow: 'hidden',
             }}
@@ -251,7 +279,7 @@ export default function RekAiChat() {
               style={{
                 width: 12,
                 height: 12,
-                backgroundColor: isUser ? '#b6d0e2' : '#e9e9ef',
+                backgroundColor: isUser ? '#b6d0e2' : '#cde4f7',
                 borderRadius: 6,
                 transform: [
                   { scaleX: 1 },
@@ -291,14 +319,32 @@ export default function RekAiChat() {
     };
   }, [navigation]);
 
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={clearChat}
+          style={{ marginRight: 15 }}
+        >
+          <Ionicons name="trash-outline" size={24} color="#FF3B30" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
+
   // Yazıyor animasyonu için moti dots
   const TypingIndicator = () => (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8, marginBottom: 6 }}>
-      <View style={{ backgroundColor: '#e9e9ef', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 7, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 }}>
+      <View style={{ backgroundColor: 'rgba(74, 144, 226, 0.1)', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', shadowColor: '#4a90e2', shadowOpacity: 0.12, shadowRadius: 6, elevation: 3 }}>
         <MotiView
           from={{ opacity: 0.3, scale: 0.7 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'timing', duration: 400, loop: true }}
+          transition={{
+            type: 'timing',
+            duration: 400,
+            loop: true,
+            repeat: Infinity,
+          } as MotiTransition}
           style={{ flexDirection: 'row' }}
         >
           {[0, 1, 2].map((i) => (
@@ -311,41 +357,124 @@ export default function RekAiChat() {
                 duration: 600,
                 delay: i * 120,
                 loop: true,
+                repeat: Infinity,
                 repeatReverse: true,
-              }}
-              style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#b6d0e2', marginHorizontal: 2 }}
+              } as MotiTransition}
+              style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#4a90e2', marginHorizontal: 3 }}
             />
           ))}
         </MotiView>
-        <Text style={{ color: '#888', fontSize: 13, marginLeft: 8 }}>REKAİ yazıyor...</Text>
+        <Text style={{ color: '#4a90e2', fontSize: 13, marginLeft: 10, fontWeight: '600' }}>REKAİ yazıyor...</Text>
       </View>
     </View>
   );
 
+  const sendComment = async () => {
+    if (!newComment.trim() || sendingComment) return;
+    
+    setSendingComment(true);
+    try {
+      const res = await axios.post(`${API_URL}/comments`, {
+        userId,
+        comment: newComment,
+      });
+      
+      console.log('Yorum gönderildi:', res.data);
+      setNewComment('');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error: any) {
+      console.error('Yorum gönderilirken hata oluştu:', error?.response?.data || error.message);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setSendingComment(false);
+    }
+  };
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#f6fafd' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#eaf4fc' }}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <View style={{ flex: 1, padding: 10 }}>
-          {/* Modern Header */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, justifyContent: 'space-between' }}>
+        <View style={{ flex: 1, padding: 10, backgroundColor: '#eaf4fc' }}>
+          {/* Updated Header */}
+          <View style={{ alignItems: 'center', marginBottom: 12, backgroundColor: '#d9e9fb', paddingVertical: 12, borderRadius: 16, shadowColor: '#4a90e2', shadowOpacity: 0.15, shadowRadius: 10, elevation: 3, position: 'relative' }}>
             <TouchableOpacity
               onPress={() => navigation.goBack()}
-              style={{ padding: 8, borderRadius: 20, backgroundColor: '#f1f1f1', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4 }}
+              style={{
+                position: 'absolute',
+                top: 10,
+                left: 10,
+                backgroundColor: '#fff',
+                padding: 8,
+                borderRadius: 20,
+                shadowColor: '#000',
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+                elevation: 3,
+                flexDirection: 'row',
+                alignItems: 'center'
+              }}
             >
-              <Ionicons name="arrow-back" size={24} color="#222" />
+              <Ionicons name="arrow-back" size={20} color="#4a90e2" style={{ marginRight: 4 }} />
+              <Text style={{ color: '#4a90e2', fontWeight: 'bold' }}>Geri</Text>
             </TouchableOpacity>
-            <View style={{ alignItems: 'center', flex: 1 }}>
-              <LottieView source={rekaiLottie} autoPlay loop style={{ width: 38, height: 38, marginBottom: -6 }} />
-              <Text style={{ fontWeight: 'bold', fontSize: 18, color: '#222' }}>REKAİ - Araç Asistanı</Text>
-              <Text style={{ fontSize: 12, color: '#888', marginTop: -2 }}>Aracın için akıllı sohbet</Text>
-            </View>
             <TouchableOpacity
-              onPress={clearChat}
-              style={{ padding: 8, borderRadius: 20, backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, marginLeft: 8 }}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                Alert.alert(
+                  'Sohbeti Temizle',
+                  'Tüm mesaj geçmişini silmek istediğinizden emin misiniz?',
+                  [
+                    {
+                      text: 'İptal',
+                      style: 'cancel'
+                    },
+                    {
+                      text: 'Temizle',
+                      style: 'destructive',
+                      onPress: () => {
+                        setChat([]);
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      }
+                    }
+                  ]
+                );
+              }}
+              style={{
+                position: 'absolute',
+                top: 10,
+                right: 10,
+                backgroundColor: '#fff',
+                padding: 8,
+                borderRadius: 20,
+                shadowColor: '#000',
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+                elevation: 3,
+                flexDirection: 'row',
+                alignItems: 'center'
+              }}
             >
-              <Ionicons name="trash-outline" size={22} color="#ff3b30" />
+              <Ionicons name="trash-outline" size={20} color="#FF3B30" style={{ marginRight: 4 }} />
+              <Text style={{ color: '#FF3B30', fontWeight: 'bold' }}>Temizle</Text>
             </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 }}>
+              <View>
+                <Text style={{ fontWeight: 'bold', fontSize: 20, color: '#357ABD' }}>REKAİ</Text>
+                <Text style={{ fontSize: 14, color: '#357ABD', marginTop: 2 }}>Araç Asistanı</Text>
+              </View>
+              <LottieView
+                source={rekaichatLottie}
+                autoPlay
+                loop
+                style={{
+                  width: 160,
+                  height: 160,
+                  marginTop: -16,
+                  marginBottom: -16,
+                }}
+              />
+            </View>
           </View>
+          {/* Background Lottie removed */}
           <FlatList
             ref={flatListRef}
             data={chat}
@@ -364,70 +493,81 @@ export default function RekAiChat() {
             {isTyping && <TypingIndicator key="typing" />}
           </AnimatePresence>
           {/* Mesaj giriş alanı */}
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginTop: 8,
-            paddingBottom: 8,
-            backgroundColor: 'transparent',
-          }}>
-            <View style={{
-              flex: 1,
-              backgroundColor: '#fff',
-              borderRadius: 25,
+          <View
+            style={{
               flexDirection: 'row',
               alignItems: 'center',
-              paddingHorizontal: 10,
-              shadowColor: '#000',
-              shadowOpacity: 0.07,
-              shadowRadius: 6,
-              elevation: 2,
-            }}>
-              <TextInput
-                placeholder="Aracınla ilgili bir şey sor..."
-                value={message}
-                onChangeText={setMessage}
+              marginTop: 8,
+              paddingBottom: 8,
+              backgroundColor: 'transparent',
+            }}
+          >
+            {/* Input alanı (avatar + text input) */}
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+              <Image
+                source={user?.avatar ? { uri: user.avatar } : defaultAvatar}
                 style={{
-                  flex: 1,
-                  borderColor: 'transparent',
-                  borderWidth: 0,
-                  borderRadius: 25,
-                  paddingHorizontal: 10,
-                  paddingVertical: 10,
-                  backgroundColor: 'transparent',
-                  fontSize: 16,
-                  color: '#222',
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  marginRight: 8,
+                  borderWidth: 2,
+                  borderColor: '#5AC8FA',
+                  backgroundColor: '#fff',
                 }}
-                placeholderTextColor="#b6d0e2"
-                onFocus={() => setSendAnim(false)}
               />
-              <TouchableOpacity
-                onPressIn={() => setSendAnim(true)}
-                onPressOut={() => setSendAnim(false)}
-                onPress={sendMessage}
-                style={{
-                  marginLeft: 6,
-                  backgroundColor: '#b6d0e2',
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  shadowColor: '#b6d0e2',
-                  shadowOpacity: 0.15,
-                  shadowRadius: 6,
-                  elevation: 2,
-                  transform: [{ scale: sendAnim ? 0.92 : 1 }],
-                }}
-                activeOpacity={0.7}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Ionicons name="send" size={20} color="#fff" />
-                )}
-              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <TextInput
+                  placeholder="Aracında bir sorun mu var? *"
+                  value={message}
+                  onChangeText={setMessage}
+                  style={{
+                    flex: 1,
+                    borderRadius: 20,
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    backgroundColor: '#ffffff',
+                    fontSize: 16,
+                    color: '#222',
+                    shadowColor: '#4a90e2',
+                    shadowOpacity: 0.08,
+                    shadowRadius: 6,
+                    elevation: 2,
+                  }}
+                  placeholderTextColor="#7ea9d6"
+                  onFocus={() => setSendAnim(false)}
+                />
+              </View>
             </View>
+            {/* Gönder butonu */}
+            <TouchableOpacity
+              onPressIn={() => setSendAnim(true)}
+              onPressOut={() => setSendAnim(false)}
+              onPress={sendMessage}
+              disabled={!message.trim() || loading}
+              style={{
+                marginLeft: 8,
+                backgroundColor: '#4a90e2',
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                alignItems: 'center',
+                justifyContent: 'center',
+                shadowColor: '#4a90e2',
+                shadowOpacity: 0.25,
+                shadowRadius: 8,
+                elevation: 4,
+                transform: [{ scale: sendAnim ? 0.92 : 1 }],
+                opacity: !message.trim() || loading ? 0.5 : 1,
+              }}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Ionicons name="send" size={20} color="#fff" />
+              )}
+            </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>

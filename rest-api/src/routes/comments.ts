@@ -1,12 +1,20 @@
-import { Router } from 'express';
-import { addComment, getComments } from '../controllers/commentController';
-import auth from '../middleware/auth';
+import express from 'express';
+import { auth } from '../middleware/auth';
+import {
+  addComment,
+  getComments,
+  deleteComment
+} from '../controllers/commentController';
 
-const router = Router();
+const router = express.Router();
 
-// Bir gönderinin yorumlarını çek
-router.get('/:id', getComments);
-// Bir gönderiye yorum ekle
+// Yorum oluşturma
 router.post('/:id', auth, addComment);
+
+// Yorumları getirme
+router.get('/:id', getComments);
+
+// Yorum silme
+router.delete('/delete/:id', auth, deleteComment);
 
 export default router; 
