@@ -14,19 +14,14 @@ console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'Mevcut' : 'Eksik');
 console.log('REKAI_API_KEY:', process.env.REKAI_API_KEY ? 'Mevcut' : 'Eksik');
 
 const app = express();
-app.use(cors({
-  origin: [
-    'http://localhost:8081', // Expo Go (iOS/Android emülatör)
-    'http://192.168.1.59:8081', // Expo Go (Fiziksel cihaz)
-    'http://localhost:19006', // Expo Web
-    'http://192.168.1.59:19006' // Expo Web (Fiziksel cihaz)
-    // Eski veya gereksiz adresleri temizledim.
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
+
+// Tüm gelen istekleri logla
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
 
 const PORT = Number(process.env.PORT) || 3000;
 

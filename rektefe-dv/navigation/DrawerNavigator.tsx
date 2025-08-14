@@ -3,8 +3,8 @@ import { createDrawerNavigator, DrawerNavigationProp } from '@react-navigation/d
 import TabNavigator from './TabNavigator';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { BlurView } from '@react-native-community/blur';
 import AppointmentsScreen from '../screens/AppointmentsScreen';
 
 // Navigation tiplerini güncelliyoruz
@@ -17,7 +17,6 @@ type RootStackParamList = {
   Garage: undefined;
   Profile: undefined;
   Support: undefined;
-  Rektagram: undefined;
   TefeWallet: undefined;
   Login: undefined;
   Orders: undefined;
@@ -44,7 +43,7 @@ const CustomDrawerContent = (props: any) => {
   const navigation = useNavigation<any>();
 
   return (
-    <BlurView intensity={60} tint="dark" style={styles.drawerContainer}>
+    <BlurView blurType="dark" blurAmount={60} style={styles.drawerContainer}>
       <View style={styles.profileSection}>
         <Image
           source={require('../assets/icon.png')}

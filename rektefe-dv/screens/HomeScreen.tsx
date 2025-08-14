@@ -9,7 +9,7 @@ import { CampaignCarousel } from './HomeScreen/components/CampaignCarousel';
 import { ServicesGrid } from './HomeScreen/components/ServicesGrid';
 import { UpdateCardModal } from './HomeScreen/components/UpdateCardModal';
 import { AdDetailModal } from './HomeScreen/components/AdDetailModal';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import LoadingSkeleton from '../components 2/LoadingSkeleton';
 import ErrorState from '../components 2/ErrorState';
 import NoDataCard from '../components 2/NoDataCard';

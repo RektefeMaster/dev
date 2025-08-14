@@ -37,36 +37,8 @@ const slides = [
     id: '3',
     title: 'Ödemeleriniz bizimle güvende!',
     description:
-      'Bir çok ödeme seçeneği, taksit ve indirim fırsatlarını keşfedin! TEFE PUAN kazanın!',
+      'Bir çok ödeme seçeneği, taksit ve indirim fırsatlarını keşfedin!',
     animation: require('../assets/payment.json'),
-  },
-  {
-    id: '4',
-    title: 'TEFE PUAN ne mi?',
-    description:
-      'Rektefe\'nin en güzel tarafıdır! Zaten yapacağınız her harcama için TEFE PUAN kazanın! İndirimli ve ücretsiz hizmetlerden yararlanın!',
-    animation: require('../assets/tefecoin.json'),
-  },
-  {
-    id: '5',
-    title: 'Sanayinin sosyal medyasına katılın!',
-    description:
-      'Rektagram yeni nesil sanayi sosyal medyamız! Ustalar ve diğer araç kullanıcıları ile buluşun! Paylaşım yapın, beğenin, yorum yapın! Gerçek bir sosyal sanayi deneyimi!',
-    animation: require('../assets/REKTAGRAM.json'),
-  },
-  {
-    id: '6',
-    title: 'Gelecek geldi! Siz de gelin!',
-    description:
-      'Yapay zeka asistanımız dertlerinize derman olacak! Aracınız hakkında sorular sorun, çözüm bulun, hatta sohbet edin! Sizinle tanışmak için sabırsızlanıyor!',
-    animation: require('../assets/Yapayzeka.json'),
-  },
-  {
-    id: '7',
-    title: 'Hadi o halde bu kez bu devrimi kaçırmayın!',
-    description:
-      'Saydıklarımız ve çok daha fazlası içeride! Aracınızı ve kendinizi REKTEFE edin!',
-    animation: require('../assets/baslayalım.json'),
   },
 ];
 

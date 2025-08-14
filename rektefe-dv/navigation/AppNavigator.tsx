@@ -10,7 +10,6 @@ import RegisterScreen from '../screens/RegisterScreen';
 import DrawerNavigator from './DrawerNavigator';
 import UserProfileScreen from '../screens/UserProfileScreen';
 import ProfileScreen from '../screens/ProfileScreen';
-import RektagramProfileScreen from '../screens/RektagramProfileScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
@@ -26,7 +25,6 @@ export type RootStackParamList = {
   Main: { screen?: string };
   UserProfile: { userId: string };
   Profile: undefined;
-  RektagramProfile: { userId?: string };
   ForgotPassword: undefined;
   ResetPassword: undefined;
   ChangePassword: undefined;
@@ -53,7 +51,6 @@ const AppNavigator = () => {
         <Stack.Screen name="Main" component={DrawerNavigator} />
         <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ headerShown: true, title: 'Kullanıcı Profili' }} />
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="RektagramProfile" component={RektagramProfileScreen} options={{ headerShown: true, title: 'Rektagram Profili' }} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />

@@ -1,5 +1,5 @@
 import React from 'react';
-import { StatusBar } from 'expo-status-bar';
+import { StatusBar } from 'react-native';
 import AppNavigator from './navigation/AppNavigator';
 import { AuthProvider } from './context/AuthContext';
 import 'text-encoding';
@@ -7,7 +7,7 @@ import 'text-encoding';
 function App() {
   return (
     <AuthProvider>
-      <StatusBar style="auto" />
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <AppNavigator />
     </AuthProvider>
   );

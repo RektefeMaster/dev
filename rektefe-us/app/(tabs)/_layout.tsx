@@ -1,11 +1,15 @@
 import React from 'react';
-import { Tabs } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { COLORS, SIZES } from '../../constants/config';
 import { useAuth } from '../../context/AuthContext';
-import { Redirect } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 import { SnackbarProvider } from '../../context/SnackbarContext';
+import HomeScreen from './index';
+import AppointmentsScreen from './appointments';
+import ProfileScreen from './profile';
+
+const Tab = createBottomTabNavigator();
 
 export default function TabLayout() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -19,13 +23,13 @@ export default function TabLayout() {
   }
 
   if (!isAuthenticated) {
-    return <Redirect href="/auth/login" />;
+    return null; // AuthNavigator'a yönlendirilecek
   }
 
   return (
     <SnackbarProvider>
-    <Tabs
-      screenOptions={{
+      <Tab.Navigator
+        screenOptions={{
           tabBarActiveTintColor: COLORS.primary,
           tabBarInactiveTintColor: COLORS.textSecondary,
           tabBarStyle: {
@@ -45,34 +49,37 @@ export default function TabLayout() {
           },
         }}
       >
-      <Tabs.Screen
-        name="index"
-        options={{
+        <Tab.Screen
+          name="Home"
+          component={HomeScreen}
+          options={{
             title: 'Ana Ekran',
             tabBarIcon: ({ color, size }) => (
               <MaterialCommunityIcons name="view-dashboard" color={color} size={size} />
             ),
           }}
         />
-        <Tabs.Screen
-          name="appointments"
+        <Tab.Screen
+          name="Appointments"
+          component={AppointmentsScreen}
           options={{
             title: 'Randevular',
             tabBarIcon: ({ color, size }) => (
               <MaterialCommunityIcons name="calendar-clock" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-          name="profile"
-        options={{
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Profile"
+          component={ProfileScreen}
+          options={{
             title: 'Profil',
             tabBarIcon: ({ color, size }) => (
               <MaterialCommunityIcons name="account-circle" color={color} size={size} />
             ),
-        }}
-      />
-    </Tabs>
+          }}
+        />
+      </Tab.Navigator>
     </SnackbarProvider>
   );
 }

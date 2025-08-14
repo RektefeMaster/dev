@@ -1,38 +1,4 @@
 {
-  "expo": {
-    "name": "RektefeDV",
-    "slug": "rektefe-dv",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.rektefe.dv"
-    },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "package": "com.rektefe.dv"
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      "expo-local-authentication",
-      "expo-image-picker",
-      "expo-font"
-    ],
-    "scheme": "rektefe-dv"
-  }
+  "name": "RektefeDV",
+  "displayName": "RektefeDV"
 }
