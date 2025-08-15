@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import LottieView from 'lottie-react-native';
+import theme from '../theme/theme';
 
 const LoadingSkeleton = () => (
   <View style={styles.container}>
@@ -14,7 +15,13 @@ const LoadingSkeleton = () => (
 );
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }
+  container: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    padding: theme.spacing.xxl,
+    backgroundColor: theme.colors.background.default.dark,
+  }
 });
 
 export default LoadingSkeleton; 

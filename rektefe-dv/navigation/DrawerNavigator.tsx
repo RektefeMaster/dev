@@ -1,10 +1,10 @@
 import React from 'react';
 import { createDrawerNavigator, DrawerNavigationProp } from '@react-navigation/drawer';
 import TabNavigator from './TabNavigator';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from 'expo-blur';
 import AppointmentsScreen from '../screens/AppointmentsScreen';
 
 // Navigation tiplerini güncelliyoruz
@@ -42,37 +42,62 @@ const DrawerItem = ({ icon, label, onPress, rightIcon }: { icon: string; label: 
 const CustomDrawerContent = (props: any) => {
   const navigation = useNavigation<any>();
 
+  const handleNavigation = (screenName: string) => {
+    // Drawer'ı kapat
+    props.navigation.closeDrawer();
+    
+    // Screen'e navigate et
+    navigation.navigate(screenName);
+  };
+
+  const handleLogout = () => {
+    // Drawer'ı kapat
+    props.navigation.closeDrawer();
+    
+    // Login screen'e navigate et
+    navigation.navigate('Login');
+  };
+
   return (
-    <BlurView blurType="dark" blurAmount={60} style={styles.drawerContainer}>
-      <View style={styles.profileSection}>
-        <Image
-          source={require('../assets/icon.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <Text style={styles.helloText}>Merhaba,</Text>
-        <Text style={styles.nameText}>Nurullah Aydın</Text>
-      </View>
-      <View style={styles.menuSection}>
-        <DrawerItem icon="account" label="Profil" onPress={() => navigation.navigate('Profile')} />
-        <DrawerItem icon="calendar-clock" label="Randevularım" onPress={() => navigation.navigate('Appointments')} />
-        <DrawerItem icon="cart" label="Siparişlerim" onPress={() => navigation.navigate('Orders')} />
-        <DrawerItem icon="ticket-percent" label="TefeKodlarım" onPress={() => navigation.navigate('TefeCodes')} />
-        <DrawerItem icon="calendar" label="Hatırlatıcılar" onPress={() => navigation.navigate('Reminders')} />
-        <DrawerItem icon="cog" label="Ayarlar" onPress={() => navigation.navigate('Settings')} />
-        <DrawerItem icon="heart" label="Favorilerim" onPress={() => navigation.navigate('Favorites')} />
-      </View>
-      <View style={styles.bottomSection}>
-        <DrawerItem icon="logout" label="Çıkış Yap" onPress={() => navigation.navigate('Login')} />
-        <DrawerItem icon="delete" label="Hesabı Sil" onPress={() => navigation.navigate('DeleteAccount')} />
-      </View>
-    </BlurView>
+    <View style={styles.drawerWrapper}>
+      <BlurView
+        intensity={60}
+        tint="dark"
+        style={styles.blurView}
+      >
+        <View style={styles.drawerContainer}>
+          <View style={styles.profileSection}>
+            <Image
+              source={require('../assets/icon.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={styles.helloText}>Merhaba,</Text>
+            <Text style={styles.nameText}>Nurullah Aydın</Text>
+          </View>
+          <View style={styles.menuSection}>
+            <DrawerItem icon="account" label="Profil" onPress={() => handleNavigation('Profile')} />
+            <DrawerItem icon="calendar-clock" label="Randevularım" onPress={() => handleNavigation('Appointments')} />
+            <DrawerItem icon="cart" label="Siparişlerim" onPress={() => handleNavigation('Orders')} />
+            <DrawerItem icon="ticket-percent" label="TefeKodlarım" onPress={() => handleNavigation('TefeCodes')} />
+            <DrawerItem icon="calendar" label="Hatırlatıcılar" onPress={() => handleNavigation('Reminders')} />
+            <DrawerItem icon="cog" label="Ayarlar" onPress={() => handleNavigation('Settings')} />
+            <DrawerItem icon="heart" label="Favorilerim" onPress={() => handleNavigation('Favorites')} />
+          </View>
+          <View style={styles.bottomSection}>
+            <DrawerItem icon="logout" label="Çıkış Yap" onPress={handleLogout} />
+            <DrawerItem icon="delete" label="Hesabı Sil" onPress={() => handleNavigation('DeleteAccount')} />
+          </View>
+        </View>
+      </BlurView>
+    </View>
   );
 };
 
 const DrawerNavigator = () => {
   return (
     <Drawer.Navigator
+      id={undefined}
       drawerContent={(props) => <CustomDrawerContent {...props} />}
       screenOptions={{
         headerShown: false,
@@ -102,12 +127,19 @@ const DrawerNavigator = () => {
 };
 
 const styles = StyleSheet.create({
+  drawerWrapper: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  blurView: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)', // BlurView için hafif şeffaf arka plan
+  },
   drawerContainer: {
     flex: 1,
     paddingHorizontal: 20,
     paddingVertical: 32,
     justifyContent: 'space-between',
-    backgroundColor: 'transparent',
   },
   profileSection: {
     marginBottom: 32,

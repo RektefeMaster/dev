@@ -22,11 +22,11 @@ interface GreetingHeaderProps {
   } | null;
 }
 
-const getGreeting = () => {
+const getGreeting = (userName: string) => {
   const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) return 'Günaydın';
-  if (hour >= 12 && hour < 18) return 'İyi akşamlar';
-  return 'İyi geceler';
+  if (hour >= 5 && hour < 12) return `Günaydın ${userName}`;
+  if (hour >= 12 && hour < 18) return `İyi akşamlar ${userName}`;
+  return `İyi geceler ${userName}`;
 };
 
 const ITEM_HEIGHT = 48;
@@ -271,7 +271,7 @@ export const GreetingHeader: React.FC<GreetingHeaderProps> = ({ userName, favori
       </View>
       
       <Text style={styles.greeting}>
-        {getGreeting()}, <Text style={styles.greetingName}>{userName}</Text> 👋
+        {getGreeting(userName)} 👋
       </Text>
 
       {favoriteCar && (
@@ -589,11 +589,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
-  greetingName: {
-    color: '#5AC8FA',
-    fontWeight: 'bold',
-  },
+  // greetingName artık kullanılmıyor çünkü isim selamlama içinde
   carRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -4,10 +4,14 @@
 
 // API Konfigürasyonu
 export const API_CONFIG = {
-  BASE_URL: process.env.API_URL || 'http://localhost:3000',
-  SOCKET_URL: process.env.SOCKET_URL || 'http://localhost:3000',
+  BASE_URL: 'http://192.168.1.57:3000/api', // /api prefix'i eklendi
+  SOCKET_URL: 'http://192.168.1.57:3000', // Local IP adresin
   TIMEOUT: 60000,
 };
+
+// Doğrudan export edilen API URL'leri (geriye uyumluluk için)
+export const API_URL = API_CONFIG.BASE_URL;
+export const SOCKET_URL = API_CONFIG.SOCKET_URL;
 
 // Uygulama Konfigürasyonu
 export const APP_CONFIG = {
