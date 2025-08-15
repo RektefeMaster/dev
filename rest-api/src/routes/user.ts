@@ -3,8 +3,99 @@ import { User } from '../models/User';
 import { auth } from '../middleware/auth';
 import mongoose from 'mongoose';
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     UserProfile:
+ *       type: object
+ *       properties:
+ *         _id:
+ *           type: string
+ *           description: Kullanıcı ID'si
+ *         name:
+ *           type: string
+ *           description: Kullanıcı adı
+ *           example: "Ahmet"
+ *         surname:
+ *           type: string
+ *           description: Kullanıcı soyadı
+ *           example: "Yılmaz"
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: E-posta adresi
+ *           example: "ahmet@example.com"
+ *         userType:
+ *           type: string
+ *           enum: [driver, mechanic]
+ *           description: Kullanıcı tipi
+ *         avatar:
+ *           type: string
+ *           description: Profil fotoğrafı URL'i
+ *         followers:
+ *           type: array
+ *           items:
+ *             type: string
+ *           description: Takipçi ID'leri
+ *         following:
+ *           type: array
+ *           items:
+ *             type: string
+ *           description: Takip edilen kullanıcı ID'leri
+ *         favoriteVehicle:
+ *           type: string
+ *           nullable: true
+ *           description: Favori araç ID'si
+ *     FollowResponse:
+ *       type: object
+ *       properties:
+ *         message:
+ *           type: string
+ *           description: İşlem mesajı
+ *           example: "Kullanıcı başarıyla takip edildi"
+ *         follower:
+ *           $ref: '#/components/schemas/UserProfile'
+ *         following:
+ *           $ref: '#/components/schemas/UserProfile'
+ */
+
 const router = Router();
 
+/**
+ * @swagger
+ * /api/users/follow/{userId}:
+ *   post:
+ *     summary: Kullanıcıyı takip et
+ *     description: Giriş yapan kullanıcı başka bir kullanıcıyı takip etmeye başlar
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Takip edilecek kullanıcı ID'si
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Kullanıcı başarıyla takip edildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FollowResponse'
+ *       400:
+ *         description: Kendini takip etmeye çalışıyor veya zaten takip ediliyor
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       404:
+ *         description: Takip edilecek kullanıcı bulunamadı
+ *       500:
+ *         description: Sunucu hatası
+ */
 // Takip etme
 router.post('/follow/:userId', auth, async (req: Request, res: Response) => {
   console.log(`[POST] /users/follow/${req.params.userId} - İstek geldi. Takip eden:`, req.user?.userId);
@@ -58,6 +149,44 @@ router.post('/follow/:userId', auth, async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/users/unfollow/{userId}:
+ *   post:
+ *     summary: Kullanıcı takibini bırak
+ *     description: Giriş yapan kullanıcı başka bir kullanıcıyı takip etmeyi bırakır
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Takibi bırakılacak kullanıcı ID'si
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Kullanıcı takibi başarıyla bırakıldı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Kullanıcı takibi bırakıldı"
+ *       400:
+ *         description: Zaten takip edilmiyor
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *       500:
+ *         description: Sunucu hatası
+ */
 // Takibi bırakma
 router.post('/unfollow/:userId', auth, async (req: Request, res: Response) => {
   console.log(`[POST] /users/unfollow/${req.params.userId} - İstek geldi. Takipten çıkan:`, req.user?.userId);

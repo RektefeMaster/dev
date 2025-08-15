@@ -5,6 +5,9 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { createServer } from 'http';
 import { Server, Socket } from 'socket.io';
+import swaggerUi from 'swagger-ui-express';
+import swaggerSpec from './config/swagger';
+import { errorHandler, notFound } from './middleware/errorHandler';
 
 // .env dosyasını yükle
 dotenv.config();
@@ -57,6 +60,12 @@ export function sendNotificationToUser(userId: string, notification: any) {
   io.to(userId).emit('notification', notification);
 }
 
+// Swagger UI
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'Rektefe API Documentation'
+}));
+
 // Basit test route'u
 app.get('/', (req, res) => {
   res.send('API Çalışıyor!');
@@ -64,7 +73,6 @@ app.get('/', (req, res) => {
 
 // Auth route'u ekle
 import authRoutes from './routes/auth';
-import postsRoutes from './routes/posts';
 import commentsRoutes from './routes/comments';
 import maintenanceRoutes from './routes/maintenance';
 import insuranceRoutes from './routes/insurance';
@@ -80,7 +88,6 @@ import uploadRoutes from './routes/upload';
 import mechanicRoutes from './routes/mechanic';
 
 app.use('/api/auth', authRoutes);
-app.use('/api/posts', postsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/comments', commentsRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
@@ -96,6 +103,10 @@ app.use('/api/mechanic-services', mechanicServiceRoutes);
 app.use('/api/mechanic', mechanicRoutes);
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Error handling middleware (en sonda olmalı)
+app.use(notFound);
+app.use(errorHandler);
 
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
