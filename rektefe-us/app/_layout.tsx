@@ -1,40 +1,17 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { AuthProvider } from '../context/AuthContext';
-import { PaperProvider } from 'react-native-paper';
-import { SnackbarProvider } from '../context/SnackbarContext';
-import TabLayout from './(tabs)/_layout';
-import LoginScreen from './auth/login';
-import RegisterScreen from './auth/register';
-
-const Stack = createNativeStackNavigator();
+import { Stack } from 'expo-router';
+import { useEffect } from 'react';
+import { useColorScheme } from 'react-native';
 
 export default function RootLayout() {
+  const colorScheme = useColorScheme();
+
   return (
-    <SnackbarProvider>
-      <PaperProvider>
-        <AuthProvider>
-          <NavigationContainer>
-            <Stack.Navigator
-              initialRouteName="Auth"
-              screenOptions={{ headerShown: false }}
-            >
-              <Stack.Screen name="Auth" component={AuthNavigator} />
-              <Stack.Screen name="Main" component={TabLayout} />
-            </Stack.Navigator>
-          </NavigationContainer>
-        </AuthProvider>
-      </PaperProvider>
-    </SnackbarProvider>
+    <Stack>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="auth" options={{ headerShown: false }} />
+      <Stack.Screen name="profile" options={{ headerShown: false }} />
+      <Stack.Screen name="appointmentDetail" options={{ title: 'Randevu Detayı' }} />
+      <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+    </Stack>
   );
 }
-
-const AuthNavigator = () => {
-  return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} />
-    </Stack.Navigator>
-  );
-};
