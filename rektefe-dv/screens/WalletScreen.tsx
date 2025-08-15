@@ -14,7 +14,7 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import * as FileSystem from 'expo-file-system';
 import { API_URL } from '../constants/config';
-import Background from '../components 2/Background';
+import Background from '../components/Background';
 // @ts-ignore
 import * as Sharing from 'expo-sharing';
 import AsyncStorage from '@react-native-async-storage/async-storage';

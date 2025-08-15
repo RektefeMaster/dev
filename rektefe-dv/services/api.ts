@@ -1,15 +1,15 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_URL } from '../constants/config';
+import { API_CONFIG } from '../constants/config';
 
-if (!API_URL) {
+if (!API_CONFIG.BASE_URL) {
   console.error('API_URL tanımsız! .env dosyasını ve API_URL değerini kontrol et.');
   throw new Error('API_URL tanımsız!');
 }
 
 const api = axios.create({
-  baseURL: API_URL,
-  timeout: 60000, // 60 saniye
+  baseURL: API_CONFIG.BASE_URL,
+  timeout: API_CONFIG.TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -57,7 +57,7 @@ api.interceptors.response.use(
         }
 
         console.log('API Yanıtı - Token yenileme deneniyor');
-        const response = await axios.post(`${API_URL}/auth/refresh-token`, {
+        const response = await axios.post(`${API_CONFIG.BASE_URL}/auth/refresh-token`, {
           refreshToken
         });
 

@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { JWT_SECRET } from '../config';
-import { AuthRequest } from '../types/express';
 
-export const auth = async (req: AuthRequest, res: Response, next: NextFunction) => {
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+export const auth = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     console.log('Auth Middleware - Gelen token:', token);

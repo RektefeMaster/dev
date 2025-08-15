@@ -26,7 +26,7 @@ export const ServicesGrid: React.FC<ServicesGridProps> = ({ services, onServiceP
               activeOpacity={0.7}
             >
               <View style={[styles.iconWrap, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
-                <MaterialCommunityIcons name={service.icon} size={32} color={service.color} />
+                <MaterialCommunityIcons name={service.icon as any} size={32} color={service.color} />
               </View>
               <Text style={styles.title}>{service.title}</Text>
             </TouchableOpacity>

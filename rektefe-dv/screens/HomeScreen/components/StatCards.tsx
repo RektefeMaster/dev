@@ -28,7 +28,7 @@ export const StatCards: React.FC<StatCardsProps> = ({ stats }) => {
         {stats.map((stat, index) => (
           <View key={index} style={[styles.card, { borderLeftColor: stat.color }]}>
             <View style={styles.cardHeader}>
-              <MaterialCommunityIcons name={stat.icon} size={24} color={stat.color} />
+              <MaterialCommunityIcons name={stat.icon as any} size={24} color={stat.color} />
               <Text style={styles.cardTitle}>{stat.title}</Text>
             </View>
             <Text style={styles.cardValue}>{stat.value}</Text>

@@ -4,7 +4,7 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import faqsData from './faqs.json';
 import guidesData from './guides.json';
 import { API_URL } from '../constants/config';
-import Background from '../components 2/Background';
+import Background from '../components/Background';
 import LottieView from 'lottie-react-native';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {

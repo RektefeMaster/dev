@@ -2,6 +2,7 @@ import { BlurView } from 'expo-blur';
 import React from 'react';
 import { View, StyleSheet, ImageBackground } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import theme from '../theme/theme';
 
 interface BackgroundProps {
   children: React.ReactNode;
@@ -10,10 +11,9 @@ interface BackgroundProps {
   imageSource?: any;
 }
 
-
-const getGradientColors = () => {
-  // Matte black to tech blue gradient
-  return ['#0f0f0f', '#1c1c1e', '#0a84ff'];
+const getGradientColors = (): readonly [string, string, string] => {
+  // Modern tema renkleri kullan
+  return [theme.colors.background.default.dark, theme.colors.background.surface.dark, theme.colors.primary.main] as const;
 };
 
 const Background: React.FC<BackgroundProps> = ({
@@ -23,19 +23,21 @@ const Background: React.FC<BackgroundProps> = ({
   imageSource,
 }) => {
   const appliedColors = gradientColors || getGradientColors();
+  
   if (withImage && imageSource) {
     return (
       <ImageBackground source={imageSource} style={styles.bg} resizeMode="cover" imageStyle={{ opacity: 0.9 }}>
         <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill}>
-          <LinearGradient colors={appliedColors} style={styles.bg}>
+          <LinearGradient colors={appliedColors as any} style={styles.bg}>
             {children}
           </LinearGradient>
         </BlurView>
       </ImageBackground>
     );
   }
+  
   return (
-    <LinearGradient colors={appliedColors} style={styles.bg}>
+    <LinearGradient colors={appliedColors as any} style={styles.bg}>
       {children}
     </LinearGradient>
   );

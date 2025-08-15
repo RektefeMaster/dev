@@ -156,7 +156,35 @@ export const useHomeData = () => {
   };
 
   const fetchUserProfile = async (token: string) => {
-    // ... (mevcut kod korunacak)
+    try {
+      console.log('🔍 Frontend: fetchUserProfile çağrıldı');
+      console.log('🔍 Frontend: API_URL:', API_URL);
+      console.log('🔍 Frontend: Token:', token ? 'Mevcut' : 'Yok');
+      
+      // API_URL zaten /api prefix'i içeriyor, bu yüzden /users/profile kullanıyoruz
+      const response = await axios.get(`${API_URL}/users/profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      console.log('✅ Frontend: API Response:', response.data);
+      
+      if (response.data && response.data.name) {
+        console.log('✅ Frontend: Kullanıcı ismi set ediliyor:', response.data.name);
+        setUserName(response.data.name);
+      } else {
+        console.log('⚠️ Frontend: API\'den isim gelmedi, varsayılan kullanılıyor');
+        setUserName('Kullanıcı');
+      }
+    } catch (error: any) {
+      console.error('❌ Frontend: Kullanıcı profili getirilirken hata:', error);
+      console.error('❌ Frontend: Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      // Hata durumunda varsayılan isim kullan
+      setUserName('Kullanıcı');
+    }
   };
 
   const fetchUserVehicles = async (token: string) => {

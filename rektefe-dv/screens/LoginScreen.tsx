@@ -16,7 +16,7 @@ import { API_URL } from '../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
-import { theme } from '../styles/theme';
+import { theme } from '../components';
 import { useAuth } from '../context/AuthContext';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -34,7 +34,7 @@ const LoginScreen = ({ navigation }: any) => {
     webClientId: '509841981751-k21fnh03fhdfr6kc9va2u7ftr7cpne7g.apps.googleusercontent.com',
   });
 
-  const { setToken, setUserId } = useAuth();
+  const { setToken, setUserId, setTokenAndUserId } = useAuth();
 
   useEffect(() => {
     if (response?.type === 'success') {
@@ -98,13 +98,10 @@ const LoginScreen = ({ navigation }: any) => {
       const data = await response.json();
       if (response.ok) {
         if (data.userId && data.token) {
-          await AsyncStorage.setItem('userId', data.userId);
-          await AsyncStorage.setItem('token', data.token);
+          await setTokenAndUserId(data.token, data.userId);
           if (data.refreshToken) {
             await AsyncStorage.setItem('refreshToken', data.refreshToken);
           }
-          setToken(data.token);
-          setUserId(data.userId);
           console.log('LoginScreen: Token, refreshToken ve userId kaydedildi:', data.token, data.refreshToken, data.userId);
           setFailedAttempts(0);
         }

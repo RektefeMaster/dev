@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createStackNavigator } from '@react-navigation/stack';
 import { StackScreenProps } from '@react-navigation/stack';
 
 import SplashScreen from '../screens/SplashScreen';
@@ -16,6 +16,11 @@ import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import HomeScreen from '../screens/HomeScreen';
 import MaintenancePlanScreen from '../screens/MaintenancePlanScreen';
 import AppointmentsScreen from '../screens/AppointmentsScreen';
+import WalletScreen from '../screens/WalletScreen';
+import GarageScreen from '../screens/GarageScreen';
+import SupportScreen from '../screens/SupportScreen';
+import TefeWalletScreen from '../screens/TefeWalletScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -31,14 +36,26 @@ export type RootStackParamList = {
   Home: undefined;
   MaintenancePlan: undefined;
   Appointments: undefined;
+  Wallet: undefined;
+  Garage: undefined;
+  Support: undefined;
+  TefeWallet: undefined;
+  Orders: undefined;
+  Notifications: undefined;
+  TefeCodes: undefined;
+  Reminders: undefined;
+  Settings: undefined;
+  Favorites: undefined;
+  DeleteAccount: undefined;
 };
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
+const Stack = createStackNavigator<RootStackParamList>();
 
 const AppNavigator = () => {
   return (
     <NavigationContainer>
       <Stack.Navigator
+        id={undefined}
         initialRouteName="Splash"
         screenOptions={{
           headerShown: false,
@@ -73,6 +90,73 @@ const AppNavigator = () => {
             headerStyle: {
               backgroundColor: '#007AFF',
             },
+            headerTintColor: '#fff',
+          }}
+        />
+        <Stack.Screen name="Wallet" component={WalletScreen} />
+        <Stack.Screen name="Garage" component={GarageScreen} />
+        <Stack.Screen name="Support" component={SupportScreen} />
+        <Stack.Screen name="TefeWallet" component={TefeWalletScreen} />
+        <Stack.Screen name="Notifications" component={NotificationsScreen} />
+        
+        {/* Placeholder screens for missing functionality */}
+        <Stack.Screen 
+          name="Orders" 
+          component={SupportScreen} // Geçici olarak SupportScreen kullanıyoruz
+          options={{
+            title: 'Siparişlerim',
+            headerShown: true,
+            headerStyle: { backgroundColor: '#007AFF' },
+            headerTintColor: '#fff',
+          }}
+        />
+        <Stack.Screen 
+          name="TefeCodes" 
+          component={SupportScreen} // Geçici olarak SupportScreen kullanıyoruz
+          options={{
+            title: 'TEFE Kodlarım',
+            headerShown: true,
+            headerStyle: { backgroundColor: '#007AFF' },
+            headerTintColor: '#fff',
+          }}
+        />
+        <Stack.Screen 
+          name="Reminders" 
+          component={SupportScreen} // Geçici olarak SupportScreen kullanıyoruz
+          options={{
+            title: 'Hatırlatıcılar',
+            headerShown: true,
+            headerStyle: { backgroundColor: '#007AFF' },
+            headerTintColor: '#fff',
+          }}
+        />
+        <Stack.Screen 
+          name="Settings" 
+          component={SupportScreen} // Geçici olarak SupportScreen kullanıyoruz
+          options={{
+            title: 'Ayarlar',
+            headerShown: true,
+            headerStyle: { backgroundColor: '#007AFF' },
+            headerTintColor: '#fff',
+          }}
+        />
+        <Stack.Screen 
+          name="Favorites" 
+          component={SupportScreen} // Geçici olarak SupportScreen kullanıyoruz
+          options={{
+            title: 'Favorilerim',
+            headerShown: true,
+            headerStyle: { backgroundColor: '#007AFF' },
+            headerTintColor: '#fff',
+          }}
+        />
+        <Stack.Screen 
+          name="DeleteAccount" 
+          component={SupportScreen} // Geçici olarak SupportScreen kullanıyoruz
+          options={{
+            title: 'Hesabı Sil',
+            headerShown: true,
+            headerStyle: { backgroundColor: '#007AFF' },
             headerTintColor: '#fff',
           }}
         />

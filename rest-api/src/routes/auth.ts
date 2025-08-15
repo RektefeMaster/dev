@@ -6,6 +6,7 @@ import { Driver, IDriver } from '../models/Driver';
 import { Mechanic, IMechanic } from '../models/Mechanic';
 import mongoose from 'mongoose';
 import { IAuthUser } from '../types/auth';
+import { auth } from '../middleware/auth';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -18,24 +19,7 @@ interface IBaseUser {
   password: string;
 }
 
-// Middleware
-export const auth = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    console.log('Backend gelen token:', token);
-
-    if (!token) {
-      return res.status(401).json({ message: 'Yetkilendirme token\'ı bulunamadı' });
-    }
-
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; userType: string };
-    req.user = decoded;
-    next();
-  } catch (error) {
-    console.error('Auth middleware error:', error);
-    res.status(401).json({ message: 'Geçersiz token' });
-  }
-};
+// Auth middleware artık ayrı dosyada tanımlanmış
 
 // Routes
 router.post('/register', async (req: Request, res: Response) => {
@@ -239,19 +223,7 @@ router.post('/logout', auth, async (req: Request, res: Response) => {
   }
 });
 
-// Kullanıcı bilgisi güncelle
-router.patch('/user/:id', auth, async (req: Request, res: Response) => {
-  try {
-    // Sadece kendi profilini güncelleyebilir
-    if (req.user?.userId !== req.params.id) {
-      return res.status(403).json({ message: 'Bu işlem için yetkiniz yok' });
-    }
-    const updated = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json(updated);
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
-  }
-});
+// Kullanıcı profili getirme endpoint'i artık user.ts'de tanımlanmış
 
 // Profil fotoğrafı güncelleme endpointi
 router.post('/users/profile-photo', auth, async (req: Request, res: Response) => {
@@ -274,6 +246,20 @@ router.post('/users/profile-photo', auth, async (req: Request, res: Response) =>
   }
 });
 
+// Kullanıcı bilgisi güncelle - SONRA TANIMLANMALI!
+router.patch('/user/:id', auth, async (req: Request, res: Response) => {
+  try {
+    // Sadece kendi profilini güncelleyebilir
+    if (req.user?.userId !== req.params.id) {
+      return res.status(403).json({ message: 'Bu işlem için yetkiniz yok' });
+    }
+    const updated = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(updated);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Kapak fotoğrafı güncelleme endpointi
 router.post('/users/cover-photo', auth, async (req: Request, res: Response) => {
   try {
@@ -281,7 +267,7 @@ router.post('/users/cover-photo', auth, async (req: Request, res: Response) => {
     const { photoUrl } = req.body;
     console.log('Kapak fotoğrafı güncelleme isteği:', { userId, photoUrl });
     if (!userId) {
-      return res.status(401).json({ message: 'Kullanıcı doğrulanamadı.' });
+      return res.status(401).json({ message: 'Fotoğraf URL\'si eksik.' });
     }
     if (!photoUrl) {
       return res.status(400).json({ message: 'Fotoğraf URL\'si eksik.' });

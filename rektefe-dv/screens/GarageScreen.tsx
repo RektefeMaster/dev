@@ -16,7 +16,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../constants/config';
 import { useFocusEffect } from '@react-navigation/native';
-import Background from '../components 2/Background';
+import Background from '../components/Background';
 import LottieView from 'lottie-react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 import carData from '../constants/carData.json';

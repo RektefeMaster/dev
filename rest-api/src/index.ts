@@ -80,8 +80,8 @@ import uploadRoutes from './routes/upload';
 import mechanicRoutes from './routes/mechanic';
 
 app.use('/api/auth', authRoutes);
-app.use('/api', userRoutes);
 app.use('/api/posts', postsRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/comments', commentsRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/insurance', insuranceRoutes);

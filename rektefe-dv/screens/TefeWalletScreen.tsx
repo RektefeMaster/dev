@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Background from '../components 2/Background';
+import Background from '../components/Background';
 import { View, Text, StyleSheet, FlatList, SafeAreaView, ScrollView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../theme/theme';

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl, Alert, SafeAreaView, TouchableOpacity, Text } from 'react-native';
-import Background from '../components 2/Background';
+import { View, StyleSheet, ScrollView, RefreshControl, Alert, SafeAreaView, TouchableOpacity } from 'react-native';
+import Background from '../components/Background';
 import { useHomeData } from './HomeScreen/hooks/useHomeData';
 import { GreetingHeader } from './HomeScreen/components/GreetingHeader';
 import { QuickAccess } from './HomeScreen/components/QuickAccess';
@@ -10,26 +10,38 @@ import { ServicesGrid } from './HomeScreen/components/ServicesGrid';
 import { UpdateCardModal } from './HomeScreen/components/UpdateCardModal';
 import { AdDetailModal } from './HomeScreen/components/AdDetailModal';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import LoadingSkeleton from '../components 2/LoadingSkeleton';
-import ErrorState from '../components 2/ErrorState';
-import NoDataCard from '../components 2/NoDataCard';
+import LoadingSkeleton from '../components/LoadingSkeleton';
+import ErrorState from '../components/ErrorState';
+import NoDataCard from '../components/NoDataCard';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 
+// Import modern UI components
+import { 
+  Button, 
+  Card, 
+  Typography, 
+  Layout, 
+  Container, 
+  Section, 
+  Spacing,
+  theme 
+} from '../components';
+
 const services = [
-  { title: 'Ağır Bakım', icon: 'wrench', color: '#007AFF' },
-  { title: 'Genel Bakım', icon: 'tools', color: '#34C759' },
-  { title: 'Alt Takım', icon: 'cog', color: '#FF9500' },
-  { title: 'Üst Takım', icon: 'nut', color: '#AF52DE' },
-  { title: 'Kaporta/Boya', icon: 'spray', color: '#FF375F' },
-  { title: 'Elektrik-Elektronik', icon: 'lightning-bolt', color: '#FFD60A' },
-  { title: 'Yedek Parça', icon: 'car-wash', color: '#00B8D9' },
-  { title: 'Lastik', icon: 'tire', color: '#5856D6' },
-  { title: 'Egzoz & Emisyon', icon: 'smoke', color: '#5AC8FA' },
-  { title: 'Ekspertiz', icon: 'magnify', color: '#FF9F0A' },
-  { title: 'Sigorta/Kasko', icon: 'shield-check', color: '#32D74B' },
-  { title: 'Araç Yıkama', icon: 'car-wash', color: '#64D2FF' },
+  { title: 'Ağır Bakım', icon: 'wrench', color: theme.colors.primary.main },
+  { title: 'Genel Bakım', icon: 'tools', color: theme.colors.success.main },
+  { title: 'Alt Takım', icon: 'cog', color: theme.colors.warning.main },
+  { title: 'Üst Takım', icon: 'nut', color: theme.colors.secondary.main },
+  { title: 'Kaporta/Boya', icon: 'spray', color: theme.colors.error.main },
+  { title: 'Elektrik-Elektronik', icon: 'lightning-bolt', color: theme.colors.warning.main },
+  { title: 'Yedek Parça', icon: 'car-wash', color: theme.colors.secondary.main },
+  { title: 'Lastik', icon: 'tire', color: theme.colors.primary.main },
+  { title: 'Egzoz & Emisyon', icon: 'smoke', color: theme.colors.secondary.main },
+  { title: 'Ekspertiz', icon: 'magnify', color: theme.colors.warning.main },
+  { title: 'Sigorta/Kasko', icon: 'shield-check', color: theme.colors.success.main },
+  { title: 'Araç Yıkama', icon: 'car-wash', color: theme.colors.primary.main },
 ];
 
 const HomeScreen = () => {
@@ -93,33 +105,51 @@ const HomeScreen = () => {
   if (error) return <ErrorState message={error} />;
 
   return (
-    <SafeAreaView style={{flex:1}}>
+    <SafeAreaView style={styles.safeArea}>
       <Background>
         <ScrollView
           style={styles.container}
-          contentContainerStyle={{ paddingBottom: 64 }}
+          contentContainerStyle={styles.scrollContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={handleRefresh}
+              colors={[theme.colors.primary.main]}
+              tintColor={theme.colors.primary.main}
+            />
           }
+          showsVerticalScrollIndicator={false}
         >
-          <View style={styles.topSection}>
+          {/* Header Section */}
+          <Section padding="lg" margin="sm">
             <GreetingHeader userName={userName} favoriteCar={favoriteCar} />
-            <TouchableOpacity
-              style={styles.maintenanceButton}
-              onPress={handleMaintenancePlan}
-            >
-              <Text style={styles.buttonText}>Bakım Planla</Text>
-            </TouchableOpacity>
-          </View>
+            
+            <Spacing top="md">
+              <Button
+                title="Bakım Planla"
+                onPress={handleMaintenancePlan}
+                variant="primary"
+                size="lg"
+                icon="wrench"
+                fullWidth
+                style={styles.maintenanceButton}
+              />
+            </Spacing>
+          </Section>
 
-          <View style={styles.middleSection}>
+          {/* Quick Access Cards */}
+          <Section padding="lg" margin="sm">
+            <Typography variant="h4" color="white" weight="semibold" style={styles.sectionTitle}>
+              Hızlı Erişim
+            </Typography>
+            
             <QuickAccess 
               cards={[
                 {
                   title: 'Son Bakım',
                   value: maintenanceRecord && maintenanceRecord.date ? new Date(maintenanceRecord.date).toLocaleDateString('tr-TR') : 'Bilgi yok',
                   icon: 'wrench',
-                  color: '#FF9500',
+                  color: theme.colors.warning.main,
                   lastUpdate: maintenanceRecord?.date,
                   isClickable: !!maintenanceRecord,
                 },
@@ -127,7 +157,7 @@ const HomeScreen = () => {
                   title: 'Araç Durumu',
                   value: vehicleStatus && vehicleStatus.overallStatus ? vehicleStatus.overallStatus : 'Bilgi yok',
                   icon: 'car-cog',
-                  color: '#34C759',
+                  color: theme.colors.success.main,
                   lastUpdate: vehicleStatus?.lastCheck,
                   isClickable: !!vehicleStatus,
                 },
@@ -135,7 +165,7 @@ const HomeScreen = () => {
                   title: 'Sigorta',
                   value: insuranceInfo && insuranceInfo.company ? `${insuranceInfo.company} - ${insuranceInfo.type}` : 'Bilgi yok',
                   icon: 'shield-check',
-                  color: '#007AFF',
+                  color: theme.colors.primary.main,
                   lastUpdate: insuranceInfo?.endDate,
                   isClickable: !!insuranceInfo,
                 },
@@ -143,222 +173,216 @@ const HomeScreen = () => {
                   title: 'Lastik Durumu',
                   value: tireStatus ? tireStatus : 'Bilgi yok',
                   icon: 'tire',
-                  color: '#FF2D55',
+                  color: theme.colors.error.main,
                   isClickable: !!tireStatus,
                 },
               ]} 
               onCardPress={handleCardPress} 
             />
+          </Section>
 
-            <View style={styles.campaignSection}>
-              <Text style={styles.sectionTitle}>Kampanyalar</Text>
-              {(!campaigns || campaigns.length === 0) ? (
+          {/* Campaigns Section */}
+          <Section padding="lg" margin="sm">
+            <Typography variant="h4" color="white" weight="semibold" style={styles.sectionTitle}>
+              Kampanyalar
+            </Typography>
+            
+            {(!campaigns || campaigns.length === 0) ? (
+              <Card variant="filled" style={styles.noDataCard}>
                 <NoDataCard text="Kampanya bulunamadı" />
-              ) : (
-                <CampaignCarousel 
-                  campaigns={campaigns} 
-                  onCampaignPress={handleCampaignPress} 
-                />
-              )}
-            </View>
-
-            <View style={styles.rewardsSection}>
-              <Text style={styles.sectionTitle}>Tefe Puanla İndirimler</Text>
-              <View style={styles.rewardsGrid}>
-                <TouchableOpacity style={styles.rewardCard}>
-                  <MaterialCommunityIcons name="star-circle" size={32} color="#FFD700" />
-                  <Text style={styles.rewardTitle}>500 Puan</Text>
-                  <Text style={styles.rewardDesc}>%10 İndirim</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.rewardCard}>
-                  <MaterialCommunityIcons name="star-circle" size={32} color="#FFD700" />
-                  <Text style={styles.rewardTitle}>1000 Puan</Text>
-                  <Text style={styles.rewardDesc}>%20 İndirim</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.rewardCard}>
-                  <MaterialCommunityIcons name="star-circle" size={32} color="#FFD700" />
-                  <Text style={styles.rewardTitle}>2000 Puan</Text>
-                  <Text style={styles.rewardDesc}>%30 İndirim</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.bottomSection}>
-            <View style={styles.statsSection}>
-              <Text style={styles.sectionTitle}>İstatistikler</Text>
-              <StatCards 
-                stats={[
-                  {
-                    title: 'Toplam Harcama',
-                    value: maintenanceRecord && maintenanceRecord.cost !== undefined ? `₺${maintenanceRecord.cost}` : 'Bilgi yok',
-                    change: '+₺150',
-                    trend: 'up' as const,
-                    icon: 'wrench',
-                    color: '#FF9500',
-                    lastUpdate: maintenanceRecord?.date,
-                  },
-                  {
-                    title: 'Son Bakım',
-                    value: maintenanceRecord ? new Date(maintenanceRecord.date).toLocaleDateString('tr-TR') : 'Bilgi yok',
-                    change: '',
-                    trend: 'neutral' as const,
-                    icon: 'car-cog',
-                    color: '#34C759',
-                    lastUpdate: maintenanceRecord?.date,
-                  },
-                ]} 
+              </Card>
+            ) : (
+              <CampaignCarousel 
+                campaigns={campaigns} 
+                onCampaignPress={handleCampaignPress} 
               />
-            </View>
+            )}
+          </Section>
 
-            <View style={styles.servicesSection}>
-              <Text style={styles.sectionTitle}>Hizmetler</Text>
-              <View style={styles.servicesContainer}>
-                {(!services || services.length === 0) ? (
-                  <NoDataCard text="Hizmet bulunamadı" />
-                ) : (
-                  <ServicesGrid 
-                    services={showAllServices ? services : services.slice(0, 6)} 
-                    onServicePress={handleServicePress} 
+          {/* Rewards Section */}
+          <Section padding="lg" margin="sm">
+            <Typography variant="h4" color="white" weight="semibold" style={styles.sectionTitle}>
+              Tefe Puanla İndirimler
+            </Typography>
+            
+            <Layout direction="row" gap="md" style={styles.rewardsGrid}>
+              <Card variant="filled" style={styles.rewardCard} onPress={() => {}}>
+                <Layout direction="column" align="center" padding="md">
+                  <MaterialCommunityIcons 
+                    name="star-circle" 
+                    size={32} 
+                    color={theme.colors.warning.main} 
                   />
-                )}
-                {!showAllServices && (
-                  <TouchableOpacity style={styles.allServicesButton} onPress={() => setShowAllServices(true)}>
-                    <Text style={styles.allServicesText}>Tüm Hizmetler</Text>
-                    <MaterialCommunityIcons name="chevron-right" size={20} color="#007AFF" />
-                  </TouchableOpacity>
-                )}
-                {showAllServices && (
-                  <TouchableOpacity style={styles.allServicesButton} onPress={() => setShowAllServices(false)}>
-                    <Text style={styles.allServicesText}>Kapat</Text>
-                    <MaterialCommunityIcons name="chevron-up" size={20} color="#007AFF" />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          </View>
+                  <Typography variant="h6" color="white" weight="semibold" style={styles.rewardTitle}>
+                    500 Puan
+                  </Typography>
+                  <Typography variant="body2" color="secondary" align="center">
+                    %10 İndirim
+                  </Typography>
+                </Layout>
+              </Card>
+              
+              <Card variant="filled" style={styles.rewardCard} onPress={() => {}}>
+                <Layout direction="column" align="center" padding="md">
+                  <MaterialCommunityIcons 
+                    name="star-circle" 
+                    size={32} 
+                    color={theme.colors.warning.main} 
+                  />
+                  <Typography variant="h6" color="white" weight="semibold" style={styles.rewardTitle}>
+                    1000 Puan
+                  </Typography>
+                  <Typography variant="body2" color="secondary" align="center">
+                    %20 İndirim
+                  </Typography>
+                </Layout>
+              </Card>
+              
+              <Card variant="filled" style={styles.rewardCard} onPress={() => {}}>
+                <Layout direction="column" align="center" padding="md">
+                  <MaterialCommunityIcons 
+                    name="star-circle" 
+                    size={32} 
+                    color={theme.colors.warning.main} 
+                  />
+                  <Typography variant="h6" color="white" weight="semibold" style={styles.rewardTitle}>
+                    2000 Puan
+                  </Typography>
+                  <Typography variant="body2" color="secondary" align="center">
+                    %30 İndirim
+                  </Typography>
+                </Layout>
+              </Card>
+            </Layout>
+          </Section>
+
+          {/* Statistics Section */}
+          <Section padding="lg" margin="sm">
+            <Typography variant="h4" color="white" weight="semibold" style={styles.sectionTitle}>
+              İstatistikler
+            </Typography>
+            
+            <StatCards 
+              stats={[
+                {
+                  title: 'Toplam Harcama',
+                  value: maintenanceRecord && maintenanceRecord.cost !== undefined ? `₺${maintenanceRecord.cost}` : 'Bilgi yok',
+                  change: '+₺150',
+                  trend: 'up' as const,
+                  icon: 'wrench',
+                  color: theme.colors.warning.main,
+                  lastUpdate: maintenanceRecord?.date,
+                },
+                {
+                  title: 'Bakım Sayısı',
+                  value: maintenanceRecord ? '1' : '0',
+                  change: '+2',
+                  trend: 'up' as const,
+                  icon: 'wrench',
+                  color: theme.colors.success.main,
+                  lastUpdate: maintenanceRecord?.date,
+                },
+                {
+                  title: 'Ortalama Maliyet',
+                  value: maintenanceRecord && maintenanceRecord.cost ? 
+                    `₺${maintenanceRecord.cost}` : 'Bilgi yok',
+                  change: '-₺50',
+                  trend: 'down' as const,
+                  icon: 'calculator',
+                  color: theme.colors.primary.main,
+                  lastUpdate: maintenanceRecord?.date,
+                },
+              ]} 
+            />
+          </Section>
+
+          {/* Services Section */}
+          <Section padding="lg" margin="sm">
+            <Layout direction="row" justify="space-between" align="center" style={styles.servicesHeader}>
+              <Typography variant="h4" color="white" weight="semibold">
+                Hizmetler
+              </Typography>
+              
+              <Button
+                title={showAllServices ? "Daha Az Göster" : "Tümünü Göster"}
+                onPress={() => setShowAllServices(!showAllServices)}
+                variant="ghost"
+                size="sm"
+                icon={showAllServices ? "chevron-up" : "chevron-down"}
+                iconPosition="right"
+                style={styles.toggleButton}
+              />
+            </Layout>
+            
+            <ServicesGrid 
+              services={showAllServices ? services : services.slice(0, 6)} 
+              onServicePress={handleServicePress} 
+            />
+          </Section>
+
+          {/* Bottom Spacing */}
+          <Spacing size="xxl" />
         </ScrollView>
-
-        <UpdateCardModal
-          visible={showUpdateModal}
-          card={selectedCard}
-          onClose={() => setShowUpdateModal(false)}
-          onSave={handleCardUpdate}
-        />
-
-        <AdDetailModal
-          visible={showAdModal}
-          ad={selectedAd}
-          onClose={() => setShowAdModal(false)}
-        />
       </Background>
+
+      {/* Modals */}
+      <UpdateCardModal
+        visible={showUpdateModal}
+        card={selectedCard}
+        onClose={() => setShowUpdateModal(false)}
+        onSave={handleCardUpdate}
+      />
+      
+      <AdDetailModal
+        visible={showAdModal}
+        ad={selectedAd}
+        onClose={() => setShowAdModal(false)}
+      />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.background.default.dark,
+  },
   container: {
     flex: 1,
   },
-  topSection: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
-  },
-  middleSection: {
-    paddingHorizontal: 16,
-    paddingBottom: 24,
-  },
-  bottomSection: {
-    paddingHorizontal: 16,
-    paddingBottom: 24,
+  scrollContent: {
+    paddingBottom: theme.spacing.xxl,
   },
   maintenanceButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#007AFF',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    marginTop: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
+    marginTop: theme.spacing.md,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 16,
+    marginBottom: theme.spacing.lg,
     borderBottomWidth: 1,
-    borderColor: '#3a3a3a',
-    paddingBottom: 8,
+    borderBottomColor: theme.colors.border.dark,
+    paddingBottom: theme.spacing.sm,
   },
-  campaignSection: {
-    marginTop: 24,
-  },
-  rewardsSection: {
-    marginTop: 24,
+  noDataCard: {
+    backgroundColor: theme.colors.background.surface.dark,
+    borderColor: theme.colors.border.dark,
   },
   rewardsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
+    width: '100%',
   },
   rewardCard: {
+    backgroundColor: theme.colors.background.surface.dark,
+    borderColor: theme.colors.border.dark,
     flex: 1,
-    backgroundColor: '#23242a',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   rewardTitle: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 12, // was 8
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
   },
-  rewardDesc: {
-    color: '#999',
-    fontSize: 14,
-    marginTop: 6, // was 4
+  servicesHeader: {
+    marginBottom: theme.spacing.lg,
   },
-  statsSection: {
-    marginTop: 24,
-  },
-  servicesSection: {
-    marginTop: 24,
-  },
-  servicesContainer: {
-    gap: 16,
-  },
-  allServicesButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    backgroundColor: '#23242a',
-    borderRadius: 12,
-  },
-  allServicesText: {
-    color: '#007AFF',
-    fontSize: 16,
-    fontWeight: '500',
-    marginRight: 4,
+  toggleButton: {
+    backgroundColor: theme.colors.background.surface.dark,
   },
 });
 
