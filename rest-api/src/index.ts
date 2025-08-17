@@ -29,7 +29,8 @@ app.use((req, res, next) => {
 const PORT = Number(process.env.PORT) || 3000;
 
 // MongoDB bağlantısı
-mongoose.connect(process.env.MONGODB_URI!)
+import { MONGODB_URI } from './config';
+mongoose.connect(MONGODB_URI)
   .then(() => console.log('MongoDB bağlantısı başarılı!'))
   .catch(err => console.error('MongoDB bağlantı hatası:', err));
 
@@ -57,7 +58,16 @@ io.on('connection', (socket: Socket) => {
 
 // Bildirim gönderme fonksiyonu
 export function sendNotificationToUser(userId: string, notification: any) {
+  console.log('🔔 Backend: sendNotificationToUser çağrıldı');
+  console.log('🔔 Backend: userId:', userId);
+  console.log('🔔 Backend: notification:', notification);
+  
+  const room = io.sockets.adapter.rooms.get(userId);
+  console.log('🔔 Backend: Oda mevcut mu?', !!room);
+  console.log('🔔 Backend: Odadaki socket sayısı:', room ? room.size : 0);
+  
   io.to(userId).emit('notification', notification);
+  console.log('🔔 Backend: Bildirim gönderildi!');
 }
 
 // Swagger UI
@@ -73,7 +83,6 @@ app.get('/', (req, res) => {
 
 // Auth route'u ekle
 import authRoutes from './routes/auth';
-import commentsRoutes from './routes/comments';
 import maintenanceRoutes from './routes/maintenance';
 import insuranceRoutes from './routes/insurance';
 import vehicleStatusRoutes from './routes/vehicleStatus';
@@ -89,7 +98,6 @@ import mechanicRoutes from './routes/mechanic';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/comments', commentsRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/insurance', insuranceRoutes);
 app.use('/api/vehicle-status', vehicleStatusRoutes);

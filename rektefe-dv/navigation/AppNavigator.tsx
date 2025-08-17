@@ -8,7 +8,7 @@ import OnboardingScreen from '../screens/OnboardingScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import DrawerNavigator from './DrawerNavigator';
-import UserProfileScreen from '../screens/UserProfileScreen';
+// import UserProfileScreen from '../screens/UserProfileScreen'; // Kaldırıldı
 import ProfileScreen from '../screens/ProfileScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
@@ -28,7 +28,7 @@ export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   Main: { screen?: string };
-  UserProfile: { userId: string };
+  // UserProfile: { userId: string }; // Kaldırıldı
   Profile: undefined;
   ForgotPassword: undefined;
   ResetPassword: undefined;
@@ -66,7 +66,7 @@ const AppNavigator = () => {
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="Main" component={DrawerNavigator} />
-        <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ headerShown: true, title: 'Kullanıcı Profili' }} />
+
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />

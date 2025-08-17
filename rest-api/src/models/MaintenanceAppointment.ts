@@ -13,9 +13,13 @@ export interface IMaintenanceAppointment extends Document {
   mechanicId?: mongoose.Types.ObjectId;
   serviceType: string;
   appointmentDate: Date;
-  timeSlot: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  timeSlot?: string;
+  status: 'pending' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'rejected';
   notes?: string;
+  mechanicNotes?: string;
+  rejectionReason?: string;
+  completionDate?: Date;
+  cancellationDate?: Date;
   notificationSettings: INotificationSettings;
   sharePhoneNumber: boolean;
   createdAt: Date;
@@ -31,10 +35,14 @@ const MaintenanceAppointmentSchema: Schema = new Schema({
   timeSlot: { type: String, required: false },
   status: { 
     type: String, 
-    enum: ['pending', 'confirmed', 'completed', 'cancelled'],
+    enum: ['pending', 'confirmed', 'in-progress', 'completed', 'cancelled', 'rejected'],
     default: 'pending'
   },
   notes: { type: String },
+  mechanicNotes: { type: String },
+  rejectionReason: { type: String },
+  completionDate: { type: Date },
+  cancellationDate: { type: Date },
   notificationSettings: {
     twoHoursBefore: {
       type: Boolean,

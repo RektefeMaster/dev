@@ -3,6 +3,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../../constants/config';
 import { useAuth } from '../../../context/AuthContext';
+import { clearAuthData } from '../../../utils/common';
 
 interface Vehicle {
   _id: string;
@@ -98,9 +99,8 @@ interface CampaignAd {
 }
 
 export const useHomeData = () => {
-  const [userId, setUserId] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
-  const [token, setToken] = useState<string>('');
+  const [greeting, setGreeting] = useState<string>('');
   const [favoriteCar, setFavoriteCar] = useState<Vehicle | null>(null);
   const [maintenanceRecord, setMaintenanceRecord] = useState<MaintenanceRecord | null>(null);
   const [insuranceInfo, setInsuranceInfo] = useState<InsuranceInfo | null>(null);
@@ -112,23 +112,46 @@ export const useHomeData = () => {
   const [error, setError] = useState<string | null>(null);
   const [tireStatus, setTireStatus] = useState<string | null>(null);
   const [appointments, setAppointments] = useState<any[]>([]);
-  const { token: ctxToken, userId: ctxUserId, logout } = useAuth();
+  
+  const { token, userId, isAuthenticated, setToken, setUserId } = useAuth();
+
+  // Saat dilimine göre selamlama fonksiyonu
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    
+    if (hour >= 5 && hour < 12) {
+      return 'Günaydın';
+    } else if (hour >= 12 && hour < 16) {
+      return 'İyi Öğlenler';
+    } else if (hour >= 16 && hour < 22) {
+      return 'İyi Akşamlar';
+    } else {
+      return 'İyi Geceler';
+    }
+  };
 
   useEffect(() => {
     const loadData = async () => {
-      if (ctxToken && ctxUserId) {
-        setToken(ctxToken);
-        setUserId(ctxUserId);
-        await fetchData(ctxToken, ctxUserId);
+      console.log('🔍 useHomeData: useEffect çalıştı');
+      console.log('🔍 useHomeData: Token:', token ? 'Mevcut' : 'Yok');
+      console.log('🔍 useHomeData: UserID:', userId ? 'Mevcut' : 'Yok');
+      console.log('🔍 useHomeData: isAuthenticated:', isAuthenticated);
+      
+      // Selamlamayı güncelle
+      setGreeting(getGreeting());
+      
+      if (token && userId && isAuthenticated) {
+        console.log('✅ useHomeData: Veri çekme başlıyor');
+        await fetchData(token, userId);
       } else {
-        // Token veya userId yoksa, kullanıcıyı giriş ekranına yönlendir veya hata göster
-        // logout(); // Örneğin: Oturumu kapat
+        console.log('⚠️ useHomeData: Token veya userId yok, hata gösteriliyor');
         setError("Oturum bilgileri alınamadı, lütfen tekrar giriş yapın.");
         setLoading(false);
       }
     };
+    
     loadData();
-  }, [ctxToken, ctxUserId]);
+  }, [token, userId, isAuthenticated, setToken, setUserId]);
 
   const fetchData = async (token: string, userId: string) => {
     setLoading(true);
@@ -168,11 +191,18 @@ export const useHomeData = () => {
       
       console.log('✅ Frontend: API Response:', response.data);
       
-      if (response.data && response.data.name) {
-        console.log('✅ Frontend: Kullanıcı ismi set ediliyor:', response.data.name);
-        setUserName(response.data.name);
+      // API response formatı: { success: true, data: {...}, message: "..." }
+      if (response.data && response.data.success && response.data.data) {
+        const userData = response.data.data;
+        if (userData.name && userData.name.trim()) {
+          console.log('✅ Frontend: Kullanıcı ismi set ediliyor:', userData.name);
+          setUserName(userData.name.trim());
+        } else {
+          console.log('⚠️ Frontend: API\'den isim gelmedi, varsayılan kullanılıyor');
+          setUserName('Kullanıcı');
+        }
       } else {
-        console.log('⚠️ Frontend: API\'den isim gelmedi, varsayılan kullanılıyor');
+        console.log('⚠️ Frontend: API response formatı beklenenden farklı');
         setUserName('Kullanıcı');
       }
     } catch (error: any) {
@@ -188,7 +218,38 @@ export const useHomeData = () => {
   };
 
   const fetchUserVehicles = async (token: string) => {
-    // ... (mevcut kod korunacak)
+    try {
+      const response = await axios.get(`${API_URL}/vehicles`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      // API response formatı kontrol et
+      if (response.data && response.data.success && response.data.data) {
+        const vehicles = response.data.data;
+        if (vehicles.length > 0) {
+          // Favori araç bul
+          const favorite = vehicles.find((v: Vehicle) => v.isFavorite);
+          if (favorite) {
+            setFavoriteCar({
+              _id: favorite._id,
+              userId: favorite.userId,
+              brand: favorite.brand,
+              model: favorite.modelName || favorite.model, // modelName veya model
+              package: favorite.package,
+              year: favorite.year,
+              fuelType: favorite.fuelType,
+              mileage: favorite.mileage,
+              plateNumber: favorite.plateNumber,
+              isFavorite: favorite.isFavorite,
+              createdAt: favorite.createdAt
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Araçlar getirilirken hata:', error);
+      setFavoriteCar(null);
+    }
   };
 
   const fetchLastMaintenance = async (token: string, userId: string) => {
@@ -208,15 +269,18 @@ export const useHomeData = () => {
       const response = await axios.get(`${API_URL}/mechanic-services/mechanics`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (response.data && response.data.length > 0) {
+      
+      // API response formatı kontrol et
+      if (response.data && response.data.success && response.data.data) {
+        setServiceProviders(response.data.data);
+      } else if (response.data && Array.isArray(response.data)) {
+        // Eski format için fallback
         setServiceProviders(response.data);
       } else {
-        setServiceProviders([]); // Veri gelmezse boş dizi ata
+        setServiceProviders([]);
       }
     } catch (error) {
       console.error('Servis sağlayıcıları getirilirken hata:', error);
-      // Bu hatayı genel hata durumuna yansıtabiliriz veya görmezden gelebiliriz.
-      // Şimdilik sadece konsola yazdırıyoruz ki diğer veriler yüklensin.
       setServiceProviders([]);
     }
   };
@@ -243,10 +307,13 @@ export const useHomeData = () => {
     }
   };
 
+  // AsyncStorage temizleme fonksiyonu kaldırıldı
+
   return {
-    userId,
+    userId: userId,
     userName,
-    token,
+    greeting,
+    token: token,
     favoriteCar,
     maintenanceRecord,
     insuranceInfo,

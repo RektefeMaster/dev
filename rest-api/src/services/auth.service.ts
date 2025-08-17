@@ -15,7 +15,7 @@ export class AuthService {
     surname: string;
     email: string;
     password: string;
-    userType: 'driver' | 'mechanic';
+    userType?: 'driver' | 'mechanic';
   }) {
     const { name, surname, email, password, userType } = userData;
     
@@ -31,8 +31,8 @@ export class AuthService {
     // Şifreyi hash'le
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // Kullanıcı tipini belirle
-    const finalUserType = userType === 'mechanic' ? 'mechanic' : 'driver';
+    // Kullanıcı tipini belirle (default: driver)
+    const finalUserType = userType || 'driver';
 
     // User oluştur
     const user = new User({ 

@@ -8,6 +8,7 @@ import { format, isBefore, addHours, differenceInHours, differenceInMinutes } fr
 import { tr } from 'date-fns/locale';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import io from 'socket.io-client';
 
 type RootStackParamList = {
   Login: undefined;
@@ -30,18 +31,19 @@ const AppointmentsScreen = () => {
     customTime: false,
     customMinutes: 30
   });
+  const [socket, setSocket] = useState<any>(null);
 
   const fetchAppointments = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
       if (!token) throw new Error('Token bulunamadı');
 
-      const response = await axios.get(`${API_URL}/maintenance-appointments/user`, {
+      const response = await axios.get(`${API_URL}/maintenance-appointments`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       // Randevuları tarihe göre sırala
-      const sortedAppointments = response.data.sort((a: any, b: any) => 
+      const sortedAppointments = response.data.data.sort((a: any, b: any) => 
         new Date(b.appointmentDate).getTime() - new Date(a.appointmentDate).getTime()
       );
 
@@ -62,9 +64,65 @@ const AppointmentsScreen = () => {
     }
   };
 
-  // Her dakika randevu saatlerini güncelle
+  // Socket.IO bağlantısı ve bildirim dinleme
+  useEffect(() => {
+    const newSocket = io('http://localhost:3000');
+    setSocket(newSocket);
+
+    // Kullanıcı ID'sini al ve odaya katıl
+    const joinUserRoom = async () => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (token) {
+          // Token'dan user ID'yi çıkar (JWT decode)
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const userId = payload.userId;
+          
+          newSocket.emit('join', userId);
+          console.log('Kullanıcı odasına katıldı:', userId);
+        }
+      } catch (error) {
+        console.error('Token decode hatası:', error);
+      }
+    };
+
+    joinUserRoom();
+
+    // Bildirim dinle
+    newSocket.on('notification', (notification) => {
+      console.log('Bildirim alındı:', notification);
+      
+      if (notification.type === 'appointment_status_update') {
+        // Randevu durumu güncellendi, listeyi yenile
+        fetchAppointments();
+        
+        // Kullanıcıya bildirim göster
+        const statusText = notification.status === 'confirmed' ? 'onaylandı' : 
+                          notification.status === 'rejected' ? 'reddedildi' : 'güncellendi';
+        
+        Alert.alert(
+          notification.title,
+          notification.message,
+          [
+            { text: 'Tamam', onPress: () => {} },
+            { text: 'Randevuları Görüntüle', onPress: () => setActiveTab('current') }
+          ]
+        );
+      }
+    });
+
+    return () => {
+      newSocket.close();
+    };
+  }, []);
+
+  // İlk yükleme ve her dakika randevu saatlerini güncelle
   useEffect(() => {
     fetchAppointments();
+  }, []); // Sadece component mount olduğunda çalışsın
+
+  // Her dakika randevu saatlerini güncelle
+  useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date();
       const newTimeUntilAppointment: {[key: string]: number} = {};
@@ -79,7 +137,7 @@ const AppointmentsScreen = () => {
     }, 60000); // Her dakika güncelle
 
     return () => clearInterval(interval);
-  }, [appointments]);
+  }, [appointments]); // appointments değişince sadece interval'i güncelle
 
   // Randevuları filtrele
   const filteredAppointments = appointments.filter(appointment => {
@@ -289,6 +347,28 @@ const AppointmentsScreen = () => {
     const canCancel = minutesUntilAppointment >= 60;
     const isPast = appointmentDate < new Date();
 
+    // Randevu durumu için renk ve metin
+    const getStatusInfo = (status: string) => {
+      switch (status) {
+        case 'pending':
+          return { color: '#FF9500', text: 'Onay Bekleniyor...', icon: 'clock-outline' };
+        case 'confirmed':
+          return { color: '#34C759', text: 'Onaylandı', icon: 'check-circle' };
+        case 'in-progress':
+          return { color: '#007AFF', text: 'İşlemde', icon: 'wrench' };
+        case 'completed':
+          return { color: '#34C759', text: 'Tamamlandı', icon: 'check-circle' };
+        case 'cancelled':
+          return { color: '#FF3B30', text: 'İptal Edildi', icon: 'close-circle' };
+        case 'rejected':
+          return { color: '#FF3B30', text: 'Reddedildi', icon: 'close-circle' };
+        default:
+          return { color: '#8E8E93', text: 'Bilinmiyor', icon: 'help-circle' };
+      }
+    };
+
+    const statusInfo = getStatusInfo(item.status);
+
     return (
       <View style={styles.appointmentCard}>
         <View style={styles.appointmentHeader}>
@@ -300,26 +380,16 @@ const AppointmentsScreen = () => {
           <Text style={styles.serviceType}>
             {getServiceTypeName(item.serviceType)}
           </Text>
-          {item.status === 'pending' && !isPast && (
-            <Text style={styles.statusPending}>
-              Beklemede
+          <View style={[styles.statusBadge, { backgroundColor: statusInfo.color }]}>
+            <MaterialCommunityIcons 
+              name={statusInfo.icon as any} 
+              size={16} 
+              color="white" 
+            />
+            <Text style={styles.statusText}>
+              {statusInfo.text}
             </Text>
-          )}
-          {item.status === 'confirmed' && (
-            <Text style={styles.statusConfirmed}>
-              Onaylandı
-            </Text>
-          )}
-          {item.status === 'completed' && (
-            <Text style={styles.statusCompleted}>
-              Tamamlandı
-            </Text>
-          )}
-          {item.status === 'cancelled' && (
-            <Text style={styles.statusCancelled}>
-              İptal Edildi
-            </Text>
-          )}
+          </View>
         </View>
 
         <View style={styles.appointmentDetails}>
@@ -359,6 +429,24 @@ const AppointmentsScreen = () => {
             <View style={styles.detailRow}>
               <MaterialCommunityIcons name="note-text" size={20} color="#666" />
               <Text style={styles.notes}>{item.notes}</Text>
+            </View>
+          )}
+
+          {item.rejectionReason && (
+            <View style={styles.detailRow}>
+              <MaterialCommunityIcons name="close-circle" size={20} color="#FF3B30" />
+              <Text style={[styles.notes, { color: '#FF3B30' }]}>
+                Red Sebebi: {item.rejectionReason}
+              </Text>
+            </View>
+          )}
+
+          {item.mechanicNotes && (
+            <View style={styles.detailRow}>
+              <MaterialCommunityIcons name="account-wrench" size={20} color="#007AFF" />
+              <Text style={[styles.notes, { color: '#007AFF' }]}>
+                Usta Notu: {item.mechanicNotes}
+              </Text>
             </View>
           )}
 
@@ -572,6 +660,20 @@ const styles = StyleSheet.create({
   statusCancelled: {
     backgroundColor: '#FFEBEE',
     color: '#FF3B30',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 'auto',
+  },
+  statusText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   appointmentDetails: {
     marginBottom: 12,

@@ -87,12 +87,28 @@ export const updateProfilePhoto = async (uri: string) => {
       type: 'image/jpeg',
       name: 'photo.jpg',
     } as any);
-    const response = await api.post('/upload', formData, {
+    
+    // 1. Resmi Cloudinary'ye yükle
+    const uploadResponse = await api.post('/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    const imageUrl = response.data.url;
-    const res = await api.post('/users/profile-photo', { photoUrl: imageUrl });
-    return res.data;
+    
+    if (!uploadResponse.data || !uploadResponse.data.url) {
+      throw new Error('Resim yüklenemedi');
+    }
+    
+    const imageUrl = uploadResponse.data.url;
+    console.log('Cloudinary URL:', imageUrl);
+    
+    // 2. Profil fotoğrafını güncelle
+    const profileResponse = await api.post('/users/profile-photo', { photoUrl: imageUrl });
+    
+    // API response formatı kontrol et
+    if (profileResponse.data && profileResponse.data.success) {
+      return profileResponse.data;
+    } else {
+      throw new Error('Profil fotoğrafı güncellenemedi');
+    }
   } catch (error) {
     console.error('Profil fotoğrafı güncelleme hatası:', error);
     throw error;
@@ -127,7 +143,8 @@ export const updateCoverPhoto = async (uri: string) => {
 // Kullanıcı bilgilerini getirme
 export const getUserProfile = async (userId: string) => {
   try {
-    const response = await api.get(`/users/${userId}`);
+    // Kendi profilini getirmek için /users/profile kullan
+    const response = await api.get('/users/profile');
     return response.data;
   } catch (error) {
     console.error('Kullanıcı bilgileri getirme hatası:', error);

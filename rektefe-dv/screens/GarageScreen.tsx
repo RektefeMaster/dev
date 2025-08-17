@@ -133,10 +133,15 @@ const GarageScreen = () => {
       const token = await AsyncStorage.getItem('token');
       const [vehiclesRes, userRes] = await Promise.all([
         axios.get(`${API_URL}/vehicles`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get(`${API_URL}/users/profile`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
-      const favoriteVehicleId = userRes.data.favoriteVehicle;
-      setVehicles(vehiclesRes.data.map((v: any) => ({ ...v, isFavorite: v._id === favoriteVehicleId })));
+      // API response formatı: { success: true, data: {...} }
+      const favoriteVehicleId = userRes.data.data?.favoriteVehicle;
+      if (vehiclesRes.data && vehiclesRes.data.success && vehiclesRes.data.data) {
+        setVehicles(vehiclesRes.data.data.map((v: any) => ({ ...v, isFavorite: v._id === favoriteVehicleId })));
+      } else {
+        setVehicles([]);
+      }
     } catch (error) {
       Alert.alert('Hata', 'Araçlar yüklenirken bir hata oluştu.');
       console.error('Araçlar yüklenirken hata:', error);
@@ -146,25 +151,30 @@ const GarageScreen = () => {
   };
 
   const handleAddVehicle = async () => {
-    if (!brandValue || !modelNameValue || !newVehicle.year || !fuelValue || !newVehicle.plateNumber || !transmissionValue) {
+    if (!brandValue || !modelNameValue || !newVehicle.year || !fuelValue || !newVehicle.plateNumber || !transmissionValue || !packageValue) {
       Alert.alert('Uyarı', 'Lütfen tüm zorunlu alanları doldurun.');
       return;
     }
     try {
       const token = await AsyncStorage.getItem('token');
       const response = await axios.post(`${API_URL}/vehicles`, {
-        userId,
         brand: brandValue,
         modelName: modelNameValue,
-        package: packageValue || 'Standart',
+        package: packageValue,
         year: newVehicle.year,
         engineType: 'Bilinmiyor',
         fuelType: fuelValue,
         transmission: transmissionValue,
-        mileage: newVehicle.mileage || '0',
         plateNumber: newVehicle.plateNumber,
       }, { headers: { Authorization: `Bearer ${token}` } });
-      setVehicles([...vehicles, response.data]);
+      
+      // API response formatı kontrol et
+      if (response.data && response.data.success && response.data.data) {
+        setVehicles([...vehicles, response.data.data]);
+      } else {
+        setVehicles([...vehicles, response.data]);
+      }
+      
       setNewVehicle({});
       setBrandValue(null);
       setModelNameValue(null);
@@ -173,9 +183,17 @@ const GarageScreen = () => {
       setTransmissionValue(null);
       setShowAddModal(false);
       Alert.alert('Başarılı', 'Araç başarıyla eklendi.');
-    } catch (error) {
-      Alert.alert('Hata', 'Araç eklenirken bir hata oluştu.');
+    } catch (error: any) {
       console.error('Araç eklenirken hata:', error);
+      let errorMessage = 'Araç eklenirken bir hata oluştu.';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.errors) {
+        errorMessage = error.response.data.errors;
+      }
+      
+      Alert.alert('Hata', errorMessage);
     }
   };
 

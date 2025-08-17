@@ -26,26 +26,35 @@ const ProfileScreen = () => {
   const filledFields = profileFields.filter(Boolean).length;
   const profileCompletion = filledFields / profileFields.length;
 
+  const { token, userId } = useAuth();
+
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const userId = await AsyncStorage.getItem('userId');
-        if (!userId) return;
+        if (!token || !userId) {
+          console.log('Token veya userId yok');
+          return;
+        }
+        
         const data = await getUserProfile(userId);
         console.log('Kullanıcı bilgileri:', data);
-        setUser(data);
+        
+        // API response formatı kontrol et
+        const userData = data && data.success && data.data ? data.data : data;
+        setUser(userData);
         setEditData({
-          name: data.name,
-          surname: data.surname,
-          email: data.email,
-          phone: data.phone || '',
-          city: data.city || '',
-          bio: data.bio || '',
-          emailHidden: data.emailHidden || false,
-          phoneHidden: data.phoneHidden || false
+          name: userData.name || '',
+          surname: userData.surname || '',
+          email: userData.email || '',
+          phone: userData.phone || '',
+          city: userData.city || '',
+          bio: userData.bio || '',
+          emailHidden: userData.emailHidden || false,
+          phoneHidden: userData.phoneHidden || false,
+          tefeHidden: userData.tefeHidden || false
         });
-        setShowEmail(!(data.emailHidden));
-        setShowPhone(!(data.phoneHidden));
+        setShowEmail(!(userData.emailHidden));
+        setShowPhone(!(userData.phoneHidden));
       } catch (e) {
         Alert.alert('Hata', 'Kullanıcı bilgileri alınamadı.');
       } finally {
@@ -53,7 +62,7 @@ const ProfileScreen = () => {
       }
     };
     fetchUser();
-  }, []);
+  }, [token, userId]);
 
   const handleEditChange = (field: string, value: string | boolean) => {
     setEditData((prev: any) => ({ ...prev, [field]: value }));
@@ -61,16 +70,16 @@ const ProfileScreen = () => {
 
   const handleSaveProfile = async () => {
     try {
-      const userId = await AsyncStorage.getItem('userId');
-      if (!userId) {
+      if (!token || !userId) {
         Alert.alert('Hata', 'Kullanıcı bilgisi bulunamadı.');
         return;
       }
       
-      await api.patch(`/user/${userId}`, editData);
+      await api.put(`/users/profile`, editData);
       // Profil güncelleme sonrası kullanıcı verisini tekrar çek
       const data = await getUserProfile(userId);
-      setUser(data);
+      const userData = data && data.success && data.data ? data.data : data;
+      setUser(userData);
       setEditModal(false);
       setShowEmail(!(editData.emailHidden));
       setShowPhone(!(editData.phoneHidden));
@@ -241,6 +250,42 @@ const ProfileScreen = () => {
               placeholderTextColor="#666"
               multiline
             />
+            
+            {/* Gizlilik Ayarları */}
+            <View style={styles.privacySection}>
+              <Text style={styles.privacyTitle}>Gizlilik Ayarları</Text>
+              
+              <View style={styles.privacyRow}>
+                <Text style={styles.privacyLabel}>E-posta Gizli</Text>
+                <Switch
+                  value={editData.emailHidden || false}
+                  onValueChange={(value) => handleEditChange('emailHidden', value)}
+                  trackColor={{ false: '#767577', true: '#007AFF' }}
+                  thumbColor={editData.emailHidden ? '#fff' : '#f4f3f4'}
+                />
+              </View>
+              
+              <View style={styles.privacyRow}>
+                <Text style={styles.privacyLabel}>Telefon Gizli</Text>
+                <Switch
+                  value={editData.phoneHidden || false}
+                  onValueChange={(value) => handleEditChange('phoneHidden', value)}
+                  trackColor={{ false: '#767577', true: '#007AFF' }}
+                  thumbColor={editData.phoneHidden ? '#fff' : '#f4f3f4'}
+                />
+              </View>
+              
+              <View style={styles.privacyRow}>
+                <Text style={styles.privacyLabel}>Tefe Puanları Gizli</Text>
+                <Switch
+                  value={editData.tefeHidden || false}
+                  onValueChange={(value) => handleEditChange('tefeHidden', value)}
+                  trackColor={{ false: '#767577', true: '#007AFF' }}
+                  thumbColor={editData.tefeHidden ? '#fff' : '#f4f3f4'}
+                />
+              </View>
+            </View>
+            
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 }}>
               <TouchableOpacity style={[styles.button, { backgroundColor: '#ccc', flex: 1, marginRight: 8 }]} onPress={() => setEditModal(false)}>
                 <Text style={[styles.buttonText, { color: '#333' }]}>İptal</Text>
@@ -530,6 +575,35 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
+  },
+  privacySection: {
+    marginTop: 20,
+    marginBottom: 20,
+    padding: 15,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  privacyTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#23242a',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  privacyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+  },
+  privacyLabel: {
+    fontSize: 14,
+    color: '#23242a',
+    fontWeight: '500',
   },
 });
 

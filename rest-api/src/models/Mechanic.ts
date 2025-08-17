@@ -7,6 +7,7 @@ export interface IMechanic extends IUser {
   serviceCategories: string[]; // Uzmanlık alanları (ağır bakım, alt takım, üst takım, kaporta vs.)
   experience: number;
   rating: number;
+  ratingCount: number; // Toplam puan sayısı
   totalServices: number; // Toplam yapılan iş sayısı
   isAvailable: boolean;
   currentLocation?: {
@@ -33,7 +34,6 @@ export interface IMechanic extends IUser {
 
 const mechanicSchema = new Schema<IMechanic>({
   // User modelinden gelen alanlar
-  username: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   name: { type: String, required: true },
@@ -65,6 +65,7 @@ const mechanicSchema = new Schema<IMechanic>({
   serviceCategories: [{ type: String, required: true }], // Uzmanlık alanları
   experience: { type: Number, default: 0 },
   rating: { type: Number, default: 0 },
+  ratingCount: { type: Number, default: 0 }, // Toplam puan sayısı
   totalServices: { type: Number, default: 0 }, // Toplam yapılan iş sayısı
   isAvailable: { type: Boolean, default: true },
   currentLocation: {

@@ -3,6 +3,7 @@
  */
 
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Tarih formatlama
 export const formatDate = (date: string | Date, format: string = 'DD/MM/YYYY'): string => {
@@ -80,3 +81,23 @@ export const SUCCESS_MESSAGES = {
   UPDATE_SUCCESS: 'Bilgiler başarıyla güncellendi.',
   SAVE_SUCCESS: 'Başarıyla kaydedildi.',
 } as const;
+
+// Development modunda AsyncStorage temizleme
+export const clearAsyncStorage = async () => {
+  try {
+    await AsyncStorage.clear();
+    console.log('🔧 AsyncStorage temizlendi');
+  } catch (error) {
+    console.error('❌ AsyncStorage temizlenirken hata:', error);
+  }
+};
+
+// Token ve userId'yi temizle
+export const clearAuthData = async () => {
+  try {
+    await AsyncStorage.multiRemove(['token', 'userId', 'refreshToken']);
+    console.log('🔧 Auth verileri temizlendi');
+  } catch (error) {
+    console.error('❌ Auth verileri temizlenirken hata:', error);
+  }
+};

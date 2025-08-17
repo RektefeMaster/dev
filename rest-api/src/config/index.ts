@@ -7,7 +7,8 @@ if (!process.env.JWT_SECRET) {
 }
 
 // MONGODB_URI için varsayılan değer ekleyelim
-export const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/rektefe';
+// MongoDB Atlas IP whitelist sorunu var, local MongoDB kullan
+export const MONGODB_URI = 'mongodb://127.0.0.1:27017/rektefe';
 
 // PORT için varsayılan değer ekleyelim
 export const PORT = process.env.PORT || 3000;

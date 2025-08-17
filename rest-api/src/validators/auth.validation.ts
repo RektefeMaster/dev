@@ -19,7 +19,7 @@ export const registerSchema = Joi.object({
     'string.min': 'Şifre en az 6 karakter olmalıdır',
     'any.required': 'Şifre zorunludur'
   }),
-  userType: Joi.string().valid('driver', 'mechanic').default('driver').messages({
+  userType: Joi.string().valid('driver', 'mechanic').optional().default('driver').messages({
     'any.only': 'Kullanıcı tipi driver veya mechanic olmalıdır'
   })
 });

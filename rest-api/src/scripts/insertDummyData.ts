@@ -76,13 +76,7 @@ const masterSchema = new mongoose.Schema({
 });
 const Master = mongoose.models.Master || mongoose.model('Master', masterSchema);
 
-const postSchema = new mongoose.Schema({
-  user: String,
-  content: String,
-  likes: [String],
-  createdAt: { type: Date, default: Date.now },
-});
-const Post = mongoose.models.Post || mongoose.model('Post', postSchema);
+
 
 const campaignSchema = new mongoose.Schema({
   title: String,
@@ -136,7 +130,7 @@ async function insertAllDummyData() {
   await TireStatus.create({ userId, status: 'İyi', lastCheck: '2024-06-14', issues: [] });
   await MaintenanceAppointment.create({ userId, vehicleId: 'dummyVehicleId', serviceType: 'Bakım', appointmentDate: '2024-07-01', status: 'pending', notes: 'Test randevu', sharePhoneNumber: false });
   await Master.create({ name: 'Usta Ahmet', services: ['bakım', 'onarım'], brands: ['BMW', 'Mercedes'], shopType: 'usta', location: 'İstanbul' });
-  await Post.create({ user: userId, content: 'Test gönderi', likes: [], createdAt: new Date() });
+
   await Campaign.create({ title: 'Yaz İndirimi', description: 'Tüm bakımlarda %20 indirim!', company: 'BMW Servis', validUntil: '2024-08-31', discount: '%20' });
   await Ad.create({ title: 'Sigorta Kampanyası', image: '', shortText: 'Kasko %10 indirimli!', detailText: 'Detaylı bilgi için tıklayın.', company: 'Allianz', validUntil: '2024-07-31' });
   await User.create({ name: 'Test', surname: 'Kullanıcı', email: 'dummy1@example.com', password: 'dummy123', username: 'testuser1' });

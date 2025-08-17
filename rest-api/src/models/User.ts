@@ -1,7 +1,6 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IUser extends Document {
-  username: string;
   email: string;
   password: string;
   name: string;
@@ -19,7 +18,8 @@ export interface IUser extends Document {
   emailHidden: boolean;
   phoneHidden: boolean;
   notifications: Array<{
-    type: 'follow' | 'like' | 'comment' | 'maintenance' | 'campaign' | 'insurance';
+    _id: mongoose.Types.ObjectId;
+    type: 'follow' | 'like' | 'comment' | 'maintenance' | 'campaign' | 'insurance' | 'appointment_status_update';
     from?: mongoose.Types.ObjectId;
     title: string;
     message: string;
@@ -31,12 +31,6 @@ export interface IUser extends Document {
 }
 
 const userSchema = new Schema<IUser>({
-  username: {
-    type: String,
-    required: false,
-    unique: false,
-    trim: true
-  },
   email: {
     type: String,
     required: true,
@@ -107,9 +101,13 @@ const userSchema = new Schema<IUser>({
     default: false
   },
   notifications: [{
+    _id: {
+      type: Schema.Types.ObjectId,
+      auto: true
+    },
     type: {
       type: String,
-      enum: ['follow', 'like', 'comment', 'maintenance', 'campaign', 'insurance'],
+      enum: ['follow', 'like', 'comment', 'maintenance', 'campaign', 'insurance', 'appointment_status_update'],
       required: true
     },
     from: {

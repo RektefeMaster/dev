@@ -111,8 +111,15 @@ const MaintenancePlanScreen = () => {
           const response = await axios.get(`${API_URL}/vehicles`, {
             headers: { Authorization: `Bearer ${token}` },
           });
-          setVehicles(response.data);
+          // API response formatı: { success: true, data: [...], message: "..." }
+          if (response.data && response.data.success && response.data.data) {
+            setVehicles(response.data.data);
+          } else {
+            setVehicles([]);
+          }
         } catch (error) {
+          console.error('Araçlar yüklenirken hata:', error);
+          setVehicles([]);
           Alert.alert('Hata', 'Araçlar yüklenirken bir hata oluştu');
         } finally {
           setLoading(false);
@@ -134,14 +141,21 @@ const MaintenancePlanScreen = () => {
     setLoading(true);
     try {
       const response = await axios.get(
-        `${API_URL}/maintenance-appointments/mechanic-availability`,
+        `${API_URL}/mechanic-services/mechanic-availability`,
         {
-          headers: { Authorization: `Bearer ${token}` },
           params: { date, mechanicId: selectedMaster },
         }
       );
-      setAvailableSlots(response.data.availableSlots);
+      
+      console.log('Müsaitlik response:', response.data);
+      
+      if (response.data && response.data.success && response.data.data && response.data.data.availableSlots) {
+        setAvailableSlots(response.data.data.availableSlots);
+      } else {
+        setAvailableSlots([]);
+      }
     } catch (error) {
+      console.error('Müsaitlik hatası:', error);
       Alert.alert('Hata', 'Müsaitlik durumu alınırken bir hata oluştu');
     } finally {
       setLoading(false);
@@ -159,12 +173,25 @@ const MaintenancePlanScreen = () => {
           const brand = selectedVehicleObj ? selectedVehicleObj.brand : '';
           // Seçilen servisin backend'deki ismini bul
           const serviceName = serviceTypes.find(s => s.id === selectedService)?.name || selectedService;
+          
+          console.log('Aranan servis:', serviceName);
+          console.log('Araç markası:', brand);
+          
           const response = await axios.get(`${API_URL}/mechanic-services/mechanics`, {
             params: { serviceCategory: serviceName, vehicleBrand: brand },
             headers: { Authorization: `Bearer ${token}` },
           });
-          setMasters(response.data);
+          
+          console.log('Mechanic response:', response.data);
+          
+          // API response formatı kontrol et
+          if (response.data && response.data.success && response.data.data) {
+            setMasters(response.data.data);
+          } else {
+            setMasters([]);
+          }
         } catch (error) {
+          console.error('Mechanic fetch hatası:', error);
           setMasters([]);
         } finally {
           setLoadingMasters(false);
@@ -194,7 +221,9 @@ const MaintenancePlanScreen = () => {
         mechanicId: selectedMaster,
       };
 
-      await axios.post(
+      console.log('Randevu verisi:', appointmentData);
+
+      const response = await axios.post(
         `${API_URL}/maintenance-appointments`,
         appointmentData,
         {
@@ -202,22 +231,20 @@ const MaintenancePlanScreen = () => {
         }
       );
 
+      console.log('Randevu response:', response.data);
+
       Alert.alert('Başarılı', 'Randevunuz başarıyla oluşturuldu', [
         {
           text: 'Tamam',
           onPress: () => {
-            <LottieView
-              source={require('../assets/successRand.json')}
-              autoPlay
-              loop={false}
-              style={{ width: 100, height: 100 }}
-            />
-            navigation.navigate('Home')
+            navigation.navigate('Home');
           },
         },
       ]);
-    } catch (error) {
-      Alert.alert('Hata', 'Randevu oluşturulurken bir hata oluştu');
+    } catch (error: any) {
+      console.error('Randevu oluşturma hatası:', error);
+      const errorMessage = error.response?.data?.message || 'Randevu oluşturulurken bir hata oluştu';
+      Alert.alert('Hata', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -543,10 +570,14 @@ const MaintenancePlanScreen = () => {
                           <View style={styles.vehicleInfo}>
                             <Text style={styles.vehicleName}>{master.shopName || `${master.name} ${master.surname}`}</Text>
                             <Text style={styles.vehicleDetails}>
-                              {master.userType === 'mechanic' ? 'Usta' : 'Dükkan'} • {master.location && master.location.city ? master.location.city : ''}
+                              {master.location && master.location.city ? master.location.city : 'Konum bilgisi yok'}
                             </Text>
                             <Text style={styles.vehicleDetails}>
-                              {Array.isArray(master.serviceCategories) ? master.serviceCategories.join(', ') : ''}
+                              {Array.isArray(master.serviceCategories) ? master.serviceCategories.slice(0, 3).join(', ') : ''}
+                              {Array.isArray(master.serviceCategories) && master.serviceCategories.length > 3 ? '...' : ''}
+                            </Text>
+                            <Text style={styles.vehicleDetails}>
+                              Deneyim: {master.experience || 0} yıl • Puan: {master.rating || 0}/5 ({master.ratingCount || 0} değerlendirme)
                             </Text>
                           </View>
                           <View style={styles.availabilityContainer}>

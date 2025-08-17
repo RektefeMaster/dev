@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { createDrawerNavigator, DrawerNavigationProp } from '@react-navigation/drawer';
 import TabNavigator from './TabNavigator';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react-native';
@@ -6,6 +6,9 @@ import { useNavigation } from '@react-navigation/native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { BlurView } from 'expo-blur';
 import AppointmentsScreen from '../screens/AppointmentsScreen';
+import { useAuth } from '../context/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL } from '../constants/config';
 
 // Navigation tiplerini güncelliyoruz
 // Drawer'da açılacak ekranlar
@@ -41,6 +44,41 @@ const DrawerItem = ({ icon, label, onPress, rightIcon }: { icon: string; label: 
 
 const CustomDrawerContent = (props: any) => {
   const navigation = useNavigation<any>();
+  const { token, isAuthenticated, logout } = useAuth();
+  const [userName, setUserName] = useState<string>('Kullanıcı');
+  const [userSurname, setUserSurname] = useState<string>('');
+
+  // Kullanıcı bilgilerini al
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        console.log('🔍 DrawerNavigator: fetchUserInfo çağrıldı');
+        console.log('🔍 DrawerNavigator: Token:', token ? 'Mevcut' : 'Yok');
+        console.log('🔍 DrawerNavigator: isAuthenticated:', isAuthenticated);
+        
+        if (token && isAuthenticated) {
+          const response = await fetch(`${API_URL}/users/profile`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const data = await response.json();
+          
+          console.log('🔍 DrawerNavigator: API Response:', data);
+          
+          if (data.success && data.data) {
+            setUserName(data.data.name || 'Kullanıcı');
+            setUserSurname(data.data.surname || '');
+            console.log('✅ DrawerNavigator: Kullanıcı bilgileri güncellendi:', data.data.name, data.data.surname);
+          }
+        } else {
+          console.log('⚠️ DrawerNavigator: Token veya isAuthenticated yok');
+        }
+      } catch (error) {
+        console.error('❌ DrawerNavigator: Kullanıcı bilgileri alınamadı:', error);
+      }
+    };
+
+    fetchUserInfo();
+  }, [token, isAuthenticated]);
 
   const handleNavigation = (screenName: string) => {
     // Drawer'ı kapat
@@ -50,12 +88,25 @@ const CustomDrawerContent = (props: any) => {
     navigation.navigate(screenName);
   };
 
-  const handleLogout = () => {
-    // Drawer'ı kapat
-    props.navigation.closeDrawer();
-    
-    // Login screen'e navigate et
-    navigation.navigate('Login');
+  const handleLogout = async () => {
+    try {
+      console.log('🚪 DrawerNavigator: Logout başlatılıyor');
+      
+      // Drawer'ı kapat
+      props.navigation.closeDrawer();
+      
+      // AuthContext'te logout çağır (AsyncStorage temizler ve state'i sıfırlar)
+      await logout();
+      
+      console.log('✅ DrawerNavigator: Logout başarılı, Login ekranına yönlendiriliyor');
+      
+      // Login screen'e navigate et
+      navigation.navigate('Login');
+    } catch (error) {
+      console.error('❌ DrawerNavigator: Logout hatası:', error);
+      // Hata olsa bile Login'e git
+      navigation.navigate('Login');
+    }
   };
 
   return (
@@ -73,7 +124,9 @@ const CustomDrawerContent = (props: any) => {
               resizeMode="contain"
             />
             <Text style={styles.helloText}>Merhaba,</Text>
-            <Text style={styles.nameText}>Nurullah Aydın</Text>
+            <Text style={styles.nameText}>
+              {userName} {userSurname}
+            </Text>
           </View>
           <View style={styles.menuSection}>
             <DrawerItem icon="account" label="Profil" onPress={() => handleNavigation('Profile')} />

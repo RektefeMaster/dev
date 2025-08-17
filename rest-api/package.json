@@ -6,7 +6,8 @@
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "normalize-emails": "ts-node src/scripts/normalizeEmails.ts"
+    "normalize-emails": "ts-node src/scripts/normalizeEmails.ts",
+    "addTestNotification": "ts-node src/scripts/addTestNotification.ts"
   },
   "keywords": [],
   "author": "",
