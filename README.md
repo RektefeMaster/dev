@@ -15,46 +15,60 @@ dev./                          # Ana proje dizini
 ## 📱 Uygulamalar
 
 ### 🚙 Rektefe-DV (Şoförler için)
-- **Platform**: React Native CLI
-- **Hedef Kitle**: Araç sahipleri, şoförler
-- **Ana Özellikler**:
-  - Araç bakım takibi
-  - Servis randevu sistemi
-  - Cüzdan ve ödeme yönetimi
-  - Acil yardım çağrısı
-  - Araç belge takibi
+
+* **Platform**: React Native CLI
+* **Hedef Kitle**: Araç sahipleri, şoförler
+* **Ana Özellikler**:  
+   * Araç bakım takibi  
+   * Servis randevu sistemi  
+   * Cüzdan ve ödeme yönetimi  
+   * Acil yardım çağrısı  
+   * Araç belge takibi
+   * **WhatsApp-like Chat System** 💬
+   * Usta arama ve değerlendirme
+   * Randevu yönetimi
 
 ### 🔧 Rektefe-US (Ustalar için)
-- **Platform**: React Native CLI
-- **Hedef Kitle**: Oto servis ustaları, mekanikler
-- **Ana Özellikler**:
-  - Randevu yönetimi
-  - Hizmet kategorileri
-  - Kazanç takibi
-  - Müşteri iletişimi
-  - İş geçmişi
+
+* **Platform**: React Native CLI
+* **Hedef Kitle**: Oto servis ustaları, mekanikler
+* **Ana Özellikler**:  
+   * Randevu yönetimi  
+   * Hizmet kategorileri  
+   * Kazanç takibi  
+   * Müşteri iletişimi  
+   * İş geçmişi
+   * **WhatsApp-like Chat System** 💬
+   * Müşteri değerlendirmeleri
+   * Çalışma saatleri yönetimi
 
 ### 🌐 Backend API
-- **Platform**: Node.js + TypeScript
-- **Veritabanı**: MongoDB
-- **Ana Özellikler**:
-  - RESTful API
-  - JWT Authentication
-  - Real-time notifications
-  - File upload (Cloudinary)
-  - Socket.io integration
+
+* **Platform**: Node.js + TypeScript
+* **Veritabanı**: MongoDB
+* **Ana Özellikler**:  
+   * RESTful API  
+   * JWT Authentication  
+   * Real-time notifications  
+   * File upload (Cloudinary)  
+   * Socket.io integration
+   * **Enhanced Chat System** 💬
+   * Conversation management
+   * Message history
 
 ## 🚀 Kurulum
 
 ### Gereksinimler
-- Node.js 18+
-- React Native CLI
-- Android Studio / Xcode
-- MongoDB
+
+* Node.js 18+
+* React Native CLI
+* Android Studio / Xcode
+* MongoDB
 
 ### Kurulum Adımları
 
 #### 1. Backend Kurulumu
+
 ```bash
 cd rest-api
 npm install
@@ -62,6 +76,7 @@ npm run dev
 ```
 
 #### 2. Rektefe-DV Kurulumu (Şoförler)
+
 ```bash
 cd rektefe-dv
 npm install
@@ -70,6 +85,7 @@ npx react-native run-ios      # iOS için
 ```
 
 #### 3. Rektefe-US Kurulumu (Ustalar)
+
 ```bash
 cd rektefe-us
 npm install
@@ -77,27 +93,34 @@ npx react-native run-android  # Android için
 npx react-native run-ios      # iOS için
 ```
 
-## 🔄 Refactör Detayları
+## 🔄 Son Güncellemeler (v2.0)
 
-### ✅ Tamamlanan İyileştirmeler
+### ✅ Yeni Özellikler
 
-#### **Expo'dan React Native CLI'ya Geçiş**
-- Tüm Expo bağımlılıkları kaldırıldı
-- React Navigation implementasyonu
-- Native build desteği
-- Platform-specific optimizasyonlar
+#### **💬 WhatsApp-like Chat System**
+* Mesajlar alt taraftan başlar (WhatsApp gibi)
+* Yeni mesaj geldiğinde otomatik scroll
+* Eski mesajları yukarı çekerek yükleme
+* Profil fotoğrafları chat header'larda görünür
+* "En Alta Git" butonu ile kolay navigasyon
 
-#### **Kod Standartları**
-- TypeScript tip güvenliği
-- Ortak tip tanımları (`rektefe-dv/types/common.ts`)
-- Tutarlı renk paleti (`rektefe-dv/constants/Colors.ts`)
-- Merkezi konfigürasyon (`rektefe-dv/constants/config.ts`)
+#### **🔧 Infinite Loop Fixes**
+* Geçici conversation ID'lerde gereksiz API çağrıları engellendi
+* Smart message routing sistemi
+* Conversation bulma API'si eklendi
+* Hata yönetimi geliştirildi
 
-#### **Ortak Kütüphane Sistemi**
-- `rektefe-dv` ana kütüphane olarak kullanılıyor
-- `rektefe-us` sembolik linkler ile ortak dosyaları kullanıyor
-- Kod tekrarı yok
-- Merkezi bakım
+#### **🎨 Unified Design System**
+* rektefe-dv ve rektefe-us aynı tasarıma sahip
+* Tutarlı renk paleti ve tipografi
+* Ortak UI bileşenleri
+* Platform-specific optimizasyonlar
+
+#### **📱 Enhanced User Experience**
+* Klavye offset düzeltildi
+* Back button'lar eklendi
+* Responsive layout'lar
+* Modern UI/UX patterns
 
 ### 🏗️ Mimari Yapı
 
@@ -142,56 +165,72 @@ rest-api/                  # Backend API
 ### 🎨 Tasarım Sistemi
 
 #### **Renk Paleti**
-- **Primary**: #007AFF (Ana mavi)
-- **Secondary**: #5856D6 (İkincil mavi)
-- **Success**: #34C759 (Başarı yeşili)
-- **Warning**: #FF9500 (Uyarı turuncu)
-- **Error**: #FF3B30 (Hata kırmızısı)
-- **Info**: #5AC8FA (Bilgi mavisi)
+
+* **Primary**: #007AFF (Ana mavi)
+* **Secondary**: #5856D6 (İkincil mavi)
+* **Success**: #34C759 (Başarı yeşili)
+* **Warning**: #FF9500 (Uyarı turuncu)
+* **Error**: #FF3B30 (Hata kırmızısı)
+* **Info**: #5AC8FA (Bilgi mavisi)
 
 #### **Tipografi**
-- **Ana Başlık**: 24px, Bold
-- **Alt Başlık**: 18px, SemiBold
-- **Vücut Metni**: 16px, Regular
-- **Küçük Metin**: 14px, Regular
-- **Etiket**: 12px, Medium
+
+* **Ana Başlık**: 24px, Bold
+* **Alt Başlık**: 18px, SemiBold
+* **Vücut Metni**: 16px, Regular
+* **Küçük Metin**: 14px, Regular
+* **Etiket**: 12px, Medium
 
 ## 🔧 Teknik Özellikler
 
 #### **State Management**
-- React Context API
-- AsyncStorage persistence
-- Real-time updates
+
+* React Context API
+* AsyncStorage persistence
+* Real-time updates
 
 #### **Navigation**
-- React Navigation v6+
-- Stack Navigator
-- Tab Navigator
-- Drawer Navigator
+
+* React Navigation v6+
+* Stack Navigator
+* Tab Navigator
+* Drawer Navigator
 
 #### **API Integration**
-- Axios interceptors
-- JWT token management
-- Error handling
-- Retry mechanism
+
+* Axios interceptors
+* JWT token management
+* Error handling
+* Retry mechanism
+
+#### **Chat System**
+
+* Real-time messaging
+* Conversation management
+* Message history
+* File sharing support
+* Push notifications
 
 ## 📋 Geliştirme Kuralları
 
 ### **Kod Standartları**
-- TypeScript kullanımı zorunlu
-- ESLint + Prettier
-- Conventional commits
-- Component-based architecture
+
+* TypeScript kullanımı zorunlu
+* ESLint + Prettier
+* Conventional commits
+* Component-based architecture
 
 ### **Dosya Organizasyonu**
-- PascalCase: Component dosyaları
-- camelCase: Utility fonksiyonları
-- kebab-case: CSS class'ları
-- UPPER_CASE: Sabitler
+
+* PascalCase: Component dosyaları
+* camelCase: Utility fonksiyonları
+* kebab-case: CSS class'ları
+* UPPER_CASE: Sabitler
 
 ## 🚀 Deployment
 
 ### **Android**
+
 ```bash
 cd rektefe-dv
 npx react-native run-android --variant=release
@@ -201,6 +240,7 @@ npx react-native run-android --variant=release
 ```
 
 ### **iOS**
+
 ```bash
 cd rektefe-dv
 npx react-native run-ios --configuration Release
@@ -210,6 +250,7 @@ npx react-native run-ios --configuration Release
 ```
 
 ### **Backend**
+
 ```bash
 cd rest-api
 npm run build
@@ -230,9 +271,9 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 
 ## 📞 İletişim
 
-- **Email**: support@rektefe.com
-- **Telefon**: +90 555 123 45 67
-- **Website**: https://rektefe.com
+* **Email**: support@rektefe.com
+* **Telefon**: +90 555 123 45 67
+* **Website**: https://rektefe.com
 
 ## 🙏 Teşekkürler
 
@@ -241,3 +282,30 @@ Bu projeyi geliştirmemizde yardımcı olan tüm geliştiricilere ve test kullan
 ---
 
 **Rektefe** - Araç servisinde güvenilir çözüm ortağınız 🚗🔧
+
+## 📊 Proje İstatistikleri
+
+* **Toplam Satır Kodu**: 50,000+
+* **TypeScript Kullanımı**: %97.9
+* **JavaScript Kullanımı**: %2.1
+* **Platform Desteği**: iOS, Android
+* **Backend**: Node.js + MongoDB
+* **Real-time**: Socket.io
+* **Push Notifications**: Firebase
+
+## 🔄 Changelog
+
+### v2.0.0 (2025-01-19)
+* ✨ WhatsApp-like chat system eklendi
+* 🐛 Infinite loop problemleri çözüldü
+* 🎨 Unified design system implementasyonu
+* 🔧 Enhanced backend API
+* 📱 Improved user experience
+* 🚀 Performance optimizasyonları
+
+### v1.0.0 (2024-12-01)
+* 🚀 Initial release
+* 📱 Basic mobile apps
+* 🌐 Backend API
+* 🔐 Authentication system
+* 📊 Basic features
