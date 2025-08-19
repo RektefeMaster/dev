@@ -39,7 +39,15 @@ const RegisterScreen = ({ navigation }: any) => {
     webClientId: '509841981751-k21fnh03fhdfr6kc9va2u7ftr7cpne7g.apps.googleusercontent.com',
   });
 
-  const { setToken, setUserId } = useAuth();
+  const { setTokenAndUserId, token, isAuthenticated } = useAuth();
+
+  // Giriş kontrolü
+  useEffect(() => {
+    if (token && isAuthenticated) {
+      console.log('✅ RegisterScreen: Kullanıcı zaten giriş yapmış, Main\'e yönlendiriliyor');
+      navigation.replace('Main');
+    }
+  }, [token, isAuthenticated, navigation]);
 
   useEffect(() => {
     if (response?.type === 'success') {
@@ -48,15 +56,10 @@ const RegisterScreen = ({ navigation }: any) => {
     }
   }, [response]);
 
-  const handleGoogleRegister = async (accessToken: string | undefined) => {
-    if (!accessToken) {
-      Alert.alert('Hata', 'Google kaydı başarısız oldu.');
-      return;
-    }
-
+  const handleGoogleRegister = async (accessToken: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/auth/google-register`, {
+      const response = await fetch(`${API_URL}/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accessToken }),
@@ -65,20 +68,19 @@ const RegisterScreen = ({ navigation }: any) => {
       console.log('Backend yanıtı:', data);
       if (response.ok) {
         if (data.userId && data.token) {
-          await AsyncStorage.setItem('userId', data.userId);
-          await AsyncStorage.setItem('token', data.token);
-          if (data.refreshToken) {
-            await AsyncStorage.setItem('refreshToken', data.refreshToken);
-          }
-          setToken(data.token);
-          setUserId(data.userId);
-          console.log('RegisterScreen: Token, refreshToken ve userId kaydedildi:', data.token, data.refreshToken, data.userId);
+          console.log('🔧 RegisterScreen: setTokenAndUserId çağrılıyor:', { userId: data.userId, token: !!data.token });
+          await setTokenAndUserId(data.token, data.userId);
+          console.log('✅ RegisterScreen: Token ve userId kaydedildi');
+          
+          // Token kaydedildikten sonra navigation yap
+          setTimeout(() => {
+            Alert.alert('Başarılı', 'Google ile kayıt başarılı!');
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Main' }],
+            });
+          }, 100);
         }
-        Alert.alert('Başarılı', 'Google ile kayıt başarılı!');
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Main' }],
-        });
       } else {
         Alert.alert('Hata', data.message || 'Google ile kayıt başarısız oldu.');
       }
@@ -148,20 +150,19 @@ const RegisterScreen = ({ navigation }: any) => {
       console.log('Backend yanıtı:', data);
       if (response.ok) {
         if (data.userId && data.token) {
-          await AsyncStorage.setItem('userId', data.userId);
-          await AsyncStorage.setItem('token', data.token);
-          if (data.refreshToken) {
-            await AsyncStorage.setItem('refreshToken', data.refreshToken);
-          }
-          setToken(data.token);
-          setUserId(data.userId);
-          console.log('RegisterScreen: Token, refreshToken ve userId kaydedildi:', data.token, data.refreshToken, data.userId);
+          console.log('🔧 RegisterScreen: setTokenAndUserId çağrılıyor:', { userId: data.userId, token: !!data.token });
+          await setTokenAndUserId(data.token, data.userId);
+          console.log('✅ RegisterScreen: Token ve userId kaydedildi');
+          
+          // Token kaydedildikten sonra navigation yap
+          setTimeout(() => {
+            Alert.alert('Başarılı', 'Kayıt başarılı!');
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Main' }],
+            });
+          }, 100);
         }
-        Alert.alert('Başarılı', 'Kayıt başarılı!');
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Main' }],
-        });
       } else {
         Alert.alert('Hata', data.message || 'Kayıt başarısız!');
       }

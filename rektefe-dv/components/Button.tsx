@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 import theme from '../theme/theme';
 
 export interface ButtonProps {
@@ -41,6 +42,7 @@ const Button: React.FC<ButtonProps> = ({
   textStyle,
   children,
 }) => {
+  const { isDark } = useTheme();
   const [scaleValue] = useState(new Animated.Value(1));
   const [isPressed, setIsPressed] = useState(false);
 
@@ -96,7 +98,7 @@ const Button: React.FC<ButtonProps> = ({
       },
     };
 
-    // Variant styles
+    // Variant styles with dark mode support
     const variantStyles = {
       primary: {
         backgroundColor: theme.colors.primary.main,
@@ -124,7 +126,7 @@ const Button: React.FC<ButtonProps> = ({
     // Disabled styles
     const disabledStyle = disabled ? {
       opacity: 0.5,
-      backgroundColor: theme.colors.neutral[300],
+      backgroundColor: isDark ? theme.colors.neutral[700] : theme.colors.neutral[300],
     } : {};
 
     // Full width
@@ -152,18 +154,18 @@ const Button: React.FC<ButtonProps> = ({
       lg: { fontSize: theme.typography.fontSizes.lg },
     };
 
-    // Variant-based text colors
+    // Variant-based text colors with dark mode support
     const variantTextStyles = {
       primary: { color: theme.colors.primary.contrast },
       secondary: { color: theme.colors.secondary.contrast },
       outline: { color: theme.colors.primary.main },
-      ghost: { color: theme.colors.primary.main },
+      ghost: { color: isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light },
       danger: { color: theme.colors.error.contrast },
     };
 
     // Disabled text style
     const disabledTextStyle = disabled ? {
-      color: theme.colors.text.disabled.light,
+      color: isDark ? theme.colors.text.disabled.dark : theme.colors.text.disabled.light,
     } : {};
 
     return {

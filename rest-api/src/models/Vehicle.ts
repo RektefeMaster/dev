@@ -10,6 +10,8 @@ export interface IVehicle extends Document {
   engineType: string;
   transmission: string;
   package: string;
+  color?: string;
+  mileage?: number;
   lastMaintenanceDate?: Date;
   nextMaintenanceDate?: Date;
   maintenanceHistory: Array<{
@@ -37,6 +39,8 @@ const VehicleSchema: Schema = new Schema({
   engineType: { type: String, required: true },
   transmission: { type: String, required: true },
   package: { type: String, required: true },
+  color: { type: String },
+  mileage: { type: Number },
   lastMaintenanceDate: { type: Date },
   nextMaintenanceDate: { type: Date },
   maintenanceHistory: [{

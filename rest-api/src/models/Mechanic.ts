@@ -3,10 +3,12 @@ import { IUser } from './User';
 
 export interface IMechanic extends IUser {
   // Ustaya özel alanlar
+  username: string; // Unique username
   vehicleBrands: string[]; // Bakabileceği/tamir edebileceği araç markaları
   serviceCategories: string[]; // Uzmanlık alanları (ağır bakım, alt takım, üst takım, kaporta vs.)
   experience: number;
   rating: number;
+  ratingCount: number; // Toplam puan sayısı
   totalServices: number; // Toplam yapılan iş sayısı
   isAvailable: boolean;
   currentLocation?: {
@@ -16,7 +18,6 @@ export interface IMechanic extends IUser {
   documents: {
     insurance: string;
   };
-  workingHours?: any;
   pushToken?: string;
   shopName: string;
   location: {
@@ -29,11 +30,29 @@ export interface IMechanic extends IUser {
     apartment: string;
   };
   phone: string;
+  // Gizlilik ayarları - User'dan gelen alanları override et
+  emailHidden?: boolean;
+  phoneHidden?: boolean;
+  cityHidden?: boolean;
+
+  // Araç markaları
+  carBrands?: string[];
+  
+  // Motor türleri
+  engineTypes?: string[];
+  
+  // Vites türleri
+  transmissionTypes?: string[];
+  
+  // Özel markalar
+  customBrands?: string[];
+  
+  // Çalışma saatleri
+  workingHours?: string;
 }
 
 const mechanicSchema = new Schema<IMechanic>({
   // User modelinden gelen alanlar
-  username: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   name: { type: String, required: true },
@@ -47,10 +66,8 @@ const mechanicSchema = new Schema<IMechanic>({
   followers: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   following: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   favoriteVehicle: { type: Schema.Types.ObjectId, ref: 'Vehicle', default: null },
-  emailHidden: { type: Boolean, default: false },
-  phoneHidden: { type: Boolean, default: false },
   notifications: [{
-    type: { type: String, enum: ['follow', 'like', 'comment', 'maintenance', 'campaign', 'insurance'], required: true },
+    type: { type: String, enum: ['follow', 'like', 'comment', 'maintenance', 'campaign', 'insurance', 'appointment_status_update'], required: true },
     from: { type: Schema.Types.ObjectId, ref: 'User' },
     title: String,
     message: String,
@@ -61,10 +78,12 @@ const mechanicSchema = new Schema<IMechanic>({
   createdAt: { type: Date, default: Date.now },
 
   // Ustaya özel alanlar
-  vehicleBrands: [{ type: String, required: true }], // Bakabileceği/tamir edebileceği araç markaları
-  serviceCategories: [{ type: String, required: true }], // Uzmanlık alanları
+  username: { type: String, required: true, unique: true },
+  vehicleBrands: [{ type: String, default: ['Genel'] }], // Bakabileceği/tamir edebileceği araç markaları
+  serviceCategories: [{ type: String, default: ['Genel Bakım'] }], // Uzmanlık alanları
   experience: { type: Number, default: 0 },
   rating: { type: Number, default: 0 },
+  ratingCount: { type: Number, default: 0 }, // Toplam puan sayısı
   totalServices: { type: Number, default: 0 }, // Toplam yapılan iş sayısı
   isAvailable: { type: Boolean, default: true },
   currentLocation: {
@@ -72,9 +91,9 @@ const mechanicSchema = new Schema<IMechanic>({
     coordinates: { type: [Number], default: [0, 0] }
   },
   documents: {
-    insurance: { type: String, required: true }
+    insurance: { type: String, default: 'Sigorta bilgisi eklenecek' }
   },
-  workingHours: { type: Schema.Types.Mixed, default: {} },
+  workingHours: { type: String, default: '' },
   pushToken: { type: String, default: null },
   shopName: { type: String, default: '' },
   location: {
@@ -87,6 +106,22 @@ const mechanicSchema = new Schema<IMechanic>({
     apartment: { type: String, default: '' },
   },
   phone: { type: String, default: '' },
+  // Gizlilik ayarları
+  emailHidden: { type: Boolean, default: false },
+  phoneHidden: { type: Boolean, default: false },
+  cityHidden: { type: Boolean, default: false },
+  
+  // Araç markaları
+  carBrands: [{ type: String, default: [] }],
+  
+  // Motor türleri
+  engineTypes: [{ type: String, default: [] }],
+  
+  // Vites türleri
+  transmissionTypes: [{ type: String, default: [] }],
+  
+  // Özel markalar
+  customBrands: [{ type: String, default: [] }],
 });
 
 // Konum için geospatial index

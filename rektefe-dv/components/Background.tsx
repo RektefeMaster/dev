@@ -2,6 +2,7 @@ import { BlurView } from 'expo-blur';
 import React from 'react';
 import { View, StyleSheet, ImageBackground } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../context/ThemeContext';
 import theme from '../theme/theme';
 
 interface BackgroundProps {
@@ -11,9 +12,22 @@ interface BackgroundProps {
   imageSource?: any;
 }
 
-const getGradientColors = (): readonly [string, string, string] => {
-  // Modern tema renkleri kullan
-  return [theme.colors.background.default.dark, theme.colors.background.surface.dark, theme.colors.primary.main] as const;
+const getGradientColors = (isDark: boolean): readonly [string, string, string] => {
+  if (isDark) {
+    // Koyu tema - modern gradient
+    return [
+      theme.colors.background.default.dark,
+      theme.colors.background.surface.dark,
+      theme.colors.primary.main
+    ] as const;
+  } else {
+    // Açık tema - göz yormayan, gradient benzeri renkler
+    return [
+      theme.colors.background.default.light,
+      theme.colors.background.surface.light,
+      theme.colors.primary.light
+    ] as const;
+  }
 };
 
 const Background: React.FC<BackgroundProps> = ({
@@ -22,12 +36,13 @@ const Background: React.FC<BackgroundProps> = ({
   withImage = false,
   imageSource,
 }) => {
-  const appliedColors = gradientColors || getGradientColors();
+  const { isDark } = useTheme();
+  const appliedColors = gradientColors || getGradientColors(isDark);
   
   if (withImage && imageSource) {
     return (
       <ImageBackground source={imageSource} style={styles.bg} resizeMode="cover" imageStyle={{ opacity: 0.9 }}>
-        <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill}>
+        <BlurView intensity={30} tint={isDark ? "dark" : "light"} style={StyleSheet.absoluteFill}>
           <LinearGradient colors={appliedColors as any} style={styles.bg}>
             {children}
           </LinearGradient>

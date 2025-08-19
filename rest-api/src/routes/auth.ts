@@ -1,306 +1,225 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { User, IUser } from '../models/User';
-import { Driver, IDriver } from '../models/Driver';
-import { Mechanic, IMechanic } from '../models/Mechanic';
-import mongoose from 'mongoose';
-import { IAuthUser } from '../types/auth';
+import { Router } from 'express';
 import { auth } from '../middleware/auth';
+import { validate } from '../middleware/validate';
+import { registerSchema, loginSchema } from '../validators/auth.validation';
+import { AuthController } from '../controllers/auth.controller';
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     User:
+ *       type: object
+ *       required:
+ *         - name
+ *         - surname
+ *         - email
+ *         - password
+ *       properties:
+ *         name:
+ *           type: string
+ *           description: Kullanıcının adı
+ *           example: "Ahmet"
+ *         surname:
+ *           type: string
+ *           description: Kullanıcının soyadı
+ *           example: "Yılmaz"
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: Kullanıcının e-posta adresi
+ *           example: "ahmet@example.com"
+ *         password:
+ *           type: string
+ *           description: Kullanıcının şifresi
+ *           example: "Test123!"
+ *         userType:
+ *           type: string
+ *           enum: [driver, mechanic]
+ *           description: Kullanıcı tipi
+ *           example: "mechanic"
+ *     LoginRequest:
+ *       type: object
+ *       required:
+ *         - email
+ *         - password
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: Kullanıcının e-posta adresi
+ *           example: "ahmet@example.com"
+ *         password:
+ *           type: string
+ *           description: Kullanıcının şifresi
+ *           example: "Test123!"
+ *     AuthResponse:
+ *       type: object
+ *       properties:
+ *         token:
+ *           type: string
+ *           description: JWT token
+ *         user:
+ *           $ref: '#/components/schemas/User'
+ *         message:
+ *           type: string
+ *           description: İşlem mesajı
+ */
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-interface IBaseUser {
-  _id: mongoose.Types.ObjectId;
-  name: string;
-  surname: string;
-  email: string;
-  password: string;
-}
+/**
+ * @swagger
+ * /api/auth/register:
+ *   post:
+ *     summary: Yeni kullanıcı kaydı
+ *     description: Yeni bir kullanıcı hesabı oluşturur
+ *     tags:
+ *       - Auth
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/User'
+ *     responses:
+ *       201:
+ *         description: Kayıt başarılı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Kayıt başarılı!"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     userId:
+ *                       type: string
+ *                       description: Kullanıcı ID'si
+ *                     userType:
+ *                       type: string
+ *                       enum: [driver, mechanic]
+ *                     token:
+ *                       type: string
+ *                       description: JWT access token
+ *                     refreshToken:
+ *                       type: string
+ *                       description: JWT refresh token
+ *                     user:
+ *                       $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Geçersiz veri veya e-posta zaten kayıtlı
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.post('/register', validate(registerSchema), AuthController.register);
 
-// Auth middleware artık ayrı dosyada tanımlanmış
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Kullanıcı girişi
+ *     description: Kullanıcı e-posta ve şifre ile giriş yapar
+ *     tags:
+ *       - Auth
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *           example:
+ *             email: "ahmet@example.com"
+ *             password: "Test123!"
+ *             userType: "mechanic"
+ *     responses:
+ *       200:
+ *         description: Giriş başarılı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Giriş başarılı!"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     userId:
+ *                       type: string
+ *                       description: Kullanıcı ID'si
+ *                     userType:
+ *                       type: string
+ *                       enum: [driver, mechanic]
+ *                     token:
+ *                       type: string
+ *                       description: JWT access token
+ *                     refreshToken:
+ *                       type: string
+ *                       description: JWT refresh token
+ *                     user:
+ *                       $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Geçersiz kimlik bilgileri
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.post('/login', validate(loginSchema), AuthController.login);
 
-// Routes
-router.post('/register', async (req: Request, res: Response) => {
-  console.log('Kayıt isteği alındı:', JSON.stringify(req.body, null, 2));
-  let { name, surname, email, password, userType } = req.body;
-  email = email.trim().toLowerCase();
-  
-  try {
-    // Gelen verileri kontrol et
-    if (!name || !surname || !email || !password) {
-      console.log('Eksik veri:', { name, surname, email });
-      return res.status(400).json({ 
-        message: 'Eksik veri',
-        errors: {
-          name: !name ? 'İsim zorunludur' : undefined,
-          surname: !surname ? 'Soyisim zorunludur' : undefined,
-          email: !email ? 'E-posta zorunludur' : undefined,
-          password: !password ? 'Şifre zorunludur' : undefined
-        }
-      });
-    }
+/**
+ * @swagger
+ * /api/auth/refresh-token:
+ *   post:
+ *     summary: Token yenileme
+ *     description: Refresh token ile yeni access token alır
+ *     tags:
+ *       - Auth
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - refreshToken
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *                 description: Refresh token
+ *     responses:
+ *       200:
+ *         description: Token yenilendi
+ *       401:
+ *         description: Geçersiz refresh token
+ */
+router.post('/refresh-token', AuthController.refreshToken);
 
-    // Email formatını kontrol et
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ message: 'Geçersiz e-posta formatı.' });
-    }
-
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      console.log('Kayıt başarısız: Bu e-posta zaten kayıtlı.', email);
-      return res.status(400).json({ message: 'Bu e-posta zaten kayıtlı.' });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const finalUserType = userType === 'mechanic' ? 'mechanic' : 'mechanic'; // Default mechanic
-
-    const user = new User({ 
-      name, 
-      surname, 
-      email: email.trim().toLowerCase(), 
-      password: hashedPassword, 
-      userType: finalUserType
-    });
-
-    console.log('Oluşturulacak kullanıcı:', JSON.stringify(user, null, 2));
-    await user.save();
-
-    // Mechanic olarak da ekle
-    if (finalUserType === 'mechanic') {
-      try {
-        // Username için email kullan, unique olması için timestamp ekle
-        const username = `${email.split('@')[0]}_${Date.now()}`;
-        const {
-          shopName = '',
-          phone = '',
-          location = {},
-          description = '',
-          serviceCategories = ['Genel Bakım'],
-          vehicleBrands = ['Genel'],
-          workingHours = {},
-        } = req.body;
-        const mechanic = new Mechanic({
-          _id: user._id, // aynı id ile
-          name,
-          surname,
-          email: email.trim().toLowerCase(),
-          password: hashedPassword,
-          userType: 'mechanic',
-          username: username, // unique ve zorunlu
-          shopName,
-          phone,
-          location,
-          bio: description,
-          serviceCategories,
-          vehicleBrands,
-          workingHours,
-          documents: { insurance: 'Sigorta bilgisi eklenecek' }, // dummy bir değer
-          experience: 0,
-          rating: 0,
-          totalServices: 0,
-          isAvailable: true,
-          currentLocation: {
-            type: 'Point',
-            coordinates: [0, 0]
-          }
-        });
-        
-        console.log('Oluşturulacak mechanic:', JSON.stringify(mechanic, null, 2));
-        await mechanic.save();
-        console.log('Mechanic kaydı başarılı:', mechanic._id);
-      } catch (err) {
-        console.error('Mechanic kaydı sırasında hata:', err);
-        // User kaydını sil
-        await User.findByIdAndDelete(user._id);
-        return res.status(500).json({ 
-          message: 'Mechanic kaydı sırasında hata oluştu', 
-          error: err instanceof Error ? err.message : 'Bilinmeyen hata'
-        });
-      }
-    }
-
-    const token = jwt.sign(
-      { userId: (user._id as mongoose.Types.ObjectId).toString(), userType: finalUserType },
-      JWT_SECRET
-    );
-    const refreshToken = jwt.sign(
-      { userId: (user._id as mongoose.Types.ObjectId).toString(), userType: finalUserType },
-      JWT_SECRET,
-      { expiresIn: '60d' }
-    );
-
-    console.log('Kayıt başarılı:', { name, surname, email, userType: finalUserType, userId: user._id });
-    res.status(201).json({ 
-      message: 'Kayıt başarılı!', 
-      userId: user._id, 
-      userType: finalUserType,
-      token,
-      refreshToken,
-      user
-    });
-  } catch (err) {
-    console.error('Kayıt sırasında hata:', err);
-    res.status(500).json({ 
-      message: 'Sunucu hatası.',
-      error: err instanceof Error ? err.message : 'Bilinmeyen hata'
-    });
-  }
-});
-
-router.post('/login', async (req: Request, res: Response) => {
-  console.log('Giriş isteği alındı:', req.body);
-  let { email, password, userType } = req.body;
-  email = email.trim().toLowerCase();
-  try {
-    let user: IUser | null = null;
-    let finalUserType = 'user';
-
-    // İstenen userType'a göre arama yap
-    if (userType === 'mechanic') {
-      user = await Mechanic.findOne({ email: new RegExp('^' + email + '$', 'i') });
-      if (user) finalUserType = 'mechanic';
-    } else if (userType === 'driver') {
-      user = await Driver.findOne({ email: new RegExp('^' + email + '$', 'i') });
-      if (user) finalUserType = 'driver';
-    } else {
-      user = await User.findOne({ email: new RegExp('^' + email + '$', 'i') });
-      if (user) finalUserType = user.userType;
-    }
-
-    if (!user) {
-      console.log('Kullanıcı bulunamadı:', email);
-      return res.status(400).json({ message: 'Kullanıcı bulunamadı.' });
-    }
-
-    if (!user.password) {
-      console.log('Kullanıcının şifresi yok:', email);
-      return res.status(400).json({ message: 'Kullanıcı şifresi bulunamadı.' });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      console.log('Şifre hatalı:', email);
-      return res.status(400).json({ message: 'Şifre hatalı.' });
-    }
-
-    // Süresiz token oluştur
-    const token = jwt.sign(
-      { userId: (user._id as mongoose.Types.ObjectId).toString(), userType: finalUserType },
-      JWT_SECRET
-    );
-    // Refresh token oluştur (60 gün geçerli)
-    const refreshToken = jwt.sign(
-      { userId: (user._id as mongoose.Types.ObjectId).toString(), userType: finalUserType },
-      JWT_SECRET,
-      { expiresIn: '60d' }
-    );
-
-    console.log('Giriş başarılı:', { email, userType: finalUserType, userId: user._id });
-    res.status(200).json({ 
-      message: 'Giriş başarılı!', 
-      userId: user._id, 
-      userType: finalUserType,
-      token,
-      refreshToken,
-      user
-    });
-  } catch (err) {
-    console.error('Giriş sırasında hata:', err);
-    res.status(500).json({ message: 'Sunucu hatası.' });
-  }
-});
-
-// Çıkış yapma endpoint'i
-router.post('/logout', auth, async (req: Request, res: Response) => {
-  try {
-    res.json({ message: 'Çıkış başarılı' });
-  } catch (error) {
-    console.error('Çıkış hatası:', error);
-    res.status(500).json({ message: 'Sunucu hatası' });
-  }
-});
-
-// Kullanıcı profili getirme endpoint'i artık user.ts'de tanımlanmış
-
-// Profil fotoğrafı güncelleme endpointi
-router.post('/users/profile-photo', auth, async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
-    const { photoUrl } = req.body;
-    if (!userId) {
-      return res.status(401).json({ message: 'Kullanıcı doğrulanamadı.' });
-    }
-    if (!photoUrl) {
-      return res.status(400).json({ message: 'Fotoğraf URL\'si eksik.' });
-    }
-    const updated = await User.findByIdAndUpdate(userId, { avatar: photoUrl }, { new: true });
-    if (!updated) {
-      return res.status(404).json({ message: 'Kullanıcı bulunamadı.' });
-    }
-    res.json({ message: 'Profil fotoğrafı güncellendi.', user: updated });
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Kullanıcı bilgisi güncelle - SONRA TANIMLANMALI!
-router.patch('/user/:id', auth, async (req: Request, res: Response) => {
-  try {
-    // Sadece kendi profilini güncelleyebilir
-    if (req.user?.userId !== req.params.id) {
-      return res.status(403).json({ message: 'Bu işlem için yetkiniz yok' });
-    }
-    const updated = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json(updated);
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Kapak fotoğrafı güncelleme endpointi
-router.post('/users/cover-photo', auth, async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
-    const { photoUrl } = req.body;
-    console.log('Kapak fotoğrafı güncelleme isteği:', { userId, photoUrl });
-    if (!userId) {
-      return res.status(401).json({ message: 'Fotoğraf URL\'si eksik.' });
-    }
-    if (!photoUrl) {
-      return res.status(400).json({ message: 'Fotoğraf URL\'si eksik.' });
-    }
-    const updated = await User.findByIdAndUpdate(userId, { cover: photoUrl }, { new: true });
-    console.log('Güncellenmiş kullanıcı:', updated);
-    if (!updated) {
-      return res.status(404).json({ message: 'Kullanıcı bulunamadı.' });
-    }
-    res.json({ message: 'Kapak fotoğrafı güncellendi.', user: updated });
-  } catch (error: any) {
-    console.error('Kapak fotoğrafı güncelleme hatası:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Refresh token endpointi
-router.post('/refresh-token', async (req: Request, res: Response) => {
-  const { refreshToken } = req.body;
-  if (!refreshToken) {
-    return res.status(400).json({ message: 'Refresh token gerekli.' });
-  }
-  try {
-    const decoded = jwt.verify(refreshToken, JWT_SECRET) as { userId: string; userType: string };
-    // Yeni access token üret
-    const token = jwt.sign(
-      { userId: decoded.userId, userType: decoded.userType },
-      JWT_SECRET
-    );
-    res.json({ token });
-  } catch (err) {
-    return res.status(401).json({ message: 'Geçersiz veya süresi dolmuş refresh token.' });
-  }
-});
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Kullanıcı çıkışı
+ *     description: Kullanıcı çıkış yapar
+ *     tags:
+ *       - Auth
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Çıkış başarılı
+ *       401:
+ *         description: Yetkilendirme hatası
+ */
+router.post('/logout', auth, AuthController.logout);
 
 export default router; 

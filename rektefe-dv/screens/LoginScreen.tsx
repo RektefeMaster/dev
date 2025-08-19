@@ -34,7 +34,15 @@ const LoginScreen = ({ navigation }: any) => {
     webClientId: '509841981751-k21fnh03fhdfr6kc9va2u7ftr7cpne7g.apps.googleusercontent.com',
   });
 
-  const { setToken, setUserId, setTokenAndUserId } = useAuth();
+  const { setTokenAndUserId, token, isAuthenticated } = useAuth();
+
+  // Giriş kontrolü
+  useEffect(() => {
+    if (token && isAuthenticated) {
+      console.log('✅ LoginScreen: Kullanıcı zaten giriş yapmış, Main\'e yönlendiriliyor');
+      navigation.replace('Main');
+    }
+  }, [token, isAuthenticated, navigation]);
 
   useEffect(() => {
     if (response?.type === 'success') {
@@ -58,22 +66,35 @@ const LoginScreen = ({ navigation }: any) => {
       });
       const data = await response.json();
       if (response.ok) {
-        if (data.userId && data.token) {
-          await AsyncStorage.setItem('userId', data.userId);
-          await AsyncStorage.setItem('token', data.token);
-          if (data.refreshToken) {
-            await AsyncStorage.setItem('refreshToken', data.refreshToken);
+        console.log('🔍 LoginScreen: Google backend response:', data);
+        
+        // Backend response formatı: { success: true, data: { userId, token } }
+        const userId = data.data?.userId || data.userId;
+        const token = data.data?.token || data.token;
+        
+        console.log('🔍 LoginScreen: Google extracted userId:', userId);
+        console.log('🔍 LoginScreen: Google extracted token:', !!token);
+        
+        if (userId && token) {
+          await setTokenAndUserId(token, userId);
+          if (data.data?.refreshToken || data.refreshToken) {
+            await AsyncStorage.setItem('refreshToken', data.data?.refreshToken || data.refreshToken);
           }
-          setToken(data.token);
-          setUserId(data.userId);
-          console.log('LOGIN SCREEN - TOKEN:', data.token);
-          console.log('LOGIN SCREEN - USERID:', data.userId);
+          console.log('LOGIN SCREEN - TOKEN:', token);
+          console.log('LOGIN SCREEN - USERID:', userId);
+          
+          // Token kaydedildikten sonra navigation yap
+          setTimeout(() => {
+            Alert.alert('Başarılı', 'Google ile giriş başarılı!');
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Main' }],
+            });
+          }, 100);
+        } else {
+          console.log('⚠️ LoginScreen: Google userId veya token bulunamadı');
+          Alert.alert('Hata', 'Google token bilgileri alınamadı!');
         }
-        Alert.alert('Başarılı', 'Google ile giriş başarılı!');
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Main' }],
-        });
       } else {
         Alert.alert('Hata', data.message || 'Google ile giriş başarısız oldu.');
       }
@@ -97,19 +118,33 @@ const LoginScreen = ({ navigation }: any) => {
       });
       const data = await response.json();
       if (response.ok) {
-        if (data.userId && data.token) {
-          await setTokenAndUserId(data.token, data.userId);
-          if (data.refreshToken) {
-            await AsyncStorage.setItem('refreshToken', data.refreshToken);
-          }
-          console.log('LoginScreen: Token, refreshToken ve userId kaydedildi:', data.token, data.refreshToken, data.userId);
+        console.log('🔍 LoginScreen: Backend response:', data);
+        
+        // Backend response formatı: { success: true, data: { userId, token } }
+        const userId = data.data?.userId || data.userId;
+        const token = data.data?.token || data.token;
+        
+        console.log('🔍 LoginScreen: Extracted userId:', userId);
+        console.log('🔍 LoginScreen: Extracted token:', !!token);
+        
+        if (userId && token) {
+          console.log('🔧 LoginScreen: setTokenAndUserId çağrılıyor:', { userId, token: !!token });
+          await setTokenAndUserId(token, userId);
+          console.log('✅ LoginScreen: Token ve userId kaydedildi');
           setFailedAttempts(0);
+          
+          // Token kaydedildikten sonra navigation yap
+          setTimeout(() => {
+            Alert.alert('Başarılı', 'Giriş başarılı!');
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Main' }],
+            });
+          }, 100);
+        } else {
+          console.log('⚠️ LoginScreen: userId veya token bulunamadı');
+          Alert.alert('Hata', 'Token bilgileri alınamadı!');
         }
-        Alert.alert('Başarılı', 'Giriş başarılı!');
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Main' }],
-        });
       } else if (data && data.message) {
         const newFailedAttempts = failedAttempts + 1;
         setFailedAttempts(newFailedAttempts);

@@ -15,6 +15,7 @@ import LottieView from 'lottie-react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../context/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -43,9 +44,18 @@ const slides = [
 ];
 
 const OnboardingScreen = ({ navigation }: any) => {
+  const { token, isAuthenticated } = useAuth();
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [showModal, setShowModal] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+
+  // Giriş kontrolü
+  React.useEffect(() => {
+    if (token && isAuthenticated) {
+      console.log('✅ OnboardingScreen: Kullanıcı zaten giriş yapmış, Main\'e yönlendiriliyor');
+      navigation.replace('Main');
+    }
+  }, [token, isAuthenticated, navigation]);
 
   const updateSlide = (index: number) => {
     setCurrentSlideIndex(index);

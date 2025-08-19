@@ -8,6 +8,7 @@ import { format, isBefore, addHours, differenceInHours, differenceInMinutes } fr
 import { tr } from 'date-fns/locale';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import io from 'socket.io-client';
 
 type RootStackParamList = {
   Login: undefined;
@@ -22,7 +23,7 @@ const AppointmentsScreen = () => {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeUntilAppointment, setTimeUntilAppointment] = useState<{[key: string]: number}>({});
-  const [activeTab, setActiveTab] = useState<'current' | 'past'>('current');
+  const [activeTab, setActiveTab] = useState<'current' | 'completed' | 'past'>('current');
   const [notificationSettings, setNotificationSettings] = useState({
     twoHoursBefore: true,
     oneHourBefore: true,
@@ -30,18 +31,19 @@ const AppointmentsScreen = () => {
     customTime: false,
     customMinutes: 30
   });
+  const [socket, setSocket] = useState<any>(null);
 
   const fetchAppointments = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
       if (!token) throw new Error('Token bulunamadı');
 
-      const response = await axios.get(`${API_URL}/maintenance-appointments/user`, {
+      const response = await axios.get(`${API_URL}/maintenance-appointments`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       // Randevuları tarihe göre sırala
-      const sortedAppointments = response.data.sort((a: any, b: any) => 
+      const sortedAppointments = response.data.data.sort((a: any, b: any) => 
         new Date(b.appointmentDate).getTime() - new Date(a.appointmentDate).getTime()
       );
 
@@ -62,9 +64,65 @@ const AppointmentsScreen = () => {
     }
   };
 
-  // Her dakika randevu saatlerini güncelle
+  // Socket.IO bağlantısı ve bildirim dinleme
+  useEffect(() => {
+    const newSocket = io('http://localhost:3000');
+    setSocket(newSocket);
+
+    // Kullanıcı ID'sini al ve odaya katıl
+    const joinUserRoom = async () => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (token) {
+          // Token'dan user ID'yi çıkar (JWT decode)
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const userId = payload.userId;
+          
+          newSocket.emit('join', userId);
+          console.log('Kullanıcı odasına katıldı:', userId);
+        }
+      } catch (error) {
+        console.error('Token decode hatası:', error);
+      }
+    };
+
+    joinUserRoom();
+
+    // Bildirim dinle
+    newSocket.on('notification', (notification) => {
+      console.log('Bildirim alındı:', notification);
+      
+      if (notification.type === 'appointment_status_update') {
+        // Randevu durumu güncellendi, listeyi yenile
+        fetchAppointments();
+        
+        // Kullanıcıya bildirim göster
+        const statusText = notification.status === 'confirmed' ? 'onaylandı' : 
+                          notification.status === 'rejected' ? 'reddedildi' : 'güncellendi';
+        
+        Alert.alert(
+          notification.title,
+          notification.message,
+          [
+            { text: 'Tamam', onPress: () => {} },
+            { text: 'Randevuları Görüntüle', onPress: () => setActiveTab('current') }
+          ]
+        );
+      }
+    });
+
+    return () => {
+      newSocket.close();
+    };
+  }, []);
+
+  // İlk yükleme ve her dakika randevu saatlerini güncelle
   useEffect(() => {
     fetchAppointments();
+  }, []); // Sadece component mount olduğunda çalışsın
+
+  // Her dakika randevu saatlerini güncelle
+  useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date();
       const newTimeUntilAppointment: {[key: string]: number} = {};
@@ -79,20 +137,58 @@ const AppointmentsScreen = () => {
     }, 60000); // Her dakika güncelle
 
     return () => clearInterval(interval);
-  }, [appointments]);
+  }, [appointments]); // appointments değişince sadece interval'i güncelle
+
+  // Randevu durumuna göre kategorilendirme
+  const categorizeAppointments = (appointments: any[]) => {
+    const current: any[] = [];
+    const completed: any[] = [];
+    const past: any[] = [];
+
+    appointments.forEach(appointment => {
+      const status = appointment.status;
+      const paymentStatus = appointment.paymentStatus;
+      
+      // Güncel randevular: onay bekleyen, onaylanan, devam eden
+      if (['pending', 'confirmed', 'in-progress'].includes(status)) {
+        current.push(appointment);
+      } 
+      // Tamamlanmış randevular: usta tamamladı, ödeme bekliyor, ödeme yapıldı
+      else if (['completed', 'payment_pending', 'paid'].includes(status) || 
+               (status === 'completed' && (!paymentStatus || paymentStatus === 'unpaid' || paymentStatus === 'paid'))) {
+        completed.push(appointment);
+      }
+      // Geçmiş randevular: reddedilen, iptal edilen
+      else if (['rejected', 'cancelled'].includes(status)) {
+        past.push(appointment);
+      }
+      // Diğer durumlar için varsayılan olarak geçmişe ekle
+      else {
+        past.push(appointment);
+      }
+    });
+
+    return { current, completed, past };
+  };
+
+  // Randevuları durumlarına göre kategorilendir
+  const { current, completed, past } = categorizeAppointments(appointments);
+  
+  // Debug: Tamamlanmış randevuları console'da göster
+  useEffect(() => {
+    if (activeTab === 'completed' && completed.length > 0) {
+      console.log('🔍 Tamamlanmış randevular:', completed.map(r => ({
+        id: r._id,
+        status: r.status,
+        paymentStatus: r.paymentStatus,
+        price: r.price
+      })));
+    }
+  }, [activeTab, completed]);
 
   // Randevuları filtrele
-  const filteredAppointments = appointments.filter(appointment => {
-    const appointmentDate = new Date(appointment.appointmentDate);
-    const now = new Date();
-    if (activeTab === 'current') {
-      // Sadece zamanı gelmemiş ve iptal edilmemiş randevular
-      return appointmentDate >= now && appointment.status !== 'cancelled';
-    } else {
-      // Geçmiş veya iptal edilen randevular
-      return appointmentDate < now || appointment.status === 'cancelled';
-    }
-  });
+  const filteredAppointments = activeTab === 'current' ? current : 
+                              activeTab === 'completed' ? completed : past;
 
   const handleCancelAppointment = async (appointmentId: string, appointmentDate: string) => {
     const appointmentDateTime = new Date(appointmentDate);
@@ -152,6 +248,37 @@ const AppointmentsScreen = () => {
           }
         }
       ]
+    );
+  };
+
+  const handlePayment = (appointmentId: string, mechanic: any, serviceType: string) => {
+    // Mekanik ismini populate edilmiş veriden türet: önce kullanıcı adı-soyadı, yoksa dükkan adı
+    const derivedMechanicName = mechanic?.userId
+      ? `${mechanic.userId.name || ''} ${mechanic.userId.surname || ''}`.trim()
+      : (mechanic?.shopName || 'Usta');
+
+    // Varsa backend'den gelen fiyatı kullan
+    const derivedPrice = typeof mechanic?.price === 'number' ? mechanic.price : (typeof (mechanic?.appointmentPrice) === 'number' ? mechanic.appointmentPrice : undefined);
+
+    navigation.navigate('Payment' as any, {
+      appointmentId,
+      mechanicId: mechanic?._id || mechanic,
+      mechanicName: derivedMechanicName,
+      serviceType,
+      price: typeof derivedPrice === 'number' ? derivedPrice : 0,
+    });
+  };
+
+  const handleViewDetails = (appointment: any) => {
+    // Randevu detaylarını göster
+    Alert.alert(
+      'Randevu Detayları',
+      `Hizmet: ${getServiceTypeName(appointment.serviceType)}\n` +
+      `Tarih: ${format(new Date(appointment.appointmentDate), 'dd MMMM yyyy HH:mm', { locale: tr })}\n` +
+      `Araç: ${appointment.vehicleId?.brand} ${appointment.vehicleId?.modelName} (${appointment.vehicleId?.plateNumber})\n` +
+      `Usta: ${appointment.mechanicId?.name}\n` +
+      `Ücret: ₺${appointment.price || 0}\n` +
+      `Notlar: ${appointment.mechanicNotes || 'Not yok'}`
     );
   };
 
@@ -289,6 +416,45 @@ const AppointmentsScreen = () => {
     const canCancel = minutesUntilAppointment >= 60;
     const isPast = appointmentDate < new Date();
 
+    // Randevu durumu için renk ve metin
+    const getStatusInfo = (status: string, paymentStatus?: string) => {
+      // Önce payment status'a bak, sonra general status'a bak
+      if (paymentStatus === 'paid') {
+        return { color: '#34C759', text: 'Ödeme Tamamlandı', icon: 'check-circle' };
+      }
+      
+      switch (status) {
+        case 'pending':
+          return { color: '#FF9500', text: 'Onay Bekleniyor...', icon: 'clock-outline' };
+        case 'confirmed':
+          return { color: '#34C759', text: 'Onaylandı', icon: 'check-circle' };
+        case 'in-progress':
+          return { color: '#007AFF', text: 'İşlemde', icon: 'wrench' };
+        case 'payment_pending':
+          // Eğer ödeme yapılmışsa "Ödeme Tamamlandı" göster
+          if (paymentStatus === 'paid') {
+            return { color: '#34C759', text: 'Ödeme Tamamlandı', icon: 'check-circle' };
+          }
+          return { color: '#FF9500', text: 'Ödeme Bekliyor', icon: 'currency-try' };
+        case 'completed':
+          // Eğer status completed ama paymentStatus yoksa veya unpaid ise
+          if (!paymentStatus || paymentStatus === 'unpaid') {
+            return { color: '#FF9500', text: 'Ödeme Bekliyor', icon: 'currency-try' };
+          }
+          return { color: '#34C759', text: 'Tamamlandı', icon: 'check-circle' };
+        case 'paid':
+          return { color: '#34C759', text: 'Ödeme Tamamlandı', icon: 'check-circle' };
+        case 'cancelled':
+          return { color: '#FF3B30', text: 'İptal Edildi', icon: 'close-circle' };
+        case 'rejected':
+          return { color: '#FF3B30', text: 'Reddedildi', icon: 'close-circle' };
+        default:
+          return { color: '#8E8E93', text: 'Bilinmiyor', icon: 'help-circle' };
+      }
+    };
+
+    const statusInfo = getStatusInfo(item.status, item.paymentStatus);
+
     return (
       <View style={styles.appointmentCard}>
         <View style={styles.appointmentHeader}>
@@ -300,26 +466,16 @@ const AppointmentsScreen = () => {
           <Text style={styles.serviceType}>
             {getServiceTypeName(item.serviceType)}
           </Text>
-          {item.status === 'pending' && !isPast && (
-            <Text style={styles.statusPending}>
-              Beklemede
+          <View style={[styles.statusBadge, { backgroundColor: statusInfo.color }]}>
+            <MaterialCommunityIcons 
+              name={statusInfo.icon as any} 
+              size={16} 
+              color="white" 
+            />
+            <Text style={styles.statusText}>
+              {statusInfo.text}
             </Text>
-          )}
-          {item.status === 'confirmed' && (
-            <Text style={styles.statusConfirmed}>
-              Onaylandı
-            </Text>
-          )}
-          {item.status === 'completed' && (
-            <Text style={styles.statusCompleted}>
-              Tamamlandı
-            </Text>
-          )}
-          {item.status === 'cancelled' && (
-            <Text style={styles.statusCancelled}>
-              İptal Edildi
-            </Text>
-          )}
+          </View>
         </View>
 
         <View style={styles.appointmentDetails}>
@@ -359,6 +515,24 @@ const AppointmentsScreen = () => {
             <View style={styles.detailRow}>
               <MaterialCommunityIcons name="note-text" size={20} color="#666" />
               <Text style={styles.notes}>{item.notes}</Text>
+            </View>
+          )}
+
+          {item.rejectionReason && (
+            <View style={styles.detailRow}>
+              <MaterialCommunityIcons name="close-circle" size={20} color="#FF3B30" />
+              <Text style={[styles.notes, { color: '#FF3B30' }]}>
+                Red Sebebi: {item.rejectionReason}
+              </Text>
+            </View>
+          )}
+
+          {item.mechanicNotes && (
+            <View style={styles.detailRow}>
+              <MaterialCommunityIcons name="account-wrench" size={20} color="#007AFF" />
+              <Text style={[styles.notes, { color: '#007AFF' }]}>
+                Usta Notu: {item.mechanicNotes}
+              </Text>
             </View>
           )}
 
@@ -412,6 +586,48 @@ const AppointmentsScreen = () => {
           </View>
         )}
 
+        {/* Ödeme butonu sadece tamamlanmış randevular tab'ında gösteriliyor */}
+        {/* Tamamlanmış randevular tab'ında butonlar */}
+        {activeTab === 'completed' && (
+          <View style={styles.buttonContainer}>
+
+            {/* Ödeme yapılmamışsa ödeme butonu göster */}
+            {/* Ödeme bekleyen randevular için ödeme butonu göster */}
+            {((item.status === 'completed' && (!item.paymentStatus || item.paymentStatus === 'unpaid')) || 
+              (item.status === 'payment_pending' && item.paymentStatus !== 'paid')) && (
+              <TouchableOpacity
+                style={styles.paymentButton}
+                onPress={() => handlePayment(item._id, item.mechanicId, item.serviceType)}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="credit-card" size={22} color="#FFFFFF" />
+                <Text style={styles.paymentButtonText}>Ödeme Yap</Text>
+              </TouchableOpacity>
+            )}
+            
+            {/* Ödeme yapılmışsa ödeme detayı göster */}
+            {((item.status === 'completed' && item.paymentStatus === 'paid') || 
+              item.status === 'paid' || item.paymentStatus === 'paid') && (
+              <View style={styles.paymentInfoContainer}>
+                <MaterialCommunityIcons name="check-circle" size={22} color="#10B981" />
+                <Text style={styles.paymentInfoText}>Ödeme Tamamlandı</Text>
+                <Text style={styles.paymentDateText}>
+                  {item.paymentDate ? format(new Date(item.paymentDate), 'dd.MM.yyyy HH:mm', { locale: tr }) : 'Tarih bilgisi yok'}
+                </Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={styles.detailButton}
+              onPress={() => handleViewDetails(item)}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="eye" size={22} color="#3B82F6" />
+              <Text style={styles.detailButtonText}>Detay Gör</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {(activeTab === 'past' && (isPast || item.status === 'cancelled')) && (
           <TouchableOpacity
             style={styles.deleteButton}
@@ -456,7 +672,21 @@ const AppointmentsScreen = () => {
             color={activeTab === 'current' ? '#007AFF' : '#666'} 
           />
           <Text style={[styles.tabText, activeTab === 'current' && styles.activeTabText]}>
-            Güncel Randevular
+            Güncel ({current.length})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'completed' && styles.activeTab]}
+          onPress={() => setActiveTab('completed')}
+        >
+          <MaterialCommunityIcons 
+            name="check-circle" 
+            size={20} 
+            color={activeTab === 'completed' ? '#007AFF' : '#666'} 
+          />
+          <Text style={[styles.tabText, activeTab === 'completed' && styles.activeTabText]}>
+            Tamamlanmış ({completed.length})
           </Text>
         </TouchableOpacity>
 
@@ -470,7 +700,7 @@ const AppointmentsScreen = () => {
             color={activeTab === 'past' ? '#007AFF' : '#666'} 
           />
           <Text style={[styles.tabText, activeTab === 'past' && styles.activeTabText]}>
-            Geçmiş Randevular
+            Geçmiş ({past.length})
           </Text>
         </TouchableOpacity>
       </View>
@@ -483,13 +713,15 @@ const AppointmentsScreen = () => {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <MaterialCommunityIcons 
-              name={activeTab === 'current' ? 'calendar-blank' : 'history'} 
+              name={activeTab === 'current' ? 'calendar-blank' : activeTab === 'completed' ? 'check-circle' : 'history'} 
               size={48} 
               color="#999" 
             />
             <Text style={styles.emptyText}>
               {activeTab === 'current' 
                 ? 'Henüz güncel randevunuz bulunmuyor'
+                : activeTab === 'completed'
+                ? 'Henüz tamamlanmış randevunuz bulunmuyor'
                 : 'Geçmiş randevunuz bulunmuyor'}
             </Text>
           </View>
@@ -572,6 +804,20 @@ const styles = StyleSheet.create({
   statusCancelled: {
     backgroundColor: '#FFEBEE',
     color: '#FF3B30',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 'auto',
+  },
+  statusText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   appointmentDetails: {
     marginBottom: 12,
@@ -690,9 +936,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
     marginHorizontal: 4,
     borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   activeTab: {
     backgroundColor: '#E3F2FD',
@@ -724,6 +971,92 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontSize: 14,
     fontWeight: '500',
+  },
+  
+  // Button Container
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  
+  // Payment Button
+  paymentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#059669',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 16,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  paymentButtonText: {
+    color: '#FFFFFF',
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  
+  // Detail Button
+  detailButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 12,
+    borderWidth: 2,
+    borderColor: '#3B82F6',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  detailButtonText: {
+    color: '#3B82F6',
+    fontSize: 16,
+    fontWeight: '700',
+    marginLeft: 8,
+    letterSpacing: 0.3,
+  },
+  
+  // Payment Info Container
+  paymentInfoContainer: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0FDF4',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#10B981',
+    flex: 1,
+    marginRight: 12,
+  },
+  paymentInfoText: {
+    color: '#065F46',
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  paymentDateText: {
+    color: '#047857',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+    textAlign: 'center',
   },
 });
 

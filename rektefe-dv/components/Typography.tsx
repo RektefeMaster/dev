@@ -1,5 +1,6 @@
 import React from 'react';
 import { Text, TextStyle, StyleSheet, TextProps } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 import theme from '../theme/theme';
 
 export interface TypographyProps extends TextProps {
@@ -36,6 +37,8 @@ const Typography: React.FC<TypographyProps> = ({
   children,
   ...props
 }) => {
+  const { isDark } = useTheme();
+
   const getTypographyStyle = (): TextStyle => {
     // Variant-based styles
     const variantStyles: Record<string, TextStyle> = {
@@ -119,18 +122,18 @@ const Typography: React.FC<TypographyProps> = ({
       fontWeight: theme.typography.fontWeights[weight],
     } : {};
 
-    // Color styles
+    // Color styles with dark mode support
     const colorStyles = {
-      primary: { color: theme.colors.text.primary.light },
-      secondary: { color: theme.colors.text.secondary.light },
+      primary: { color: isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light },
+      secondary: { color: isDark ? theme.colors.text.secondary.dark : theme.colors.text.secondary.light },
       success: { color: theme.colors.success.main },
       warning: { color: theme.colors.warning.main },
       error: { color: theme.colors.error.main },
       info: { color: theme.colors.primary.main },
-      light: { color: theme.colors.text.primary.light },
-      dark: { color: theme.colors.text.primary.dark },
-      white: { color: theme.colors.text.inverse.light },
-      custom: { color: customColor || theme.colors.text.primary.light },
+      light: { color: isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light },
+      dark: { color: isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light },
+      white: { color: isDark ? theme.colors.text.inverse.dark : theme.colors.text.inverse.light },
+      custom: { color: customColor || (isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light) },
     };
 
     // Alignment

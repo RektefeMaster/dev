@@ -6,6 +6,7 @@ import guidesData from './guides.json';
 import { API_URL } from '../constants/config';
 import Background from '../components/Background';
 import LottieView from 'lottie-react-native';
+import { useTheme } from '../context/ThemeContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -58,6 +59,7 @@ const GUIDES = [
 ];
 
 const SupportScreen = () => {
+  const { theme } = useTheme();
   const [openIndex, setOpenIndex] = useState(-1);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -125,8 +127,8 @@ const SupportScreen = () => {
     <SafeAreaView style={{flex:1}}>
       <Background>
         <ScrollView style={{flex:1}} contentContainerStyle={{padding: 20, paddingBottom: 100}} showsVerticalScrollIndicator={false}>
-          <Text style={styles.title}>Destek & Yardım</Text>
-          <Text style={styles.subtitle}>Sık Sorulan Sorular</Text>
+          <Text style={[styles.title, { color: theme.colors.text }]}>Destek & Yardım</Text>
+          <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>Sık Sorulan Sorular</Text>
           <TextInput
             style={[styles.input, { marginBottom: 16 }]}
             placeholder="SSS'de ara..."
@@ -149,7 +151,7 @@ const SupportScreen = () => {
             ))}
           </View>
 
-          <Text style={styles.subtitle}>Kısa Rehberler</Text>
+          <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>Kısa Rehberler</Text>
           <TextInput
             style={[styles.input, { marginBottom: 16 }]}
             placeholder="Rehberlerde ara..."
@@ -166,7 +168,7 @@ const SupportScreen = () => {
             ))}
           </View>
 
-          <Text style={styles.subtitle}>Bize Ulaşın</Text>
+          <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>Bize Ulaşın</Text>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{flex: 1}}>
             <View style={styles.contactFormBox}>
               <TextInput
@@ -211,7 +213,7 @@ const SupportScreen = () => {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.subtitle}>Canlı Destek</Text>
+          <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>Canlı Destek</Text>
           <TouchableOpacity style={styles.liveButton} onPress={() => Linking.openURL('https://wa.me/905555555555')}>
             <MaterialCommunityIcons name="whatsapp" size={24} color="#fff" />
             <Text style={styles.liveButtonText}>WhatsApp ile Canlı Destek</Text>

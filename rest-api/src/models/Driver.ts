@@ -7,7 +7,6 @@ export interface IDriver extends IUser {
 
 const driverSchema = new Schema<IDriver>({
   // User modelinden gelen alanlar
-  username: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   name: { type: String, required: true },

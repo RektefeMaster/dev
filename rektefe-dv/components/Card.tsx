@@ -8,6 +8,7 @@ import {
   Dimensions,
   Text,
 } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 import theme from '../theme/theme';
 
 export interface CardProps {
@@ -45,6 +46,7 @@ const Card: React.FC<CardProps> = ({
   fullWidth = false,
   animated = true,
 }) => {
+  const { isDark } = useTheme();
   const [scaleValue] = useState(new Animated.Value(1));
   const [elevationValue] = useState(new Animated.Value(0));
 
@@ -103,26 +105,26 @@ const Card: React.FC<CardProps> = ({
       },
     };
 
-    // Variant styles
+    // Variant styles with dark mode support
     const variantStyles = {
       default: {
-        backgroundColor: backgroundColor || theme.colors.background.elevated.light,
+        backgroundColor: backgroundColor || (isDark ? theme.colors.background.card.dark : theme.colors.background.card.light),
         borderWidth: 0,
         ...theme.shadows[shadow],
       },
       elevated: {
-        backgroundColor: backgroundColor || theme.colors.background.elevated.light,
+        backgroundColor: backgroundColor || (isDark ? theme.colors.background.elevated.dark : theme.colors.background.elevated.light),
         borderWidth: 0,
         ...theme.shadows.lg,
       },
       outlined: {
-        backgroundColor: backgroundColor || theme.colors.background.default.light,
+        backgroundColor: backgroundColor || (isDark ? theme.colors.background.default.dark : theme.colors.background.default.light),
         borderWidth: 1,
-        borderColor: borderColor || theme.colors.border.light,
+        borderColor: borderColor || (isDark ? theme.colors.border.dark : theme.colors.border.light),
         ...theme.shadows.none,
       },
       filled: {
-        backgroundColor: backgroundColor || theme.colors.background.surface.light,
+        backgroundColor: backgroundColor || (isDark ? theme.colors.background.surface.dark : theme.colors.background.surface.light),
         borderWidth: 0,
         ...theme.shadows.xs,
       },
@@ -204,18 +206,28 @@ export const CardHeader: React.FC<{
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   style?: ViewStyle;
-}> = ({ title, subtitle, leftIcon, rightIcon, style }) => (
-  <View style={[styles.header, style]}>
-    <View style={styles.headerLeft}>
-      {leftIcon && <View style={styles.headerIcon}>{leftIcon}</View>}
-      <View style={styles.headerText}>
-        <Text style={styles.headerTitle}>{title}</Text>
-        {subtitle && <Text style={styles.headerSubtitle}>{subtitle}</Text>}
+}> = ({ title, subtitle, leftIcon, rightIcon, style }) => {
+  const { isDark } = useTheme();
+  
+  return (
+    <View style={[styles.header, style]}>
+      <View style={styles.headerLeft}>
+        {leftIcon && <View style={styles.headerIcon}>{leftIcon}</View>}
+        <View style={styles.headerText}>
+          <Text style={[styles.headerTitle, { color: isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light }]}>
+            {title}
+          </Text>
+          {subtitle && (
+            <Text style={[styles.headerSubtitle, { color: isDark ? theme.colors.text.secondary.dark : theme.colors.text.secondary.light }]}>
+              {subtitle}
+            </Text>
+          )}
+        </View>
       </View>
+      {rightIcon && <View style={styles.headerRight}>{rightIcon}</View>}
     </View>
-    {rightIcon && <View style={styles.headerRight}>{rightIcon}</View>}
-  </View>
-);
+  );
+};
 
 // Card Content Component
 export const CardContent: React.FC<{
@@ -231,11 +243,15 @@ export const CardContent: React.FC<{
 export const CardFooter: React.FC<{
   children: React.ReactNode;
   style?: ViewStyle;
-}> = ({ children, style }) => (
-  <View style={[styles.footer, style]}>
-    {children}
-  </View>
-);
+}> = ({ children, style }) => {
+  const { isDark } = useTheme();
+  
+  return (
+    <View style={[styles.footer, style, { borderTopColor: isDark ? theme.colors.divider.dark : theme.colors.divider.light }]}>
+      {children}
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   header: {
@@ -260,12 +276,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: theme.typography.fontSizes.lg,
     fontWeight: theme.typography.fontWeights.semibold,
-    color: theme.colors.text.primary.light,
     marginBottom: 2,
   },
   headerSubtitle: {
     fontSize: theme.typography.fontSizes.sm,
-    color: theme.colors.text.secondary.light,
   },
   headerRight: {
     marginLeft: theme.spacing.sm,
@@ -279,7 +293,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: theme.spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.divider.light,
   },
 });
 

@@ -9,7 +9,7 @@ import { CampaignCarousel } from './HomeScreen/components/CampaignCarousel';
 import { ServicesGrid } from './HomeScreen/components/ServicesGrid';
 import { UpdateCardModal } from './HomeScreen/components/UpdateCardModal';
 import { AdDetailModal } from './HomeScreen/components/AdDetailModal';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import ErrorState from '../components/ErrorState';
 import NoDataCard from '../components/NoDataCard';
@@ -76,8 +76,12 @@ const HomeScreen = () => {
   };
 
   const handleCardPress = (card: any) => {
-    setSelectedCard(card);
-    setShowUpdateModal(true);
+    if (card.title === 'Usta Ara') {
+      navigation.navigate('MechanicSearch');
+    } else {
+      setSelectedCard(card);
+      setShowUpdateModal(true);
+    }
   };
 
   const handleCardUpdate = (value: string) => {
@@ -175,6 +179,13 @@ const HomeScreen = () => {
                   icon: 'tire',
                   color: theme.colors.error.main,
                   isClickable: !!tireStatus,
+                },
+                {
+                  title: 'Usta Ara',
+                  value: 'Randevu al',
+                  icon: 'account-wrench',
+                  color: theme.colors.secondary.main,
+                  isClickable: true,
                 },
               ]} 
               onCardPress={handleCardPress} 
