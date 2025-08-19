@@ -30,6 +30,22 @@ router.get('/me', auth, MechanicController.getProfile);
 
 /**
  * @swagger
+ * /api/mechanic/list:
+ *   get:
+ *     summary: Tüm mekanikleri listele
+ *     description: Sistemdeki tüm mekanikleri listeler
+ *     tags:
+ *       - Mechanic
+ *     responses:
+ *       200:
+ *         description: Mekanikler başarıyla getirildi
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/list', MechanicController.getAllMechanics);
+
+/**
+ * @swagger
  * /api/mechanic/me:
  *   put:
  *     summary: Mekanik profilini güncelle
@@ -268,5 +284,31 @@ router.get('/city/:city', MechanicController.getMechanicsByCity);
  *         description: Sunucu hatası
  */
 router.get('/specialization/:specialization', MechanicController.getMechanicsBySpecialization);
+
+/**
+ * @swagger
+ * /api/mechanic/details/{mechanicId}:
+ *   get:
+ *     summary: Mekanik detaylarını getir
+ *     description: Mekaniğin detaylı bilgilerini, rating'lerini, yorumlarını ve iş sayısını getirir
+ *     tags:
+ *       - Mechanic
+ *     parameters:
+ *       - in: path
+ *         name: mechanicId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Mekanik ID'si
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Mekanik detayları başarıyla getirildi
+ *       404:
+ *         description: Mekanik bulunamadı
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/details/:mechanicId', MechanicController.getMechanicDetails);
 
 export default router; 

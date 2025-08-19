@@ -16,8 +16,21 @@ export class AuthService {
     email: string;
     password: string;
     userType?: 'driver' | 'mechanic';
+    phone?: string;
+    experience?: number;
+    specialties?: string[];
+    location?: {
+      address?: string;
+      city?: string;
+      district?: string;
+      neighborhood?: string;
+      street?: string;
+      building?: string;
+      floor?: string;
+      apartment?: string;
+    };
   }) {
-    const { name, surname, email, password, userType } = userData;
+    const { name, surname, email, password, userType, phone, experience, specialties, location } = userData;
     
     // Email'i normalize et
     const normalizedEmail = email.trim().toLowerCase();
@@ -40,7 +53,8 @@ export class AuthService {
       surname, 
       email: normalizedEmail, 
       password: hashedPassword, 
-      userType: finalUserType
+      userType: finalUserType,
+      phone: phone || ''
     });
 
     await user.save();
@@ -48,8 +62,10 @@ export class AuthService {
     // Mechanic ise Mechanic model'ine de ekle
     if (finalUserType === 'mechanic') {
       try {
+        console.log('Mechanic kaydı başlıyor...');
         const username = `${normalizedEmail.split('@')[0]}_${Date.now()}`;
-        const mechanic = new Mechanic({
+        
+        const mechanicData = {
           _id: user._id,
           name,
           surname,
@@ -58,14 +74,24 @@ export class AuthService {
           userType: 'mechanic',
           username,
           shopName: '',
-          phone: '',
-          location: {},
+          phone: phone || '',
+          location: {
+            city: location?.city || '',
+            district: location?.district || '',
+            neighborhood: location?.neighborhood || '',
+            street: location?.street || '',
+            building: location?.building || '',
+            floor: location?.floor || '',
+            apartment: location?.apartment || ''
+          },
           bio: '',
-          serviceCategories: ['Genel Bakım'],
+          serviceCategories: specialties || ['Genel Bakım'],
           vehicleBrands: ['Genel'],
           workingHours: {},
-          documents: { insurance: 'Sigorta bilgisi eklenecek' },
-          experience: 0,
+          documents: { 
+            insurance: 'Sigorta bilgisi eklenecek' 
+          },
+          experience: experience || 0,
           rating: 0,
           totalServices: 0,
           isAvailable: true,
@@ -73,13 +99,32 @@ export class AuthService {
             type: 'Point',
             coordinates: [0, 0]
           }
-        });
+        };
+        
+        console.log('Mechanic data:', JSON.stringify(mechanicData, null, 2));
+        
+        const mechanic = new Mechanic(mechanicData);
+        console.log('Mechanic instance oluşturuldu');
+        
+        const validationError = mechanic.validateSync();
+        if (validationError) {
+          console.error('Mechanic validation hatası:', validationError);
+          throw new Error(`Validation hatası: ${validationError.message}`);
+        }
         
         await mechanic.save();
+        console.log('Mechanic kaydedildi');
       } catch (err) {
+        console.error('Mechanic kayıt hatası detayı:', err);
+        if (err instanceof Error) {
+          console.error('Hata stack:', err.stack);
+          console.error('Hata message:', err.message);
+        }
+        
         // Mechanic kaydı başarısız olursa User'ı da sil
         await User.findByIdAndDelete(user._id);
-        throw new CustomError('Mechanic kaydı sırasında hata oluştu', 500);
+        const errorMessage = err instanceof Error ? err.message : 'Bilinmeyen hata';
+        throw new CustomError(`Mechanic kaydı sırasında hata oluştu: ${errorMessage}`, 500);
       }
     }
 

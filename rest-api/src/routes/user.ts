@@ -521,4 +521,75 @@ router.get('/:userId', auth, async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/users/push-token:
+ *   post:
+ *     summary: Push notification token'ı kaydet
+ *     description: Kullanıcının push notification token'ını kaydeder
+ *     tags:
+ *       - Users
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *               - pushToken
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 description: Kullanıcı ID'si
+ *               pushToken:
+ *                 type: string
+ *                 description: Expo push token
+ *               platform:
+ *                 type: string
+ *                 enum: [ios, android, web]
+ *                 description: Platform bilgisi
+ *     responses:
+ *       200:
+ *         description: Push token başarıyla kaydedildi
+ *       400:
+ *         description: Geçersiz veri
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.post('/push-token', async (req: Request, res: Response) => {
+  try {
+    const { userId, pushToken, platform } = req.body;
+    
+    if (!userId || !pushToken) {
+      return ResponseHandler.badRequest(res, 'Kullanıcı ID ve push token gerekli.');
+    }
+    
+    // Kullanıcıyı bul ve push token'ı kaydet
+    const user = await User.findById(userId);
+    if (!user) {
+      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    }
+    
+    // Push token bilgilerini kaydet
+    user.pushToken = pushToken;
+    user.platform = platform || 'ios';
+    user.lastTokenUpdate = new Date();
+    
+    await user.save();
+    
+    console.log(`✅ Push token kaydedildi: ${userId} - ${platform}`);
+    
+    return ResponseHandler.success(res, { 
+      message: 'Push token başarıyla kaydedildi',
+      userId,
+      platform 
+    }, 'Push token kaydedildi');
+    
+  } catch (error) {
+    console.error('Push token kaydetme hatası:', error);
+    return ResponseHandler.error(res, 'Push token kaydedilirken hata oluştu');
+  }
+});
+
 export default router; 

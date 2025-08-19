@@ -23,6 +23,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import io from 'socket.io-client';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { useTheme } from '../../../context/ThemeContext';
 
 interface GreetingHeaderProps {
   userName: string;
@@ -81,6 +82,7 @@ const getNotificationIcon = (type: string) => {
 
 export const GreetingHeader: React.FC<GreetingHeaderProps> = ({ userName, favoriteCar }) => {
   const navigation = useNavigation<DrawerNavigationProp<any>>();
+  const { theme } = useTheme();
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -492,8 +494,8 @@ export const GreetingHeader: React.FC<GreetingHeaderProps> = ({ userName, favori
 
       {/* Greeting */}
       <View style={styles.greetingContainer}>
-        <Text style={styles.greeting}>{getGreeting(userName)} 👋</Text>
-        <Text style={styles.subtitle}>Bugün size nasıl yardımcı olabiliriz?</Text>
+        <Text style={[styles.greeting, { color: theme.colors.text }]}>{getGreeting(userName)} 👋</Text>
+        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>Bugün size nasıl yardımcı olabiliriz?</Text>
       </View>
 
       {/* Favorite Car */}

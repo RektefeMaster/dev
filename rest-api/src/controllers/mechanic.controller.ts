@@ -21,6 +21,14 @@ export class MechanicController {
       return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
     }
 
+    console.log('🔒 Gizlilik ayarları güncelleniyor:', {
+      userId,
+      body: req.body,
+      phoneHidden: req.body.phoneHidden,
+      emailHidden: req.body.emailHidden,
+      cityHidden: req.body.cityHidden
+    });
+
     const mechanic = await MechanicService.createOrUpdateProfile(req.body, userId);
     return ResponseHandler.updated(res, mechanic, 'Mekanik profili başarıyla güncellendi');
   });
@@ -136,5 +144,19 @@ export class MechanicController {
 
     // Bu endpoint için daha sonra istatistik servisi eklenebilir
     return ResponseHandler.success(res, { message: 'İstatistikler yakında eklenecek' }, 'İstatistikler getirildi');
+  });
+
+  /**
+   * Mekanik detaylarını getir (rating, yorumlar, iş sayısı dahil)
+   */
+  static getMechanicDetails = asyncHandler(async (req: Request, res: Response) => {
+    const { mechanicId } = req.params;
+    
+    if (!mechanicId) {
+      return ResponseHandler.badRequest(res, 'Mekanik ID parametresi gerekli');
+    }
+
+    const mechanicDetails = await MechanicService.getMechanicDetails(mechanicId);
+    return ResponseHandler.success(res, mechanicDetails, 'Mekanik detayları başarıyla getirildi');
   });
 }

@@ -21,6 +21,14 @@ import GarageScreen from '../screens/GarageScreen';
 import SupportScreen from '../screens/SupportScreen';
 import TefeWalletScreen from '../screens/TefeWalletScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import MechanicSearchScreen from '../screens/MechanicSearchScreen';
+import BookAppointmentScreen from '../screens/BookAppointmentScreen';
+import PaymentScreen from '../screens/PaymentScreen';
+import MechanicDetailScreen from '../screens/MechanicDetailScreen';
+import MessagesScreen from '../screens/MessagesScreen';
+import ChatScreen from '../screens/ChatScreen';
+import NewMessageScreen from '../screens/NewMessageScreen';
+import { MyRatingsScreen } from '../screens/MyRatingsScreen';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -47,6 +55,47 @@ export type RootStackParamList = {
   Settings: undefined;
   Favorites: undefined;
   DeleteAccount: undefined;
+  MechanicSearch: undefined;
+  MechanicDetail: {
+    mechanic: {
+      id: string;
+      name: string;
+      surname: string;
+      rating: number;
+      experience: number;
+      totalJobs: number;
+      specialties: string[];
+      city: string;
+      isAvailable: boolean;
+      avatar?: string;
+      bio?: string;
+    };
+  };
+  BookAppointment: {
+    mechanicId: string;
+    mechanicName: string;
+    mechanicSurname: string;
+  };
+  Payment: {
+    appointmentId: string;
+    mechanicId: string;
+    mechanicName: string;
+    serviceType: string;
+    price: number;
+  };
+  Messages: undefined;
+  NewMessage: undefined;
+  ChatScreen: {
+    conversationId: string;
+    otherParticipant: {
+      _id: string;
+      name: string;
+      surname: string;
+      avatar?: string;
+      userType: string;
+    };
+  };
+  MyRatings: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -98,6 +147,14 @@ const AppNavigator = () => {
         <Stack.Screen name="Support" component={SupportScreen} />
         <Stack.Screen name="TefeWallet" component={TefeWalletScreen} />
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
+        <Stack.Screen name="MechanicSearch" component={MechanicSearchScreen} />
+        <Stack.Screen name="BookAppointment" component={BookAppointmentScreen} />
+        <Stack.Screen name="Payment" component={PaymentScreen} />
+        <Stack.Screen name="MechanicDetail" component={MechanicDetailScreen} />
+        <Stack.Screen name="Messages" component={MessagesScreen} />
+        <Stack.Screen name="NewMessage" component={NewMessageScreen} />
+        <Stack.Screen name="ChatScreen" component={ChatScreen} />
+        <Stack.Screen name="MyRatings" component={MyRatingsScreen} />
         
         {/* Placeholder screens for missing functionality */}
         <Stack.Screen 

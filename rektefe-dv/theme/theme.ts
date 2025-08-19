@@ -6,107 +6,144 @@ export const theme = {
   colors: {
     // Modern, göz yormayan renk paleti
     primary: {
-      main: '#0A84FF', // iOS Blue - daha yumuşak
-      light: '#5AC8FA', // Açık mavi
-      dark: '#0051D5', // Koyu mavi
+      main: '#6366F1', // Modern Indigo
+      light: '#A5B4FC',
+      dark: '#4338CA',
       contrast: '#FFFFFF',
-      surface: 'rgba(10, 132, 255, 0.1)', // Yarı şeffaf yüzey
+      surface: 'rgba(99, 102, 241, 0.08)',
+      gradient: ['#6366F1', '#8B5CF6'],
     },
     secondary: {
-      main: '#5AC8FA', // Açık mavi
-      light: '#8ED9FB', // Çok açık mavi
-      dark: '#2B9CDB', // Koyu mavi
+      main: '#10B981', // Emerald Green
+      light: '#6EE7B7',
+      dark: '#059669',
       contrast: '#FFFFFF',
-      surface: 'rgba(90, 200, 250, 0.1)',
+      surface: 'rgba(16, 185, 129, 0.08)',
+      gradient: ['#10B981', '#34D399'],
+    },
+    accent: {
+      main: '#F59E0B', // Amber
+      light: '#FCD34D',
+      dark: '#D97706',
+      contrast: '#FFFFFF',
+      surface: 'rgba(245, 158, 11, 0.08)',
     },
     success: {
-      main: '#30D158', // iOS Green - daha yumuşak
-      light: '#6CDB8A', // Açık yeşil
-      dark: '#1E8A3D', // Koyu yeşil
+      main: '#10B981',
+      light: '#6EE7B7',
+      dark: '#059669',
       contrast: '#FFFFFF',
-      surface: 'rgba(48, 209, 88, 0.1)',
+      surface: 'rgba(16, 185, 129, 0.08)',
     },
     warning: {
-      main: '#FF9F0A', // iOS Orange - daha yumuşak
-      light: '#FFB340', // Açık turuncu
-      dark: '#CC7A00', // Koyu turuncu
+      main: '#F59E0B',
+      light: '#FCD34D',
+      dark: '#D97706',
       contrast: '#FFFFFF',
-      surface: 'rgba(255, 159, 10, 0.1)',
+      surface: 'rgba(245, 158, 11, 0.08)',
     },
     error: {
-      main: '#FF453A', // iOS Red - daha yumuşak
-      light: '#FF6B63', // Açık kırmızı
-      dark: '#CC2F26', // Koyu kırmızı
+      main: '#EF4444',
+      light: '#FCA5A5',
+      dark: '#DC2626',
       contrast: '#FFFFFF',
-      surface: 'rgba(255, 69, 58, 0.1)',
+      surface: 'rgba(239, 68, 68, 0.08)',
     },
     neutral: {
-      50: '#F8F9FA',
-      100: '#F1F3F4',
-      200: '#E8EAED',
-      300: '#DADCE0',
-      400: '#BDC1C6',
-      500: '#9AA0A6',
-      600: '#80868B',
-      700: '#5F6368',
-      800: '#3C4043',
-      900: '#202124',
+      50: '#FAFAFA',
+      100: '#F5F5F5',
+      200: '#E5E5E5',
+      300: '#D4D4D4',
+      400: '#A3A3A3',
+      500: '#737373',
+      600: '#525252',
+      700: '#404040',
+      800: '#262626',
+      900: '#171717',
     },
     text: {
       primary: {
-        light: '#202124',
+        light: '#171717',
         dark: '#FFFFFF',
       },
       secondary: {
-        light: '#5F6368',
-        dark: '#B0B3C6',
+        light: '#525252',
+        dark: '#A3A3A3',
+      },
+      tertiary: {
+        light: '#737373',
+        dark: '#737373',
       },
       disabled: {
-        light: '#9AA0A6',
-        dark: '#5F6368',
+        light: '#A3A3A3',
+        dark: '#525252',
       },
       inverse: {
         light: '#FFFFFF',
-        dark: '#202124',
+        dark: '#171717',
+      },
+      link: {
+        light: '#6366F1',
+        dark: '#A5B4FC',
       },
     },
     background: {
       default: {
-        light: '#FFFFFF',
-        dark: '#000000',
+        light: '#FAFAFA',
+        dark: '#0A0A0A',
       },
       paper: {
-        light: '#F8F9FA',
-        dark: '#1A1A1A',
+        light: '#FFFFFF',
+        dark: '#171717',
       },
       elevated: {
         light: '#FFFFFF',
-        dark: '#2C2C2C',
+        dark: '#262626',
       },
       surface: {
-        light: '#F1F3F4',
-        dark: '#1C1C1E',
+        light: '#F5F5F5',
+        dark: '#1F1F1F',
+      },
+      card: {
+        light: '#FFFFFF',
+        dark: '#1A1A1A',
       },
       overlay: {
-        light: 'rgba(0, 0, 0, 0.5)',
-        dark: 'rgba(0, 0, 0, 0.7)',
+        light: 'rgba(0, 0, 0, 0.4)',
+        dark: 'rgba(0, 0, 0, 0.6)',
+      },
+      gradient: {
+        primary: ['#6366F1', '#8B5CF6'],
+        secondary: ['#10B981', '#34D399'],
+        accent: ['#F59E0B', '#FCD34D'],
       },
     },
     border: {
-      light: '#E8EAED',
-      dark: '#3C4043',
+      light: '#E5E5E5',
+      dark: '#404040',
       focus: {
-        light: '#0A84FF',
-        dark: '#5AC8FA',
+        light: '#6366F1',
+        dark: '#A5B4FC',
+      },
+      subtle: {
+        light: '#F0F0F0',
+        dark: '#2A2A2A',
+      },
+      strong: {
+        light: '#D4D4D4',
+        dark: '#525252',
       },
     },
     divider: {
-      light: 'rgba(0, 0, 0, 0.08)',
-      dark: 'rgba(255, 255, 255, 0.12)',
+      light: 'rgba(0, 0, 0, 0.06)',
+      dark: 'rgba(255, 255, 255, 0.08)',
+      subtle: {
+        light: 'rgba(0, 0, 0, 0.04)',
+        dark: 'rgba(255, 255, 255, 0.06)',
+      },
     },
   },
   spacing: {
-    // 8px grid system - daha tutarlı spacing
     xs: 4,
     sm: 8,
     md: 16,
@@ -114,7 +151,6 @@ export const theme = {
     xl: 32,
     xxl: 48,
     xxxl: 64,
-    // Component-specific spacing
     screen: 20,
     card: 16,
     button: 12,
@@ -155,7 +191,6 @@ export const theme = {
       wide: 0.5,
       wider: 1,
     },
-    // Modern font scale
     scale: {
       xs: { fontSize: 12, lineHeight: 16 },
       sm: { fontSize: 14, lineHeight: 20 },
@@ -167,7 +202,6 @@ export const theme = {
     },
   },
   shadows: {
-    // Modern, yumuşak gölgeler
     none: {
       shadowColor: 'transparent',
       shadowOffset: { width: 0, height: 0 },
@@ -210,7 +244,6 @@ export const theme = {
       shadowRadius: 24,
       elevation: 12,
     },
-    // Özel gölgeler
     glow: {
       shadowColor: '#0A84FF',
       shadowOffset: { width: 0, height: 0 },
@@ -227,7 +260,6 @@ export const theme = {
     },
   },
   borderRadius: {
-    // Modern border radius sistemi
     none: 0,
     xs: 4,
     sm: 8,
@@ -236,7 +268,6 @@ export const theme = {
     xl: 20,
     xxl: 24,
     round: 9999,
-    // Component-specific
     button: 12,
     card: 16,
     input: 12,
@@ -249,14 +280,12 @@ export const theme = {
     maxContentWidth: 1200,
     headerHeight: 56,
     tabBarHeight: 56,
-    // Modern breakpoints
     breakpoints: {
       sm: 375,
       md: 768,
       lg: 1024,
       xl: 1200,
     },
-    // Container padding
     containerPadding: {
       sm: 16,
       md: 24,
@@ -275,12 +304,10 @@ export const theme = {
       easeInOut: 'ease-in-out',
       easeOut: 'ease-out',
       easeIn: 'ease-in',
-      // Modern easing functions
       smooth: 'cubic-bezier(0.4, 0, 0.2, 1)',
       bounce: 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
       elastic: 'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
     },
-    // Micro-interactions
     micro: {
       press: 100,
       hover: 200,
@@ -299,7 +326,6 @@ export const theme = {
     toast: 600,
     overlay: 700,
   },
-  // Accessibility
   accessibility: {
     minTouchTarget: 44,
     minTextSize: 16,
@@ -309,7 +335,6 @@ export const theme = {
       color: '#0A84FF',
     },
   },
-  // Component-specific themes
   components: {
     button: {
       height: {
@@ -345,7 +370,7 @@ export const getColor = (colorPath: string, isDark: boolean = false) => {
     if (current[key]) {
       current = current[key];
     } else {
-      return theme.colors.primary.main; // fallback
+      return theme.colors.primary.main;
     }
   }
   

@@ -15,8 +15,11 @@ export interface IUser extends Document {
   followers: mongoose.Types.ObjectId[];
   following: mongoose.Types.ObjectId[];
   favoriteVehicle?: mongoose.Types.ObjectId;
-  emailHidden: boolean;
-  phoneHidden: boolean;
+  emailHidden?: boolean;
+  phoneHidden?: boolean;
+  pushToken?: string;
+  platform?: 'ios' | 'android' | 'web';
+  lastTokenUpdate?: Date;
   notifications: Array<{
     _id: mongoose.Types.ObjectId;
     type: 'follow' | 'like' | 'comment' | 'maintenance' | 'campaign' | 'insurance' | 'appointment_status_update';
@@ -99,6 +102,19 @@ const userSchema = new Schema<IUser>({
   phoneHidden: {
     type: Boolean,
     default: false
+  },
+  pushToken: {
+    type: String,
+    default: null
+  },
+  platform: {
+    type: String,
+    enum: ['ios', 'android', 'web'],
+    default: 'ios'
+  },
+  lastTokenUpdate: {
+    type: Date,
+    default: null
   },
   notifications: [{
     _id: {

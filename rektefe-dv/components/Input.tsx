@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 import theme from '../theme/theme';
 
 export interface InputProps {
@@ -80,6 +81,7 @@ const Input = forwardRef<TextInput, InputProps>(({
   onBlur,
   testID,
 }, ref) => {
+  const { isDark } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const animatedValue = useRef(new Animated.Value(0)).current;
@@ -154,18 +156,18 @@ const Input = forwardRef<TextInput, InputProps>(({
       },
     };
 
-    // Variant styles
+    // Variant styles with dark mode support
     const variantStyles = {
       default: {
-        backgroundColor: theme.colors.background.default.light,
-        borderColor: isFocused ? theme.colors.primary.main : theme.colors.border.light,
+        backgroundColor: isDark ? theme.colors.background.default.dark : theme.colors.background.default.light,
+        borderColor: isFocused ? theme.colors.primary.main : (isDark ? theme.colors.border.dark : theme.colors.border.light),
       },
       outlined: {
-        backgroundColor: theme.colors.background.default.light,
-        borderColor: isFocused ? theme.colors.primary.main : theme.colors.border.light,
+        backgroundColor: isDark ? theme.colors.background.default.dark : theme.colors.background.default.light,
+        borderColor: isFocused ? theme.colors.primary.main : (isDark ? theme.colors.border.dark : theme.colors.border.light),
       },
       filled: {
-        backgroundColor: theme.colors.background.surface.light,
+        backgroundColor: isDark ? theme.colors.background.surface.dark : theme.colors.background.surface.light,
         borderColor: 'transparent',
       },
     };
@@ -183,7 +185,7 @@ const Input = forwardRef<TextInput, InputProps>(({
         borderColor: theme.colors.success.main,
       },
       disabled: {
-        backgroundColor: theme.colors.background.surface.light,
+        backgroundColor: isDark ? theme.colors.background.surface.dark : theme.colors.background.surface.light,
         opacity: 0.6,
       },
     };
@@ -210,7 +212,7 @@ const Input = forwardRef<TextInput, InputProps>(({
     const baseStyle: TextStyle = {
       fontSize: theme.typography.fontSizes.sm,
       fontWeight: theme.typography.fontWeights.medium,
-      color: theme.colors.text.secondary.light,
+      color: isDark ? theme.colors.text.secondary.dark : theme.colors.text.secondary.light,
       marginBottom: theme.spacing.xs,
     };
 
@@ -227,7 +229,10 @@ const Input = forwardRef<TextInput, InputProps>(({
       }) as any,
       color: labelAnimatedValue.interpolate({
         inputRange: [0, 1],
-        outputRange: [theme.colors.text.secondary.light, theme.colors.primary.main],
+        outputRange: [
+          isDark ? theme.colors.text.secondary.dark : theme.colors.text.secondary.light,
+          theme.colors.primary.main
+        ],
       }) as any,
     };
 
@@ -242,8 +247,8 @@ const Input = forwardRef<TextInput, InputProps>(({
     const baseStyle: TextStyle = {
       flex: 1,
       fontSize: theme.typography.fontSizes.md,
-      color: theme.colors.text.primary.light,
-      paddingVertical: 0, // Remove default padding
+      color: isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light,
+      paddingVertical: 0,
     };
 
     // Size-based text styles
@@ -282,7 +287,7 @@ const Input = forwardRef<TextInput, InputProps>(({
     const iconColor = error ? theme.colors.error.main : 
                      success ? theme.colors.success.main : 
                      isFocused ? theme.colors.primary.main : 
-                     theme.colors.text.secondary.light;
+                     (isDark ? theme.colors.text.secondary.dark : theme.colors.text.secondary.light);
     
     return {
       size: iconSize,
@@ -384,7 +389,7 @@ const Input = forwardRef<TextInput, InputProps>(({
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={theme.colors.text.disabled.light}
+          placeholderTextColor={isDark ? theme.colors.text.disabled.dark : theme.colors.text.disabled.light}
           secureTextEntry={getSecureTextEntry()}
           autoCapitalize={autoCapitalize}
           autoCorrect={autoCorrect}
@@ -414,7 +419,7 @@ const Input = forwardRef<TextInput, InputProps>(({
       )}
       
       {maxLength && (
-        <Text style={styles.characterCount}>
+        <Text style={[styles.characterCount, { color: isDark ? theme.colors.text.secondary.dark : theme.colors.text.secondary.light }]}>
           {value.length}/{maxLength}
         </Text>
       )}
@@ -431,7 +436,6 @@ const styles = StyleSheet.create({
   },
   characterCount: {
     fontSize: theme.typography.fontSizes.xs,
-    color: theme.colors.text.secondary.light,
     textAlign: 'right',
     marginTop: theme.spacing.xs,
   },

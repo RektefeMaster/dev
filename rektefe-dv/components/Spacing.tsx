@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, ViewStyle, StyleSheet, Text } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 import theme from '../theme/theme';
 
 export interface SpacingProps {
@@ -196,15 +197,17 @@ export const Flex: React.FC<{
   </View>
 );
 
-// Divider component
+// Divider component with dark mode support
 export const Divider: React.FC<{
   orientation?: 'horizontal' | 'vertical';
   size?: keyof typeof theme.spacing;
   color?: string;
   style?: ViewStyle;
 }> = ({ orientation = 'horizontal', size = 'sm', color, style }) => {
+  const { isDark } = useTheme();
+  
   const dividerStyle: ViewStyle = {
-    backgroundColor: color || theme.colors.divider.light,
+    backgroundColor: color || (isDark ? theme.colors.divider.dark : theme.colors.divider.light),
   };
 
   if (orientation === 'horizontal') {
@@ -226,17 +229,27 @@ export const Section: React.FC<{
   padding?: keyof typeof theme.spacing;
   margin?: keyof typeof theme.spacing;
   style?: ViewStyle;
-}> = ({ children, title, subtitle, padding = 'lg', margin = 'md', style }) => (
-  <View style={[styles.section, { padding: theme.spacing[padding], margin: theme.spacing[margin] }, style]}>
-    {title && (
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{title}</Text>
-        {subtitle && <Text style={styles.sectionSubtitle}>{subtitle}</Text>}
-      </View>
-    )}
-    {children}
-  </View>
-);
+}> = ({ children, title, subtitle, padding = 'lg', margin = 'md', style }) => {
+  const { isDark } = useTheme();
+  
+  return (
+    <View style={[styles.section, { padding: theme.spacing[padding], margin: theme.spacing[margin] }, style]}>
+      {title && (
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light }]}>
+            {title}
+          </Text>
+          {subtitle && (
+            <Text style={[styles.sectionSubtitle, { color: isDark ? theme.colors.text.secondary.dark : theme.colors.text.secondary.light }]}>
+              {subtitle}
+            </Text>
+          )}
+        </View>
+      )}
+      {children}
+    </View>
+  );
+};
 
 // Screen component for full screen layouts
 export const Screen: React.FC<{
@@ -244,11 +257,22 @@ export const Screen: React.FC<{
   padding?: keyof typeof theme.spacing;
   safe?: boolean;
   style?: ViewStyle;
-}> = ({ children, padding = 'screen', safe = true, style }) => (
-  <View style={[styles.screen, { padding: theme.spacing[padding] }, style]}>
-    {children}
-  </View>
-);
+}> = ({ children, padding = 'screen', safe = true, style }) => {
+  const { isDark } = useTheme();
+  
+  return (
+    <View style={[
+      styles.screen, 
+      { 
+        padding: theme.spacing[padding],
+        backgroundColor: isDark ? theme.colors.background.default.dark : theme.colors.background.default.light
+      }, 
+      style
+    ]}>
+      {children}
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   section: {
@@ -260,16 +284,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: theme.typography.fontSizes.lg,
     fontWeight: theme.typography.fontWeights.semibold,
-    color: theme.colors.text.primary.light,
     marginBottom: theme.spacing.xs,
   },
   sectionSubtitle: {
     fontSize: theme.typography.fontSizes.sm,
-    color: theme.colors.text.secondary.light,
   },
   screen: {
     flex: 1,
-    backgroundColor: theme.colors.background.default.light,
   },
 });
 

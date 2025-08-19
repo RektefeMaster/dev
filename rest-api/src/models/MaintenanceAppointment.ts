@@ -4,7 +4,8 @@ interface INotificationSettings {
   twoHoursBefore: boolean;
   oneHourBefore: boolean;
   oneDayBefore: boolean;
-  customTime?: number;
+  customTime: boolean;
+  customMinutes: number;
 }
 
 export interface IMaintenanceAppointment extends Document {
@@ -14,15 +15,25 @@ export interface IMaintenanceAppointment extends Document {
   serviceType: string;
   appointmentDate: Date;
   timeSlot?: string;
-  status: 'pending' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'rejected';
+  status: 'pending' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'rejected' | 'paid' | 'payment_pending';
   notes?: string;
   mechanicNotes?: string;
   rejectionReason?: string;
-  completionDate?: Date;
-  cancellationDate?: Date;
+  
+  // Tarih alanları
+  createdAt: Date; // Randevu gönderme tarihi
+  confirmedAt?: Date; // Onay tarihi
+  inProgressAt?: Date; // İşlem başlama tarihi
+  completionDate?: Date; // Tamamlanma tarihi
+  cancellationDate?: Date; // İptal tarihi
+  paymentDate?: Date; // Ödeme tarihi
+  ratingDate?: Date; // Değerlendirme tarihi
+  
+  price?: number; // Mekaniğin belirlediği ücret
+  estimatedDuration?: number; // Tahmini süre (dakika)
   notificationSettings: INotificationSettings;
   sharePhoneNumber: boolean;
-  createdAt: Date;
+  paymentStatus?: 'unpaid' | 'paid';
   updatedAt: Date;
 }
 
@@ -35,14 +46,24 @@ const MaintenanceAppointmentSchema: Schema = new Schema({
   timeSlot: { type: String, required: false },
   status: { 
     type: String, 
-    enum: ['pending', 'confirmed', 'in-progress', 'completed', 'cancelled', 'rejected'],
+    enum: ['pending', 'confirmed', 'in-progress', 'completed', 'cancelled', 'rejected', 'paid', 'payment_pending'],
     default: 'pending'
   },
   notes: { type: String },
   mechanicNotes: { type: String },
   rejectionReason: { type: String },
-  completionDate: { type: Date },
-  cancellationDate: { type: Date },
+  
+  // Tarih alanları
+  confirmedAt: { type: Date }, // Onay tarihi
+  inProgressAt: { type: Date }, // İşlem başlama tarihi
+  completionDate: { type: Date }, // Tamamlanma tarihi
+  cancellationDate: { type: Date }, // İptal tarihi
+  paymentDate: { type: Date }, // Ödeme tarihi
+  ratingDate: { type: Date }, // Değerlendirme tarihi
+  
+  price: { type: Number }, // Mekaniğin belirlediği ücret
+  estimatedDuration: { type: Number }, // Tahmini süre (dakika)
+  paymentStatus: { type: String, enum: ['unpaid', 'paid'], default: 'unpaid' },
   notificationSettings: {
     twoHoursBefore: {
       type: Boolean,
@@ -57,7 +78,12 @@ const MaintenanceAppointmentSchema: Schema = new Schema({
       default: false
     },
     customTime: {
-      type: Number
+      type: Boolean,
+      default: false
+    },
+    customMinutes: {
+      type: Number,
+      default: 30
     }
   },
   sharePhoneNumber: { type: Boolean, default: false },

@@ -3,6 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import LottieView from 'lottie-react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useTheme } from '../context/ThemeContext';
+import theme from '../theme/theme';
 import HomeScreen from '../screens/HomeScreen';
 import WalletScreen from '../screens/WalletScreen';
 import GarageScreen from '../screens/GarageScreen';
@@ -17,17 +19,22 @@ interface Route {
 }
 
 const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => {
+  const { isDark } = useTheme();
   const currentRoute = state.routes[state.index]?.name;
+  
   return (
     <View style={styles.tabBarWrapper}>
       <View style={styles.tabBarBackground} />
-      <View style={styles.tabBarContainer}>
+      <View style={[styles.tabBarContainer, { 
+        backgroundColor: isDark ? theme.colors.background.paper.dark : theme.colors.background.paper.light,
+        borderColor: isDark ? theme.colors.border.dark : theme.colors.border.light,
+      }]}>
         {state.routes.map((route: Route, idx: number) => {
           const isFocused = state.index === idx;
           let icon = null;
           let label = route.name;
           let iconSize = isFocused ? 34 : 28;
-          let iconColor = isFocused ? '#007AFF' : '#666';
+          let iconColor = isFocused ? theme.colors.primary.main : (isDark ? theme.colors.text.secondary.dark : theme.colors.text.secondary.light);
           let iconStyle = isFocused ? styles.activeIcon : {};
 
           if (route.name === 'Home') {
@@ -55,7 +62,11 @@ const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
               activeOpacity={0.85}
             >
               {icon}
-              <Text style={[styles.tabLabel, isFocused && styles.activeTabLabel]}>{label}</Text>
+              <Text style={[
+                styles.tabLabel, 
+                { color: isDark ? theme.colors.text.secondary.dark : theme.colors.text.secondary.light },
+                isFocused && [styles.activeTabLabel, { color: theme.colors.primary.main }]
+              ]}>{label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -89,7 +100,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     height: 68,
-    backgroundColor: '#fff',
     borderRadius: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -101,7 +111,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
   },
   tabItem: {
     flex: 1,
@@ -113,12 +122,10 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 8.5,
     fontWeight: '500',
-    color: '#666',
     marginTop: 3,
     textAlign: 'center',
   },
   activeTabLabel: {
-    color: '#007AFF',
     fontWeight: '600',
   },
   tabBarWrapper: {
@@ -142,13 +149,13 @@ const styles = StyleSheet.create({
     height: 84,
   },
   activeIcon: {
-    textShadowColor: '#007AFF',
+    textShadowColor: theme.colors.primary.main,
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,
     elevation: 8,
   },
   activeTabItem: {
-    backgroundColor: 'rgba(0,122,255,0.08)',
+    backgroundColor: `${theme.colors.primary.main}14`,
     borderRadius: 18,
   },
   tabButton: {
@@ -159,7 +166,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   activeTabButton: {
-    backgroundColor: 'rgba(0,122,255,0.08)',
+    backgroundColor: `${theme.colors.primary.main}14`,
     borderRadius: 18,
   },
 });

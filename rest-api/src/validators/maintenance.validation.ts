@@ -49,13 +49,39 @@ export const updateMechanicProfileSchema = Joi.object({
     'number.min': 'Deneyim yılı negatif olamaz',
     'number.max': 'Deneyim yılı 50\'den büyük olamaz'
   }),
-  vehicleBrands: Joi.array().items(Joi.string().min(2).max(50)).min(1).optional().messages({
-    'array.min': 'En az bir araç markası seçilmelidir',
-    'array.base': 'Araç markaları array olmalıdır'
+  // Hizmet alanları
+  serviceCategories: Joi.array().items(Joi.string()).optional().messages({
+    'array.base': 'Hizmet alanları dizi formatında olmalıdır',
+    'string.base': 'Hizmet alanı metin formatında olmalıdır'
   }),
-  serviceCategories: Joi.array().items(Joi.string().min(2).max(100)).min(1).optional().messages({
-    'array.min': 'En az bir uzmanlık alanı seçilmelidir',
-    'array.base': 'Uzmanlık alanları array olmalıdır'
+  
+  // Araç markaları
+  carBrands: Joi.array().items(Joi.string()).optional().messages({
+    'array.base': 'Araç markaları dizi formatında olmalıdır',
+    'string.base': 'Araç markası metin formatında olmalıdır'
+  }),
+  
+  // Motor türleri
+  engineTypes: Joi.array().items(Joi.string()).optional().messages({
+    'array.base': 'Motor türleri dizi formatında olmalıdır',
+    'string.base': 'Motor türü metin formatında olmalıdır'
+  }),
+  
+  // Vites türleri
+  transmissionTypes: Joi.array().items(Joi.string()).optional().messages({
+    'array.base': 'Vites türleri dizi formatında olmalıdır',
+    'string.base': 'Vites türü metin formatında olmalıdır'
+  }),
+  
+  // Özel markalar
+  customBrands: Joi.array().items(Joi.string()).optional().messages({
+    'array.base': 'Özel markalar dizi formatında olmalıdır',
+    'string.base': 'Özel marka metin formatında olmalıdır'
+  }),
+  
+  // Çalışma saatleri
+  workingHours: Joi.string().optional().messages({
+    'string.base': 'Çalışma saatleri metin formatında olmalıdır'
   }),
   isAvailable: Joi.boolean().optional().messages({
     'boolean.base': 'Müsaitlik durumu boolean olmalıdır'
@@ -63,5 +89,40 @@ export const updateMechanicProfileSchema = Joi.object({
   phone: Joi.string().min(10).max(15).optional().messages({
     'string.min': 'Telefon numarası en az 10 karakter olmalıdır',
     'string.max': 'Telefon numarası en fazla 15 karakter olmalıdır'
-  })
+  }),
+  // Gizlilik ayarları
+  phoneHidden: Joi.boolean().optional().messages({
+    'boolean.base': 'Telefon gizlilik ayarı boolean olmalıdır'
+  }),
+  emailHidden: Joi.boolean().optional().messages({
+    'boolean.base': 'E-posta gizlilik ayarı boolean olmalıdır'
+  }),
+  cityHidden: Joi.boolean().optional().messages({
+    'boolean.base': 'Şehir gizlilik ayarı boolean olmalıdır'
+  }),
+  // Diğer profil alanları
+  name: Joi.string().min(2).max(50).optional().messages({
+    'string.min': 'Ad en az 2 karakter olmalıdır',
+    'string.max': 'Ad en fazla 50 karakter olmalıdır'
+  }),
+  surname: Joi.string().min(2).max(50).optional().messages({
+    'string.min': 'Soyad en az 2 karakter olmalıdır',
+    'string.max': 'Soyad en fazla 50 karakter olmalıdır'
+  }),
+  bio: Joi.string().max(500).optional().messages({
+    'string.max': 'Biyografi en fazla 500 karakter olmalıdır'
+  }),
+  specialties: Joi.array().items(Joi.string().min(2).max(100)).min(1).optional().messages({
+    'array.min': 'En az bir uzmanlık alanı seçilmelidir',
+    'array.base': 'Uzmanlık alanları array olmalıdır'
+  }),
+  location: Joi.object({
+    city: Joi.string().min(2).max(50).optional(),
+    district: Joi.string().min(2).max(50).optional(),
+    neighborhood: Joi.string().min(2).max(50).optional(),
+    street: Joi.string().min(2).max(100).optional(),
+    building: Joi.string().min(1).max(50).optional(),
+    floor: Joi.string().min(1).max(10).optional(),
+    apartment: Joi.string().min(1).max(10).optional()
+  }).optional()
 });

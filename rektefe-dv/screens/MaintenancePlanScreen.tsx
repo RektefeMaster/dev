@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -233,14 +234,18 @@ const MaintenancePlanScreen = () => {
 
       console.log('Randevu response:', response.data);
 
-      Alert.alert('Başarılı', 'Randevunuz başarıyla oluşturuldu', [
-        {
-          text: 'Tamam',
-          onPress: () => {
-            navigation.navigate('Home');
+      Alert.alert(
+        '🎉 Randevu Başarıyla Oluşturuldu!',
+        'Randevunuz başarıyla oluşturuldu.\n\n💡 Randevunuzu "Randevular" kısmında takip edebilirsiniz.',
+        [
+          {
+            text: 'Ana Sayfaya Git',
+            onPress: () => {
+              navigation.navigate('Main', { screen: 'MainTabs' });
+            },
           },
-        },
-      ]);
+        ]
+      );
     } catch (error: any) {
       console.error('Randevu oluşturma hatası:', error);
       const errorMessage = error.response?.data?.message || 'Randevu oluşturulurken bir hata oluştu';
@@ -699,24 +704,33 @@ const MaintenancePlanScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleBackButton}
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBackButton}
+          >
+            <Ionicons name="arrow-back" size={24} color="#0066cc" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Bakım Planla</Text>
+        </View>
+
+        {renderStepIndicator()}
+
+        <ScrollView 
+          style={styles.content}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ flexGrow: 1 }}
         >
-          <Ionicons name="arrow-back" size={24} color="#0066cc" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Bakım Planla</Text>
-      </View>
+          {renderStep()}
+        </ScrollView>
 
-      {renderStepIndicator()}
-
-      <ScrollView style={styles.content}>
-        {renderStep()}
-      </ScrollView>
-
-      <SafeAreaView edges={['bottom']} style={styles.footerContainer}>
+        <SafeAreaView edges={['bottom']} style={styles.footerContainer}>
         <View style={styles.footer}>
           {step > 1 && (
             <TouchableOpacity
@@ -748,8 +762,9 @@ const MaintenancePlanScreen = () => {
             )}
           </TouchableOpacity>
         </View>
+        </SafeAreaView>
       </SafeAreaView>
-    </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 };
 

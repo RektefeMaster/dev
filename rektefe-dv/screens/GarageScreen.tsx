@@ -10,6 +10,8 @@ import {
   Alert,
   SafeAreaView,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
@@ -20,6 +22,7 @@ import Background from '../components/Background';
 import LottieView from 'lottie-react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 import carData from '../constants/carData.json';
+import { useAuth } from '../context/AuthContext';
 
 interface Vehicle {
   _id: string;
@@ -39,6 +42,7 @@ interface Vehicle {
 }
 
 const GarageScreen = () => {
+  const { token } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newVehicle, setNewVehicle] = useState<Partial<Vehicle>>({});
@@ -61,6 +65,14 @@ const GarageScreen = () => {
   const [packageItems, setPackageItems] = useState<{label: string, value: string}[]>([]);
   const [fuelItems, setFuelItems] = useState<{label: string, value: string}[]>([]);
   const [transmissionItems, setTransmissionItems] = useState<{label: string, value: string}[]>([]);
+
+  // Backend ile uyumlu yakıt tipi dönüştürücü
+  const normalizeFuelType = (fuel: string): string => {
+    if (!fuel) return fuel;
+    if (fuel === 'Plug-in Hybrid') return 'Hybrid';
+    if (fuel === 'LPG') return 'Benzin/Tüp';
+    return fuel;
+  };
 
   useEffect(() => {
     const getUserId = async () => {
@@ -94,7 +106,17 @@ const GarageScreen = () => {
     if (brandValue) {
       const selectedBrand = carData.find(c => c.brand === brandValue);
       if (selectedBrand) {
-        setModelItems(selectedBrand.models.map(m => ({ label: m.name, value: m.name })));
+        // Model adı uzunluk kontrolü ile filtreleme
+        const validModels = selectedBrand.models.filter(m => m.name.length >= 2);
+        if (validModels.length === 0) {
+          Alert.alert(
+            'Uyarı', 
+            `${brandValue} markasında geçerli model bulunamadı. Model adları en az 2 karakter olmalıdır.`
+          );
+          setBrandValue(null);
+          return;
+        }
+        setModelItems(validModels.map(m => ({ label: m.name, value: m.name })));
       } else {
         setModelItems([]);
       }
@@ -114,7 +136,7 @@ const GarageScreen = () => {
       const selectedModel = selectedBrand?.models.find(m => m.name === modelNameValue);
       if (selectedModel) {
         setPackageItems(selectedModel.packages.map(p => ({ label: p, value: p })));
-        setFuelItems(selectedModel.fuelTypes.map(f => ({ label: f, value: f })));
+        setFuelItems(selectedModel.fuelTypes.map(f => ({ label: f, value: normalizeFuelType(f) })));
         setTransmissionItems(selectedModel.transmissions.map(t => ({ label: t, value: t })));
       } else {
         setPackageItems([]);
@@ -130,7 +152,6 @@ const GarageScreen = () => {
   const fetchVehicles = async () => {
     try {
       setLoading(true);
-      const token = await AsyncStorage.getItem('token');
       const [vehiclesRes, userRes] = await Promise.all([
         axios.get(`${API_URL}/vehicles`, { headers: { Authorization: `Bearer ${token}` } }),
         axios.get(`${API_URL}/users/profile`, { headers: { Authorization: `Bearer ${token}` } }),
@@ -151,22 +172,83 @@ const GarageScreen = () => {
   };
 
   const handleAddVehicle = async () => {
-    if (!brandValue || !modelNameValue || !newVehicle.year || !fuelValue || !newVehicle.plateNumber || !transmissionValue || !packageValue) {
-      Alert.alert('Uyarı', 'Lütfen tüm zorunlu alanları doldurun.');
+    // Validation kontrolleri
+    if (!brandValue) {
+      Alert.alert('Uyarı', 'Lütfen marka seçin.');
       return;
     }
+    
+    if (!modelNameValue) {
+      Alert.alert('Uyarı', 'Lütfen model seçin.');
+      return;
+    }
+    
+    if (!packageValue) {
+      Alert.alert('Uyarı', 'Lütfen paket seçin.');
+      return;
+    }
+    
+    if (!newVehicle.year) {
+      Alert.alert('Uyarı', 'Lütfen yıl girin.');
+      return;
+    }
+    
+    if (newVehicle.year < 1900 || newVehicle.year > new Date().getFullYear() + 1) {
+      Alert.alert('Uyarı', 'Lütfen geçerli bir yıl girin (1900-' + (new Date().getFullYear() + 1) + ').');
+      return;
+    }
+    
+    if (!fuelValue) {
+      Alert.alert('Uyarı', 'Lütfen yakıt türü seçin.');
+      return;
+    }
+    
+    if (!transmissionValue) {
+      Alert.alert('Uyarı', 'Lütfen vites türü seçin.');
+      return;
+    }
+    
+    if (!newVehicle.plateNumber) {
+      Alert.alert('Uyarı', 'Lütfen plaka numarası girin.');
+      return;
+    }
+    
+    // Plaka formatı kontrolü (34ABC123 formatı)
+    const plateRegex = /^[0-9]{2}[A-Z]{1,3}[0-9]{2,4}$/;
+    if (!plateRegex.test(newVehicle.plateNumber)) {
+      Alert.alert('Uyarı', 'Lütfen geçerli plaka formatı girin (örn: 34ABC123, 06A1234).');
+      return;
+    }
+    
+    // Model adı uzunluk kontrolü
+    if (modelNameValue.length < 2) {
+      Alert.alert('Uyarı', 'Model adı en az 2 karakter olmalıdır. Lütfen farklı bir model seçin.');
+      return;
+    }
+    
+    // Debug için gönderilecek veriyi logla
+    const vehicleData = {
+      brand: brandValue,
+      modelName: modelNameValue,
+      package: packageValue,
+      year: newVehicle.year,
+      engineType: 'Bilinmiyor',
+      fuelType: normalizeFuelType(fuelValue as string),
+      transmission: transmissionValue,
+      plateNumber: newVehicle.plateNumber,
+      mileage: newVehicle.mileage || 0, // ✅ MILEAGE ALANI EKLENDİ!
+    };
+    
+    console.log('Gönderilecek araç verisi:', vehicleData);
+    console.log('API URL:', `${API_URL}/vehicles`);
+    console.log('Token:', token ? 'Mevcut' : 'Yok');
+    
     try {
-      const token = await AsyncStorage.getItem('token');
-      const response = await axios.post(`${API_URL}/vehicles`, {
-        brand: brandValue,
-        modelName: modelNameValue,
-        package: packageValue,
-        year: newVehicle.year,
-        engineType: 'Bilinmiyor',
-        fuelType: fuelValue,
-        transmission: transmissionValue,
-        plateNumber: newVehicle.plateNumber,
-      }, { headers: { Authorization: `Bearer ${token}` } });
+      const response = await axios.post(`${API_URL}/vehicles`, vehicleData, { 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
+      
+      console.log('API Response:', response.data);
       
       // API response formatı kontrol et
       if (response.data && response.data.success && response.data.data) {
@@ -185,21 +267,55 @@ const GarageScreen = () => {
       Alert.alert('Başarılı', 'Araç başarıyla eklendi.');
     } catch (error: any) {
       console.error('Araç eklenirken hata:', error);
-      let errorMessage = 'Araç eklenirken bir hata oluştu.';
+      console.error('Hata detayları:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        headers: error.response?.headers,
+        config: error.config
+      });
       
-      if (error.response?.data?.message) {
+      let errorMessage = 'Araç eklenirken bir hata oluştu.';
+      let errorTitle = 'Hata';
+      
+      if (error.response?.status === 400) {
+        errorTitle = 'Validation Hatası';
+        if (error.response?.data?.errors) {
+          // Validation hatalarını daha kullanıcı dostu hale getir
+          const errors = error.response.data.errors;
+          if (typeof errors === 'string') {
+            errorMessage = errors;
+          } else if (typeof errors === 'object') {
+            const errorList = Object.values(errors).join('\n• ');
+            errorMessage = `Lütfen aşağıdaki hataları düzeltin:\n\n• ${errorList}`;
+          }
+        } else if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        }
+      } else if (error.response?.status === 401) {
+        errorTitle = 'Yetki Hatası';
+        errorMessage = 'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.';
+      } else if (error.response?.status === 403) {
+        errorTitle = 'Erişim Hatası';
+        errorMessage = 'Bu işlem için yetkiniz bulunmuyor.';
+      } else if (error.response?.status === 409) {
+        errorTitle = 'Çakışma Hatası';
+        errorMessage = 'Bu plaka numarası zaten kullanılıyor.';
+      } else if (error.response?.status >= 500) {
+        errorTitle = 'Sunucu Hatası';
+        errorMessage = 'Sunucuda bir hata oluştu. Lütfen daha sonra tekrar deneyin.';
+      } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
-      } else if (error.response?.data?.errors) {
-        errorMessage = error.response.data.errors;
+      } else if (error.response?.data) {
+        errorMessage = JSON.stringify(error.response.data);
       }
       
-      Alert.alert('Hata', errorMessage);
+      Alert.alert(errorTitle, errorMessage);
     }
   };
 
   const handleDeleteVehicle = async (vehicleId: string) => {
     try {
-      const token = await AsyncStorage.getItem('token');
       await axios.delete(`${API_URL}/vehicles/${vehicleId}`, { headers: { Authorization: `Bearer ${token}` } });
       setVehicles(vehicles.filter(vehicle => vehicle._id !== vehicleId));
       Alert.alert('Başarılı', 'Araç başarıyla silindi.');
@@ -216,7 +332,6 @@ const GarageScreen = () => {
     );
 
     try {
-      const token = await AsyncStorage.getItem('token');
       await axios.put(`${API_URL}/vehicles/${vehicleId}/favorite`, {}, { headers: { Authorization: `Bearer ${token}` } });
       // fetchVehicles() çağırmaya gerek yok, çünkü state zaten güncel
     } catch (error) {
@@ -330,8 +445,23 @@ const GarageScreen = () => {
             onRequestClose={() => setShowAddModal(false)}
           >
             <View style={styles.modalContainer}>
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Yeni Araç Ekle</Text>
+              <KeyboardAvoidingView 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.modalKeyboardView}
+              >
+                <ScrollView 
+                  style={styles.modalScrollView}
+                  contentContainerStyle={styles.modalScrollContent}
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                  nestedScrollEnabled={true}
+                >
+                  <View style={styles.modalContent}>
+                    <Text style={styles.modalTitle}>Yeni Araç Ekle</Text>
+                
+
+                
+                <Text style={styles.inputLabel}>Marka</Text>
                 <DropDownPicker
                   open={brandOpen}
                   value={brandValue}
@@ -345,6 +475,8 @@ const GarageScreen = () => {
                   searchable={true}
                   searchPlaceholder="Ara..."
                 />
+                
+                <Text style={styles.inputLabel}>Model</Text>
                 <DropDownPicker
                   open={modelOpen}
                   value={modelNameValue}
@@ -359,6 +491,8 @@ const GarageScreen = () => {
                   searchable={true}
                   searchPlaceholder="Ara..."
                 />
+                
+                <Text style={styles.inputLabel}>Paket</Text>
                 <DropDownPicker
                   open={packageOpen}
                   value={packageValue}
@@ -366,20 +500,26 @@ const GarageScreen = () => {
                   setOpen={setPackageOpen}
                   setValue={setPackageValue}
                   setItems={setPackageItems}
-                  placeholder="Paket Seç (Opsiyonel)"
+                  placeholder="Paket Seç"
                   style={styles.input}
                   zIndex={3500}
                   disabled={!modelNameValue}
                   searchable={true}
                   searchPlaceholder="Ara..."
                 />
+                
+                <Text style={styles.inputLabel}>Yıl</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Yıl"
                   value={newVehicle.year ? String(newVehicle.year) : ''}
                   onChangeText={(text) => setNewVehicle({ ...newVehicle, year: Number(text) })}
                   keyboardType="numeric"
+                  placeholderTextColor="#8E8E93"
+                  maxLength={4}
                 />
+                
+                <Text style={styles.inputLabel}>Yakıt Türü</Text>
                 <DropDownPicker
                   open={fuelOpen}
                   value={fuelValue}
@@ -394,6 +534,8 @@ const GarageScreen = () => {
                   searchable={true}
                   searchPlaceholder="Ara..."
                 />
+                
+                <Text style={styles.inputLabel}>Vites Türü</Text>
                 <DropDownPicker
                   open={transmissionOpen}
                   value={transmissionValue}
@@ -408,37 +550,48 @@ const GarageScreen = () => {
                   searchable={true}
                   searchPlaceholder="Ara..."
                 />
+                
+                <Text style={styles.inputLabel}>Kilometre</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Kilometre"
                   value={newVehicle.mileage ? String(newVehicle.mileage) : ''}
                   onChangeText={(text) => setNewVehicle({ ...newVehicle, mileage: Number(text) })}
                   keyboardType="numeric"
+                  placeholderTextColor="#8E8E93"
                 />
+                
+                <Text style={styles.inputLabel}>Plaka</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Plaka (örn: 34ABC123)"
+                  placeholder="Plaka"
                   value={newVehicle.plateNumber}
                   onChangeText={(text) => setNewVehicle({ ...newVehicle, plateNumber: text.toUpperCase() })}
                   autoCapitalize="characters"
                   keyboardType="default"
                   maxLength={9}
+                  placeholderTextColor="#8E8E93"
                 />
+                
+
+                
                 <View style={styles.modalButtons}>
                   <TouchableOpacity
                     style={[styles.modalButton, styles.cancelButton]}
                     onPress={() => setShowAddModal(false)}
                   >
-                    <Text style={styles.cancelButtonText}>İptal</Text>
+                    <Text style={[styles.modalButtonText, styles.cancelButtonText]}>İptal</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.modalButton, styles.saveButton]}
                     onPress={handleAddVehicle}
                   >
-                    <Text style={styles.saveButtonText}>Kaydet</Text>
+                    <Text style={[styles.modalButtonText, styles.saveButtonText]}>Kaydet</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
+                  </View>
+                </ScrollView>
+              </KeyboardAvoidingView>
             </View>
           </Modal>
         </ScrollView>
@@ -579,6 +732,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  modalKeyboardView: {
+    flex: 1,
+    width: '100%',
+  },
+  modalScrollView: {
+    flex: 1,
+    width: '100%',
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
   modalContent: {
     backgroundColor: '#fff',
     borderRadius: 28,
@@ -612,6 +779,13 @@ const styles = StyleSheet.create({
     shadowColor: 'transparent',
     elevation: 0,
   },
+  inputLabel: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '600',
+    marginLeft: 4,
+    marginBottom: 8,
+  },
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -623,6 +797,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     marginHorizontal: 4,
+  },
+  modalButtonText: {
+    fontSize: 17,
+    fontWeight: '600',
+    letterSpacing: 0.1,
   },
   cancelButton: {
     backgroundColor: '#f2f2f7',
@@ -653,6 +832,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#FFD700',
   },
+
 });
 
 export default GarageScreen; 

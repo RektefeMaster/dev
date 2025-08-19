@@ -2,10 +2,10 @@
  * Rektefe uygulamaları için temel konfigürasyon
  */
 
-// API Konfigürasyonu
+// API Konfigürasyonu - Hem localhost hem IP için
 export const API_CONFIG = {
-  BASE_URL: process.env.API_BASE_URL || 'http://localhost:3000/api', // Environment variable veya default
-  SOCKET_URL: process.env.SOCKET_BASE_URL || 'http://localhost:3000', // Environment variable veya default
+  BASE_URL: process.env.API_BASE_URL || 'http://localhost:3000/api', // localhost kullan
+  SOCKET_URL: process.env.SOCKET_BASE_URL || 'http://localhost:3000', // localhost kullan
   TIMEOUT: 60000,
 };
 

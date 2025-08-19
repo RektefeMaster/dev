@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../../constants/config';
 import { useAuth } from '../../../context/AuthContext';
 import { clearAuthData } from '../../../utils/common';
+import { translateServices } from '../../../utils/serviceTranslator';
 
 interface Vehicle {
   _id: string;
@@ -272,10 +273,13 @@ export const useHomeData = () => {
       
       // API response formatı kontrol et
       if (response.data && response.data.success && response.data.data) {
-        setServiceProviders(response.data.data);
+        // Hizmet isimlerini Türkçe'ye çevir
+        const translatedProviders = translateServices(response.data.data);
+        setServiceProviders(translatedProviders);
       } else if (response.data && Array.isArray(response.data)) {
         // Eski format için fallback
-        setServiceProviders(response.data);
+        const translatedProviders = translateServices(response.data);
+        setServiceProviders(translatedProviders);
       } else {
         setServiceProviders([]);
       }
@@ -298,7 +302,26 @@ export const useHomeData = () => {
   };
 
   const fetchAppointments = async (token: string) => {
-    // ... (mevcut kod korunacak)
+    try {
+      const response = await axios.get(`${API_URL}/maintenance-appointments`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (response.data && response.data.success && response.data.data) {
+        // Hizmet isimlerini Türkçe'ye çevir
+        const translatedAppointments = translateServices(response.data.data);
+        setAppointments(translatedAppointments);
+      } else if (response.data && Array.isArray(response.data)) {
+        // Eski format için fallback
+        const translatedAppointments = translateServices(response.data);
+        setAppointments(translatedAppointments);
+      } else {
+        setAppointments([]);
+      }
+    } catch (error) {
+      console.error('Randevular getirilirken hata:', error);
+      setAppointments([]);
+    }
   };
 
   const refreshData = async () => {

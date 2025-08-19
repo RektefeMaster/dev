@@ -1,5 +1,15 @@
 import { Response } from 'express';
 
+export class CustomError extends Error {
+  statusCode: number;
+  
+  constructor(message: string, statusCode: number = 500) {
+    super(message);
+    this.statusCode = statusCode;
+    this.name = 'CustomError';
+  }
+}
+
 export interface ApiResponse<T = any> {
   success: boolean;
   message: string;
@@ -136,3 +146,11 @@ export class ResponseHandler {
     return res.status(200).json(response);
   }
 }
+
+// Helper function for backward compatibility
+export const sendResponse = <T>(
+  res: Response,
+  statusCode: number,
+  message: string,
+  data?: T
+) => ResponseHandler.success(res, data, message, statusCode);

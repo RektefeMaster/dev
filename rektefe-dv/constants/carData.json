@@ -927,14 +927,14 @@
     "brand": "Mazda",
     "models": [
       {
-        "name": "3",
+        "name": "3 Serisi",
         "packages": ["Prime", "Power", "Sport"],
         "fuelTypes": ["Benzin", "Benzin/Tüp"],
         "engineTypes": ["1.5", "2.0"],
         "transmissions": ["Manuel", "Otomatik"]
       },
       {
-        "name": "6",
+        "name": "6 Serisi",
         "packages": ["Prime", "Power", "Sport"],
         "fuelTypes": ["Benzin", "Benzin/Tüp"],
         "engineTypes": ["2.0"],

@@ -3,6 +3,7 @@ import { auth } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { createAppointmentSchema } from '../validators/maintenance.validation';
 import { MaintenanceAppointmentController } from '../controllers/maintenanceAppointment.controller';
+import { autoSetDates } from '../middleware/autoDateSetter';
 
 const router = Router();
 
@@ -344,7 +345,7 @@ router.put('/:id/status', auth, MaintenanceAppointmentController.updateAppointme
  *       500:
  *         description: Sunucu hatası
  */
-router.put('/:id/mechanic-status', auth, MaintenanceAppointmentController.updateAppointmentByMechanic);
+router.put('/:id/mechanic-status', auth, autoSetDates, MaintenanceAppointmentController.updateAppointmentByMechanic);
 
 /**
  * @swagger
@@ -432,6 +433,33 @@ router.post('/:id/cancel', auth, MaintenanceAppointmentController.cancelAppointm
 
 /**
  * @swagger
+ * /api/maintenance-appointments/today:
+ *   get:
+ *     summary: Bugünkü onaylanan randevuları getir
+ *     description: Kullanıcının bugün için onaylanan randevularını listeler
+ *     tags:
+ *       - Maintenance Appointments
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Bugünkü randevular başarıyla getirildi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/today', auth, MaintenanceAppointmentController.getTodaysAppointments);
+
+// Bildirim ayarları
+router.put('/:id/notification-settings', auth, MaintenanceAppointmentController.updateNotificationSettings);
+router.get('/:id/notification-settings', auth, MaintenanceAppointmentController.getNotificationSettings);
+
+// Ödeme durumu güncelleme
+router.put('/:id/payment-status', auth, MaintenanceAppointmentController.updatePaymentStatus);
+
+/**
+ * @swagger
  * /api/maintenance-appointments/mechanic-availability:
  *   get:
  *     summary: Mekaniğin müsaitlik durumunu getir
@@ -467,5 +495,35 @@ router.post('/:id/cancel', auth, MaintenanceAppointmentController.cancelAppointm
  *         description: Sunucu hatası
  */
 router.get('/mechanic-availability', auth, MaintenanceAppointmentController.getMechanicAvailability);
+
+/**
+ * @swagger
+ * /api/maintenance-appointments/{id}:
+ *   delete:
+ *     summary: Randevuyu sil
+ *     description: Belirli bir randevuyu kalıcı olarak siler
+ *     tags:
+ *       - Maintenance Appointments
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Randevu ID'si
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Randevu başarıyla silindi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       404:
+ *         description: Randevu bulunamadı
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.delete('/:id', auth, MaintenanceAppointmentController.deleteAppointment);
 
 export default router; 

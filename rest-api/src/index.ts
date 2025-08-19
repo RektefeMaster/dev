@@ -20,11 +20,16 @@ const app = express();
 app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
 
-// Tüm gelen istekleri logla
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  next();
-});
+// Sadece önemli istekleri logla (development modunda)
+if (process.env.NODE_ENV === 'development') {
+  app.use((req, res, next) => {
+    // Sadece POST, PUT, DELETE isteklerini logla
+    if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+      console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    }
+    next();
+  });
+}
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -36,23 +41,64 @@ mongoose.connect(MONGODB_URI)
 
 // HTTP sunucusu oluştur
 const httpServer = createServer(app);
-// Socket.io sunucusu oluştur
+
+// Socket.io sunucusu oluştur - TÜM ORIGIN'LER İÇİN AÇIK
 export const io = new Server(httpServer, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
+    origin: true, // TÜM ORIGIN'LERİ KABUL ET
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204
+  },
+  transports: ['polling'], // SADECE POLLING - KARARLI BAĞLANTI
+  allowEIO3: true,
+  allowEIO4: true,
+  pingTimeout: 120000, // 2 dakika
+  pingInterval: 60000, // 1 dakika
+  connectTimeout: 60000, // 1 dakika
+  maxHttpBufferSize: 1e6,
+  upgradeTimeout: 30000,
+  allowRequest: (req, callback) => {
+    // TÜM İSTEKLERİ KABUL ET
+    callback(null, true);
   }
+});
+
+// Socket.IO hata yönetimi (sadece gerçek hatalarda)
+io.engine.on('connection_error', (err) => {
+  console.error('Socket.IO Engine bağlantı hatası:', err);
 });
 
 // Kullanıcı bağlantısı ve oda mantığı
 io.on('connection', (socket: Socket) => {
-  console.log('Bir kullanıcı bağlandı:', socket.id);
-  socket.on('join', (userId: string) => {
-    socket.join(userId);
-    console.log(`Kullanıcı ${userId} odasına katıldı.`);
+  // Bağlantı hatası
+  socket.on('error', (error: any) => {
+    console.error('Socket.IO: Bağlantı hatası:', error);
   });
-  socket.on('disconnect', () => {
-    console.log('Kullanıcı ayrıldı:', socket.id);
+  
+  // Kullanıcı odaya katılma
+  socket.on('join', (userId: string) => {
+    try {
+      socket.join(userId);
+    } catch (error) {
+      console.error('Socket.IO: Odaya katılma hatası:', error);
+    }
+  });
+  
+  // Bağlantı kesildi
+  socket.on('disconnect', (reason: string) => {
+    // Sessiz disconnect
+    const rooms = Array.from(socket.rooms);
+    if (rooms.length > 1) { // 1'den fazla çünkü socket.id de bir oda
+      console.log(`🏠 Socket.IO: Kullanıcı şu odalardan çıkarıldı:`, rooms.slice(1));
+    }
+  });
+  
+  // Ping/Pong kontrolü
+  socket.on('ping', () => {
+    socket.emit('pong');
   });
 });
 
@@ -95,6 +141,12 @@ import serviceCategoryRoutes from './routes/serviceCategory';
 import mechanicServiceRoutes from './routes/mechanicService';
 import uploadRoutes from './routes/upload';
 import mechanicRoutes from './routes/mechanic';
+import mechanicJobsRoutes from './routes/mechanicJobs';
+import mechanicEarningsRoutes from './routes/mechanicEarnings';
+import appointmentRoutes from './routes/appointments';
+import notificationRoutes from './routes/notifications';
+import appointmentRatingRoutes from './routes/appointmentRating';
+import messageRoutes from './routes/message';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -109,6 +161,12 @@ app.use('/api/vehicles', vehiclesRoutes);
 app.use('/api/service-categories', serviceCategoryRoutes);
 app.use('/api/mechanic-services', mechanicServiceRoutes);
 app.use('/api/mechanic', mechanicRoutes);
+app.use('/api/mechanic-jobs', mechanicJobsRoutes);
+app.use('/api/mechanic-earnings', mechanicEarningsRoutes);
+app.use('/api/appointment-ratings', appointmentRatingRoutes);
+app.use('/api/appointments', appointmentRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/messages', messageRoutes);
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 

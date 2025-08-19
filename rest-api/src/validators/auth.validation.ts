@@ -21,7 +21,16 @@ export const registerSchema = Joi.object({
   }),
   userType: Joi.string().valid('driver', 'mechanic').optional().default('driver').messages({
     'any.only': 'Kullanıcı tipi driver veya mechanic olmalıdır'
-  })
+  }),
+  // Mechanic için opsiyonel alanlar
+  username: Joi.string().min(3).max(30).optional(),
+  phone: Joi.string().optional(),
+  experience: Joi.number().min(0).optional(),
+  specialties: Joi.array().items(Joi.string()).optional(),
+  location: Joi.object({
+    address: Joi.string().optional(),
+    city: Joi.string().optional()
+  }).optional()
 });
 
 export const loginSchema = Joi.object({
