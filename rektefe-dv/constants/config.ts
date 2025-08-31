@@ -1,22 +1,23 @@
 /**
- * Rektefe uygulamaları için temel konfigürasyon
+ * Rektefe DV uygulaması için temel konfigürasyon
  */
 
-// API Konfigürasyonu - Hem localhost hem IP için
+// API Konfigürasyonu - Localhost kullan
 export const API_CONFIG = {
-  BASE_URL: process.env.API_BASE_URL || 'http://localhost:3000/api', // localhost kullan
-  SOCKET_URL: process.env.SOCKET_BASE_URL || 'http://localhost:3000', // localhost kullan
+  BASE_URL: process.env.API_BASE_URL || 'http://localhost:3000/api',
+  SOCKET_URL: process.env.SOCKET_BASE_URL || 'http://localhost:3000',
   TIMEOUT: 60000,
 };
 
-// Doğrudan export edilen API URL'leri (geriye uyumluluk için)
+// Doğrudan export edilen API URL'leri
 export const API_URL = API_CONFIG.BASE_URL;
 export const SOCKET_URL = API_CONFIG.SOCKET_URL;
 
 // Uygulama Konfigürasyonu
 export const APP_CONFIG = {
-  NAME: 'Rektefe',
+  NAME: 'Rektefe DV',
   VERSION: '1.0.0',
+  DESCRIPTION: 'Şoförler için Rektefe uygulaması',
 };
 
 // Navigasyon Konfigürasyonu
@@ -33,6 +34,7 @@ export const STORAGE_KEYS = {
   USER_ID: 'user_id',
   USER_DATA: 'user_data',
   THEME: 'app_theme',
+  ONBOARDING_COMPLETED: 'onboarding_completed',
 };
 
 // Hata Mesajları
@@ -49,4 +51,14 @@ export const SUCCESS_MESSAGES = {
   REGISTER_SUCCESS: 'Hesap başarıyla oluşturuldu.',
   UPDATE_SUCCESS: 'Bilgiler başarıyla güncellendi.',
   SAVE_SUCCESS: 'Başarıyla kaydedildi.',
-}; 
+  APPOINTMENT_BOOKED: 'Randevu başarıyla oluşturuldu.',
+  PAYMENT_SUCCESS: 'Ödeme başarıyla tamamlandı.',
+};
+
+// Şoför Özel Konfigürasyonu
+export const DRIVER_CONFIG = {
+  MIN_APPOINTMENTS_PER_DAY: 5,
+  MAX_APPOINTMENTS_PER_DAY: 20,
+  RATING_THRESHOLD: 4.0,
+  RESPONSE_TIME_LIMIT: 15, // dakika
+};

@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { ServiceCategory } from '../models/ServiceCategory';
 import { auth } from '../middleware/auth';
-import { AuthRequest } from '../types/express';
+import { AuthRequest } from '../types/auth.d';
 
 const router = express.Router();
 

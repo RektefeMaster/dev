@@ -19,6 +19,9 @@
     "android": {
       "package": "com.rektefe.dv"
     },
-    "newArchEnabled": true
+    "newArchEnabled": true,
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

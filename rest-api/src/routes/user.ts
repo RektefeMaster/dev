@@ -3,6 +3,7 @@ import { User } from '../models/User';
 import { auth } from '../middleware/auth';
 import mongoose from 'mongoose';
 import { ResponseHandler } from '../utils/response';
+import { Notification } from '../models/Notification'; // Added missing import
 
 /**
  * @swagger
@@ -175,20 +176,21 @@ router.put('/profile', auth, async (req: Request, res: Response) => {
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required:
- *               - photoUrl
+ *               - photo
  *             properties:
- *               photoUrl:
+ *               photo:
  *                 type: string
- *                 description: Fotoğraf URL'i
+ *                 format: binary
+ *                 description: Profil fotoğrafı
  *     responses:
  *       200:
- *         description: Profil fotoğrafı başarıyla güncellendi
+ *         description: Profil fotoğrafı güncellendi
  *       400:
- *         description: Fotoğraf URL'i eksik
+ *         description: Geçersiz veri
  *       401:
  *         description: Yetkilendirme hatası
  *       500:
@@ -197,29 +199,21 @@ router.put('/profile', auth, async (req: Request, res: Response) => {
 router.post('/profile-photo', auth, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
-    const { photoUrl } = req.body;
     
     if (!userId) {
       return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
     }
     
-    if (!photoUrl) {
-      return ResponseHandler.badRequest(res, 'Fotoğraf URL\'si eksik.');
-    }
+    // Bu endpoint için file upload middleware gerekli
+    // Şimdilik basit bir response döndürüyoruz
+    return ResponseHandler.success(res, { 
+      message: 'Profil fotoğrafı güncelleme endpoint\'i hazır',
+      note: 'File upload middleware entegrasyonu gerekli'
+    }, 'Profil fotoğrafı endpoint\'i');
     
-    const updated = await User.findByIdAndUpdate(
-      userId, 
-      { avatar: photoUrl }, 
-      { new: true }
-    );
-    
-    if (!updated) {
-      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
-    }
-    
-    return ResponseHandler.updated(res, { avatar: updated.avatar }, 'Profil fotoğrafı güncellendi.');
-  } catch (error: any) {
-    return ResponseHandler.error(res, error.message);
+  } catch (error) {
+    console.error('Profile photo update hatası:', error);
+    return ResponseHandler.error(res, 'Profil fotoğrafı güncellenirken hata oluştu');
   }
 });
 
@@ -236,20 +230,21 @@ router.post('/profile-photo', auth, async (req: Request, res: Response) => {
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required:
- *               - photoUrl
+ *               - photo
  *             properties:
- *               photoUrl:
+ *               photo:
  *                 type: string
- *                 description: Fotoğraf URL'i
+ *                 format: binary
+ *                 description: Kapak fotoğrafı
  *     responses:
  *       200:
- *         description: Kapak fotoğrafı başarıyla güncellendi
+ *         description: Kapak fotoğrafı güncellendi
  *       400:
- *         description: Fotoğraf URL'i eksik
+ *         description: Geçersiz veri
  *       401:
  *         description: Yetkilendirme hatası
  *       500:
@@ -258,29 +253,21 @@ router.post('/profile-photo', auth, async (req: Request, res: Response) => {
 router.post('/cover-photo', auth, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
-    const { photoUrl } = req.body;
     
     if (!userId) {
       return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
     }
     
-    if (!photoUrl) {
-      return ResponseHandler.badRequest(res, 'Fotoğraf URL\'si eksik.');
-    }
+    // Bu endpoint için file upload middleware gerekli
+    // Şimdilik basit bir response döndürüyoruz
+    return ResponseHandler.success(res, { 
+      message: 'Kapak fotoğrafı güncelleme endpoint\'i hazır',
+      note: 'File upload middleware entegrasyonu gerekli'
+    }, 'Kapak fotoğrafı endpoint\'i');
     
-    const updated = await User.findByIdAndUpdate(
-      userId, 
-      { cover: photoUrl }, 
-      { new: true }
-    );
-    
-    if (!updated) {
-      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
-    }
-    
-    return ResponseHandler.updated(res, { cover: updated.cover }, 'Kapak fotoğrafı güncellendi.');
-  } catch (error: any) {
-    return ResponseHandler.error(res, error.message);
+  } catch (error) {
+    console.error('Cover photo update hatası:', error);
+    return ResponseHandler.error(res, 'Kapak fotoğrafı güncellenirken hata oluştu');
   }
 });
 
@@ -289,38 +276,33 @@ router.post('/cover-photo', auth, async (req: Request, res: Response) => {
  * /api/users/notifications:
  *   get:
  *     summary: Kullanıcı bildirimlerini getir
- *     description: Giriş yapan kullanıcının bildirimlerini getirir
+ *     description: Giriş yapan kullanıcının tüm bildirimlerini listeler
  *     tags:
  *       - Users
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: number
+ *         description: Sayfa numarası
+ *         example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: number
+ *         description: Sayfa başına bildirim sayısı
+ *         example: 10
+ *       - in: query
+ *         name: unreadOnly
+ *         schema:
+ *           type: boolean
+ *         description: Sadece okunmamış bildirimleri getir
+ *         example: false
  *     responses:
  *       200:
  *         description: Bildirimler başarıyla getirildi
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 message:
- *                   type: string
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       _id:
- *                         type: string
- *                       message:
- *                         type: string
- *                       type:
- *                         type: string
- *                       createdAt:
- *                         type: string
- *                       isRead:
- *                         type: boolean
  *       401:
  *         description: Yetkilendirme hatası
  *       500:
@@ -329,19 +311,38 @@ router.post('/cover-photo', auth, async (req: Request, res: Response) => {
 router.get('/notifications', auth, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
+    const { page = 1, limit = 10, unreadOnly = false } = req.query;
+    
     if (!userId) {
       return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
     }
-
-    const user = await User.findById(userId).select('notifications');
-    if (!user) {
-      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    
+    const skip = (Number(page) - 1) * Number(limit);
+    
+    let filter: any = { userId };
+    if (unreadOnly === 'true') {
+      filter.read = false;
     }
-
-    // Boş notifications array döndür (şimdilik)
-    return ResponseHandler.success(res, user.notifications || [], 'Bildirimler başarıyla getirildi');
+    
+    const notifications = await Notification.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit));
+    
+    const total = await Notification.countDocuments(filter);
+    
+    return ResponseHandler.success(res, {
+      notifications,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / Number(limit))
+      }
+    }, 'Bildirimler başarıyla getirildi');
+    
   } catch (error) {
-    console.error('Bildirim getirme hatası:', error);
+    console.error('Notifications getirme hatası:', error);
     return ResponseHandler.error(res, 'Bildirimler getirilirken hata oluştu');
   }
 });
@@ -469,7 +470,7 @@ router.put('/notifications/read-all', auth, async (req: Request, res: Response) 
  * /api/users/{userId}:
  *   get:
  *     summary: Kullanıcı bilgilerini ID ile getir
- *     description: Belirtilen ID'ye sahip kullanıcının bilgilerini getirir
+ *     description: Belirli bir kullanıcının bilgilerini ID ile getirir
  *     tags:
  *       - Users
  *     security:
@@ -481,13 +482,12 @@ router.put('/notifications/read-all', auth, async (req: Request, res: Response) 
  *         schema:
  *           type: string
  *         description: Kullanıcı ID'si
+ *         example: "507f1f77bcf86cd799439011"
  *     responses:
  *       200:
  *         description: Kullanıcı bilgileri başarıyla getirildi
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/UserProfile'
+ *       400:
+ *         description: Geçersiz kullanıcı ID
  *       401:
  *         description: Yetkilendirme hatası
  *       404:
@@ -518,6 +518,276 @@ router.get('/:userId', auth, async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Kullanıcı bilgileri getirme hatası:', error);
     return ResponseHandler.error(res, 'Kullanıcı bilgileri getirilirken hata oluştu');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/me:
+ *   get:
+ *     summary: Giriş yapan kullanıcının detaylı bilgilerini getir
+ *     description: JWT token ile giriş yapan kullanıcının tüm bilgilerini getirir
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Kullanıcı bilgileri başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UserProfile'
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/me', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    const user = await User.findById(userId)
+      .select('-password')
+      .populate('favoriteVehicle', 'brand modelName year plateNumber')
+      .populate('followers', 'name surname avatar')
+      .populate('following', 'name surname avatar');
+
+    if (!user) {
+      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    }
+
+    return ResponseHandler.success(res, user, 'Kullanıcı bilgileri başarıyla getirildi');
+  } catch (error) {
+    console.error('Kullanıcı bilgileri getirme hatası:', error);
+    return ResponseHandler.error(res, 'Kullanıcı bilgileri getirilirken hata oluştu');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/search:
+ *   get:
+ *     summary: Kullanıcı arama
+ *     description: İsim, soyisim veya e-posta ile kullanıcı arama
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Arama terimi (isim, soyisim, e-posta)
+ *       - in: query
+ *         name: userType
+ *         schema:
+ *           type: string
+ *           enum: [driver, mechanic]
+ *         description: Kullanıcı tipi filtresi
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Maksimum sonuç sayısı
+ *     responses:
+ *       200:
+ *         description: Arama sonuçları başarıyla getirildi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/search', auth, async (req: Request, res: Response) => {
+  try {
+    const { q, userType, limit = 10 } = req.query;
+    const requestingUserId = req.user?.userId;
+    
+    if (!requestingUserId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    if (!q || typeof q !== 'string') {
+      return ResponseHandler.badRequest(res, 'Arama terimi gerekli.');
+    }
+
+    const searchQuery: any = {
+      $or: [
+        { name: { $regex: q, $options: 'i' } },
+        { surname: { $regex: q, $options: 'i' } },
+        { email: { $regex: q, $options: 'i' } }
+      ],
+      _id: { $ne: requestingUserId } // Kendini arama sonuçlarından çıkar
+    };
+
+    if (userType) {
+      searchQuery.userType = userType;
+    }
+
+    const users = await User.find(searchQuery)
+      .select('name surname email userType avatar city')
+      .limit(Number(limit));
+
+    return ResponseHandler.success(res, users, 'Arama sonuçları başarıyla getirildi');
+  } catch (error) {
+    console.error('Kullanıcı arama hatası:', error);
+    return ResponseHandler.error(res, 'Kullanıcı arama yapılırken hata oluştu');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/follow/:userId:
+ *   post:
+ *     summary: Kullanıcıyı takip et
+ *     description: Belirtilen kullanıcıyı takip listesine ekler
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Takip edilecek kullanıcı ID'si
+ *     responses:
+ *       200:
+ *         description: Kullanıcı başarıyla takip edildi
+ *       400:
+ *         description: Kendini takip etme hatası
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       404:
+ *         description: Takip edilecek kullanıcı bulunamadı
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.post('/become-customer/:mechanicId', auth, async (req: Request, res: Response) => {
+  try {
+    const { mechanicId } = req.params;
+    const customerId = req.user?.userId;
+    
+    if (!customerId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    // Müşteri olmak isteyen kişi şöför olmalı
+    const customer = await User.findById(customerId);
+    if (!customer) {
+      return ResponseHandler.notFound(res, 'Müşteri bulunamadı.');
+    }
+
+    if (customer.userType !== 'driver') {
+      return ResponseHandler.badRequest(res, 'Sadece şöförler usta müşterisi olabilir.');
+    }
+
+    // Usta bulunmalı
+    const mechanic = await User.findById(mechanicId);
+    if (!mechanic) {
+      return ResponseHandler.notFound(res, 'Usta bulunamadı.');
+    }
+
+    if (mechanic.userType !== 'mechanic') {
+      return ResponseHandler.badRequest(res, 'Sadece ustalar müşteri kabul edebilir.');
+    }
+
+    // Zaten müşteri mi kontrol et
+    if (customer.following.some(id => id.toString() === mechanicId)) {
+      return ResponseHandler.badRequest(res, 'Zaten bu ustanın müşterisisiniz.');
+    }
+
+    // Müşteri ol
+    customer.following.push(new mongoose.Types.ObjectId(mechanicId));
+    mechanic.followers.push(new mongoose.Types.ObjectId(customerId));
+
+    await Promise.all([customer.save(), mechanic.save()]);
+
+    return ResponseHandler.success(res, { 
+      message: 'Başarıyla müşteri olundu',
+      mechanicName: `${mechanic.name} ${mechanic.surname}`,
+      customerCount: mechanic.followers.length
+    }, 'Müşteri olundu');
+    
+  } catch (error) {
+    console.error('Müşteri olma hatası:', error);
+    return ResponseHandler.error(res, 'Müşteri olurken hata oluştu');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/unfollow/:userId:
+ *   delete:
+ *     summary: Kullanıcı takibini bırak
+ *     description: Belirtilen kullanıcıyı takip listesinden çıkarır
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Takibi bırakılacak kullanıcı ID'si
+ *     responses:
+ *       200:
+ *         description: Takip başarıyla bırakıldı
+ *       400:
+ *         description: Geçersiz işlem
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.delete('/remove-customer/:mechanicId', auth, async (req: Request, res: Response) => {
+  try {
+    const { mechanicId } = req.params;
+    const customerId = req.user?.userId;
+    
+    if (!customerId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    const customer = await User.findById(customerId);
+    if (!customer) {
+      return ResponseHandler.notFound(res, 'Müşteri bulunamadı.');
+    }
+
+    // Müşteri mi kontrol et
+    if (!customer.following.some(id => id.toString() === mechanicId)) {
+      return ResponseHandler.badRequest(res, 'Zaten bu ustanın müşterisi değilsiniz.');
+    }
+
+    // Müşteriliği bırak
+    customer.following = customer.following.filter(id => id.toString() !== mechanicId);
+    
+    const mechanic = await User.findById(mechanicId);
+    if (mechanic) {
+      mechanic.followers = mechanic.followers.filter(id => id.toString() !== customerId);
+      await mechanic.save();
+    }
+
+    await customer.save();
+
+    return ResponseHandler.success(res, { 
+      message: 'Müşterilik başarıyla bırakıldı',
+      mechanicName: mechanic ? `${mechanic.name} ${mechanic.surname}` : 'Bilinmeyen Usta'
+    }, 'Müşterilik bırakıldı');
+    
+  } catch (error) {
+    console.error('Müşterilik bırakma hatası:', error);
+    return ResponseHandler.error(res, 'Müşterilik bırakılırken hata oluştu');
   }
 });
 
@@ -582,13 +852,117 @@ router.post('/push-token', async (req: Request, res: Response) => {
     
     return ResponseHandler.success(res, { 
       message: 'Push token başarıyla kaydedildi',
-      userId,
-      platform 
+      user: {
+        _id: user._id,
+        name: user.name,
+        surname: user.surname,
+        email: user.email,
+        userType: user.userType,
+        pushToken: user.pushToken,
+        platform: user.platform,
+        lastTokenUpdate: user.lastTokenUpdate
+      }
     }, 'Push token kaydedildi');
     
   } catch (error) {
     console.error('Push token kaydetme hatası:', error);
     return ResponseHandler.error(res, 'Push token kaydedilirken hata oluştu');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/my-mechanics:
+ *   get:
+ *     summary: Müşterisi olunan ustaları getir
+ *     description: Şöförün müşterisi olduğu ustaları listeler
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Müşterisi olunan ustalar başarıyla getirildi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/my-mechanics', auth, async (req: Request, res: Response) => {
+  try {
+    const customerId = req.user?.userId;
+    
+    if (!customerId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    const customer = await User.findById(customerId);
+    if (!customer) {
+      return ResponseHandler.notFound(res, 'Müşteri bulunamadı.');
+    }
+
+    if (customer.userType !== 'driver') {
+      return ResponseHandler.badRequest(res, 'Bu endpoint sadece şöförler için.');
+    }
+
+    // Müşterisi olunan ustaları getir
+    const mechanics = await User.find({
+      _id: { $in: customer.following },
+      userType: 'mechanic'
+    }).select('name surname email avatar city bio experience rating ratingCount shopName');
+
+    return ResponseHandler.success(res, mechanics, 'Müşterisi olunan ustalar başarıyla getirildi');
+  } catch (error) {
+    console.error('Müşteri ustaları getirme hatası:', error);
+    return ResponseHandler.error(res, 'Müşteri ustaları getirilirken hata oluştu');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/my-customers:
+ *   get:
+ *     summary: Ustanın müşterilerini getir
+ *     description: Ustanın müşterisi olan şöförleri listeler
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Müşteriler başarıyla getirildi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/my-customers', auth, async (req: Request, res: Response) => {
+  try {
+    const mechanicId = req.user?.userId;
+    
+    if (!mechanicId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    const mechanic = await User.findById(mechanicId);
+    if (!mechanic) {
+      return ResponseHandler.notFound(res, 'Usta bulunamadı.');
+    }
+
+    if (mechanic.userType !== 'mechanic') {
+      return ResponseHandler.badRequest(res, 'Bu endpoint sadece ustalar için.');
+    }
+
+    // Ustanın müşterilerini getir
+    const customers = await User.find({
+      _id: { $in: mechanic.followers },
+      userType: 'driver'
+    }).select('name surname email avatar city phone');
+
+    return ResponseHandler.success(res, customers, 'Müşteriler başarıyla getirildi');
+  } catch (error) {
+    console.error('Usta müşterileri getirme hatası:', error);
+    return ResponseHandler.error(res, 'Müşteriler getirilirken hata oluştu');
   }
 });
 

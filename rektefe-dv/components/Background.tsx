@@ -16,15 +16,15 @@ const getGradientColors = (isDark: boolean): readonly [string, string, string] =
   if (isDark) {
     // Koyu tema - modern gradient
     return [
-      theme.colors.background.default.dark,
-      theme.colors.background.surface.dark,
+      theme.colors.background.quaternary,
+      theme.colors.background.tertiary,
       theme.colors.primary.main
     ] as const;
   } else {
     // Açık tema - göz yormayan, gradient benzeri renkler
     return [
-      theme.colors.background.default.light,
-      theme.colors.background.surface.light,
+      theme.colors.background.primary,
+      theme.colors.background.secondary,
       theme.colors.primary.light
     ] as const;
   }

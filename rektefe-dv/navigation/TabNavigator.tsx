@@ -5,8 +5,9 @@ import LottieView from 'lottie-react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../context/ThemeContext';
 import theme from '../theme/theme';
-import HomeScreen from '../screens/HomeScreen';
+import HomeScreen from '../screens/HomeScreen/HomeScreen';
 import WalletScreen from '../screens/WalletScreen';
+import MessagesScreen from '../screens/MessagesScreen';
 import GarageScreen from '../screens/GarageScreen';
 import SupportScreen from '../screens/SupportScreen';
 import TefeWalletScreen from '../screens/TefeWalletScreen';
@@ -26,30 +27,33 @@ const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
     <View style={styles.tabBarWrapper}>
       <View style={styles.tabBarBackground} />
       <View style={[styles.tabBarContainer, { 
-        backgroundColor: isDark ? theme.colors.background.paper.dark : theme.colors.background.paper.light,
-        borderColor: isDark ? theme.colors.border.dark : theme.colors.border.light,
+        backgroundColor: isDark ? theme.colors.background.tertiary : theme.colors.background.secondary,
+        borderColor: isDark ? theme.colors.border.tertiary : theme.colors.border.primary,
       }]}>
         {state.routes.map((route: Route, idx: number) => {
           const isFocused = state.index === idx;
           let icon = null;
           let label = route.name;
           let iconSize = isFocused ? 34 : 28;
-          let iconColor = isFocused ? theme.colors.primary.main : (isDark ? theme.colors.text.secondary.dark : theme.colors.text.secondary.light);
+          let iconColor = isFocused ? theme.colors.primary.main : (isDark ? theme.colors.text.tertiary : theme.colors.text.secondary);
           let iconStyle = isFocused ? styles.activeIcon : {};
 
-          if (route.name === 'Home') {
+          if (route.name === 'Anasayfa') {
             icon = <MaterialCommunityIcons name="home" size={iconSize} color={iconColor} style={iconStyle} />;
           }
-          if (route.name === 'Wallet') {
-            icon = <MaterialCommunityIcons name="wallet" size={iconSize} color={iconColor} style={iconStyle} />;
+          if (route.name === 'Mesajlar') {
+            icon = <MaterialCommunityIcons name="message-text" size={iconSize} color={iconColor} style={iconStyle} />;
           }
-          if (route.name === 'Garage') {
+          if (route.name === 'Garajım') {
             icon = <MaterialCommunityIcons name="car" size={iconSize} color={iconColor} style={iconStyle} />;
           }
-          if (route.name === 'TefeWallet') {
+          if (route.name === 'Cüzdan') {
+            icon = <MaterialCommunityIcons name="wallet" size={iconSize} color={iconColor} style={iconStyle} />;
+          }
+          if (route.name === 'TEFECüzdan') {
             icon = <MaterialCommunityIcons name="cash" size={iconSize} color={iconColor} style={iconStyle} />;
           }
-          if (route.name === 'Support') {
+          if (route.name === 'Destek') {
             icon = <MaterialCommunityIcons name="lifebuoy" size={iconSize} color={iconColor} style={iconStyle} />;
           }
           return (
@@ -64,7 +68,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
               {icon}
               <Text style={[
                 styles.tabLabel, 
-                { color: isDark ? theme.colors.text.secondary.dark : theme.colors.text.secondary.light },
+                { color: isDark ? theme.colors.text.tertiary : theme.colors.text.secondary },
                 isFocused && [styles.activeTabLabel, { color: theme.colors.primary.main }]
               ]}>{label}</Text>
             </TouchableOpacity>
@@ -84,11 +88,12 @@ const TabNavigator = () => {
         headerShown: false,
       }}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: 'Anasayfa' }} />
-      <Tab.Screen name="Wallet" component={WalletScreen} options={{ tabBarLabel: '' }} />
-      <Tab.Screen name="Garage" component={GarageScreen} options={{ tabBarLabel: 'Garajım' }} />
-      <Tab.Screen name="TefeWallet" component={TefeWalletScreen} options={{ tabBarLabel: 'TEFE Cüzdan' }} />
-      <Tab.Screen name="Support" component={SupportScreen} options={{ tabBarLabel: 'Destek' }} />
+      <Tab.Screen name="Anasayfa" component={HomeScreen} options={{ tabBarLabel: 'Anasayfa' }} />
+      <Tab.Screen name="Mesajlar" component={MessagesScreen} options={{ tabBarLabel: 'Mesajlar' }} />
+      <Tab.Screen name="Garajım" component={GarageScreen} options={{ tabBarLabel: 'Garajım' }} />
+      <Tab.Screen name="Cüzdan" component={WalletScreen} options={{ tabBarLabel: 'Cüzdan' }} />
+      <Tab.Screen name="TEFECüzdan" component={TefeWalletScreen} options={{ tabBarLabel: 'TEFE Cüzdan' }} />
+      <Tab.Screen name="Destek" component={SupportScreen} options={{ tabBarLabel: 'Destek' }} />
     </Tab.Navigator>
   );
 };
@@ -111,6 +116,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 16,
     borderWidth: 1,
+  },
+  tabButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 1,
+  },
+  activeTabButton: {
+    transform: [{ scale: 1.1 }],
   },
   tabItem: {
     flex: 1,
@@ -152,22 +167,17 @@ const styles = StyleSheet.create({
     textShadowColor: theme.colors.primary.main,
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,
-    elevation: 8,
   },
-  activeTabItem: {
-    backgroundColor: `${theme.colors.primary.main}14`,
-    borderRadius: 18,
-  },
-  tabButton: {
-    flex: 1,
+  touchable: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    width: '100%',
+    height: '100%',
   },
-  activeTabButton: {
-    backgroundColor: `${theme.colors.primary.main}14`,
-    borderRadius: 18,
+  iconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
   },
 });
 

@@ -1,6 +1,10 @@
 import Joi from 'joi';
 
 export const createAppointmentSchema = Joi.object({
+  userId: Joi.string().required().messages({
+    'string.empty': 'Kullanıcı ID\'si gereklidir',
+    'any.required': 'Kullanıcı ID\'si gereklidir'
+  }),
   mechanicId: Joi.string().required().messages({
     'string.empty': 'Usta ID\'si gereklidir',
     'any.required': 'Usta ID\'si gereklidir'
@@ -18,11 +22,9 @@ export const createAppointmentSchema = Joi.object({
     'string.empty': 'Randevu saati gereklidir',
     'any.required': 'Randevu saati gereklidir'
   }),
-  description: Joi.string().min(10).max(500).required().messages({
-    'string.empty': 'Açıklama gereklidir',
+  description: Joi.string().min(10).max(500).optional().messages({
     'string.min': 'Açıklama en az 10 karakter olmalıdır',
-    'string.max': 'Açıklama en fazla 500 karakter olmalıdır',
-    'any.required': 'Açıklama gereklidir'
+    'string.max': 'Açıklama en fazla 500 karakter olmalıdır'
   }),
   vehicleId: Joi.string().optional().messages({
     'string.empty': 'Geçerli bir araç ID\'si giriniz'

@@ -16,7 +16,11 @@ export const serviceNameMapping: { [key: string]: string } = {
   
   // Onarım hizmetleri
   'alt-takim': 'Alt Takım',
+  'alt-takım': 'Alt Takım',
   'ust-takim': 'Üst Takım',
+  'ust-takım': 'Üst Takım',
+  'üst-takim': 'Üst Takım',
+  'üst-takım': 'Üst Takım',
   'kaporta': 'Kaporta/Boya',
   'kaporta-boya': 'Kaporta/Boya',
   'elektrik': 'Elektrik',
@@ -49,7 +53,6 @@ export const serviceNameMapping: { [key: string]: string } = {
   'battery-service': 'Aku Servisi',
   'aku-servisi': 'Aku Servisi',
   'ac-service': 'Klima Servisi',
-  'klima-servisi': 'Klima Servisi',
   'exhaust-service': 'Egzoz Servisi',
   'egzoz-servisi': 'Egzoz Servisi',
   'body-repair': 'Kaporta Onarımı',

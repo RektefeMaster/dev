@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { sendResponse } from '../utils/response';
+import { Appointment } from '../models/Appointment';
 
 export class MechanicJobsController {
   /**
@@ -92,10 +93,28 @@ export class MechanicJobsController {
       const { jobId } = req.params;
       const { price, breakdown, notes } = req.body;
 
-      // TODO: Implement price update logic
-      console.log(`Job ${jobId} price updated to: ${price}`);
+      if (!price || typeof price !== 'number' || price <= 0) {
+        return sendResponse(res, 400, 'Geçerli bir fiyat gerekli');
+      }
 
-      return sendResponse(res, 200, 'Fiyat başarıyla güncellendi');
+      // Appointment'ı bul ve fiyatını güncelle
+      const appointment = await Appointment.findByIdAndUpdate(
+        jobId,
+        { 
+          price: price,
+          updatedAt: new Date()
+        },
+        { new: true }
+      );
+
+      if (!appointment) {
+        return sendResponse(res, 404, 'Randevu bulunamadı');
+      }
+
+      console.log(`✅ Job ${jobId} price updated to: ${price}`);
+      console.log(`✅ Appointment updated:`, appointment);
+
+      return sendResponse(res, 200, 'Fiyat başarıyla güncellendi', { appointment });
     } catch (error) {
       console.error('updateJobPrice error:', error);
       return sendResponse(res, 500, 'Sunucu hatası');

@@ -41,8 +41,8 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({
           width: getContainerSize(),
           height: getContainerSize(),
           borderRadius: getContainerSize() / 2,
-          backgroundColor: isDark ? theme.colors.background.surface.dark : theme.colors.background.surface.light,
-          borderColor: isDark ? theme.colors.border.dark : theme.colors.border.light,
+                  backgroundColor: isDark ? theme.colors.background.tertiary : theme.colors.background.secondary,
+        borderColor: isDark ? theme.colors.border.tertiary : theme.colors.border.primary,
         },
         style
       ]}

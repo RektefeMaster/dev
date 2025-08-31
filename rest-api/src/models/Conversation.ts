@@ -1,20 +1,35 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IConversation extends Document {
   participants: mongoose.Types.ObjectId[];
+  type: 'private' | 'group' | 'support';
   lastMessage?: mongoose.Types.ObjectId;
   lastMessageAt?: Date;
-  unreadCount: { [userId: string]: number };
+  isActive: boolean;
+  unreadCount: Map<string, number>;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const conversationSchema = new Schema<IConversation>({
-  participants: [{
-    type: Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  }],
+const ConversationSchema = new Schema<IConversation>({
+  participants: {
+    type: [{
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    }],
+    validate: {
+      validator: function(participants: mongoose.Types.ObjectId[]) {
+        return participants.length >= 2;
+      },
+      message: 'Conversation must have at least 2 participants'
+    }
+  },
+  type: {
+    type: String,
+    enum: ['private', 'group', 'support'],
+    default: 'private'
+  },
   lastMessage: {
     type: Schema.Types.ObjectId,
     ref: 'Message'
@@ -22,18 +37,21 @@ const conversationSchema = new Schema<IConversation>({
   lastMessageAt: {
     type: Date
   },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
   unreadCount: {
     type: Map,
     of: Number,
-    default: {}
+    default: new Map()
   }
 }, {
   timestamps: true
 });
 
 // Index'ler
-conversationSchema.index({ participants: 1 });
-conversationSchema.index({ lastMessageAt: -1 });
+ConversationSchema.index({ participants: 1 });
+ConversationSchema.index({ lastMessageAt: -1 });
 
-export const Conversation = mongoose.model<IConversation>('Conversation', conversationSchema);
-export default Conversation;
+export const Conversation = mongoose.model<IConversation>('Conversation', ConversationSchema);

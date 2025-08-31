@@ -55,12 +55,21 @@ const NewMessageScreen = ({ navigation, route }: any) => {
 
       if (response.ok) {
         const data = await response.json();
-        setMechanics(data.data || []);
+        
+        // API response formatını kontrol et
+        if (data.success && data.data) {
+          setMechanics(data.data || []);
+        } else {
+          console.error('API response formatı hatalı:', data);
+          setMechanics([]);
+        }
       } else {
         console.error('Mekanikler getirilemedi:', response.status);
+        setMechanics([]);
       }
     } catch (error) {
       console.error('Mekanikler yüklenirken hata:', error);
+      setMechanics([]);
     } finally {
       setLoading(false);
     }
@@ -194,7 +203,7 @@ const NewMessageScreen = ({ navigation, route }: any) => {
                 {selectedUser.name} {selectedUser.surname}
               </Text>
               <Text style={[styles.selectedUserType, { color: theme.colors.textSecondary }]}>
-                {selectedUser.userType === 'mechanic' ? 'Usta' : 'Müşteri'}
+                {selectedUser.userType === 'mechanic' ? 'Usta' : 'Şöför'}
               </Text>
             </View>
           </View>

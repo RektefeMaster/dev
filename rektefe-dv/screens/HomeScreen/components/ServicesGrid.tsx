@@ -21,6 +21,12 @@ export const ServicesGrid: React.FC<ServicesGridProps> = ({
 }) => {
   const { isDark } = useTheme();
   
+  // Services prop'unun undefined olma durumunu kontrol et
+  if (!services || !Array.isArray(services)) {
+    console.warn('ServicesGrid: services prop is not an array:', services);
+    return null; // veya loading state göster
+  }
+  
   // Professional Color Palette
   const colors = {
     // Primary Colors

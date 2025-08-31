@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text, TextStyle, StyleSheet, TextProps } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
-import theme from '../theme/theme';
+import { typography } from '../theme/theme';
 
 export interface TypographyProps extends TextProps {
   variant?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'body' | 'body2' | 'caption' | 'overline' | 'button';
@@ -43,97 +43,97 @@ const Typography: React.FC<TypographyProps> = ({
     // Variant-based styles
     const variantStyles: Record<string, TextStyle> = {
       h1: {
-        fontSize: theme.typography.fontSizes.xxxl,
-        fontWeight: theme.typography.fontWeights.bold,
-        lineHeight: theme.typography.fontSizes.xxxl * 1.2,
-        letterSpacing: theme.typography.letterSpacing.tight,
+        fontSize: typography.h1.fontSize,
+        fontWeight: typography.h1.fontWeight,
+        lineHeight: typography.h1.lineHeight,
+        letterSpacing: typography.h1.letterSpacing,
       },
       h2: {
-        fontSize: theme.typography.fontSizes.xxl,
-        fontWeight: theme.typography.fontWeights.bold,
-        lineHeight: theme.typography.fontSizes.xxl * 1.2,
-        letterSpacing: theme.typography.letterSpacing.tight,
+        fontSize: typography.h2.fontSize,
+        fontWeight: typography.h2.fontWeight,
+        lineHeight: typography.h2.lineHeight,
+        letterSpacing: typography.h2.letterSpacing,
       },
       h3: {
-        fontSize: theme.typography.fontSizes.xl,
-        fontWeight: theme.typography.fontWeights.semibold,
-        lineHeight: theme.typography.fontSizes.xl * 1.3,
-        letterSpacing: theme.typography.letterSpacing.normal,
+        fontSize: typography.h3.fontSize,
+        fontWeight: typography.h3.fontWeight,
+        lineHeight: typography.h3.lineHeight,
+        letterSpacing: typography.h3.letterSpacing,
       },
       h4: {
-        fontSize: theme.typography.fontSizes.lg,
-        fontWeight: theme.typography.fontWeights.semibold,
-        lineHeight: theme.typography.fontSizes.lg * 1.3,
-        letterSpacing: theme.typography.letterSpacing.normal,
+        fontSize: typography.h4.fontSize,
+        fontWeight: typography.h4.fontWeight,
+        lineHeight: typography.h4.lineHeight,
+        letterSpacing: typography.h4.letterSpacing,
       },
       h5: {
-        fontSize: theme.typography.fontSizes.md,
-        fontWeight: theme.typography.fontWeights.medium,
-        lineHeight: theme.typography.fontSizes.md * 1.4,
-        letterSpacing: theme.typography.letterSpacing.normal,
+        fontSize: typography.body1.fontSize,
+        fontWeight: '500',
+        lineHeight: typography.body1.lineHeight,
+        letterSpacing: typography.body1.letterSpacing,
       },
       h6: {
-        fontSize: theme.typography.fontSizes.sm,
-        fontWeight: theme.typography.fontWeights.medium,
-        lineHeight: theme.typography.fontSizes.sm * 1.4,
-        letterSpacing: theme.typography.letterSpacing.normal,
+        fontSize: typography.body2.fontSize,
+        fontWeight: '500',
+        lineHeight: typography.body2.lineHeight,
+        letterSpacing: typography.body2.letterSpacing,
       },
       body: {
-        fontSize: theme.typography.fontSizes.md,
-        fontWeight: theme.typography.fontWeights.regular,
-        lineHeight: theme.typography.fontSizes.md * 1.5,
-        letterSpacing: theme.typography.letterSpacing.normal,
+        fontSize: typography.body1.fontSize,
+        fontWeight: typography.body1.fontWeight,
+        lineHeight: typography.body1.lineHeight,
+        letterSpacing: typography.body1.letterSpacing,
       },
       body2: {
-        fontSize: theme.typography.fontSizes.sm,
-        fontWeight: theme.typography.fontWeights.regular,
-        lineHeight: theme.typography.fontSizes.sm * 1.5,
-        letterSpacing: theme.typography.letterSpacing.normal,
+        fontSize: typography.body2.fontSize,
+        fontWeight: typography.body2.fontWeight,
+        lineHeight: typography.body2.lineHeight,
+        letterSpacing: typography.body2.letterSpacing,
       },
       caption: {
-        fontSize: theme.typography.fontSizes.xs,
-        fontWeight: theme.typography.fontWeights.regular,
-        lineHeight: theme.typography.fontSizes.xs * 1.4,
-        letterSpacing: theme.typography.letterSpacing.wide,
+        fontSize: typography.caption.small.fontSize,
+        fontWeight: typography.caption.small.fontWeight,
+        lineHeight: typography.caption.small.lineHeight,
+        letterSpacing: typography.caption.small.letterSpacing,
       },
       overline: {
-        fontSize: theme.typography.fontSizes.xs,
-        fontWeight: theme.typography.fontWeights.medium,
-        lineHeight: theme.typography.fontSizes.xs * 1.4,
-        letterSpacing: theme.typography.letterSpacing.wider,
+        fontSize: typography.caption.small.fontSize,
+        fontWeight: typography.caption.small.fontWeight,
+        lineHeight: typography.caption.small.lineHeight,
+        letterSpacing: typography.caption.small.letterSpacing,
         textTransform: 'uppercase',
       },
       button: {
-        fontSize: theme.typography.fontSizes.md,
-        fontWeight: theme.typography.fontWeights.semibold,
-        lineHeight: theme.typography.fontSizes.md * 1.2,
-        letterSpacing: theme.typography.letterSpacing.wide,
+        fontSize: typography.button.medium.fontSize,
+        fontWeight: typography.button.medium.fontWeight,
+        lineHeight: typography.button.medium.lineHeight,
+        letterSpacing: typography.button.medium.letterSpacing,
       },
     };
 
     // Size override (if provided, overrides variant size)
     const sizeStyles = size ? {
-      fontSize: theme.typography.fontSizes[size],
-      lineHeight: theme.typography.fontSizes[size] * 1.4,
+      fontSize: size === 'xs' ? 12 : size === 'sm' ? 14 : size === 'md' ? 16 : size === 'lg' ? 18 : size === 'xl' ? 20 : size === 'xxl' ? 24 : 28,
+      lineHeight: (size === 'xs' ? 12 : size === 'sm' ? 14 : size === 'md' ? 16 : size === 'lg' ? 18 : size === 'xl' ? 20 : size === 'xxl' ? 24 : 28) * 1.4,
     } : {};
 
     // Weight override
     const weightStyles = weight ? {
-      fontWeight: theme.typography.fontWeights[weight],
+      fontWeight: weight === 'thin' ? '100' : weight === 'light' ? '300' : weight === 'regular' ? '400' : weight === 'medium' ? '500' : weight === 'semibold' ? '600' : weight === 'bold' ? '700' : weight === 'heavy' ? '800' : '900',
     } : {};
 
     // Color styles with dark mode support
     const colorStyles = {
-      primary: { color: isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light },
-      secondary: { color: isDark ? theme.colors.text.secondary.dark : theme.colors.text.secondary.light },
-      success: { color: theme.colors.success.main },
-      warning: { color: theme.colors.warning.main },
-      error: { color: theme.colors.error.main },
-      info: { color: theme.colors.primary.main },
-      light: { color: isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light },
-      dark: { color: isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light },
-      white: { color: isDark ? theme.colors.text.inverse.dark : theme.colors.text.inverse.light },
-      custom: { color: customColor || (isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light) },
+      primary: { color: '#1E293B' },
+      secondary: { color: '#475569' },
+      success: { color: '#059669' },
+      warning: { color: '#D97706' },
+      error: { color: '#DC2626' },
+      info: { color: '#2563EB' },
+      light: { color: '#1E293B' },
+      dark: { color: '#1E293B' },
+      white: { color: '#FFFFFF' },
+      custom: { color: customColor || '#1E293B' },
     };
 
     // Alignment
@@ -161,18 +161,18 @@ const Typography: React.FC<TypographyProps> = ({
 
     // Letter spacing
     const spacingStyles = {
-      tight: { letterSpacing: theme.typography.letterSpacing.tight },
-      normal: { letterSpacing: theme.typography.letterSpacing.normal },
-      wide: { letterSpacing: theme.typography.letterSpacing.wide },
-      wider: { letterSpacing: theme.typography.letterSpacing.wider },
+      tight: { letterSpacing: -0.5 },
+      normal: { letterSpacing: 0 },
+      wide: { letterSpacing: 0.5 },
+      wider: { letterSpacing: 1 },
     };
 
     // Line height override
     const lineHeightStyles = {
-      tight: { lineHeight: theme.typography.lineHeights.tight * (size ? theme.typography.fontSizes[size] : 16) },
-      normal: { lineHeight: theme.typography.lineHeights.normal * (size ? theme.typography.fontSizes[size] : 16) },
-      relaxed: { lineHeight: theme.typography.lineHeights.relaxed * (size ? theme.typography.fontSizes[size] : 16) },
-      loose: { lineHeight: theme.typography.lineHeights.loose * (size ? theme.typography.fontSizes[size] : 16) },
+      tight: { lineHeight: 1.2 },
+      normal: { lineHeight: 1.4 },
+      relaxed: { lineHeight: 1.6 },
+      loose: { lineHeight: 1.8 },
     };
 
     // Truncate styles

@@ -12,6 +12,10 @@ export interface IUser extends Document {
   phone?: string;
   city?: string;
   userType: 'user' | 'mechanic' | 'driver';
+  // Google OAuth alanları
+  googleId?: string;
+  emailVerified?: boolean;
+  // Diğer alanlar
   followers: mongoose.Types.ObjectId[];
   following: mongoose.Types.ObjectId[];
   favoriteVehicle?: mongoose.Types.ObjectId;
@@ -81,6 +85,16 @@ const userSchema = new Schema<IUser>({
     type: String,
     enum: ['user', 'mechanic', 'driver'],
     default: 'user'
+  },
+  // Google OAuth alanları
+  googleId: {
+    type: String,
+    sparse: true,
+    unique: true
+  },
+  emailVerified: {
+    type: Boolean,
+    default: false
   },
   followers: [{
     type: Schema.Types.ObjectId,

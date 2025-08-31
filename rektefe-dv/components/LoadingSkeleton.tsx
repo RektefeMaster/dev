@@ -20,7 +20,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center', 
     alignItems: 'center', 
     padding: theme.spacing.xxl,
-    backgroundColor: theme.colors.background.default.dark,
+    backgroundColor: theme.colors.background.quaternary,
   }
 });
 

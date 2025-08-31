@@ -1,232 +1,285 @@
 import { Request, Response } from 'express';
 import { MessageService } from '../services/message.service';
-import { CustomError } from '../middleware/errorHandler';
 
 export class MessageController {
-  /**
-   * Yeni mesaj gönder
-   */
-  static async sendMessage(req: Request, res: Response) {
-    try {
-      const { receiverId, content, messageType = 'text' } = req.body;
-      const senderId = req.user?.userId;
-
-      if (!senderId) {
-        throw new CustomError('Kullanıcı kimliği bulunamadı', 401);
-      }
-
-      if (!receiverId || !content) {
-        throw new CustomError('Alıcı ID ve mesaj içeriği gerekli', 400);
-      }
-
-      const message = await MessageService.sendMessage(senderId, receiverId, content, messageType);
-
-      res.status(201).json({
-        success: true,
-        message: 'Mesaj başarıyla gönderildi',
-        data: message
-      });
-    } catch (error) {
-      if (error instanceof CustomError) {
-        res.status(error.statusCode).json({
-          success: false,
-          message: error.message
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          message: 'Mesaj gönderilirken hata oluştu'
-        });
-      }
-    }
-  }
-
-  /**
-   * Kullanıcının sohbetlerini getir
-   */
-  static async getUserConversations(req: Request, res: Response) {
+  // Sohbet listesi
+  static async getConversations(req: Request, res: Response) {
     try {
       const userId = req.user?.userId;
-
       if (!userId) {
-        throw new CustomError('Kullanıcı kimliği bulunamadı', 401);
+        return res.status(401).json({
+          success: false,
+          message: 'Kullanıcı kimliği bulunamadı'
+        });
       }
 
-      const conversations = await MessageService.getUserConversations(userId);
-
-      res.status(200).json({
+      const conversations = await MessageService.getConversations(userId);
+      res.json({
         success: true,
-        message: 'Sohbetler başarıyla getirildi',
-        data: conversations
+        data: conversations,
+        message: 'Sohbetler başarıyla getirildi'
       });
     } catch (error) {
-      if (error instanceof CustomError) {
-        res.status(error.statusCode).json({
-          success: false,
-          message: error.message
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          message: 'Sohbetler getirilirken hata oluştu'
-        });
-      }
+      console.error('getConversations error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Sohbetler getirilirken hata oluştu'
+      });
     }
   }
 
-  /**
-   * Sohbet mesajlarını getir
-   */
-  static async getConversationMessages(req: Request, res: Response) {
+
+
+  // Sohbet mesajları
+  static async getMessages(req: Request, res: Response) {
     try {
       const { conversationId } = req.params;
       const { page = 1, limit = 50 } = req.query;
       const userId = req.user?.userId;
-
+      
       if (!userId) {
-        throw new CustomError('Kullanıcı kimliği bulunamadı', 401);
+        return res.status(401).json({
+          success: false,
+          message: 'Kullanıcı kimliği bulunamadı'
+        });
       }
 
-      if (!conversationId) {
-        throw new CustomError('Sohbet ID gerekli', 400);
-      }
+      // Page ve limit'i number'a çevir
+      const pageNum = parseInt(page as string) || 1;
+      const limitNum = parseInt(limit as string) || 50;
 
-      const result = await MessageService.getConversationMessages(
-        conversationId,
-        userId,
-        parseInt(page as string),
-        parseInt(limit as string)
-      );
-
-      res.status(200).json({
+      const result = await MessageService.getMessages(conversationId, userId, pageNum, limitNum);
+      
+      // Pagination bilgilerini hesapla
+      const totalMessages = await MessageService.getTotalMessageCount(conversationId, userId);
+      const totalPages = Math.ceil(totalMessages / limitNum);
+      
+      res.json({
         success: true,
-        message: 'Mesajlar başarıyla getirildi',
-        data: result
+        data: { 
+          messages: result.messages,
+          pagination: {
+            page: pageNum,
+            pages: totalPages,
+            total: totalMessages,
+            limit: limitNum,
+            hasMore: pageNum < totalPages
+          }
+        },
+        message: 'Mesajlar başarıyla getirildi'
       });
     } catch (error) {
-      if (error instanceof CustomError) {
-        res.status(error.statusCode).json({
-          success: false,
-          message: error.message
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          message: 'Mesajlar getirilirken hata oluştu'
-        });
-      }
+      console.error('getMessages error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Mesajlar getirilirken hata oluştu'
+      });
     }
   }
 
-  /**
-   * İki kullanıcı arasında sohbet bul
-   */
+  // Belirli bir mesajdan sonraki mesajları getir
+  static async getMessagesAfter(req: Request, res: Response) {
+    try {
+      const { conversationId, messageId } = req.params;
+      const { limit = 10 } = req.query;
+      const userId = req.user?.userId;
+      
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Kullanıcı kimliği bulunamadı'
+        });
+      }
+
+      const limitNum = parseInt(limit as string) || 10;
+      const messages = await MessageService.getMessagesAfter(conversationId, userId, messageId, limitNum);
+      
+      res.json({
+        success: true,
+        data: { messages },
+        message: 'Yeni mesajlar başarıyla getirildi'
+      });
+    } catch (error) {
+      console.error('getMessagesAfter error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Yeni mesajlar getirilirken hata oluştu'
+      });
+    }
+  }
+
+
+  // İki kullanıcı arasında sohbet bul
   static async findConversationBetweenUsers(req: Request, res: Response) {
     try {
       const { otherUserId } = req.params;
       const userId = req.user?.userId;
-
+      
       if (!userId) {
-        throw new CustomError('Kullanıcı kimliği bulunamadı', 401);
-      }
-
-      if (!otherUserId) {
-        throw new CustomError('Diğer kullanıcı ID gerekli', 400);
+        return res.status(401).json({
+          success: false,
+          message: 'Kullanıcı kimliği bulunamadı'
+        });
       }
 
       const conversation = await MessageService.findConversationBetweenUsers(userId, otherUserId);
-
-      res.status(200).json({
+      res.json({
         success: true,
-        message: conversation ? 'Sohbet bulundu' : 'Sohbet bulunamadı',
-        data: conversation
+        data: conversation,
+        message: 'Sohbet başarıyla bulundu'
       });
     } catch (error) {
-      if (error instanceof CustomError) {
-        res.status(error.statusCode).json({
-          success: false,
-          message: error.message
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          message: 'Sohbet bulunurken hata oluştu'
-        });
-      }
+      console.error('findConversationBetweenUsers error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Sohbet bulunurken hata oluştu'
+      });
     }
   }
 
-  /**
-   * Mesajları okundu olarak işaretle
-   */
+  // Mesaj gönder
+  static async sendMessage(req: Request, res: Response) {
+    try {
+      const { receiverId, content, messageType = 'text' } = req.body;
+      const senderId = req.user?.userId;
+      
+      if (!senderId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Kullanıcı kimliği bulunamadı'
+        });
+      }
+
+      if (!receiverId || !content) {
+        return res.status(400).json({
+          success: false,
+          message: 'Alıcı ID ve mesaj içeriği gerekli'
+        });
+      }
+
+      const message = await MessageService.sendMessage(senderId, receiverId, content, messageType);
+      
+      res.json({
+        success: true,
+        data: message,
+        message: 'Mesaj başarıyla gönderildi'
+      });
+    } catch (error) {
+      console.error('sendMessage error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Mesaj gönderilirken hata oluştu'
+      });
+    }
+  }
+
+  // Mesajları okundu olarak işaretle
   static async markMessagesAsRead(req: Request, res: Response) {
     try {
-      const { messageIds } = req.body;
+      const { conversationId } = req.body;
       const userId = req.user?.userId;
-
+      
       if (!userId) {
-        throw new CustomError('Kullanıcı kimliği bulunamadı', 401);
+        return res.status(401).json({
+          success: false,
+          message: 'Kullanıcı kimliği bulunamadı'
+        });
       }
 
-      if (!messageIds || !Array.isArray(messageIds)) {
-        throw new CustomError('Mesaj ID\'leri gerekli', 400);
-      }
-
-      await MessageService.markMessagesAsRead(messageIds, userId);
-
-      res.status(200).json({
+      await MessageService.markMessagesAsRead(conversationId, userId);
+      res.json({
         success: true,
         message: 'Mesajlar okundu olarak işaretlendi'
       });
     } catch (error) {
-      if (error instanceof CustomError) {
-        res.status(error.statusCode).json({
-          success: false,
-          message: error.message
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          message: 'Mesajlar işaretlenirken hata oluştu'
-        });
-      }
+      console.error('markMessagesAsRead error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Mesajlar işaretlenirken hata oluştu'
+      });
     }
   }
 
-  /**
-   * Sohbeti sil
-   */
+  // Okunmamış mesaj sayısı
+  static async getUnreadCount(req: Request, res: Response) {
+    try {
+      const userId = req.user?.userId;
+      
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Kullanıcı kimliği bulunamadı'
+        });
+      }
+
+      const count = await MessageService.getUnreadCount(userId);
+      res.json({
+        success: true,
+        data: { unreadCount: count },
+        message: 'Okunmamış mesaj sayısı getirildi'
+      });
+    } catch (error) {
+      console.error('getUnreadCount error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Okunmamış mesaj sayısı getirilirken hata oluştu'
+      });
+    }
+  }
+
+
+
+  // Sohbeti sil
   static async deleteConversation(req: Request, res: Response) {
     try {
       const { conversationId } = req.params;
       const userId = req.user?.userId;
-
+      
       if (!userId) {
-        throw new CustomError('Kullanıcı kimliği bulunamadı', 401);
-      }
-
-      if (!conversationId) {
-        throw new CustomError('Sohbet ID gerekli', 400);
+        return res.status(401).json({
+          success: false,
+          message: 'Kullanıcı kimliği bulunamadı'
+        });
       }
 
       await MessageService.deleteConversation(conversationId, userId);
-
-      res.status(200).json({
+      res.json({
         success: true,
         message: 'Sohbet başarıyla silindi'
       });
     } catch (error) {
-      if (error instanceof CustomError) {
-        res.status(error.statusCode).json({
+      console.error('deleteConversation error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Sohbet silinirken hata oluştu'
+      });
+    }
+  }
+
+  // Mesaj sil
+  static async deleteMessage(req: Request, res: Response) {
+    try {
+      const { messageId } = req.params;
+      const userId = req.user?.userId;
+      
+      if (!userId) {
+        return res.status(401).json({
           success: false,
-          message: error.message
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          message: 'Sohbet silinirken hata oluştu'
+          message: 'Kullanıcı kimliği bulunamadı'
         });
       }
+
+      await MessageService.deleteMessage(messageId, userId);
+      res.json({
+        success: true,
+        message: 'Mesaj başarıyla silindi'
+      });
+    } catch (error) {
+      console.error('deleteMessage error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Mesaj silinirken hata oluştu'
+      });
     }
   }
 }

@@ -52,7 +52,7 @@ export interface IMechanic extends IUser {
 }
 
 const mechanicSchema = new Schema<IMechanic>({
-  // User modelinden gelen alanlar
+    // User modelinden gelen alanlar
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   name: { type: String, required: true },
@@ -62,7 +62,10 @@ const mechanicSchema = new Schema<IMechanic>({
   cover: { type: String, default: null },
   bio: { type: String, default: '' },
   city: { type: String, default: null },
-  userType: { type: String, enum: ['user', 'mechanic', 'driver'], default: 'mechanic' },
+  userType: { type: String, enum: ['user', 'mechanic'], default: 'mechanic' },
+  // Google OAuth alanları
+  googleId: { type: String, sparse: true, unique: true },
+  emailVerified: { type: Boolean, default: false },
   followers: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   following: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   favoriteVehicle: { type: Schema.Types.ObjectId, ref: 'Vehicle', default: null },
@@ -72,7 +75,7 @@ const mechanicSchema = new Schema<IMechanic>({
     title: String,
     message: String,
     data: Schema.Types.Mixed,
-    read: { type: Boolean, default: false },
+  read: { type: Boolean, default: false },
     createdAt: { type: Date, default: Date.now }
   }],
   createdAt: { type: Date, default: Date.now },

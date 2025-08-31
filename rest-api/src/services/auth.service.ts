@@ -6,7 +6,11 @@ import { Mechanic } from '../models/Mechanic';
 import { ResponseHandler } from '../utils/response';
 import { CustomError } from '../middleware/errorHandler';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-key-for-development';
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
 
 export class AuthService {
   // Kullanıcı kaydı
@@ -87,7 +91,7 @@ export class AuthService {
           bio: '',
           serviceCategories: specialties || ['Genel Bakım'],
           vehicleBrands: ['Genel'],
-          workingHours: {},
+          workingHours: '',
           documents: { 
             insurance: 'Sigorta bilgisi eklenecek' 
           },
@@ -170,6 +174,25 @@ export class AuthService {
       throw new CustomError(`Bu endpoint sadece ${userType} kullanıcılar için.`, 400);
     }
 
+    // Mechanic ise Mechanic model'inden ek bilgileri de çek
+    let fullUserData = user.toObject();
+    if (user.userType === 'mechanic') {
+      try {
+        const mechanic = await Mechanic.findById(user._id);
+        if (mechanic) {
+          fullUserData = { ...fullUserData, ...(mechanic.toObject() as any) };
+          console.log('🔧 AuthService: Mechanic data eklendi:', { 
+            name: mechanic.name, 
+            surname: mechanic.surname,
+            experience: mechanic.experience,
+            rating: mechanic.rating
+          });
+        }
+      } catch (error) {
+        console.error('⚠️ AuthService: Mechanic data çekilemedi:', error);
+      }
+    }
+
     // Token'ları oluştur
     const token = jwt.sign(
       { userId: (user._id as mongoose.Types.ObjectId).toString(), userType: user.userType },
@@ -182,12 +205,19 @@ export class AuthService {
       { expiresIn: '60d' }
     );
 
+    console.log('✅ AuthService: Login başarılı, user data:', { 
+      name: fullUserData.name, 
+      surname: fullUserData.surname,
+      email: fullUserData.email,
+      userType: fullUserData.userType
+    });
+
     return {
       userId: user._id,
       userType: user.userType,
       token,
       refreshToken,
-      user
+      user: fullUserData
     };
   }
 

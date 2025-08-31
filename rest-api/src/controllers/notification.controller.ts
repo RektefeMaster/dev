@@ -74,6 +74,77 @@ export class NotificationController {
   }
 
   /**
+   * Şoförün bildirimlerini getir
+   */
+  static async getDriverNotifications(req: Request, res: Response) {
+    try {
+      const driverId = req.user?.userId;
+      
+      if (!driverId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Kullanıcı doğrulanamadı'
+        });
+      }
+
+      const notifications = await Notification.find({ 
+        recipientId: driverId,
+        recipientType: 'driver'
+      })
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+      res.json({
+        success: true,
+        data: {
+          notifications
+        }
+      });
+    } catch (error) {
+      console.error('Bildirimler getirilirken hata:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Bildirimler getirilirken hata oluştu'
+      });
+    }
+  }
+
+  /**
+   * Şoförün okunmamış bildirim sayısını getir
+   */
+  static async getDriverUnreadCount(req: Request, res: Response) {
+    try {
+      const driverId = req.user?.userId;
+      
+      if (!driverId) {
+        return res.status(500).json({
+          success: false,
+          message: 'Kullanıcı doğrulanamadı'
+        });
+      }
+
+      const count = await Notification.countDocuments({ 
+        recipientId: driverId,
+        recipientType: 'driver',
+        isRead: false
+      });
+
+      res.json({
+        success: true,
+        data: {
+          count
+        }
+      });
+    } catch (error) {
+      console.error('Okunmamış bildirim sayısı alınırken hata:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Okunmamış bildirim sayısı alınırken hata oluştu'
+      });
+    }
+  }
+
+  /**
    * Bildirimi okundu olarak işaretle
    */
   static async markAsRead(req: Request, res: Response) {

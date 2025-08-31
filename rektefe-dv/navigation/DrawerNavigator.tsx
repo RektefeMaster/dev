@@ -1,21 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createDrawerNavigator, DrawerNavigationProp } from '@react-navigation/drawer';
 import TabNavigator from './TabNavigator';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, Switch } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  Image, 
+  Platform, 
+  Animated, 
+  Dimensions,
+  StatusBar,
+  ScrollView
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { BlurView } from 'expo-blur';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AppointmentsScreen from '../screens/AppointmentsScreen';
 import { MyRatingsScreen } from '../screens/MyRatingsScreen';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../constants/config';
-import theme from '../theme/theme';
+import { apiService } from '../services/api';
+import { colors, spacing, borderRadius, typography, shadows } from '../theme/theme';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 // Navigation tiplerini güncelliyoruz
-// Drawer'da açılacak ekranlar
-// (REKAİ hariç!)
 type RootStackParamList = {
   MainTabs: undefined;
   Home: undefined;
@@ -38,174 +51,533 @@ type RootStackParamList = {
 
 const Drawer = createDrawerNavigator();
 
-const DrawerItem = ({ icon, label, onPress, rightIcon, isDark }: { 
+// Şoför veri tipleri
+interface DriverVehicle {
+  brand: string;
+  model: string;
+  plateNumber: string;
+}
+
+// Gelişmiş Drawer Item bileşeni
+const DrawerItem = ({ 
+  icon, 
+  label, 
+  subtitle,
+  badge,
+  onPress, 
+  isDark, 
+  colors, 
+  isActive = false,
+  isLast = false 
+}: { 
   icon: string; 
   label: string; 
+  subtitle?: string;
+  badge?: string | number;
   onPress: () => void; 
-  rightIcon?: React.ReactNode;
   isDark: boolean;
-}) => (
-  <TouchableOpacity style={[styles.drawerItem, { 
-    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)' 
-  }]} onPress={onPress}>
-    <MaterialCommunityIcons 
-      name={icon as any} 
-      size={24} 
-      color={isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light} 
-    />
-    <Text style={[styles.drawerItemText, { 
-      color: isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light 
-    }]}>{label}</Text>
-    {rightIcon && <View style={{ marginLeft: 'auto' }}>{rightIcon}</View>}
-  </TouchableOpacity>
-);
+  colors: any;
+  isActive?: boolean;
+  isLast?: boolean;
+}) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
 
+  useEffect(() => {
+    Animated.timing(opacityAnim, {
+      toValue: 1,
+      duration: 300,
+      delay: 100,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.95,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Animated.View style={{ opacity: opacityAnim }}>
+      <TouchableOpacity 
+        style={[
+          styles.drawerItem, 
+          isActive && styles.drawerItemActive,
+          isLast && styles.drawerItemLast,
+          { 
+            backgroundColor: isActive 
+              ? (isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(37, 99, 235, 0.08)')
+              : 'transparent',
+            borderColor: isActive 
+              ? (isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(37, 99, 235, 0.15)')
+              : 'transparent'
+          }
+        ]} 
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={0.9}
+      >
+        <Animated.View style={[
+          styles.iconContainer,
+          isActive && styles.iconContainerActive,
+          { transform: [{ scale: scaleAnim }] }
+        ]}>
+          <MaterialCommunityIcons 
+            name={icon as any} 
+            size={22} 
+            color={isActive 
+              ? colors.primary.main 
+              : (isDark ? colors.text.tertiary : colors.text.quaternary)
+            } 
+          />
+        </Animated.View>
+        
+        <View style={styles.itemContent}>
+          <Text style={[
+            styles.drawerItemText, 
+            { 
+              color: isActive 
+                ? colors.primary.main 
+                : (isDark ? colors.text.primary.dark : colors.text.primary.main)
+            }
+          ]}>
+            {label}
+          </Text>
+          {subtitle && (
+            <Text style={[
+              styles.drawerItemSubtitle,
+              { color: isDark ? colors.text.quaternary : colors.text.tertiary }
+            ]}>
+              {subtitle}
+            </Text>
+          )}
+        </View>
+
+        {badge !== undefined && badge !== null && (
+          <View style={[
+            styles.badge,
+            { backgroundColor: colors.primary.main }
+          ]}>
+            <Text style={styles.badgeText}>{String(badge)}</Text>
+          </View>
+        )}
+
+        <MaterialCommunityIcons 
+          name="chevron-right" 
+          size={18} 
+          color={isDark ? colors.text.quaternary : colors.text.tertiary} 
+          style={styles.chevron}
+        />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+// Gelişmiş Custom Drawer Content
 const CustomDrawerContent = (props: any) => {
   const navigation = useNavigation<any>();
   const { token, isAuthenticated, logout } = useAuth();
-  const { isDark, toggleTheme } = useTheme();
+  const { isDark, colors } = useTheme();
   const [userName, setUserName] = useState<string>('Kullanıcı');
   const [userSurname, setUserSurname] = useState<string>('');
+  const [activeRoute, setActiveRoute] = useState<string>('MainTabs');
+  const [userAvatar, setUserAvatar] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string>('Şoför');
+  
+  // Şoför verileri
+  const [driverVehicle, setDriverVehicle] = useState<DriverVehicle | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Kullanıcı bilgilerini al
+  // Animasyon değerleri
+  const profileScale = useRef(new Animated.Value(0.8)).current;
+  const menuOpacity = useRef(new Animated.Value(0)).current;
+  const menuTranslateY = useRef(new Animated.Value(20)).current;
+
+  // Şoför bilgilerini al
   useEffect(() => {
-    const fetchUserInfo = async () => {
+    const fetchDriverInfo = async () => {
       try {
-        console.log('🔍 DrawerNavigator: fetchUserInfo çağrıldı');
-        console.log('🔍 DrawerNavigator: Token:', token ? 'Mevcut' : 'Yok');
-        console.log('🔍 DrawerNavigator: isAuthenticated:', isAuthenticated);
+        setIsLoading(true);
         
         if (token && isAuthenticated) {
-          const response = await fetch(`${API_URL}/users/profile`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const data = await response.json();
+          // Kullanıcı profil bilgileri
+          const profileResponse = await apiService.getUserProfile();
           
-          console.log('🔍 DrawerNavigator: API Response:', data);
-          
-          if (data.success && data.data) {
-            setUserName(data.data.name || 'Kullanıcı');
-            setUserSurname(data.data.surname || '');
-            console.log('✅ DrawerNavigator: Kullanıcı bilgileri güncellendi:', data.data.name, data.data.surname);
+          if (profileResponse.success && profileResponse.data) {
+            setUserName(profileResponse.data.name || 'Kullanıcı');
+            setUserSurname(profileResponse.data.surname || '');
+            setUserAvatar(profileResponse.data.avatar || null);
           }
-        } else {
-          console.log('⚠️ DrawerNavigator: Token veya isAuthenticated yok');
+
+          // Araç bilgileri - geçici olarak mock data kullan
+          try {
+            const vehiclesResponse = await apiService.getDriverVehicles();
+            if (vehiclesResponse.success && vehiclesResponse.data && vehiclesResponse.data.length > 0) {
+              setDriverVehicle(vehiclesResponse.data[0]); // İlk aracı al
+            }
+          } catch (error) {
+            console.log('Araç bilgileri alınamadı, mock data kullanılıyor:', error);
+            // Geçici mock data
+            setDriverVehicle({
+              brand: 'Toyota',
+              model: 'Corolla',
+              plateNumber: '34 ABC 123'
+            });
+          }
         }
-      } catch (error) {
-        console.error('❌ DrawerNavigator: Kullanıcı bilgileri alınamadı:', error);
+      } catch (error: any) {
+        console.error('❌ DrawerNavigator: Şoför bilgileri alınamadı:', error);
+        
+        if (error.response?.status === 401) {
+          await logout();
+          navigation.navigate('Login');
+          return;
+        }
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    // Sadece token değiştiğinde çalışsın, isAuthenticated değişiminde tekrar çalışmasın
     if (token && isAuthenticated) {
-      fetchUserInfo();
+      fetchDriverInfo();
     }
-  }, [token]); // isAuthenticated dependency'sini kaldırdım
+  }, [token]);
+
+  // Animasyonları başlat
+  useEffect(() => {
+    if (!isLoading) {
+      Animated.parallel([
+        Animated.spring(profileScale, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        Animated.timing(menuOpacity, {
+          toValue: 1,
+          duration: 400,
+          delay: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(menuTranslateY, {
+          toValue: 0,
+          duration: 400,
+          delay: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [isLoading]);
 
   const handleNavigation = (screenName: string) => {
-    // Drawer'ı kapat
+    setActiveRoute(screenName);
     props.navigation.closeDrawer();
-    
-    // Screen'e navigate et
     navigation.navigate(screenName);
   };
 
   const handleLogout = async () => {
     try {
-      console.log('🚪 DrawerNavigator: Logout başlatılıyor');
-      
-      // Drawer'ı kapat
       props.navigation.closeDrawer();
-      
-      // AuthContext'te logout çağır (AsyncStorage temizler ve state'i sıfırlar)
       await logout();
-      
-      console.log('✅ DrawerNavigator: Logout başarılı, Login ekranına yönlendiriliyor');
-      
-      // Login screen'e navigate et
       navigation.navigate('Login');
     } catch (error) {
       console.error('❌ DrawerNavigator: Logout hatası:', error);
-      // Hata olsa bile Login'e git
       navigation.navigate('Login');
     }
   };
 
+
+
   return (
-    <View style={[styles.drawerWrapper, { 
-      backgroundColor: isDark ? theme.colors.background.default.dark : theme.colors.background.default.light 
-    }]}>
-      <BlurView
-        intensity={60}
-        tint={isDark ? "dark" : "light"}
-        style={[styles.blurView, { 
-          backgroundColor: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.3)' 
-        }]}
-      >
-        <View style={styles.drawerContainer}>
-          <View style={styles.profileSection}>
-            <Image
-              source={require('../assets/icon.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-            <Text style={[styles.helloText, { 
-              color: isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light 
-            }]}>Merhaba,</Text>
-            <Text style={[styles.nameText, { 
-              color: isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light 
-            }]}>
-              {userName} {userSurname}
-            </Text>
-          </View>
-          <View style={styles.menuSection}>
-            <DrawerItem icon="home" label="Ana Sayfa" onPress={() => handleNavigation('MainTabs')} isDark={isDark} />
-            <DrawerItem icon="account" label="Profil" onPress={() => handleNavigation('Profile')} isDark={isDark} />
-            <DrawerItem icon="calendar-clock" label="Randevularım" onPress={() => handleNavigation('Appointments')} isDark={isDark} />
-            <DrawerItem icon="message" label="Mesajlar" onPress={() => handleNavigation('Messages')} isDark={isDark} />
-            <DrawerItem icon="star" label="Verdiğim Puanlar" onPress={() => handleNavigation('MyRatings')} isDark={isDark} />
-            <DrawerItem icon="cart" label="Siparişlerim" onPress={() => handleNavigation('Orders')} isDark={isDark} />
-            <DrawerItem icon="ticket-percent" label="TefeKodlarım" onPress={() => handleNavigation('TefeCodes')} isDark={isDark} />
-            <DrawerItem icon="calendar" label="Hatırlatıcılar" onPress={() => handleNavigation('Reminders')} isDark={isDark} />
-            <DrawerItem icon="cog" label="Ayarlar" onPress={() => handleNavigation('Settings')} isDark={isDark} />
-            <DrawerItem icon="heart" label="Favorilerim" onPress={() => handleNavigation('Favorites')} isDark={isDark} />
-          </View>
-          <View style={styles.themeSection}>
-            <View style={[styles.themeItem, { 
-              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)' 
-            }]}>
-              <MaterialCommunityIcons 
-                name="theme-light-dark" 
-                size={24} 
-                color={isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light} 
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar 
+        barStyle={isDark ? 'light-content' : 'dark-content'} 
+        backgroundColor="transparent" 
+        translucent 
+      />
+      
+      <View style={[styles.drawerWrapper, { 
+        backgroundColor: isDark ? 'rgba(0, 0, 0, 0.4)' : 'rgba(255, 255, 255, 0.4)' 
+      }]}>
+        <BlurView
+          intensity={90}
+          tint={isDark ? "dark" : "light"}
+          style={[styles.blurView, { 
+            backgroundColor: isDark ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.15)' 
+          }]}
+        >
+          <ScrollView 
+            style={styles.drawerContainer}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            {/* Safe Area için üst boşluk */}
+            <View style={styles.safeAreaTop} />
+            
+            {/* Gelişmiş Şoför Profile Section */}
+            <Animated.View 
+              style={[
+                styles.profileSection,
+                { transform: [{ scale: profileScale }] }
+              ]}
+            >
+              <View style={styles.profileHeader}>
+                <View style={styles.avatarContainer}>
+                  {userAvatar ? (
+                    <Image
+                      source={{ uri: userAvatar }}
+                      style={styles.avatar}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.defaultAvatar}>
+                      <MaterialCommunityIcons 
+                        name="account" 
+                        size={32} 
+                        color={isDark ? colors.text.primary.dark : colors.text.primary.main} 
+                      />
+                    </View>
+                  )}
+                  <View style={styles.onlineIndicator} />
+                </View>
+                
+                <View style={styles.profileTextContainer}>
+                  <Text style={[styles.helloText, { 
+                    color: isDark ? colors.text.tertiary : colors.text.quaternary 
+                  }]}>
+                    Merhaba 👋
+                  </Text>
+                  <Text style={[styles.nameText, { 
+                    color: isDark ? colors.text.primary.dark : colors.text.primary.main 
+                  }]}>
+                    {userName} {userSurname}
+                  </Text>
+                  <View style={styles.roleContainer}>
+                    <MaterialCommunityIcons 
+                      name="steering" 
+                      size={14} 
+                      color={colors.primary.main} 
+                    />
+                    <Text style={[styles.userTypeText, { 
+                      color: colors.primary.main 
+                    }]}>
+                      Şoför
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Şoför Araç Bilgileri */}
+              {driverVehicle && (
+                <View style={styles.vehicleContainer}>
+                  <View style={styles.vehicleHeader}>
+                    <MaterialCommunityIcons 
+                      name="car" 
+                      size={20} 
+                      color={colors.primary.main} 
+                    />
+                    <Text style={[styles.vehicleTitle, { 
+                      color: isDark ? colors.text.primary.dark : colors.text.primary.main 
+                    }]}>
+                      Araç
+                    </Text>
+                  </View>
+                  <View style={styles.vehicleInfo}>
+                    <Text style={[styles.vehicleText, { 
+                      color: isDark ? colors.text.quaternary : colors.text.tertiary 
+                    }]}>
+                      {driverVehicle.brand} {driverVehicle.model}
+                    </Text>
+                    <Text style={[styles.plateText, { 
+                      color: colors.primary.main 
+                    }]}>
+                      {driverVehicle.plateNumber}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </Animated.View>
+
+            {/* Gelişmiş Menu Section */}
+            <Animated.View 
+              style={[
+                styles.menuSection,
+                { 
+                  opacity: menuOpacity,
+                  transform: [{ translateY: menuTranslateY }]
+                }
+              ]}
+            >
+              <Text style={[styles.sectionTitle, { 
+                color: isDark ? colors.text.quaternary : colors.text.tertiary 
+              }]}>
+                Ana Menü
+              </Text>
+              
+              <DrawerItem 
+                icon="home-variant" 
+                label="Ana Sayfa" 
+                subtitle="Ana ekran ve özet"
+                onPress={() => handleNavigation('MainTabs')} 
+                isDark={isDark} 
+                colors={colors}
+                isActive={activeRoute === 'MainTabs'}
               />
-              <Text style={[styles.themeText, { 
-                color: isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light 
-              }]}>Karanlık Mod</Text>
-              <Switch
-                value={isDark}
-                onValueChange={toggleTheme}
-                trackColor={{ 
-                  false: isDark ? theme.colors.neutral[600] : theme.colors.neutral[300], 
-                  true: theme.colors.primary.main 
-                }}
-                thumbColor={isDark ? theme.colors.primary.main : theme.colors.neutral[100]}
-                ios_backgroundColor={isDark ? theme.colors.neutral[700] : theme.colors.neutral[400]}
+              <DrawerItem 
+                icon="account-circle" 
+                label="Profil" 
+                subtitle="Hesap bilgileri"
+                onPress={() => handleNavigation('Profile')} 
+                isDark={isDark} 
+                colors={colors}
+                isActive={activeRoute === 'Profile'}
+              />
+              <DrawerItem 
+                icon="calendar-clock" 
+                label="Randevularım" 
+                subtitle="Gelecek randevular"
+                badge={0} // Randevu sayısını buraya ekleyebilirsiniz
+                onPress={() => handleNavigation('Appointments')} 
+                isDark={isDark} 
+                colors={colors}
+                isActive={activeRoute === 'Appointments'}
+              />
+              <DrawerItem 
+                icon="message-text" 
+                label="Mesajlar" 
+                subtitle="Usta ile iletişim"
+                onPress={() => handleNavigation('Messages')} 
+                isDark={isDark} 
+                colors={colors}
+                isActive={activeRoute === 'Messages'}
+              />
+              
+              <View style={styles.menuDivider} />
+              
+              <Text style={[styles.sectionTitle, { 
+                color: isDark ? colors.text.quaternary : colors.text.tertiary 
+              }]}>
+                Hizmetler
+              </Text>
+              
+              <DrawerItem 
+                icon="star" 
+                label="Verdiğim Puanlar" 
+                subtitle="Değerlendirmelerim"
+                onPress={() => handleNavigation('MyRatings')} 
+                isDark={isDark} 
+                colors={colors}
+                isActive={activeRoute === 'MyRatings'}
+              />
+              <DrawerItem 
+                icon="shopping" 
+                label="Siparişlerim" 
+                subtitle="Geçmiş siparişler"
+                onPress={() => handleNavigation('Orders')} 
+                isDark={isDark} 
+                colors={colors}
+                isActive={activeRoute === 'Orders'}
+              />
+              <DrawerItem 
+                icon="ticket-percent" 
+                label="TefeKodlarım" 
+                subtitle="İndirim kodları"
+                onPress={() => handleNavigation('TefeCodes')} 
+                isDark={isDark} 
+                colors={colors}
+                isActive={activeRoute === 'TefeCodes'}
+              />
+              <DrawerItem 
+                icon="bell-ring" 
+                label="Hatırlatıcılar" 
+                subtitle="Bakım hatırlatıcıları"
+                onPress={() => handleNavigation('Reminders')} 
+                isDark={isDark} 
+                colors={colors}
+                isActive={activeRoute === 'Reminders'}
+              />
+              
+              <View style={styles.menuDivider} />
+              
+              <Text style={[styles.sectionTitle, { 
+                color: isDark ? colors.text.quaternary : colors.text.tertiary 
+              }]}>
+                Ayarlar
+              </Text>
+              
+              <DrawerItem 
+                icon="cog" 
+                label="Ayarlar" 
+                subtitle="Uygulama ayarları"
+                onPress={() => handleNavigation('Settings')} 
+                isDark={isDark} 
+                colors={colors}
+                isActive={activeRoute === 'Settings'}
+              />
+              <DrawerItem 
+                icon="heart" 
+                label="Favorilerim" 
+                subtitle="Kayıtlı ustalar"
+                onPress={() => handleNavigation('Favorites')} 
+                isDark={isDark} 
+                colors={colors}
+                isActive={activeRoute === 'Favorites'}
+              />
+            </Animated.View>
+
+            {/* Gelişmiş Bottom Section */}
+            <View style={styles.bottomSection}>
+              <View style={styles.menuDivider} />
+              
+              <DrawerItem 
+                icon="logout" 
+                label="Çıkış Yap" 
+                subtitle="Hesaptan çıkış"
+                onPress={handleLogout} 
+                isDark={isDark} 
+                colors={colors}
+                isActive={false}
+                isLast={true}
+              />
+              <DrawerItem 
+                icon="delete-alert" 
+                label="Hesabı Sil" 
+                subtitle="Kalıcı olarak sil"
+                onPress={() => handleNavigation('DeleteAccount')} 
+                isDark={isDark} 
+                colors={colors}
+                isActive={false}
+                isLast={true}
               />
             </View>
-          </View>
-          <View style={styles.bottomSection}>
-            <DrawerItem icon="logout" label="Çıkış Yap" onPress={handleLogout} isDark={isDark} />
-            <DrawerItem icon="delete" label="Hesabı Sil" onPress={() => handleNavigation('DeleteAccount')} isDark={isDark} />
-          </View>
-        </View>
-      </BlurView>
-    </View>
+
+            {/* Versiyon bilgisi */}
+            <View style={styles.versionContainer}>
+              <Text style={[styles.versionText, { 
+                color: isDark ? colors.text.quaternary : colors.text.tertiary 
+              }]}>
+                v1.0.0 • RekTeFe
+              </Text>
+            </View>
+          </ScrollView>
+        </BlurView>
+      </View>
+    </SafeAreaView>
   );
 };
 
 const DrawerNavigator = () => {
-  const { isDark } = useTheme();
+  const { isDark, colors } = useTheme();
   
   return (
     <Drawer.Navigator
@@ -215,10 +587,12 @@ const DrawerNavigator = () => {
         headerShown: false,
         drawerStyle: {
           backgroundColor: 'transparent',
-          width: '80%',
+          width: screenWidth * 0.85,
         },
         drawerType: 'front',
-        swipeEdgeWidth: 40,
+        swipeEdgeWidth: 60,
+        overlayColor: 'rgba(0, 0, 0, 0.5)',
+        swipeEnabled: true,
       }}
     >
       <Drawer.Screen name="MainTabs" component={TabNavigator} />
@@ -229,9 +603,9 @@ const DrawerNavigator = () => {
           headerShown: true,
           title: 'Randevularım',
           headerStyle: {
-            backgroundColor: isDark ? theme.colors.background.paper.dark : theme.colors.background.paper.light,
+            backgroundColor: isDark ? colors.background.tertiary : colors.background.primary,
           },
-          headerTintColor: isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light,
+          headerTintColor: isDark ? colors.text.primary.dark : colors.text.primary.main,
         }}
       />
       <Drawer.Screen 
@@ -241,9 +615,9 @@ const DrawerNavigator = () => {
           headerShown: true,
           title: 'Verdiğim Puanlar',
           headerStyle: {
-            backgroundColor: isDark ? theme.colors.background.paper.dark : theme.colors.background.paper.light,
+            backgroundColor: isDark ? colors.background.tertiary : colors.background.primary,
           },
-          headerTintColor: isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light,
+          headerTintColor: isDark ? colors.text.primary.dark : colors.text.primary.main,
         }}
       />
     </Drawer.Navigator>
@@ -251,6 +625,10 @@ const DrawerNavigator = () => {
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
   drawerWrapper: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -260,69 +638,220 @@ const styles = StyleSheet.create({
   },
   drawerContainer: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 32,
-    justifyContent: 'space-between',
+  },
+  scrollContent: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
+    paddingBottom: spacing.xxl,
   },
   profileSection: {
-    marginBottom: 32,
-    alignItems: 'flex-start',
+    marginBottom: spacing.xl,
   },
-  logo: {
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  avatarContainer: {
+    position: 'relative',
+    width: 64,
+    height: 64,
+    borderRadius: borderRadius.avatar,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  avatar: {
     width: 60,
     height: 60,
-    marginBottom: 16,
-    borderRadius: 16,
+    borderRadius: borderRadius.avatar - 2,
+  },
+  defaultAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: borderRadius.avatar - 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.success.main,
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  profileTextContainer: {
+    marginLeft: spacing.md,
+    flex: 1,
   },
   helloText: {
-    fontSize: 18,
-    fontWeight: '400',
+    fontSize: typography.fontSizes.sm,
+    fontWeight: '500',
+    marginBottom: spacing.xs,
+    opacity: 0.8,
   },
   nameText: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginTop: 4,
+    fontSize: typography.fontSizes.xl,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
   },
+  roleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    alignSelf: 'flex-start',
+  },
+  userTypeText: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: '500',
+    marginLeft: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
   menuSection: {
     flex: 1,
     justifyContent: 'flex-start',
-    gap: 2,
   },
-  themeSection: {
-    marginTop: 32,
-    marginBottom: 32,
+  sectionTitle: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: '600',
+    marginBottom: spacing.md,
+    marginTop: spacing.lg,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    opacity: 0.7,
   },
-  themeItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginBottom: 2,
-    borderRadius: 12,
-  },
-  themeText: {
-    fontSize: 17,
-    fontWeight: '500',
-    marginLeft: 18,
-    flex: 1,
+  menuDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginVertical: spacing.md,
+    marginHorizontal: spacing.sm,
   },
   bottomSection: {
-    marginTop: 32,
+    marginTop: spacing.md,
   },
   drawerItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginBottom: 2,
-    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.xs,
+    borderRadius: borderRadius.lg,
+    minHeight: 56,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  drawerItemActive: {
+    borderWidth: 1,
+  },
+  drawerItemLast: {
+    marginBottom: 0,
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  iconContainerActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  itemContent: {
+    marginLeft: spacing.md,
+    flex: 1,
   },
   drawerItemText: {
-    marginLeft: 18,
-    fontSize: 17,
+    fontSize: typography.fontSizes.md,
     fontWeight: '500',
+    marginBottom: spacing.xs,
   },
+  drawerItemSubtitle: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: '400',
+    opacity: 0.7,
+  },
+  badge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.round,
+    minWidth: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    color: colors.text.inverse,
+    fontSize: typography.fontSizes.xs,
+    fontWeight: '600',
+  },
+  chevron: {
+    marginLeft: spacing.sm,
+  },
+  versionContainer: {
+    alignItems: 'center',
+    marginTop: spacing.xl,
+    paddingTop: spacing.lg,
+  },
+  versionText: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: '400',
+    opacity: 0.6,
+  },
+  // Safe Area ve yeni eklenen stiller
+  safeAreaTop: {
+    height: Platform.OS === 'ios' ? 60 : 40,
+  },
+  vehicleContainer: {
+    marginTop: spacing.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  vehicleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  vehicleTitle: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: '600',
+    marginLeft: spacing.xs,
+  },
+  vehicleInfo: {
+    marginTop: spacing.xs,
+  },
+  vehicleText: {
+    fontSize: typography.fontSizes.xs,
+    marginBottom: spacing.xs,
+  },
+  plateText: {
+    fontSize: typography.fontSizes.md,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+
 });
 
 export default DrawerNavigator; 

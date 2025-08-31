@@ -174,9 +174,20 @@ export const QuickAccess: React.FC<QuickAccessProps> = ({
             <Text style={[styles.title, { color: currentColors.text.secondary }]}>
               {translateServiceName(card.title)}
             </Text>
-            <Text style={[styles.value, { color: currentColors.text.primary }]}>
-              {translateServiceName(card.value)}
-            </Text>
+            {card.title === 'Mesajlar' ? (
+              <View style={styles.messageContainer}>
+                <Text style={[styles.messageValue, { color: currentColors.text.primary }]}>
+                  {card.value}
+                </Text>
+                <Text style={[styles.messageLabel, { color: currentColors.text.tertiary }]}>
+                  yeni mesaj
+                </Text>
+              </View>
+            ) : (
+              <Text style={[styles.value, { color: currentColors.text.primary }]}>
+                {translateServiceName(card.value)}
+              </Text>
+            )}
             {card.lastUpdate && (
               <Text style={[styles.lastUpdate, { color: currentColors.text.tertiary }]}>
                 Son güncelleme: {new Date(card.lastUpdate).toLocaleDateString('tr-TR')}
@@ -244,5 +255,18 @@ const styles = StyleSheet.create({
   },
   chevron: {
     marginLeft: 8,
+  },
+  messageContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  messageValue: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  messageLabel: {
+    fontSize: 12,
+    marginLeft: 4,
   },
 }); 

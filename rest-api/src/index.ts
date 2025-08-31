@@ -9,6 +9,30 @@ import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './config/swagger';
 import { errorHandler, notFound } from './middleware/errorHandler';
 
+// Route'ları import et
+import authRoutes from './routes/auth';
+import maintenanceRoutes from './routes/maintenance';
+import insuranceRoutes from './routes/insurance';
+import vehicleStatusRoutes from './routes/vehicleStatus';
+import tireStatusRoutes from './routes/tireStatus';
+// import rekaiRoutes from './routes/rekai';
+import userRoutes from './routes/user';
+import vehiclesRoutes from './routes/vehicles';
+import serviceCategoryRoutes from './routes/serviceCategory';
+import mechanicServiceRoutes from './routes/mechanicService';
+import uploadRoutes from './routes/upload';
+import mechanicRoutes from './routes/mechanic';
+import mechanicJobsRoutes from './routes/mechanicJobs';
+import mechanicEarningsRoutes from './routes/mechanicEarnings';
+import appointmentRoutes from './routes/appointments';
+import notificationRoutes from './routes/notifications';
+import appointmentRatingRoutes from './routes/appointmentRating';
+import messageRoutes from './routes/message';
+import walletRoutes from './routes/wallet';
+import activityRoutes from './routes/activity';
+
+
+
 // .env dosyasını yükle
 dotenv.config();
 
@@ -23,8 +47,8 @@ app.use(express.json());
 // Sadece önemli istekleri logla (development modunda)
 if (process.env.NODE_ENV === 'development') {
   app.use((req, res, next) => {
-    // Sadece POST, PUT, DELETE isteklerini logla
-    if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+    // Sadece POST, PUT, DELETE isteklerini ve hataları logla
+    if (['POST', 'PUT', 'DELETE'].includes(req.method) || req.url.includes('/error')) {
       console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
     }
     next();
@@ -35,6 +59,18 @@ const PORT = Number(process.env.PORT) || 3000;
 
 // MongoDB bağlantısı
 import { MONGODB_URI } from './config';
+
+// Mongoose modellerini import et (register için)
+import './models/User';
+import './models/Mechanic';
+import './models/Appointment';
+import './models/Vehicle';
+import './models/Message';
+import './models/Conversation';
+import './models/Notification';
+import './models/AppointmentRating';
+import './models/ServiceCategory';
+
 mongoose.connect(MONGODB_URI)
   .then(() => console.log('MongoDB bağlantısı başarılı!'))
   .catch(err => console.error('MongoDB bağlantı hatası:', err));
@@ -54,7 +90,7 @@ export const io = new Server(httpServer, {
   },
   transports: ['polling'], // SADECE POLLING - KARARLI BAĞLANTI
   allowEIO3: true,
-  allowEIO4: true,
+  // allowEIO4: true, // Bu özellik mevcut değil
   pingTimeout: 120000, // 2 dakika
   pingInterval: 60000, // 1 dakika
   connectTimeout: 60000, // 1 dakika
@@ -127,26 +163,21 @@ app.get('/', (req, res) => {
   res.send('API Çalışıyor!');
 });
 
-// Auth route'u ekle
-import authRoutes from './routes/auth';
-import maintenanceRoutes from './routes/maintenance';
-import insuranceRoutes from './routes/insurance';
-import vehicleStatusRoutes from './routes/vehicleStatus';
-import tireStatusRoutes from './routes/tireStatus';
-import rekaiRoutes from './routes/rekai';
-import userRoutes from './routes/user';
-import maintenanceAppointmentRoutes from './routes/maintenanceAppointment';
-import vehiclesRoutes from './routes/vehicles';
-import serviceCategoryRoutes from './routes/serviceCategory';
-import mechanicServiceRoutes from './routes/mechanicService';
-import uploadRoutes from './routes/upload';
-import mechanicRoutes from './routes/mechanic';
-import mechanicJobsRoutes from './routes/mechanicJobs';
-import mechanicEarningsRoutes from './routes/mechanicEarnings';
-import appointmentRoutes from './routes/appointments';
-import notificationRoutes from './routes/notifications';
-import appointmentRatingRoutes from './routes/appointmentRating';
-import messageRoutes from './routes/message';
+// Ana API route'u
+app.get('/api', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Rektefe API çalışıyor!',
+    version: '1.0.0',
+    endpoints: {
+      auth: '/api/auth',
+      users: '/api/users',
+      appointments: '/api/appointments',
+      vehicles: '/api/vehicles',
+      messages: '/api/message'
+    }
+  });
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -154,19 +185,24 @@ app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/insurance', insuranceRoutes);
 app.use('/api/vehicle-status', vehicleStatusRoutes);
 app.use('/api/tire-status', tireStatusRoutes);
-app.use('/api', rekaiRoutes);
+// app.use('/api', rekaiRoutes); // Geçici olarak devre dışı
 app.use('/api', uploadRoutes);
-app.use('/api/maintenance-appointments', maintenanceAppointmentRoutes);
+
+app.use('/api/appointment-ratings', appointmentRatingRoutes);
+app.use('/api/ratings', appointmentRatingRoutes);
 app.use('/api/vehicles', vehiclesRoutes);
+app.use('/api/drivers', vehiclesRoutes); // Frontend uyumluluğu için
 app.use('/api/service-categories', serviceCategoryRoutes);
 app.use('/api/mechanic-services', mechanicServiceRoutes);
 app.use('/api/mechanic', mechanicRoutes);
 app.use('/api/mechanic-jobs', mechanicJobsRoutes);
 app.use('/api/mechanic-earnings', mechanicEarningsRoutes);
-app.use('/api/appointment-ratings', appointmentRatingRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/messages', messageRoutes);
+
+app.use('/api/message', messageRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/activity', activityRoutes);
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 

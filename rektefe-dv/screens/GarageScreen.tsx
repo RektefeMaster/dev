@@ -42,12 +42,11 @@ interface Vehicle {
 }
 
 const GarageScreen = () => {
-  const { token } = useAuth();
+  const { token, userId, validateToken } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newVehicle, setNewVehicle] = useState<Partial<Vehicle>>({});
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string>('');
   const [brandOpen, setBrandOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
   const [packageOpen, setPackageOpen] = useState(false);
@@ -74,19 +73,7 @@ const GarageScreen = () => {
     return fuel;
   };
 
-  useEffect(() => {
-    const getUserId = async () => {
-      try {
-        const storedUserId = await AsyncStorage.getItem('userId');
-        if (storedUserId) {
-          setUserId(storedUserId);
-        }
-      } catch (error) {
-        console.error('userId alınırken hata:', error);
-      }
-    };
-    getUserId();
-  }, []);
+
 
   useFocusEffect(
     React.useCallback(() => {
@@ -151,11 +138,41 @@ const GarageScreen = () => {
 
   const fetchVehicles = async () => {
     try {
+      console.log('🔍 GarageScreen: fetchVehicles çağrıldı');
+      console.log('🔍 GarageScreen: Token:', token ? 'Mevcut' : 'Yok');
+      console.log('🔍 GarageScreen: UserId:', userId ? 'Mevcut' : 'Yok');
+      console.log('🔍 GarageScreen: API_URL:', API_URL);
+      
+      // Token kontrolü
+      if (!token) {
+        console.log('⚠️ GarageScreen: Token bulunamadı');
+        setVehicles([]);
+        return;
+      }
+      
+      // Token geçerliliğini kontrol et
+      try {
+        const isValid = await validateToken(token);
+        if (!isValid) {
+          console.log('⚠️ GarageScreen: Token geçersiz');
+          setVehicles([]);
+          return;
+        }
+      } catch (validationError) {
+        console.log('⚠️ GarageScreen: Token validasyon hatası:', validationError);
+        setVehicles([]);
+        return;
+      }
+      
       setLoading(true);
       const [vehiclesRes, userRes] = await Promise.all([
         axios.get(`${API_URL}/vehicles`, { headers: { Authorization: `Bearer ${token}` } }),
         axios.get(`${API_URL}/users/profile`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
+      
+      console.log('🔍 GarageScreen: Vehicles Response:', vehiclesRes.data);
+      console.log('🔍 GarageScreen: User Response:', userRes.data);
+      
       // API response formatı: { success: true, data: {...} }
       const favoriteVehicleId = userRes.data.data?.favoriteVehicle;
       if (vehiclesRes.data && vehiclesRes.data.success && vehiclesRes.data.data) {
@@ -164,8 +181,8 @@ const GarageScreen = () => {
         setVehicles([]);
       }
     } catch (error) {
-      Alert.alert('Hata', 'Araçlar yüklenirken bir hata oluştu.');
-      console.error('Araçlar yüklenirken hata:', error);
+      console.error('❌ GarageScreen: Araçlar yüklenirken hata:', error);
+      setVehicles([]);
     } finally {
       setLoading(false);
     }
@@ -404,6 +421,9 @@ const GarageScreen = () => {
             style={{ width: 120, height: 120 }}
           />
           <Text style={styles.loadingText}>Araçlar yükleniyor...</Text>
+          <Text style={[styles.loadingText, { fontSize: 12, marginTop: 8 }]}>
+            Token: {token ? 'Mevcut' : 'Yok'} | UserId: {userId ? 'Mevcut' : 'Yok'}
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -416,11 +436,12 @@ const GarageScreen = () => {
           <View style={styles.header}>
             <Text style={styles.title}>Garajım</Text>
             <TouchableOpacity
-              style={styles.addButton}
+              style={[styles.addButton, !token && styles.disabledButton]}
               onPress={() => setShowAddModal(true)}
+              disabled={!token}
             >
-              <MaterialCommunityIcons name="plus" size={24} color="#fff" />
-              <Text style={styles.addButtonText}>Araç Ekle</Text>
+              <MaterialCommunityIcons name="plus" size={24} color={token ? "#fff" : "#ccc"} />
+              <Text style={[styles.addButtonText, !token && styles.disabledButtonText]}>Araç Ekle</Text>
             </TouchableOpacity>
           </View>
 
@@ -428,8 +449,16 @@ const GarageScreen = () => {
             <View style={styles.emptyState}>
               <MaterialCommunityIcons name="car-off" size={64} color="#ccc" />
               <Text style={styles.emptyStateText}>
-                Henüz araç eklenmemiş.{'\n'}
-                Yeni bir araç eklemek için "Araç Ekle" butonuna tıklayın.
+                {!token ? 'Oturum açmanız gerekiyor.' : 'Henüz araç eklenmemiş.'}
+                {token && '\nYeni bir araç eklemek için "Araç Ekle" butonuna tıklayın.'}
+              </Text>
+              {!token && (
+                <Text style={[styles.emptyStateText, { fontSize: 14, marginTop: 16, opacity: 0.8 }]}>
+                  Lütfen önce giriş yapın
+                </Text>
+              )}
+              <Text style={[styles.emptyStateText, { fontSize: 12, marginTop: 16, opacity: 0.7 }]}>
+                Debug: Token: {token ? 'Mevcut' : 'Yok'} | UserId: {userId ? 'Mevcut' : 'Yok'}
               </Text>
             </View>
           ) : (
@@ -831,6 +860,13 @@ const styles = StyleSheet.create({
   favoriteCard: {
     borderWidth: 2,
     borderColor: '#FFD700',
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
+    shadowColor: '#ccc',
+  },
+  disabledButtonText: {
+    color: '#999',
   },
 
 });

@@ -8,21 +8,24 @@ interface INotificationSettings {
 }
 
 export interface IAppointment extends Document {
-  userId: mongoose.Types.ObjectId;
-  mechanicId: mongoose.Types.ObjectId;
-  serviceType: string;
-  appointmentDate: Date;
-  timeSlot: string;
-  status: 'pending' | 'confirmed' | 'rejected' | 'in-progress' | 'completed' | 'cancelled';
-  description: string;
-  mechanicNotes?: string;
-  rejectionReason?: string;
-  vehicleId?: mongoose.Types.ObjectId;
-  estimatedDuration?: number; // dakika cinsinden
-  actualDuration?: number; // dakika cinsinden
-  price?: number;
+  userId: mongoose.Types.ObjectId; // Şöför/Müşteri ID'si
+  mechanicId: mongoose.Types.ObjectId; // Usta/Dükkan ID'si
+  serviceType: string; // Hizmet tipi
+  appointmentDate: Date; // Randevu tarihi
+  timeSlot: string; // Randevu saati
+  status: 'pending' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'rejected';
+  description: string; // Randevu açıklaması
+  mechanicNotes?: string; // Usta notları
+  rejectionReason?: string; // Red gerekçesi
+  vehicleId: mongoose.Types.ObjectId; // Araç ID'si (required)
+  estimatedDuration?: number; // Tahmini süre (dakika)
+  actualDuration?: number; // Gerçek süre (dakika)
+  price?: number; // Belirlenen ücret
+  paymentStatus: 'pending' | 'paid' | 'completed'; // Ödeme durumu
+  paymentDate?: Date; // Ödeme tarihi
+  completionDate?: Date; // İş tamamlanma tarihi
   notificationSettings: INotificationSettings;
-  shareContactInfo: boolean;
+  shareContactInfo: boolean; // İletişim bilgisi paylaşımı
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,16 +51,18 @@ const AppointmentSchema: Schema = new Schema({
   },
   timeSlot: { 
     type: String, 
-    required: true 
+    required: true,
+    default: '09:00'
   },
   status: { 
     type: String, 
-    enum: ['pending', 'confirmed', 'rejected', 'in-progress', 'completed', 'cancelled'],
+    enum: ['pending', 'confirmed', 'in-progress', 'completed', 'cancelled', 'rejected'],
     default: 'pending'
   },
   description: { 
     type: String, 
-    required: true 
+    required: false,
+    default: ''
   },
   mechanicNotes: { 
     type: String 
@@ -67,17 +72,28 @@ const AppointmentSchema: Schema = new Schema({
   },
   vehicleId: { 
     type: Schema.Types.ObjectId, 
-    ref: 'Vehicle' 
+    ref: 'Vehicle',
+    required: true 
   },
   estimatedDuration: { 
-    type: Number, 
-    default: 60 // varsayılan 1 saat
+    type: Number 
   },
   actualDuration: { 
     type: Number 
   },
   price: { 
     type: Number 
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'paid', 'completed'],
+    default: 'pending'
+  },
+  paymentDate: {
+    type: Date
+  },
+  completionDate: {
+    type: Date
   },
   notificationSettings: {
     oneHourBefore: {
@@ -104,7 +120,7 @@ const AppointmentSchema: Schema = new Schema({
   timestamps: true
 });
 
-// Tarih ve saat bazında çakışma kontrolü için index
+// Index'ler
 AppointmentSchema.index({ 
   mechanicId: 1, 
   appointmentDate: 1, 
@@ -112,13 +128,8 @@ AppointmentSchema.index({
   status: 1 
 });
 
-// Kullanıcı bazında randevu arama için index
 AppointmentSchema.index({ userId: 1, appointmentDate: -1 });
-
-// Usta bazında randevu arama için index
 AppointmentSchema.index({ mechanicId: 1, appointmentDate: -1 });
-
-// Yaklaşan randevular için index
 AppointmentSchema.index({ 
   appointmentDate: 1, 
   status: 1, 

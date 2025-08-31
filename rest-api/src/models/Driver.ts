@@ -17,7 +17,7 @@ const driverSchema = new Schema<IDriver>({
   bio: { type: String, default: '' },
   phone: { type: String, default: null },
   city: { type: String, default: null },
-  userType: { type: String, enum: ['user', 'mechanic'], default: 'user' },
+  userType: { type: String, enum: ['user', 'driver'], default: 'driver' },
   followers: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   following: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   favoriteVehicle: { type: Schema.Types.ObjectId, ref: 'Vehicle', default: null },

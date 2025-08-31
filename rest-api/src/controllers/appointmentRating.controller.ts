@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { AppointmentRating } from '../models/AppointmentRating';
-import MaintenanceAppointment from '../models/MaintenanceAppointment';
+import { Appointment } from '../models/Appointment';
 import { Mechanic } from '../models/Mechanic';
 import { sendNotificationToUser } from '../index';
 import { sendResponse } from '../utils/response';
@@ -44,11 +44,16 @@ export class AppointmentRatingController {
       }
 
       // İlgili randevuyu doğrula ve mekanik bilgisini randevudan al
-      const appointment = await MaintenanceAppointment.findById(appointmentId).populate('mechanicId', '_id');
+      const appointment = await Appointment.findById(appointmentId).populate('mechanicId', '_id');
       if (!appointment) {
+        console.error(`❌ Appointment ${appointmentId} bulunamadı!`);
         return res.status(404).json({ success: false, message: 'Randevu bulunamadı' });
       }
+      
+      console.log(`✅ Appointment bulundu: ${appointment._id}, Status: ${appointment.status}, User: ${appointment.userId}`);
+      
       if (appointment.userId.toString() !== userId) {
+        console.error(`❌ User ${userId} bu appointment ${appointmentId} için yetkisiz!`);
         return res.status(403).json({ success: false, message: 'Bu randevu için puan veremezsiniz' });
       }
       
@@ -89,11 +94,7 @@ export class AppointmentRatingController {
       // Ödeme sonrası başarı bildirimi ve randevu işaretleme
       try {
         // Randevu durumunu güncelle
-        appointment.paymentStatus = 'paid';
-        appointment.paymentDate = new Date();
-        appointment.status = 'paid'; // Ödeme yapıldı olarak işaretle
-        appointment.completionDate = new Date();
-        appointment.ratingDate = new Date(); // Değerlendirme tarihi
+        appointment.status = 'completed'; // Tamamlandı olarak işaretle
         await appointment.save();
 
         console.log(`✅ Randevu ${appointmentId} tamamlandı ve ödeme işaretlendi`);
@@ -245,18 +246,65 @@ export class AppointmentRatingController {
         });
       }
 
+      console.log(`🔍 Şoför ${userId} için rating aranıyor...`);
+
+      // Önce populate olmadan deneyelim
       const ratings = await AppointmentRating.find({ userId: new mongoose.Types.ObjectId(userId) })
-        .populate('appointmentId', 'serviceType appointmentDate')
-        .populate('appointmentId.vehicleId', 'brand modelName plateNumber')
-        .populate('mechanicId', 'shopName')
-        .populate('mechanicId.userId', 'name surname')
         .select('_id appointmentId mechanicId rating comment createdAt')
         .sort({ createdAt: -1 });
 
-      console.log(`🔍 Şoför ${userId} için ${ratings.length} puan bulundu`);
+      console.log(`🔍 Şoför ${userId} için ${ratings.length} puan bulundu (populate olmadan)`);
+
+      if (ratings.length > 0) {
+        console.log('🔍 İlk rating örneği:', JSON.stringify(ratings[0], null, 2));
+      }
+
+      // Şimdi populate işlemini ayrı ayrı yapalım
+      const populatedRatings = [];
+      
+      for (const rating of ratings) {
+        try {
+          // Appointment bilgilerini populate et
+          const appointment = await Appointment.findById(rating.appointmentId)
+            .select('serviceType appointmentDate vehicleId')
+            .populate('vehicleId', 'brand modelName plateNumber');
+          
+          // Mechanic bilgilerini populate et - Mechanic model'inde user bilgileri direkt var
+          const mechanic = await Mechanic.findById(rating.mechanicId)
+            .select('shopName name surname');
+          
+          const populatedRating = {
+            _id: rating._id,
+            rating: rating.rating,
+            comment: rating.comment,
+            createdAt: rating.createdAt,
+            appointmentId: appointment,
+            mechanicId: {
+              _id: mechanic?._id || '',
+              shopName: mechanic?.shopName || '',
+              userId: {
+                name: mechanic?.name || '',
+                surname: mechanic?.surname || ''
+              }
+            }
+          };
+          
+          populatedRatings.push(populatedRating);
+        } catch (populateError) {
+          console.error(`❌ Rating ${rating._id} populate hatası:`, populateError);
+          // Populate hatası olsa bile rating'i ekle
+          populatedRatings.push(rating);
+        }
+      }
+
+      console.log(`🔍 Populate edilmiş rating sayısı: ${populatedRatings.length}`);
+      
+      if (populatedRatings.length > 0) {
+        console.log('🔍 İlk populate edilmiş rating örneği:', JSON.stringify(populatedRatings[0], null, 2));
+      }
 
       sendResponse(res, 200, 'Puanlarınız başarıyla getirildi', {
-        ratings: ratings
+        ratings: populatedRatings
       });
     } catch (error) {
       console.error('Şoför puanları getirilirken hata:', error);
@@ -308,6 +356,135 @@ export class AppointmentRatingController {
       }
     } catch (error) {
       console.error('Ortalama puan güncellenirken hata:', error);
+    }
+  }
+
+  /**
+   * Mevcut usta için istatistikleri getir
+   */
+  static async getCurrentMechanicStats(req: Request, res: Response) {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Kullanıcı doğrulanamadı'
+        });
+      }
+
+      console.log('🔍 getCurrentMechanicStats - userId:', userId);
+
+      // Usta bilgilerini getir - userId ile arama yap
+      const mechanic = await Mechanic.findById(userId);
+      if (!mechanic) {
+        console.log('❌ getCurrentMechanicStats - Mechanic bulunamadı, userId:', userId);
+        return res.status(404).json({
+          success: false,
+          message: 'Usta bulunamadı'
+        });
+      }
+
+      console.log('✅ getCurrentMechanicStats - Mechanic bulundu:', mechanic._id);
+
+      // Puan istatistiklerini hesapla
+      const ratings = await AppointmentRating.find({ mechanicId: mechanic._id });
+      
+      if (ratings.length === 0) {
+        return res.status(200).json({
+          success: true,
+          data: {
+            averageRating: 0,
+            totalRatings: 0,
+            ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+          }
+        });
+      }
+
+      const totalRating = ratings.reduce((sum, r) => sum + r.rating, 0);
+      const averageRating = totalRating / ratings.length;
+
+      // Puan dağılımını hesapla
+      const ratingDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      ratings.forEach(r => {
+        ratingDistribution[r.rating as keyof typeof ratingDistribution]++;
+      });
+
+      res.status(200).json({
+        success: true,
+        data: {
+          averageRating: Math.round(averageRating * 10) / 10,
+          totalRatings: ratings.length,
+          ratingDistribution
+        }
+      });
+    } catch (error) {
+      console.error('Usta istatistikleri getirme hatası:', error);
+      res.status(500).json({
+        success: false,
+        message: 'İstatistikler getirilirken hata oluştu'
+      });
+    }
+  }
+
+  /**
+   * Mevcut usta için son puanları getir
+   */
+  static async getCurrentMechanicRecentRatings(req: Request, res: Response) {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Kullanıcı doğrulanamadı'
+        });
+      }
+
+      console.log('🔍 getCurrentMechanicRecentRatings - userId:', userId);
+
+      // Usta bilgilerini getir - userId ile arama yap
+      const mechanic = await Mechanic.findById(userId);
+      if (!mechanic) {
+        console.log('❌ getCurrentMechanicRecentRatings - Mechanic bulunamadı, userId:', userId);
+        return res.status(404).json({
+          success: false,
+          message: 'Usta bulunamadı'
+        });
+      }
+
+      console.log('✅ getCurrentMechanicRecentRatings - Mechanic bulundu:', mechanic._id);
+
+      // Son 10 puanı getir
+      const recentRatings = await AppointmentRating.find({ mechanicId: mechanic._id })
+        .populate('userId', 'name surname')
+        .populate('appointmentId', 'serviceType appointmentDate')
+        .sort({ createdAt: -1 })
+        .limit(10);
+
+      const formattedRatings = recentRatings.map(rating => ({
+        id: rating._id,
+        rating: rating.rating,
+        comment: rating.comment,
+        createdAt: rating.createdAt,
+        customer: {
+          name: (rating.userId as any)?.name || 'Bilinmeyen',
+          surname: (rating.userId as any)?.surname || 'Müşteri'
+        },
+        appointment: {
+          serviceType: (rating.appointmentId as any)?.serviceType || 'Bilinmeyen',
+          date: (rating.appointmentId as any)?.appointmentDate || 'Bilinmeyen'
+        }
+      }));
+
+      res.status(200).json({
+        success: true,
+        data: formattedRatings
+      });
+    } catch (error) {
+      console.error('Son puanları getirme hatası:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Son puanlar getirilirken hata oluştu'
+      });
     }
   }
 }

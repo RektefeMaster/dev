@@ -88,6 +88,19 @@ export class VehicleController {
   });
 
   /**
+   * Şoför araçlarını getir
+   */
+  static getDriverVehicles = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    const vehicles = await VehicleService.getUserVehicles(userId);
+    return ResponseHandler.success(res, vehicles, 'Şoför araçları başarıyla getirildi');
+  });
+
+  /**
    * Araç arama
    */
   static searchVehicles = asyncHandler(async (req: AuthRequest, res: Response) => {

@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../../constants/config';
 import { useAuth } from '../../../context/AuthContext';
 import { clearAuthData } from '../../../utils/common';
-import { translateServices } from '../../../utils/serviceTranslator';
+import { apiService } from '../../../services/api';
 
 interface Vehicle {
   _id: string;
@@ -154,6 +154,18 @@ export const useHomeData = () => {
     loadData();
   }, [token, userId, isAuthenticated, setToken, setUserId]);
 
+  // Token temizleme fonksiyonu
+  const clearInvalidToken = async () => {
+    try {
+      await AsyncStorage.multiRemove(['auth_token', 'refresh_token', 'user_id']);
+      console.log('✅ Eski token ve refresh token temizlendi');
+      setToken(null);
+      setUserId(null);
+    } catch (error) {
+      console.error('❌ Token temizleme hatası:', error);
+    }
+  };
+
   const fetchData = async (token: string, userId: string) => {
     setLoading(true);
       setError(null);
@@ -185,16 +197,14 @@ export const useHomeData = () => {
       console.log('🔍 Frontend: API_URL:', API_URL);
       console.log('🔍 Frontend: Token:', token ? 'Mevcut' : 'Yok');
       
-      // API_URL zaten /api prefix'i içeriyor, bu yüzden /users/profile kullanıyoruz
-      const response = await axios.get(`${API_URL}/users/profile`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // API service kullan
+      const response = await apiService.getUserProfile();
       
-      console.log('✅ Frontend: API Response:', response.data);
+      console.log('✅ Frontend: API Response:', response);
       
       // API response formatı: { success: true, data: {...}, message: "..." }
-      if (response.data && response.data.success && response.data.data) {
-        const userData = response.data.data;
+      if (response && response.success && response.data) {
+        const userData = response.data;
         if (userData.name && userData.name.trim()) {
           console.log('✅ Frontend: Kullanıcı ismi set ediliyor:', userData.name);
           setUserName(userData.name.trim());
@@ -213,6 +223,14 @@ export const useHomeData = () => {
         status: error.response?.status,
         data: error.response?.data
       });
+      
+      // 401 hatası durumunda token'ı temizle
+      if (error.response?.status === 401) {
+        console.log('🔄 401 hatası, eski token temizleniyor...');
+        await clearInvalidToken();
+        return;
+      }
+      
       // Hata durumunda varsayılan isim kullan
       setUserName('Kullanıcı');
     }
@@ -220,13 +238,11 @@ export const useHomeData = () => {
 
   const fetchUserVehicles = async (token: string) => {
     try {
-      const response = await axios.get(`${API_URL}/vehicles`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiService.getVehicles();
       
       // API response formatı kontrol et
-      if (response.data && response.data.success && response.data.data) {
-        const vehicles = response.data.data;
+      if (response && response.success && response.data) {
+        const vehicles = response.data;
         if (vehicles.length > 0) {
           // Favori araç bul
           const favorite = vehicles.find((v: Vehicle) => v.isFavorite);
@@ -247,80 +263,155 @@ export const useHomeData = () => {
           }
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Araçlar getirilirken hata:', error);
+      
+      // 401 hatası durumunda token'ı temizle
+      if (error.response?.status === 401) {
+        console.log('🔄 401 hatası, eski token temizleniyor...');
+        await clearInvalidToken();
+        return;
+      }
+      
       setFavoriteCar(null);
     }
   };
 
   const fetchLastMaintenance = async (token: string, userId: string) => {
-    // ... (mevcut kod korunacak)
+    try {
+      const response = await apiService.getAppointments('driver');
+      
+      // API response formatı kontrol et
+      if (response && response.success && response.data) {
+        const appointments = response.data;
+        if (appointments.length > 0) {
+          // Son randevuyu bul
+          const lastAppointment = appointments[appointments.length - 1];
+          setMaintenanceRecord({
+            date: lastAppointment.appointmentDate,
+            mileage: lastAppointment.vehicle?.mileage || 'Bilinmiyor',
+            type: lastAppointment.serviceType,
+            details: [lastAppointment.description || 'Detay yok'],
+            serviceName: lastAppointment.mechanic?.name || 'Bilinmiyor',
+            cost: lastAppointment.cost
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Son bakım bilgisi getirilemedi:', error);
+    }
   };
 
   const fetchInsuranceInfo = async () => {
-    // ... (mevcut kod korunacak)
+    try {
+      // Sigorta bilgisi için API endpoint'i eklenebilir
+      // Şimdilik varsayılan değer
+      setInsuranceInfo({
+        company: 'Sigorta Bilgisi Yok',
+        type: 'Bilgi Yok',
+        startDate: new Date().toISOString(),
+        endDate: new Date().toISOString(),
+        policyNumber: 'Bilgi Yok'
+      });
+    } catch (error) {
+      console.error('Sigorta bilgisi getirilirken hata:', error);
+      setInsuranceInfo(null);
+    }
   };
 
   const fetchVehicleStatus = async () => {
-    // ... (mevcut kod korunacak)
+    try {
+      // Araç durumu için API endpoint'i eklenebilir
+      // Şimdilik varsayılan değer
+      setVehicleStatus({
+        overallStatus: 'İyi',
+        lastCheck: new Date().toISOString(),
+        issues: []
+      });
+    } catch (error) {
+      console.error('Araç durumu getirilirken hata:', error);
+      setVehicleStatus(null);
+    }
   };
 
   const fetchServiceProviders = async (token: string) => {
     try {
-      const response = await axios.get(`${API_URL}/mechanic-services/mechanics`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiService.getMechanics();
       
       // API response formatı kontrol et
-      if (response.data && response.data.success && response.data.data) {
-        // Hizmet isimlerini Türkçe'ye çevir
-        const translatedProviders = translateServices(response.data.data);
-        setServiceProviders(translatedProviders);
-      } else if (response.data && Array.isArray(response.data)) {
-        // Eski format için fallback
-        const translatedProviders = translateServices(response.data);
-        setServiceProviders(translatedProviders);
-      } else {
-        setServiceProviders([]);
+      if (response && response.success && response.data) {
+        const mechanics = response.data;
+        const providers = mechanics.map((mechanic: any) => ({
+          _id: mechanic._id,
+          name: mechanic.name,
+          serviceType: mechanic.specialization?.join(', ') || 'Genel',
+          rating: mechanic.rating || 0,
+          reviewCount: mechanic.ratingCount || 0,
+          address: {
+            city: mechanic.city || 'Bilinmiyor',
+            district: mechanic.district || '',
+            neighborhood: mechanic.neighborhood || '',
+            street: mechanic.street || '',
+            building: mechanic.building || '',
+            floor: mechanic.floor || '',
+            apartment: mechanic.apartment || ''
+          },
+          priceRange: mechanic.priceRange || 'Belirtilmemiş',
+          image: mechanic.avatar || '',
+          isAvailable: mechanic.isAvailable || false,
+          lastUpdate: mechanic.updatedAt || mechanic.createdAt
+        }));
+        setServiceProviders(providers);
       }
     } catch (error) {
-      console.error('Servis sağlayıcıları getirilirken hata:', error);
-      setServiceProviders([]);
+      console.error('Servis sağlayıcıları getirilemedi:', error);
     }
   };
 
   const fetchCampaigns = async () => {
-    // ... (mevcut kod korunacak)
+    try {
+      // Kampanyalar için API endpoint'i eklenebilir
+      // Şimdilik boş array
+      setCampaigns([]);
+    } catch (error) {
+      console.error('Kampanyalar getirilirken hata:', error);
+      setCampaigns([]);
+    }
   };
 
   const fetchAds = async () => {
-    // ... (mevcut kod korunacak)
+    try {
+      // Reklamlar için API endpoint'i eklenebilir
+      // Şimdilik boş array
+      setAds([]);
+    } catch (error) {
+      console.error('Reklamlar getirilirken hata:', error);
+      setAds([]);
+    }
   };
 
   const fetchTireStatus = async () => {
-    // ... (mevcut kod korunacak)
+    try {
+      // Lastik durumu için API endpoint'i eklenebilir
+      // Şimdilik varsayılan değer
+      setTireStatus('İyi');
+    } catch (error) {
+      console.error('Lastik durumu getirilirken hata:', error);
+      setTireStatus(null);
+    }
   };
 
   const fetchAppointments = async (token: string) => {
     try {
-      const response = await axios.get(`${API_URL}/maintenance-appointments`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiService.getAppointments('driver');
       
-      if (response.data && response.data.success && response.data.data) {
-        // Hizmet isimlerini Türkçe'ye çevir
-        const translatedAppointments = translateServices(response.data.data);
-        setAppointments(translatedAppointments);
-      } else if (response.data && Array.isArray(response.data)) {
-        // Eski format için fallback
-        const translatedAppointments = translateServices(response.data);
-        setAppointments(translatedAppointments);
-      } else {
-        setAppointments([]);
+      // API response formatı kontrol et
+      if (response && response.success && response.data) {
+        const appointments = response.data;
+        setAppointments(appointments);
       }
     } catch (error) {
-      console.error('Randevular getirilirken hata:', error);
-      setAppointments([]);
+      console.error('Randevular getirilemedi:', error);
     }
   };
 

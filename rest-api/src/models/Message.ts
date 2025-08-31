@@ -1,16 +1,19 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IMessage extends Document {
   senderId: mongoose.Types.ObjectId;
   receiverId: mongoose.Types.ObjectId;
+  conversationId?: mongoose.Types.ObjectId;
   content: string;
-  messageType: 'text' | 'image' | 'file';
-  isRead: boolean;
+  messageType: 'text' | 'image' | 'file' | 'audio' | 'video';
+  read: boolean;
+  status: 'sent' | 'delivered' | 'read' | 'failed';
+  replyTo?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const messageSchema = new Schema<IMessage>({
+const MessageSchema = new Schema<IMessage>({
   senderId: {
     type: Schema.Types.ObjectId,
     ref: 'User',
@@ -21,28 +24,41 @@ const messageSchema = new Schema<IMessage>({
     ref: 'User',
     required: true
   },
+  conversationId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Conversation'
+  },
   content: {
     type: String,
     required: true,
-    maxlength: 1000
+    maxlength: [1000, 'Message content cannot exceed 1000 characters'],
+    minlength: [1, 'Message content cannot be empty']
   },
   messageType: {
     type: String,
-    enum: ['text', 'image', 'file'],
+    enum: ['text', 'image', 'file', 'audio', 'video'],
     default: 'text'
   },
-  isRead: {
+  read: {
     type: Boolean,
     default: false
+  },
+  status: {
+    type: String,
+    enum: ['sent', 'delivered', 'read', 'failed'],
+    default: 'sent'
+  },
+  replyTo: {
+    type: Schema.Types.ObjectId,
+    ref: 'Message'
   }
 }, {
   timestamps: true
 });
 
 // Index'ler
-messageSchema.index({ senderId: 1, receiverId: 1 });
-messageSchema.index({ createdAt: -1 });
-messageSchema.index({ isRead: 1 });
+MessageSchema.index({ senderId: 1, receiverId: 1 });
+MessageSchema.index({ conversationId: 1 });
+MessageSchema.index({ receiverId: 1, read: 1 });
 
-export const Message = mongoose.model<IMessage>('Message', messageSchema);
-export default Message;
+export const Message = mongoose.model<IMessage>('Message', MessageSchema);

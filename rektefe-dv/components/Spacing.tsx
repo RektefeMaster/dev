@@ -207,7 +207,7 @@ export const Divider: React.FC<{
   const { isDark } = useTheme();
   
   const dividerStyle: ViewStyle = {
-    backgroundColor: color || (isDark ? theme.colors.divider.dark : theme.colors.divider.light),
+    backgroundColor: color || (isDark ? theme.colors.border.tertiary : theme.colors.border.secondary),
   };
 
   if (orientation === 'horizontal') {
@@ -236,14 +236,14 @@ export const Section: React.FC<{
     <View style={[styles.section, { padding: theme.spacing[padding], margin: theme.spacing[margin] }, style]}>
       {title && (
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: isDark ? theme.colors.text.primary.dark : theme.colors.text.primary.light }]}>
-            {title}
+                  <Text style={[styles.sectionTitle, { color: isDark ? theme.colors.text.inverse : theme.colors.text.primary }]}>
+          {title}
+        </Text>
+        {subtitle && (
+          <Text style={[styles.sectionSubtitle, { color: isDark ? theme.colors.text.tertiary : theme.colors.text.secondary }]}>
+            {subtitle}
           </Text>
-          {subtitle && (
-            <Text style={[styles.sectionSubtitle, { color: isDark ? theme.colors.text.secondary.dark : theme.colors.text.secondary.light }]}>
-              {subtitle}
-            </Text>
-          )}
+        )}
         </View>
       )}
       {children}
@@ -265,7 +265,7 @@ export const Screen: React.FC<{
       styles.screen, 
       { 
         padding: theme.spacing[padding],
-        backgroundColor: isDark ? theme.colors.background.default.dark : theme.colors.background.default.light
+        backgroundColor: isDark ? theme.colors.background.quaternary : theme.colors.background.primary
       }, 
       style
     ]}>
@@ -279,15 +279,15 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   sectionHeader: {
-    marginBottom: theme.spacing.md,
+    marginBottom: 16, // theme.spacing.md yerine sabit değer
   },
   sectionTitle: {
-    fontSize: theme.typography.fontSizes.lg,
-    fontWeight: theme.typography.fontWeights.semibold,
-    marginBottom: theme.spacing.xs,
+    fontSize: 17, // theme.typography.fontSizes.lg yerine sabit değer
+    fontWeight: '600', // theme.typography.fontWeights.semibold yerine sabit değer
+    marginBottom: 4, // theme.spacing.xs yerine sabit değer
   },
   sectionSubtitle: {
-    fontSize: theme.typography.fontSizes.sm,
+    fontSize: 13, // theme.typography.fontSizes.sm yerine sabit değer
   },
   screen: {
     flex: 1,

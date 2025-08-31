@@ -13,10 +13,10 @@ interface TefeHistoryItem {
 }
 
 const TefeWalletScreen = () => {
-  const [tefePoints] = useState(1250); // Örnek TEFE puanı
+  const [tefePoints] = useState(0); // Gerçek TEFE puanı
   const [tefeHistory] = useState<TefeHistoryItem[]>([
-    { id: '1', title: 'Genel Bakım', date: '02.06.2025', amount: '1.250 TL', points: 62 },
-    { id: '2', title: 'Araç Yıkama', date: '20.05.2025', amount: '300 TL', points: 15 },
+    { id: '1', title: 'Genel Bakım', date: '02.06.2025', amount: '0 TL', points: 0 },
+    { id: '2', title: 'Araç Yıkama', date: '20.05.2025', amount: '0 TL', points: 0 },
   ]);
 
   const renderTefeHistoryItem = ({ item }: { item: TefeHistoryItem }) => (
@@ -132,9 +132,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   historyDate: {
-    fontSize: theme.typography.fontSizes.sm,
-    color: theme.colors.text.secondary.light,
-    marginBottom: theme.spacing.sm,
+    fontSize: 13,
+    color: '#64748B',
+    marginBottom: 8,
   },
   historyRight: {
     alignItems: 'flex-end',
@@ -146,9 +146,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   historyPoints: {
-    fontSize: theme.typography.fontSizes.md,
-    fontWeight: theme.typography.fontWeights.semibold,
-    color: theme.colors.warning.dark,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#D97706',
   },
 });
 

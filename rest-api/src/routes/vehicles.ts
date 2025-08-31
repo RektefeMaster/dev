@@ -88,6 +88,10 @@ router.post('/', auth, validate(createVehicleSchema), VehicleController.createVe
  *         description: Sunucu hatası
  */
 router.get('/', auth, VehicleController.getUserVehicles);
+router.get('/driver', auth, VehicleController.getDriverVehicles);
+
+// Frontend uyumluluğu için /api/drivers/vehicles endpoint'i
+router.get('/drivers/vehicles', auth, VehicleController.getDriverVehicles);
 
 /**
  * @swagger
@@ -102,16 +106,31 @@ router.get('/', auth, VehicleController.getUserVehicles);
  *     parameters:
  *       - in: query
  *         name: q
- *         required: true
  *         schema:
  *           type: string
- *         description: Arama terimi
+ *         description: Arama terimi (marka, model, plaka)
  *         example: "BMW"
+ *       - in: query
+ *         name: brand
+ *         schema:
+ *           type: string
+ *         description: Araç markası
+ *         example: "BMW"
+ *       - in: query
+ *         name: model
+ *         schema:
+ *           type: string
+ *         description: Araç modeli
+ *         example: "X5"
+ *       - in: query
+ *         name: plateNumber
+ *         schema:
+ *           type: string
+ *         description: Plaka numarası
+ *         example: "34ABC123"
  *     responses:
  *       200:
  *         description: Arama sonuçları başarıyla getirildi
- *       400:
- *         description: Arama terimi eksik
  *       401:
  *         description: Yetkilendirme hatası
  *       500:
@@ -124,16 +143,47 @@ router.get('/search', auth, VehicleController.searchVehicles);
  * /api/vehicles/all:
  *   get:
  *     summary: Tüm araçları getir (Admin)
- *     description: Sistemdeki tüm araçları listeler (sadece admin için)
+ *     description: Sistemdeki tüm araçları listeler (sadece admin kullanıcılar)
  *     tags:
  *       - Vehicles
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: number
+ *         description: Sayfa numarası
+ *         example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: number
+ *         description: Sayfa başına araç sayısı
+ *         example: 10
+ *       - in: query
+ *         name: brand
+ *         schema:
+ *           type: string
+ *         description: Araç markasına göre filtrele
+ *         example: "BMW"
+ *       - in: query
+ *         name: year
+ *         schema:
+ *           type: number
+ *         description: Üretim yılına göre filtrele
+ *         example: 2020
  *     responses:
  *       200:
  *         description: Tüm araçlar başarıyla getirildi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       403:
+ *         description: Yetkisiz erişim (admin değil)
  *       500:
  *         description: Sunucu hatası
  */
-router.get('/all', VehicleController.getAllVehicles);
+router.get('/all', auth, VehicleController.getAllVehicles);
 
 /**
  * @swagger

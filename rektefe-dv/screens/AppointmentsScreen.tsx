@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../constants/config';
+import { apiService } from '../services/api';
 import { format, isBefore, addHours, differenceInHours, differenceInMinutes } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { useNavigation } from '@react-navigation/native';
@@ -35,21 +36,62 @@ const AppointmentsScreen = () => {
 
   const fetchAppointments = async () => {
     try {
-      const token = await AsyncStorage.getItem('token');
+      console.log('🔍 AppointmentsScreen: fetchAppointments başlatılıyor...');
+      
+      const token = await AsyncStorage.getItem('auth_token');
       if (!token) throw new Error('Token bulunamadı');
+      
+      console.log('🔍 AppointmentsScreen: Token bulundu, API çağrısı yapılıyor...');
 
-      const response = await axios.get(`${API_URL}/maintenance-appointments`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      // Yeni ortak API service kullan
+      const response = await apiService.getAppointments('driver');
+      
+      console.log('🔍 AppointmentsScreen: API response:', JSON.stringify(response, null, 2));
 
+      // Backend response formatı: { success: true, data: [...] }
+      const appointmentsData = response.data || [];
+      
+      console.log('🔍 AppointmentsScreen: Appointments data:', appointmentsData.length, 'randevu bulundu');
+      
+      // İlk appointment'ın fiyat durumunu kontrol et
+      if (appointmentsData.length > 0) {
+        const firstAppointment = appointmentsData[0];
+        console.log('🔍 AppointmentsScreen: İlk appointment fiyat kontrolü:', {
+          id: firstAppointment._id,
+          serviceType: firstAppointment.serviceType,
+          price: firstAppointment.price,
+          priceType: typeof firstAppointment.price,
+          hasPrice: firstAppointment.price && firstAppointment.price > 0
+        });
+        
+        // Tüm appointment'ların fiyat durumunu kontrol et
+        appointmentsData.forEach((apt: any, index: number) => {
+          if (apt.status === 'completed' && apt.paymentStatus === 'pending') {
+            console.log(`🔍 AppointmentsScreen: Ödeme bekleyen appointment ${index + 1}:`, {
+              id: apt._id,
+              serviceType: apt.serviceType,
+              price: apt.price,
+              priceType: typeof apt.price,
+              hasPrice: apt.price && apt.price > 0
+            });
+          }
+        });
+      }
+      
       // Randevuları tarihe göre sırala
-      const sortedAppointments = response.data.data.sort((a: any, b: any) => 
+      const sortedAppointments = appointmentsData.sort((a: any, b: any) => 
         new Date(b.appointmentDate).getTime() - new Date(a.appointmentDate).getTime()
       );
-
+      
+      console.log('🔍 AppointmentsScreen: Sıralanmış randevular:', sortedAppointments.length);
       setAppointments(sortedAppointments);
     } catch (error: any) {
+      console.error('❌ AppointmentsScreen: fetchAppointments hatası:', error);
+      console.error('❌ AppointmentsScreen: Error response:', error.response?.data);
+      console.error('❌ AppointmentsScreen: Error status:', error.response?.status);
+      
       if (error.response?.status === 401) {
+        console.log('❌ AppointmentsScreen: 401 hatası - Oturum sona erdi');
         Alert.alert('Oturum Hatası', 'Oturumunuz sona erdi. Lütfen tekrar giriş yapın.');
         // Kullanıcıyı login ekranına yönlendir
         navigation.reset({
@@ -57,6 +99,7 @@ const AppointmentsScreen = () => {
           routes: [{ name: 'Login' }],
         });
       } else {
+        console.log('❌ AppointmentsScreen: Genel hata - Kullanıcıya alert gösteriliyor');
         Alert.alert('Hata', 'Randevular yüklenirken bir hata oluştu. Lütfen tekrar deneyin.');
       }
     } finally {
@@ -66,13 +109,13 @@ const AppointmentsScreen = () => {
 
   // Socket.IO bağlantısı ve bildirim dinleme
   useEffect(() => {
-    const newSocket = io('http://localhost:3000');
+    const newSocket = io(API_URL);
     setSocket(newSocket);
 
     // Kullanıcı ID'sini al ve odaya katıl
     const joinUserRoom = async () => {
       try {
-        const token = await AsyncStorage.getItem('token');
+        const token = await AsyncStorage.getItem('auth_token');
         if (token) {
           // Token'dan user ID'yi çıkar (JWT decode)
           const payload = JSON.parse(atob(token.split('.')[1]));
@@ -149,46 +192,45 @@ const AppointmentsScreen = () => {
       const status = appointment.status;
       const paymentStatus = appointment.paymentStatus;
       
-      // Güncel randevular: onay bekleyen, onaylanan, devam eden
+      console.log(`🔍 Randevu ${appointment._id}: status=${status}, paymentStatus=${paymentStatus}`);
+      
+      // Güncel randevular: henüz tamamlanmamış, devam eden, onaylanan
       if (['pending', 'confirmed', 'in-progress'].includes(status)) {
         current.push(appointment);
+        console.log(`✅ Güncel'e eklendi: ${appointment._id}`);
       } 
-      // Tamamlanmış randevular: usta tamamladı, ödeme bekliyor, ödeme yapıldı
-      else if (['completed', 'payment_pending', 'paid'].includes(status) || 
-               (status === 'completed' && (!paymentStatus || paymentStatus === 'unpaid' || paymentStatus === 'paid'))) {
+      // Tamamlanmış randevular: ustanın tamamladığı, parası henüz ödenmemiş
+      else if (status === 'completed' && paymentStatus === 'pending') {
         completed.push(appointment);
+        console.log(`✅ Ödeme Bekleyen'e eklendi: ${appointment._id}`);
       }
-      // Geçmiş randevular: reddedilen, iptal edilen
-      else if (['rejected', 'cancelled'].includes(status)) {
+      // Geçmiş randevular: tamamlanmış ve parası ödenmiş, iptal edilmiş, reddedilmiş
+      else if (['rejected', 'cancelled'].includes(status) || 
+               (status === 'completed' && paymentStatus === 'paid')) {
         past.push(appointment);
+        console.log(`✅ Geçmiş'e eklendi: ${appointment._id}`);
       }
       // Diğer durumlar için varsayılan olarak geçmişe ekle
       else {
         past.push(appointment);
+        console.log(`⚠️ Varsayılan olarak Geçmiş'e eklendi: ${appointment._id} (status: ${status}, paymentStatus: ${paymentStatus})`);
       }
     });
 
+    console.log(`📊 Kategoriler: Güncel=${current.length}, Ödeme Bekleyen=${completed.length}, Geçmiş=${past.length}`);
     return { current, completed, past };
   };
 
   // Randevuları durumlarına göre kategorilendir
   const { current, completed, past } = categorizeAppointments(appointments);
   
-  // Debug: Tamamlanmış randevuları console'da göster
-  useEffect(() => {
-    if (activeTab === 'completed' && completed.length > 0) {
-      console.log('🔍 Tamamlanmış randevular:', completed.map(r => ({
-        id: r._id,
-        status: r.status,
-        paymentStatus: r.paymentStatus,
-        price: r.price
-      })));
-    }
-  }, [activeTab, completed]);
+
 
   // Randevuları filtrele
   const filteredAppointments = activeTab === 'current' ? current : 
                               activeTab === 'completed' ? completed : past;
+  
+
 
   const handleCancelAppointment = async (appointmentId: string, appointmentDate: string) => {
     const appointmentDateTime = new Date(appointmentDate);
@@ -216,11 +258,11 @@ const AppointmentsScreen = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const token = await AsyncStorage.getItem('token');
+              const token = await AsyncStorage.getItem('auth_token');
               if (!token) throw new Error('Token bulunamadı');
 
               const response = await axios.put(
-                `${API_URL}/maintenance-appointments/${appointmentId}/cancel`,
+                `${API_URL}/appointments/${appointmentId}/cancel`,
                 {},
                 { headers: { Authorization: `Bearer ${token}` } }
               );
@@ -251,21 +293,43 @@ const AppointmentsScreen = () => {
     );
   };
 
-  const handlePayment = (appointmentId: string, mechanic: any, serviceType: string) => {
+  const handlePayment = (appointmentId: string, mechanic: any, serviceType: string, appointment: any) => {
     // Mekanik ismini populate edilmiş veriden türet: önce kullanıcı adı-soyadı, yoksa dükkan adı
     const derivedMechanicName = mechanic?.userId
       ? `${mechanic.userId.name || ''} ${mechanic.userId.surname || ''}`.trim()
       : (mechanic?.shopName || 'Usta');
 
-    // Varsa backend'den gelen fiyatı kullan
-    const derivedPrice = typeof mechanic?.price === 'number' ? mechanic.price : (typeof (mechanic?.appointmentPrice) === 'number' ? mechanic.appointmentPrice : undefined);
+    // Appointment'ın kendi fiyatını kullan (mechanic.price değil, appointment.price)
+    const derivedPrice = appointment?.price;
+
+    console.log('🔍 handlePayment - Fiyat bilgileri:', {
+      appointmentId,
+      appointmentPrice: appointment?.price,
+      appointmentPriceType: typeof appointment?.price,
+      mechanicPrice: mechanic?.price,
+      mechanicPriceType: typeof mechanic?.price,
+      derivedPrice,
+      derivedPriceType: typeof derivedPrice,
+      fullAppointment: {
+        id: appointment?._id,
+        serviceType: appointment?.serviceType,
+        status: appointment?.status,
+        price: appointment?.price,
+        priceType: typeof appointment?.price
+      }
+    });
+
+    // Fiyat bilgisini doğru şekilde aktar
+    const finalPrice = typeof derivedPrice === 'number' && derivedPrice > 0 ? derivedPrice : 0;
+    
+    console.log('🔍 handlePayment - Final price:', finalPrice);
 
     navigation.navigate('Payment' as any, {
       appointmentId,
       mechanicId: mechanic?._id || mechanic,
       mechanicName: derivedMechanicName,
       serviceType,
-      price: typeof derivedPrice === 'number' ? derivedPrice : 0,
+      price: finalPrice,
     });
   };
 
@@ -296,11 +360,11 @@ const AppointmentsScreen = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const token = await AsyncStorage.getItem('token');
+              const token = await AsyncStorage.getItem('auth_token');
               if (!token) throw new Error('Token bulunamadı');
 
               const response = await axios.delete(
-                `${API_URL}/maintenance-appointments/${appointmentId}`,
+                `${API_URL}/appointments/${appointmentId}`,
                 { headers: { Authorization: `Bearer ${token}` } }
               );
 
@@ -343,11 +407,11 @@ const AppointmentsScreen = () => {
           text: 'Kaydet',
           onPress: async () => {
             try {
-              const token = await AsyncStorage.getItem('token');
+              const token = await AsyncStorage.getItem('auth_token');
               if (!token) throw new Error('Token bulunamadı');
 
               await axios.put(
-                `${API_URL}/maintenance-appointments/${appointmentId}/notification-settings`,
+                `${API_URL}/appointments/${appointmentId}/notification-settings`,
                 notificationSettings,
                 { headers: { Authorization: `Bearer ${token}` } }
               );
@@ -374,40 +438,107 @@ const AppointmentsScreen = () => {
     );
   };
 
+  const handleCompleteJob = async (appointmentId: string) => {
+    Alert.prompt(
+      'İş Tamamlandı',
+      'Not ve ücret bilgilerini girin:',
+      [
+        {
+          text: 'İptal',
+          style: 'cancel'
+        },
+        {
+          text: 'Tamamla',
+          onPress: async (notes?: string) => {
+            if (!notes || notes.trim().length < 10) {
+              Alert.alert('Hata', 'Not en az 10 karakter olmalıdır');
+              return;
+            }
+
+            Alert.prompt(
+              'Ücret Belirle',
+              'İş için ücret belirleyin (TL):',
+              [
+                {
+                  text: 'İptal',
+                  style: 'cancel'
+                },
+                {
+                  text: 'Gönder',
+                  onPress: async (priceText?: string) => {
+                    const price = parseFloat(priceText || '0');
+                    if (isNaN(price) || price <= 0) {
+                      Alert.alert('Hata', 'Geçerli bir ücret giriniz');
+                      return;
+                    }
+
+                    try {
+                      const token = await AsyncStorage.getItem('auth_token');
+                      if (!token) throw new Error('Token bulunamadı');
+
+                      const response = await axios.put(
+                        `${API_URL}/appointments/${appointmentId}/complete`,
+                        {
+                          completionNotes: notes,
+                          price: price
+                        },
+                        { headers: { Authorization: `Bearer ${token}` } }
+                      );
+
+                      if (response.status === 200) {
+                        Alert.alert('Başarılı', 'İş tamamlandı ve kullanıcıya bildirildi');
+                        fetchAppointments();
+                      }
+                    } catch (error: any) {
+                      console.error('İş tamamlama hatası:', error);
+                      Alert.alert('Hata', 'İş tamamlanırken bir hata oluştu');
+                    }
+                  }
+                }
+              ],
+              'plain-text'
+            );
+          }
+        }
+      ],
+      'plain-text'
+    );
+  };
+
   const getServiceTypeName = (type: string) => {
     const serviceTypes: {[key: string]: string} = {
-      'agir': 'Ağır Bakım',
-      'genel': 'Genel Bakım',
-      'alt': 'Alt Takım',
-      'ust': 'Üst Takım',
-      'kaporta': 'Kaporta/Boya',
-      'elektrik': 'Elektrik-Elektronik',
-      'yedek': 'Yedek Parça',
+      'agir-bakim': 'Ağır Bakım',
+      'genel-bakim': 'Genel Bakım',
+      'alt-takim': 'Alt Takım',
+      'ust-takim': 'Üst Takım',
+      'kaporta-boya': 'Kaporta/Boya',
+      'elektrik-elektronik': 'Elektrik-Elektronik',
+      'yedek-parca': 'Yedek Parça',
       'lastik': 'Lastik',
-      'egzoz': 'Egzoz & Emisyon',
+      'egzoz-emisyon': 'Egzoz & Emisyon',
       'ekspertiz': 'Ekspertiz',
-      'sigorta': 'Sigorta/Kasko',
-      'yikama': 'Araç Yıkama'
+      'sigorta-kasko': 'Sigorta/Kasko',
+      'arac-yikama': 'Araç Yıkama'
     };
     return serviceTypes[type] || type;
   };
 
-  const getServiceIcon = (type: string): keyof typeof MaterialCommunityIcons.glyphMap => {
-    const serviceIcons: {[key: string]: keyof typeof MaterialCommunityIcons.glyphMap} = {
-      'agir': 'wrench',
-      'genel': 'tools',
-      'alt': 'cog',
-      'ust': 'nut',
-      'kaporta': 'spray',
-      'elektrik': 'lightning-bolt',
-      'yedek': 'car-wash',
+  const getServiceTypeIcon = (type: string) => {
+    const serviceIcons: {[key: string]: string} = {
+      'agir-bakim': 'wrench',
+      'genel-bakim': 'tools',
+      'alt-takim': 'cog',
+      'ust-takim': 'nut',
+      'kaporta-boya': 'spray',
+      'elektrik-elektronik': 'lightning-bolt',
+      'yedek-parca': 'car-wash',
       'lastik': 'tire',
-      'egzoz': 'smoke',
+      'egzoz-emisyon': 'smoke',
       'ekspertiz': 'magnify',
-      'sigorta': 'shield-check',
-      'yikama': 'car-wash'
+      'sigorta-kasko': 'shield-check',
+      'arac-yikama': 'car-wash',
     };
-    return serviceIcons[type] || 'tools';
+    return serviceIcons[type] || 'wrench';
   };
 
   const renderAppointmentItem = ({ item }: { item: any }) => {
@@ -419,37 +550,29 @@ const AppointmentsScreen = () => {
     // Randevu durumu için renk ve metin
     const getStatusInfo = (status: string, paymentStatus?: string) => {
       // Önce payment status'a bak, sonra general status'a bak
-      if (paymentStatus === 'paid') {
-        return { color: '#34C759', text: 'Ödeme Tamamlandı', icon: 'check-circle' };
+      if (status === 'completed' && paymentStatus === 'pending') {
+        return { color: '#FF9500', text: 'Ödeme Bekleniyor', icon: 'currency-try' as any };
+      }
+      
+      if (status === 'completed' && paymentStatus === 'paid') {
+        return { color: '#34C759', text: 'Tamamlandı', icon: 'check-circle' as any };
       }
       
       switch (status) {
         case 'pending':
-          return { color: '#FF9500', text: 'Onay Bekleniyor...', icon: 'clock-outline' };
+          return { color: '#FF9500', text: 'Onay Bekleniyor...', icon: 'clock-outline' as any };
         case 'confirmed':
-          return { color: '#34C759', text: 'Onaylandı', icon: 'check-circle' };
+          return { color: '#34C759', text: 'Onaylandı', icon: 'check-circle' as any };
         case 'in-progress':
-          return { color: '#007AFF', text: 'İşlemde', icon: 'wrench' };
-        case 'payment_pending':
-          // Eğer ödeme yapılmışsa "Ödeme Tamamlandı" göster
-          if (paymentStatus === 'paid') {
-            return { color: '#34C759', text: 'Ödeme Tamamlandı', icon: 'check-circle' };
-          }
-          return { color: '#FF9500', text: 'Ödeme Bekliyor', icon: 'currency-try' };
+          return { color: '#007AFF', text: 'İşlemde', icon: 'wrench' as any };
         case 'completed':
-          // Eğer status completed ama paymentStatus yoksa veya unpaid ise
-          if (!paymentStatus || paymentStatus === 'unpaid') {
-            return { color: '#FF9500', text: 'Ödeme Bekliyor', icon: 'currency-try' };
-          }
-          return { color: '#34C759', text: 'Tamamlandı', icon: 'check-circle' };
-        case 'paid':
-          return { color: '#34C759', text: 'Ödeme Tamamlandı', icon: 'check-circle' };
+          return { color: '#FF9500', text: 'Ödeme Bekleniyor', icon: 'currency-try' as any };
         case 'cancelled':
-          return { color: '#FF3B30', text: 'İptal Edildi', icon: 'close-circle' };
+          return { color: '#FF3B30', text: 'İptal Edildi', icon: 'close-circle' as any };
         case 'rejected':
-          return { color: '#FF3B30', text: 'Reddedildi', icon: 'close-circle' };
+          return { color: '#FF3B30', text: 'Reddedildi', icon: 'close-circle' as any };
         default:
-          return { color: '#8E8E93', text: 'Bilinmiyor', icon: 'help-circle' };
+          return { color: '#8E8E93', text: 'Bilinmiyor', icon: 'help-circle' as any };
       }
     };
 
@@ -459,7 +582,7 @@ const AppointmentsScreen = () => {
       <View style={styles.appointmentCard}>
         <View style={styles.appointmentHeader}>
           <MaterialCommunityIcons 
-            name={getServiceIcon(item.serviceType)} 
+            name={getServiceTypeIcon(item.serviceType) as any} 
             size={24} 
             color="#007AFF" 
           />
@@ -511,6 +634,58 @@ const AppointmentsScreen = () => {
             </View>
           )}
 
+          {item.price && item.price > 0 && (
+            <View style={styles.detailRow}>
+              <MaterialCommunityIcons name="currency-try" size={20} color="#34C759" />
+              <Text style={[styles.detailText, { color: '#34C759', fontWeight: '600' }]}>
+                Fiyat: ₺{item.price}
+              </Text>
+            </View>
+          )}
+
+          {item.estimatedDuration && item.estimatedDuration > 0 && item.status === 'completed' && (
+            <View style={styles.detailRow}>
+              <MaterialCommunityIcons name="timer" size={20} color="#666" />
+              <Text style={styles.detailText}>
+                İş Süresi: {item.estimatedDuration} dakika
+              </Text>
+            </View>
+          )}
+
+          {item.paymentStatus && activeTab === 'completed' && (
+            <View style={styles.detailRow}>
+              <MaterialCommunityIcons 
+                name={item.paymentStatus === 'paid' ? 'check-circle' : 'clock-outline'} 
+                size={20} 
+                color={item.paymentStatus === 'paid' ? '#34C759' : '#FF9500'} 
+              />
+              <Text style={[
+                styles.detailText, 
+                { color: item.paymentStatus === 'paid' ? '#34C759' : '#FF9500' }
+              ]}>
+                Ödeme Durumu: {item.paymentStatus === 'paid' ? 'Ödendi' : 'Bekleniyor'}
+              </Text>
+            </View>
+          )}
+
+          {item.createdAt && (
+            <View style={styles.detailRow}>
+              <MaterialCommunityIcons name="calendar-plus" size={20} color="#666" />
+              <Text style={styles.detailText}>
+                Oluşturulma: {format(new Date(item.createdAt), 'dd.MM.yyyy HH:mm', { locale: tr })}
+              </Text>
+            </View>
+          )}
+
+          {item.updatedAt && item.updatedAt !== item.createdAt && (
+            <View style={styles.detailRow}>
+              <MaterialCommunityIcons name="calendar-edit" size={20} color="#666" />
+              <Text style={styles.detailText}>
+                Son Güncelleme: {format(new Date(item.updatedAt), 'dd.MM.yyyy HH:mm', { locale: tr })}
+              </Text>
+            </View>
+          )}
+
           {item.notes && (
             <View style={styles.detailRow}>
               <MaterialCommunityIcons name="note-text" size={20} color="#666" />
@@ -527,6 +702,15 @@ const AppointmentsScreen = () => {
             </View>
           )}
 
+          {item.description && (
+            <View style={styles.detailRow}>
+              <MaterialCommunityIcons name="note-text" size={20} color="#666" />
+              <Text style={styles.notes}>
+                Açıklama: {item.description}
+              </Text>
+            </View>
+          )}
+
           {item.mechanicNotes && (
             <View style={styles.detailRow}>
               <MaterialCommunityIcons name="account-wrench" size={20} color="#007AFF" />
@@ -536,7 +720,7 @@ const AppointmentsScreen = () => {
             </View>
           )}
 
-          {item.status === 'pending' && !isPast && (
+          {activeTab === 'current' && item.status === 'pending' && !isPast && (
             <View style={styles.timeRemainingContainer}>
               <MaterialCommunityIcons name="clock-alert" size={20} color="#FF9500" />
               <Text style={styles.timeRemainingText}>
@@ -547,14 +731,14 @@ const AppointmentsScreen = () => {
             </View>
           )}
 
-          {isPast && (
+          {activeTab === 'past' && isPast && (
             <View style={styles.pastAppointmentContainer}>
               <MaterialCommunityIcons name="clock-check" size={20} color="#34C759" />
               <Text style={styles.pastAppointmentText}>Tamamlanmış Randevu</Text>
             </View>
           )}
 
-          {item.status === 'pending' && !isPast && (
+          {activeTab === 'current' && item.status === 'pending' && !isPast && (
             <View style={styles.notificationSettingsContainer}>
               <TouchableOpacity
                 style={styles.notificationSettingsButton}
@@ -567,7 +751,7 @@ const AppointmentsScreen = () => {
           )}
         </View>
 
-        {item.status === 'pending' && canCancel && !isPast && (
+        {activeTab === 'current' && item.status === 'pending' && canCancel && !isPast && (
           <TouchableOpacity
             style={styles.cancelButton}
             onPress={() => handleCancelAppointment(item._id, item.appointmentDate)}
@@ -577,7 +761,7 @@ const AppointmentsScreen = () => {
           </TouchableOpacity>
         )}
 
-        {item.status === 'pending' && !canCancel && !isPast && (
+        {activeTab === 'current' && item.status === 'pending' && !canCancel && !isPast && (
           <View style={styles.cannotCancelContainer}>
             <MaterialCommunityIcons name="alert-circle" size={20} color="#FF9500" />
             <Text style={styles.cannotCancelText}>
@@ -586,28 +770,28 @@ const AppointmentsScreen = () => {
           </View>
         )}
 
-        {/* Ödeme butonu sadece tamamlanmış randevular tab'ında gösteriliyor */}
-        {/* Tamamlanmış randevular tab'ında butonlar */}
+
+
+
+
+        {/* Ödeme bekleyen randevular tab'ında butonlar */}
         {activeTab === 'completed' && (
           <View style={styles.buttonContainer}>
 
-            {/* Ödeme yapılmamışsa ödeme butonu göster */}
-            {/* Ödeme bekleyen randevular için ödeme butonu göster */}
-            {((item.status === 'completed' && (!item.paymentStatus || item.paymentStatus === 'unpaid')) || 
-              (item.status === 'payment_pending' && item.paymentStatus !== 'paid')) && (
+            {/* Ödeme bekleyen randevular için ödeme butonu */}
+            {item.status === 'completed' && item.paymentStatus === 'pending' && (
               <TouchableOpacity
                 style={styles.paymentButton}
-                onPress={() => handlePayment(item._id, item.mechanicId, item.serviceType)}
+                onPress={() => handlePayment(item._id, item.mechanicId, item.serviceType, item)}
                 activeOpacity={0.8}
               >
                 <MaterialCommunityIcons name="credit-card" size={22} color="#FFFFFF" />
                 <Text style={styles.paymentButtonText}>Ödeme Yap</Text>
               </TouchableOpacity>
             )}
-            
+
             {/* Ödeme yapılmışsa ödeme detayı göster */}
-            {((item.status === 'completed' && item.paymentStatus === 'paid') || 
-              item.status === 'paid' || item.paymentStatus === 'paid') && (
+            {item.status === 'completed' && item.paymentStatus === 'paid' && (
               <View style={styles.paymentInfoContainer}>
                 <MaterialCommunityIcons name="check-circle" size={22} color="#10B981" />
                 <Text style={styles.paymentInfoText}>Ödeme Tamamlandı</Text>
@@ -628,7 +812,7 @@ const AppointmentsScreen = () => {
           </View>
         )}
 
-        {(activeTab === 'past' && (isPast || item.status === 'cancelled')) && (
+        {activeTab === 'past' && (
           <TouchableOpacity
             style={styles.deleteButton}
             onPress={() => handleDeleteAppointment(item._id, item.appointmentDate)}
@@ -643,9 +827,22 @@ const AppointmentsScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-      </View>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#007AFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Randevularım</Text>
+        </View>
+        
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Randevular yükleniyor...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -668,7 +865,7 @@ const AppointmentsScreen = () => {
         >
           <MaterialCommunityIcons 
             name="calendar-clock" 
-            size={20} 
+            size={24} 
             color={activeTab === 'current' ? '#007AFF' : '#666'} 
           />
           <Text style={[styles.tabText, activeTab === 'current' && styles.activeTabText]}>
@@ -676,17 +873,19 @@ const AppointmentsScreen = () => {
           </Text>
         </TouchableOpacity>
 
+
+
         <TouchableOpacity
           style={[styles.tab, activeTab === 'completed' && styles.activeTab]}
           onPress={() => setActiveTab('completed')}
         >
           <MaterialCommunityIcons 
-            name="check-circle" 
-            size={20} 
+            name="credit-card" 
+            size={24} 
             color={activeTab === 'completed' ? '#007AFF' : '#666'} 
           />
           <Text style={[styles.tabText, activeTab === 'completed' && styles.activeTabText]}>
-            Tamamlanmış ({completed.length})
+            Ödeme Bekleyen ({completed.length})
           </Text>
         </TouchableOpacity>
 
@@ -696,7 +895,7 @@ const AppointmentsScreen = () => {
         >
           <MaterialCommunityIcons 
             name="history" 
-            size={20} 
+            size={24} 
             color={activeTab === 'past' ? '#007AFF' : '#666'} 
           />
           <Text style={[styles.tabText, activeTab === 'past' && styles.activeTabText]}>
@@ -713,16 +912,24 @@ const AppointmentsScreen = () => {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <MaterialCommunityIcons 
-              name={activeTab === 'current' ? 'calendar-blank' : activeTab === 'completed' ? 'check-circle' : 'history'} 
-              size={48} 
-              color="#999" 
+              name={activeTab === 'current' ? 'calendar-blank' : 
+                    activeTab === 'completed' ? 'credit-card' : 'history'} 
+              size={64} 
+              color="#CCC" 
             />
+            <Text style={styles.emptyTitle}>
+              {activeTab === 'current' 
+                ? 'Henüz Randevunuz Yok'
+                : activeTab === 'completed'
+                ? 'Ödeme Bekleyen Randevu Yok'
+                : 'Geçmiş Randevu Yok'}
+            </Text>
             <Text style={styles.emptyText}>
               {activeTab === 'current' 
-                ? 'Henüz güncel randevunuz bulunmuyor'
+                ? 'İlk randevunuzu oluşturmak için "Bakım Planla" kısmını kullanın'
                 : activeTab === 'completed'
-                ? 'Henüz tamamlanmış randevunuz bulunmuyor'
-                : 'Geçmiş randevunuz bulunmuyor'}
+                ? 'Tamamlanan randevular burada görünecek'
+                : 'Tamamlanan veya iptal edilen randevular burada görünecek'}
             </Text>
           </View>
         }
@@ -742,7 +949,12 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#F0F0F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   backButton: {
     padding: 8,
@@ -757,19 +969,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
   listContainer: {
     padding: 16,
   },
   appointmentCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
   },
   appointmentHeader: {
     flexDirection: 'row',
@@ -808,10 +1028,15 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
     marginLeft: 'auto',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   statusText: {
     color: 'white',
@@ -825,7 +1050,8 @@ const styles = StyleSheet.create({
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
+    paddingVertical: 4,
   },
   dateTime: {
     fontSize: 15,
@@ -890,11 +1116,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 32,
   },
+  emptyTitle: {
+    marginTop: 16,
+    fontSize: 18,
+    color: '#666',
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
   emptyText: {
-    marginTop: 12,
-    fontSize: 16,
+    fontSize: 14,
     color: '#999',
     textAlign: 'center',
+    lineHeight: 20,
   },
   pastAppointmentContainer: {
     flexDirection: 'row',
@@ -928,30 +1162,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#fff',
     padding: 16,
+    paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#F0F0F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   tab: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 4,
-    borderRadius: 8,
+    marginHorizontal: 8,
+    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+    backgroundColor: '#FAFAFA',
   },
   activeTab: {
     backgroundColor: '#E3F2FD',
+    borderColor: '#007AFF',
+    shadowColor: '#007AFF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   tabText: {
-    marginLeft: 8,
     fontSize: 14,
     color: '#666',
     fontWeight: '500',
+    textAlign: 'center',
   },
   activeTabText: {
     color: '#007AFF',
+  },
+  tabSubtitle: {
+    fontSize: 10,
+    fontWeight: '400',
+    marginTop: 2,
+    textAlign: 'center',
   },
   notificationSettingsContainer: {
     marginTop: 8,
@@ -986,15 +1241,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#059669',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
     marginTop: 16,
     shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 6,
   },
   paymentButtonText: {
     color: '#FFFFFF',
@@ -1003,6 +1258,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
   },
+
   
   // Detail Button
   detailButton: {
@@ -1010,17 +1266,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
     marginTop: 12,
     borderWidth: 2,
     borderColor: '#3B82F6',
     shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   detailButtonText: {
     color: '#3B82F6',
@@ -1057,6 +1313,28 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 2,
     textAlign: 'center',
+  },
+  completeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#059669',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 16,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  completeButtonText: {
+    color: '#FFFFFF',
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });
 

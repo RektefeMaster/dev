@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { sendResponse } from '../utils/response';
-import MaintenanceAppointment from '../models/MaintenanceAppointment';
+import { Appointment } from '../models/Appointment';
 import { Types } from 'mongoose';
 
 export class MechanicEarningsController {
@@ -9,12 +9,28 @@ export class MechanicEarningsController {
    */
   static async getEarnings(req: Request, res: Response) {
     try {
+      console.log('🔍 getEarnings called with:', {
+        query: req.query,
+        user: req.user,
+        userId: req.user?.userId,
+        mechanicId: req.params.mechanicId
+      });
+
+      console.log('🔍 Appointment model check:', {
+        Appointment: typeof Appointment,
+        AppointmentFind: typeof Appointment?.find,
+        AppointmentModel: Appointment
+      });
+
       const { period = 'month', startDate, endDate } = req.query;
-      const mechanicId = req.params.mechanicId || req.user?.id;
+      const mechanicId = req.params.mechanicId || req.user?.userId;
 
       if (!mechanicId) {
+        console.log('❌ No mechanicId found');
         return sendResponse(res, 400, 'Mekanik ID gerekli');
       }
+
+      console.log('✅ Using mechanicId:', mechanicId);
 
       // Tarih aralığını hesapla
       const now = new Date();
@@ -38,11 +54,11 @@ export class MechanicEarningsController {
           end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       }
 
-      // Randevuları getir
-      const appointments = await MaintenanceAppointment.find({
+      // Randevuları getir - Tüm aktif status'ları dahil et
+      const appointments = await Appointment.find({
         mechanicId: new Types.ObjectId(mechanicId as string),
         appointmentDate: { $gte: start, $lte: end },
-        status: { $in: ['completed', 'paid'] }
+        status: { $in: ['confirmed', 'completed', 'paid', 'in-progress'] }
       }).populate('userId', 'name surname').populate('vehicleId', 'brand modelName plateNumber');
 
       console.log('🔍 Kazanç API - Bulunan randevular:', appointments.length);
@@ -58,17 +74,22 @@ export class MechanicEarningsController {
         date: apt.appointmentDate,
         amount: apt.price || 0,
         jobTitle: apt.serviceType,
-        customer: `${apt.userId?.name || 'Bilinmeyen'} ${apt.userId?.surname || 'Müşteri'}`,
+        customer: `${(apt.userId as any)?.name || 'Bilinmeyen'} ${(apt.userId as any)?.surname || 'Müşteri'}`,
         status: apt.status,
         appointmentId: apt._id,
-        vehicleInfo: apt.vehicleId ? `${apt.vehicleId.brand} ${apt.vehicleId.modelName} (${apt.vehicleId.plateNumber})` : 'Araç bilgisi yok'
+        vehicleInfo: apt.vehicleId ? `${(apt.vehicleId as any)?.brand} ${(apt.vehicleId as any)?.modelName} (${(apt.vehicleId as any)?.plateNumber})` : 'Araç bilgisi yok'
       }));
 
       console.log('🔍 Kazanç API - Hesaplanan kazançlar:', earnings);
 
       return sendResponse(res, 200, 'Kazanç bilgileri başarıyla getirildi', earnings);
     } catch (error) {
-      console.error('getEarnings error:', error);
+      console.error('❌ getEarnings error:', error);
+      console.error('❌ Error details:', {
+        message: (error as any).message,
+        stack: (error as any).stack,
+        name: (error as any).name
+      });
       return sendResponse(res, 500, 'Sunucu hatası');
     }
   }
@@ -78,11 +99,20 @@ export class MechanicEarningsController {
    */
   static async getEarningsSummary(req: Request, res: Response) {
     try {
-      const mechanicId = req.params.mechanicId || req.user?.id;
+      console.log('🔍 getEarningsSummary called with:', {
+        user: req.user,
+        userId: req.user?.userId,
+        mechanicId: req.params.mechanicId
+      });
+
+      const mechanicId = req.params.mechanicId || req.user?.userId;
 
       if (!mechanicId) {
+        console.log('❌ No mechanicId found in getEarningsSummary');
         return sendResponse(res, 400, 'Mekanik ID gerekli');
       }
+
+      console.log('✅ Using mechanicId in getEarningsSummary:', mechanicId);
 
       const now = new Date();
       
@@ -107,32 +137,32 @@ export class MechanicEarningsController {
 
       // Paralel olarak tüm sorguları çalıştır
       const [todayEarnings, weekEarnings, monthEarnings, yearEarnings, allTimeEarnings, totalJobs] = await Promise.all([
-        MaintenanceAppointment.aggregate([
+        Appointment.aggregate([
           { $match: { mechanicId: new Types.ObjectId(mechanicId as string), status: { $in: ['completed', 'paid'] } } },
           { $match: { appointmentDate: { $gte: todayStart, $lte: todayEnd } } },
           { $group: { _id: null, total: { $sum: '$price' } } }
         ]),
-        MaintenanceAppointment.aggregate([
+        Appointment.aggregate([
           { $match: { mechanicId: new Types.ObjectId(mechanicId as string), status: { $in: ['completed', 'paid'] } } },
           { $match: { appointmentDate: { $gte: weekStart, $lte: weekEnd } } },
           { $group: { _id: null, total: { $sum: '$price' } } }
         ]),
-        MaintenanceAppointment.aggregate([
+        Appointment.aggregate([
           { $match: { mechanicId: new Types.ObjectId(mechanicId as string), status: { $in: ['completed', 'paid'] } } },
           { $match: { appointmentDate: { $gte: monthStart, $lte: monthEnd } } },
           { $group: { _id: null, total: { $sum: '$price' } } }
         ]),
-        MaintenanceAppointment.aggregate([
+        Appointment.aggregate([
           { $match: { mechanicId: new Types.ObjectId(mechanicId as string), status: { $in: ['completed', 'paid'] } } },
           { $match: { appointmentDate: { $gte: yearStart, $lte: yearEnd } } },
           { $group: { _id: null, total: { $sum: '$price' } } }
         ]),
-        MaintenanceAppointment.aggregate([
+        Appointment.aggregate([
           { $match: { mechanicId: new Types.ObjectId(mechanicId as string), status: { $in: ['completed', 'paid'] } } },
           { $match: { appointmentDate: { $gte: allTimeStart } } },
           { $group: { _id: null, total: { $sum: '$price' } } }
         ]),
-        MaintenanceAppointment.countDocuments({ mechanicId: new Types.ObjectId(mechanicId as string), status: { $in: ['completed', 'paid'] } })
+        Appointment.countDocuments({ mechanicId: new Types.ObjectId(mechanicId as string), status: { $in: ['completed', 'paid'] } })
       ]);
 
       const summary = {
@@ -156,7 +186,12 @@ export class MechanicEarningsController {
 
       return sendResponse(res, 200, 'Kazanç özeti başarıyla getirildi', summary);
     } catch (error) {
-      console.error('getEarningsSummary error:', error);
+      console.error('❌ getEarningsSummary error:', error);
+      console.error('❌ Error details:', {
+        message: (error as any).message,
+        stack: (error as any).stack,
+        name: (error as any).name
+      });
       return sendResponse(res, 500, 'Sunucu hatası');
     }
   }
@@ -203,38 +238,66 @@ export class MechanicEarningsController {
    */
   static async getTransactions(req: Request, res: Response) {
     try {
-      const { page = 1, limit = 10, type } = req.query;
+      console.log('🔍 getTransactions called with:', {
+        query: req.query,
+        user: req.user,
+        userId: req.user?.userId,
+        mechanicId: req.params.mechanicId
+      });
 
-      // TODO: Implement transactions logic
-      const mockTransactions = [
-        {
-          id: '1',
-          type: 'income',
-          amount: 450,
-          description: 'Motor Bakımı - Ahmet Yılmaz',
-          date: new Date(),
-          status: 'completed'
-        },
-        {
-          id: '2',
-          type: 'income',
-          amount: 300,
-          description: 'Fren Tamiri - Mehmet Demir',
-          date: new Date(Date.now() - 86400000),
-          status: 'completed'
-        }
-      ];
+      const { page = 1, limit = 10, type } = req.query;
+      const mechanicId = req.params.mechanicId || req.user?.userId;
+
+      if (!mechanicId) {
+        console.log('❌ No mechanicId found in getTransactions');
+        return sendResponse(res, 400, 'Mekanik ID gerekli');
+      }
+
+      console.log('✅ Using mechanicId in getTransactions:', mechanicId);
+
+      // Gerçek işlemleri getir
+      const appointments = await Appointment.find({
+        mechanicId: new Types.ObjectId(mechanicId as string),
+        status: { $in: ['completed', 'paid'] }
+      })
+      .populate('userId', 'name surname')
+      .populate('vehicleId', 'brand modelName plateNumber')
+      .sort({ appointmentDate: -1 })
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit));
+
+      const total = await Appointment.countDocuments({
+        mechanicId: new Types.ObjectId(mechanicId as string),
+        status: { $in: ['completed', 'paid'] }
+      });
+
+      const transactions = appointments.map(apt => ({
+        id: (apt._id as any).toString(),
+        type: 'income',
+        amount: apt.price || 0,
+        description: `${apt.serviceType} - ${(apt.userId as any)?.name || 'Bilinmeyen'} ${(apt.userId as any)?.surname || 'Müşteri'}`,
+        date: apt.appointmentDate,
+        status: apt.status,
+        vehicleInfo: apt.vehicleId ? `${(apt.vehicleId as any)?.brand} ${(apt.vehicleId as any)?.modelName} (${(apt.vehicleId as any)?.plateNumber})` : 'Araç bilgisi yok'
+      }));
+
+      console.log('🔍 İşlemler API - Bulunan işlemler:', transactions.length);
 
       return sendResponse(res, 200, 'İşlemler başarıyla getirildi', {
-        transactions: mockTransactions,
+        transactions,
         pagination: {
           page: Number(page),
           limit: Number(limit),
-          total: 156
+          total
         }
       });
     } catch (error) {
-      console.error('getTransactions error:', error);
+      console.error('❌ getTransactions error:', error);
+      console.error('❌ Error details:', {
+        message: (error as any).message,
+        stack: (error as any).stack,
+        name: (error as any).name
+      });
       return sendResponse(res, 500, 'Sunucu hatası');
     }
   }

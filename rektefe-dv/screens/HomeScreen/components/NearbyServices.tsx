@@ -29,6 +29,12 @@ interface NearbyServicesProps {
 }
 
 export const NearbyServices: React.FC<NearbyServicesProps> = ({ services, onServicePress }) => {
+  // Services prop'unun undefined olma durumunu kontrol et
+  if (!services || !Array.isArray(services)) {
+    console.warn('NearbyServices: services prop is not an array:', services);
+    return null; // veya loading state göster
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>Yakındaki Servisler</Text>

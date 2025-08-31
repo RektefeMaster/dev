@@ -22,4 +22,11 @@ export interface IBaseUser {
 
 export interface IAuthUser extends IBaseUser {
   userType: 'user' | 'driver';
-} 
+}
+
+export type AuthRequest = Request & {
+  user?: {
+    userId: string;
+    userType: string;
+  };
+}; 

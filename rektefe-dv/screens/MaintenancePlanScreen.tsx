@@ -74,25 +74,25 @@ const MaintenancePlanScreen = () => {
 
   // Servis tipleri (HomeScreen ile aynı 12 hizmet)
   const serviceTypes = [
-    { id: 'agir', name: 'Ağır Bakım', icon: 'wrench' },
-    { id: 'genel', name: 'Genel Bakım', icon: 'tools' },
-    { id: 'alt', name: 'Alt Takım', icon: 'cog' },
-    { id: 'ust', name: 'Üst Takım', icon: 'nut' },
-    { id: 'kaporta', name: 'Kaporta/Boya', icon: 'spray' },
-    { id: 'elektrik', name: 'Elektrik-Elektronik', icon: 'lightning-bolt' },
-    { id: 'yedek', name: 'Yedek Parça', icon: 'car-wash' },
+    { id: 'agir-bakim', name: 'Ağır Bakım', icon: 'wrench' },
+    { id: 'genel-bakim', name: 'Genel Bakım', icon: 'tools' },
+    { id: 'alt-takim', name: 'Alt Takım', icon: 'cog' },
+    { id: 'ust-takim', name: 'Üst Takım', icon: 'nut' },
+    { id: 'kaporta-boya', name: 'Kaporta/Boya', icon: 'spray' },
+    { id: 'elektrik-elektronik', name: 'Elektrik-Elektronik', icon: 'lightning-bolt' },
+    { id: 'yedek-parca', name: 'Yedek Parça', icon: 'car-wash' },
     { id: 'lastik', name: 'Lastik', icon: 'tire' },
-    { id: 'egzoz', name: 'Egzoz & Emisyon', icon: 'smoke' },
+    { id: 'egzoz-emisyon', name: 'Egzoz & Emisyon', icon: 'smoke' },
     { id: 'ekspertiz', name: 'Ekspertiz', icon: 'magnify' },
-    { id: 'sigorta', name: 'Sigorta/Kasko', icon: 'shield-check' },
-    { id: 'yikama', name: 'Araç Yıkama', icon: 'car-wash' },
+    { id: 'sigorta-kasko', name: 'Sigorta/Kasko', icon: 'shield-check' },
+    { id: 'arac-yikama', name: 'Araç Yıkama', icon: 'car-wash' },
   ];
 
   // Kullanıcı ID'sini al
   useEffect(() => {
     const getUserId = async () => {
       try {
-        const storedUserId = await AsyncStorage.getItem('userId');
+        const storedUserId = await AsyncStorage.getItem('user_id');
         if (storedUserId) {
           setUserId(storedUserId);
         }
@@ -214,18 +214,19 @@ const MaintenancePlanScreen = () => {
       const appointmentDateTime = new Date(year, month - 1, day, hours, minutes);
       
       const appointmentData = {
+        userId: userId, // Backend'de gerekli
         vehicleId: selectedVehicle,
         serviceType: selectedService,
         appointmentDate: appointmentDateTime.toISOString(),
-        notes,
-        sharePhoneNumber: sharePhone,
+        timeSlot: selectedTime, // Backend'de timeSlot olarak bekleniyor
+        description: notes, // Backend'de description olarak bekleniyor
         mechanicId: selectedMaster,
       };
 
       console.log('Randevu verisi:', appointmentData);
 
       const response = await axios.post(
-        `${API_URL}/maintenance-appointments`,
+        `${API_URL}/appointments`,
         appointmentData,
         {
           headers: { Authorization: `Bearer ${token}` },

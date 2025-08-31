@@ -1,0 +1,438 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+
+import { colors, typography, spacing, borderRadius, shadows, dimensions as themeDimensions } from '../theme/theme';
+import { BackButton } from '../components';
+import apiService from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { Appointment } from '../types/common';
+
+export default function CalendarScreen() {
+  const navigation = useNavigation();
+  const { user, isAuthenticated } = useAuth();
+
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentWeek, setCurrentWeek] = useState(0);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchAppointments();
+    }
+  }, [isAuthenticated]);
+
+  const fetchAppointments = async () => {
+    try {
+      setLoading(true);
+      const response = await apiService.getMechanicAppointments();
+      
+      if (response.success && response.data) {
+        const appointments = Array.isArray(response.data) 
+          ? response.data 
+          : Array.isArray((response.data as any)?.appointments) 
+            ? (response.data as any).appointments 
+            : [];
+        setAppointments(appointments);
+      } else {
+        setAppointments([]);
+      }
+    } catch (error: any) {
+      console.error('Calendar fetch error:', error);
+      setAppointments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchAppointments();
+    setRefreshing(false);
+  };
+
+  const handleAppointmentPress = (appointment: Appointment) => {
+    (navigation as any).navigate('AppointmentDetail', { appointmentId: appointment._id });
+  };
+
+  const getWeekDates = (weekOffset: number = 0) => {
+    const today = new Date();
+    const currentWeekStart = new Date(today);
+    currentWeekStart.setDate(today.getDate() - today.getDay() + (weekOffset * 7));
+    
+    const weekDays: Date[] = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(currentWeekStart);
+      date.setDate(currentWeekStart.getDate() + i);
+      weekDays.push(date);
+    }
+    return weekDays;
+  };
+
+  const getDayAppointments = (date: Date) => {
+    return appointments.filter(appointment => {
+      const appointmentDate = new Date(appointment.appointmentDate);
+      return appointmentDate.toDateString() === date.toDateString();
+    });
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return colors.warning.main;
+      case 'confirmed': return colors.success.main;
+      case 'rejected': return colors.error.main;
+      case 'in-progress': return colors.primary.main;
+      case 'completed': return colors.secondary.main;
+      case 'cancelled': return colors.text.disabled;
+      default: return colors.text.disabled;
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'pending': return 'Bekliyor';
+      case 'confirmed': return 'Onaylandı';
+      case 'rejected': return 'Reddedildi';
+      case 'in-progress': return 'Devam Ediyor';
+      case 'completed': return 'Tamamlandı';
+      case 'cancelled': return 'İptal Edildi';
+      default: return status;
+    }
+  };
+
+  const navigateWeek = (direction: 'prev' | 'next') => {
+    setCurrentWeek(prev => direction === 'next' ? prev + 1 : prev - 1);
+  };
+
+  const renderWeekCalendar = () => {
+    const weekDays = getWeekDates(currentWeek);
+    const today = new Date();
+
+    return (
+      <View style={styles.calendarContainer}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerTop}>
+            <BackButton />
+            <View style={styles.headerContent}>
+              <Text style={styles.headerTitle}>Takvim</Text>
+              <Text style={styles.headerSubtitle}>
+                {currentWeek === 0 ? 'Bu Hafta' : 
+                 currentWeek > 0 ? `${currentWeek} Hafta Sonra` : `${Math.abs(currentWeek)} Hafta Önce`}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Week Navigation */}
+        <View style={styles.weekNavigation}>
+          <TouchableOpacity 
+            style={styles.navButton}
+            onPress={() => navigateWeek('prev')}
+          >
+            <Ionicons name="chevron-back" size={20} color={colors.text.primary} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.navButton}
+            onPress={() => navigateWeek('next')}
+          >
+            <Ionicons name="chevron-forward" size={20} color={colors.text.primary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Calendar */}
+        <ScrollView 
+          style={styles.calendarScroll} 
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary.main]}
+            />
+          }
+        >
+          {weekDays.map((date, dayIndex) => {
+            const isToday = date.toDateString() === today.toDateString();
+            const dayAppointments = getDayAppointments(date);
+            
+            return (
+              <View key={dayIndex} style={[styles.dayCard, isToday && styles.todayCard]}>
+                {/* Day Header */}
+                <View style={styles.dayHeader}>
+                  <View style={styles.dayInfo}>
+                    <Text style={[styles.dayName, isToday && styles.todayDayName]}>
+                      {date.toLocaleDateString('tr-TR', { weekday: 'short' })}
+                    </Text>
+                    <Text style={[styles.dayDate, isToday && styles.todayDayDate]}>
+                      {date.getDate()}
+                    </Text>
+                  </View>
+                  
+                  {dayAppointments.length > 0 && (
+                    <View style={styles.appointmentCount}>
+                      <Text style={styles.countText}>{dayAppointments.length}</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Appointments */}
+                {dayAppointments.length > 0 ? (
+                  <View style={styles.appointmentsList}>
+                    {dayAppointments.map((appointment, appIndex) => (
+                      <TouchableOpacity
+                        key={appIndex}
+                        style={styles.appointmentItem}
+                        onPress={() => handleAppointmentPress(appointment)}
+                      >
+                        <View style={styles.appointmentTime}>
+                          <Text style={styles.timeText}>
+                            {new Date(appointment.appointmentDate).toLocaleTimeString('tr-TR', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </Text>
+                        </View>
+                        
+                        <View style={styles.appointmentContent}>
+                          <Text style={styles.customerName}>
+                            {appointment.customer?.name} {appointment.customer?.surname}
+                          </Text>
+                          <Text style={styles.serviceType}>
+                            {appointment.serviceType}
+                          </Text>
+                          {appointment.vehicle && (
+                            <Text style={styles.vehicleInfo}>
+                              {appointment.vehicle.brand} {appointment.vehicle.modelName}
+                            </Text>
+                          )}
+                        </View>
+                        
+                        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(appointment.status) }]}>
+                          <Text style={styles.statusText}>{getStatusText(appointment.status)}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.emptyDay}>
+                    <Text style={styles.emptyText}>İş yok</Text>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Yükleniyor...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background.primary} />
+      {renderWeekCalendar()}
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background.primary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: typography.body1.fontSize,
+    color: colors.text.secondary,
+  },
+  calendarContainer: {
+    flex: 1,
+  },
+  header: {
+    paddingHorizontal: themeDimensions.screenPadding,
+    paddingVertical: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.primary,
+    backgroundColor: colors.background.primary,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
+    marginLeft: spacing.md,
+  },
+  headerTitle: {
+    fontSize: typography.h1.fontSize,
+    fontWeight: '700',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  headerSubtitle: {
+    fontSize: typography.body2.fontSize,
+    color: colors.text.secondary,
+  },
+  weekNavigation: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: themeDimensions.screenPadding,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.background.primary,
+  },
+  navButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.background.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
+  },
+  calendarScroll: {
+    flex: 1,
+    paddingHorizontal: themeDimensions.screenPadding,
+  },
+  dayCard: {
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
+    overflow: 'hidden',
+  },
+  todayCard: {
+    borderColor: colors.primary.main,
+    borderWidth: 2,
+  },
+  dayHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.md,
+    backgroundColor: colors.background.tertiary,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.primary,
+  },
+  dayInfo: {
+    alignItems: 'center',
+  },
+  dayName: {
+    fontSize: typography.caption.large.fontSize,
+    fontWeight: '600',
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  todayDayName: {
+    color: colors.primary.main,
+  },
+  dayDate: {
+    fontSize: typography.h2.fontSize,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  todayDayDate: {
+    color: colors.primary.main,
+  },
+  appointmentCount: {
+    backgroundColor: colors.primary.main,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  countText: {
+    fontSize: typography.caption.small.fontSize,
+    fontWeight: '700',
+    color: colors.text.inverse,
+  },
+  appointmentsList: {
+    padding: spacing.md,
+  },
+  appointmentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.background.primary,
+    borderRadius: borderRadius.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary.main,
+  },
+  appointmentTime: {
+    marginRight: spacing.md,
+    minWidth: 50,
+  },
+  timeText: {
+    fontSize: typography.body3.fontSize,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  appointmentContent: {
+    flex: 1,
+  },
+  customerName: {
+    fontSize: typography.body2.fontSize,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  serviceType: {
+    fontSize: typography.body3.fontSize,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  vehicleInfo: {
+    fontSize: typography.caption.large.fontSize,
+    color: colors.text.tertiary,
+  },
+  statusBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    marginLeft: spacing.sm,
+  },
+  statusText: {
+    fontSize: typography.caption.small.fontSize,
+    fontWeight: '600',
+    color: colors.text.inverse,
+  },
+  emptyDay: {
+    padding: spacing.lg,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: typography.body3.fontSize,
+    color: colors.text.tertiary,
+  },
+});

@@ -9,15 +9,17 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  ActivityIndicator,
   StatusBar,
-  Image
+  Image,
+  Animated,
+  Modal,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, typography, spacing, borderRadius, shadows, dimensions as themeDimensions } from '../theme/theme';
 
 import { API_URL } from '../constants/config';
 
@@ -65,17 +67,19 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [lastMessageId, setLastMessageId] = useState<string | null>(null);
+  const [showOptionsModal, setShowOptionsModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
+  
+  // Animasyon değerleri
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
 
-  const fetchMessages = useCallback(async (pageNum: number = 1, append: boolean = false) => {
+  const fetchMessages = useCallback(async () => {
     // Geçici conversation ID ise mesaj çekme
     if (conversationId.startsWith('temp_')) {
       setMessages([]);
-      setHasMore(false);
       setLoading(false);
       return;
     }
@@ -83,7 +87,7 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
     try {
       setLoading(true);
       const response = await fetch(
-        `${API_URL}/messages/conversation/${conversationId}/messages?page=${pageNum}&limit=50`,
+        `${API_URL}/message/conversations/${conversationId}/messages?page=1&limit=50`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -94,18 +98,23 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
 
       if (response.ok) {
         const data = await response.json();
-        const newMessages = data.data.messages || [];
-        
-        if (append) {
-          // Eski mesajları listenin sonuna ekle (inverted=true olduğu için)
-          setMessages(prev => [...prev, ...newMessages]);
+        if (data.success && data.data) {
+          const newMessages = Array.isArray(data.data) ? data.data : (data.data.messages || []);
+          
+          // Mesajları tarihe göre sırala (en eski üstte, en yeni altta)
+          const sortedMessages = [...newMessages].sort((a, b) => {
+            const dateA = new Date(a.createdAt || a.created_at || 0);
+            const dateB = new Date(b.createdAt || b.created_at || 0);
+            return dateA.getTime() - dateB.getTime();
+          });
+          
+          setMessages(sortedMessages);
+          
+          // Mesajları okundu olarak işaretle
+          markMessagesAsRead();
         } else {
-          // İlk yükleme - mesajları ters çevir (en yeni altta olsun)
-          setMessages([...newMessages].reverse());
+          console.error('API response formatı hatalı:', data);
         }
-        
-        setHasMore(data.data.pagination.page < data.data.pagination.pages);
-        setPage(pageNum);
       } else {
         console.error('Mesajlar getirilemedi:', response.status);
       }
@@ -114,49 +123,37 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
     } finally {
       setLoading(false);
     }
-  }, [conversationId, token]);
+  }, [conversationId]); // ✅ Sadece conversationId değiştiğinde çalışsın
 
-  // Yeni mesajları kontrol et
-  const checkNewMessages = useCallback(async () => {
-    // Geçici conversation ID ise yeni mesaj kontrol etme
-    if (conversationId.startsWith('temp_') || !lastMessageId || loading) return;
-    
+  // Mesajları okundu olarak işaretle
+  const markMessagesAsRead = async () => {
     try {
-      const response = await fetch(
-        `${API_URL}/messages/conversation/${conversationId}/messages?after=${lastMessageId}&limit=10`,
-        {
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json"
-          }
-        }
-      );
+      const response = await fetch(`${API_URL}/message/mark-read`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          conversationId: conversationId,
+          userId: userId
+        })
+      });
 
       if (response.ok) {
-        const data = await response.json();
-        const newMessages = data.data.messages || [];
-        
-        if (newMessages.length > 0) {
-          // Yeni mesajları listenin başına ekle (inverted=true olduğu için)
-          setMessages(prev => [...newMessages, ...prev]);
-          
-          // Otomatik olarak en alta kaydır (yeni mesajlar görünsün)
-          setTimeout(() => {
-            flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-          }, 100);
-        }
+        console.log('✅ Mesajlar okundu olarak işaretlendi');
       }
     } catch (error) {
-      // Sessiz hata handling
+      console.error('❌ Mesajları okundu olarak işaretlerken hata:', error);
     }
-  }, [conversationId, lastMessageId, loading, token]);
+  };
 
   const sendMessage = async () => {
     if (!newMessage.trim() || sending) return;
 
     try {
       setSending(true);
-      const response = await fetch(`${API_URL}/messages/send`, {
+      const response = await fetch(`${API_URL}/message/send`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -170,34 +167,32 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        const sentMessage = data.data;
-        
-        // Mesajı listenin başına ekle (inverted=true olduğu için)
-        setMessages(prev => [{
-          ...sentMessage,
-          senderId: {
-            _id: userId,
-            name: 'Sen',
-            surname: '',
-            avatar: undefined
-          },
-          receiverId: {
-            _id: otherParticipant._id,
-            name: otherParticipant.name,
-            surname: otherParticipant.surname,
-            avatar: otherParticipant.avatar
-          }
-        }, ...prev]);
-        
-        setNewMessage('');
-        
-        // Otomatik olarak en alta kaydır (yeni mesaj görünsün)
-        setTimeout(() => {
-          flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-        }, 100);
-      } else {
-        Alert.alert('Hata', 'Mesaj gönderilemedi');
+        const sentMessage = await response.json();
+        if (sentMessage.success) {
+          // Yeni mesajı listeye ekle
+          const newMessageObj: Message = {
+            _id: sentMessage.data._id,
+            content: newMessage,
+            messageType: 'text',
+            createdAt: sentMessage.data.createdAt,
+            senderId: {
+              _id: userId!,
+              name: 'Şöför', // ✅ Doğru etiket
+              surname: ''
+            },
+            receiverId: {
+              _id: otherParticipant._id,
+              name: otherParticipant.name,
+              surname: otherParticipant.surname
+            }
+          };
+          
+          setMessages(prev => [...prev, newMessageObj]);
+          setNewMessage('');
+          
+          // Mesajı okundu olarak işaretle
+          markMessagesAsRead();
+        }
       }
     } catch (error) {
       console.error('Mesaj gönderilirken hata:', error);
@@ -207,38 +202,84 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
     }
   };
 
+  const deleteConversation = async () => {
+    try {
+      setDeleting(true);
+      setShowOptionsModal(false);
+      
+      const response = await fetch(`${API_URL}/message/conversations/${conversationId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        Alert.alert(
+          'Sohbet Silindi',
+          'Sohbet başarıyla silindi',
+          [
+            {
+              text: 'Tamam',
+              onPress: () => navigation.goBack()
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Hata', 'Sohbet silinirken hata oluştu');
+      }
+    } catch (error) {
+      console.error('Sohbet silinirken hata:', error);
+      Alert.alert('Hata', 'Sohbet silinirken hata oluştu');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const showDeleteConfirmation = () => {
+    Alert.alert(
+      'Sohbeti Sil',
+      'Bu sohbeti silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
+      [
+        {
+          text: 'İptal',
+          style: 'cancel'
+        },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: deleteConversation
+        }
+      ]
+    );
+  };
+
   useEffect(() => {
     fetchMessages();
-  }, [fetchMessages]);
+    
+    // Giriş animasyonu
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      fetchMessages();
-      
-      // Geçici conversation ID ise interval başlatma
-      if (conversationId.startsWith('temp_')) {
-        return;
+      if (!conversationId.startsWith('temp_')) {
+        fetchMessages();
       }
-      
-      // Her 3 saniyede bir yeni mesajları kontrol et
-      const interval = setInterval(checkNewMessages, 3000);
-      
-      return () => {
-        clearInterval(interval);
-      };
-    }, [fetchMessages, checkNewMessages, conversationId])
+    }, []) // ✅ Dependency array'i boş bırak - sadece ekran odaklandığında çalışsın
   );
-
-  const loadMoreMessages = () => {
-    // Geçici conversation ID ise daha fazla mesaj yükleme
-    if (conversationId.startsWith('temp_') || hasMore && !loading) {
-      return;
-    }
-    
-    if (hasMore && !loading) {
-      fetchMessages(page + 1, true);
-    }
-  };
 
   const formatMessageTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -248,197 +289,198 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
     });
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
+  const renderMessage = ({ item, index }: { item: Message; index: number }) => {
     const isOwnMessage = item.senderId._id === userId;
     
     return (
-      <View style={[
-        styles.messageContainer,
-        isOwnMessage ? styles.ownMessage : styles.otherMessage
-      ]}>
+      <Animated.View 
+        style={[
+          styles.messageContainer,
+          isOwnMessage ? styles.ownMessage : styles.otherMessage,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          }
+        ]}
+      >
         <View style={[
           styles.messageBubble,
-          isOwnMessage 
-            ? [styles.ownMessageBubble, { backgroundColor: theme.colors.primary }]
-            : [styles.otherMessageBubble, { backgroundColor: theme.colors.surface }]
+          isOwnMessage ? styles.ownBubble : styles.otherBubble
         ]}>
           <Text style={[
             styles.messageText,
-            { color: isOwnMessage ? '#FFFFFF' : theme.colors.text }
+            isOwnMessage ? styles.ownMessageText : styles.otherMessageText
           ]}>
             {item.content}
           </Text>
-          <Text style={[
-            styles.messageTime,
-            { color: isOwnMessage ? 'rgba(255, 255, 255, 0.7)' : theme.colors.textTertiary }
-          ]}>
-            {formatMessageTime(item.createdAt)}
-          </Text>
+          <View style={styles.messageFooter}>
+            <Text style={[
+              styles.messageTime,
+              isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime
+            ]}>
+              {formatMessageTime(item.createdAt)}
+            </Text>
+            {isOwnMessage && (
+              <View style={styles.readIndicator}>
+                <Ionicons 
+                  name="checkmark-done" 
+                  size={14} 
+                  color={colors.primary.main} 
+                />
+              </View>
+            )}
+          </View>
         </View>
-      </View>
+      </Animated.View>
     );
   };
 
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
-        <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
-      </TouchableOpacity>
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Mesajlar yükleniyor...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background.primary} />
       
-      <View style={styles.headerInfo}>
-        <View style={styles.participantInfo}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={24} color={colors.text.primary as any} />
+        </TouchableOpacity>
+        
+        <View style={styles.headerInfo}>
           {otherParticipant.avatar ? (
-            <Image source={{ uri: otherParticipant.avatar }} style={styles.participantAvatar} />
+            <Image source={{ uri: otherParticipant.avatar }} style={styles.headerAvatar} />
           ) : (
-            <View style={styles.defaultParticipantAvatar}>
-              <Text style={styles.defaultParticipantAvatarText}>
-                {otherParticipant.name.charAt(0).toUpperCase()}
-              </Text>
+            <View style={styles.headerDefaultAvatar}>
+              <Ionicons name="person" size={20} color={colors.text.tertiary} />
             </View>
           )}
-          <View style={styles.participantDetails}>
+          <View style={styles.headerText}>
             <Text style={styles.headerName}>
               {otherParticipant.name} {otherParticipant.surname}
             </Text>
-            <Text style={styles.headerType}>
-              {otherParticipant.userType === 'mechanic' ? 'Usta' : 'Müşteri'}
-            </Text>
+            <View style={styles.userTypeContainer}>
+              <Text style={[
+                styles.userTypeText,
+                otherParticipant.userType === 'usta' || otherParticipant.userType === 'mechanic' ? styles.mechanicType : styles.driverType
+              ]}>
+                {otherParticipant.userType === 'usta' || otherParticipant.userType === 'mechanic' ? 'Usta' : 'Usta'}
+              </Text>
+            </View>
           </View>
         </View>
+        
+        <TouchableOpacity 
+          style={styles.moreButton} 
+          activeOpacity={0.7}
+          onPress={() => setShowOptionsModal(true)}
+        >
+          <Ionicons name="ellipsis-vertical" size={20} color={colors.text.secondary} />
+        </TouchableOpacity>
       </View>
-      
-      <TouchableOpacity
-        style={styles.moreButton}
-        onPress={() => {
-          Alert.alert(
-            'Sohbet Seçenekleri',
-            'Ne yapmak istiyorsunuz?',
-            [
-              { text: 'İptal', style: 'cancel' },
-              { 
-                text: 'Sohbeti Sil', 
-                style: 'destructive',
-                onPress: () => {
-                  Alert.alert(
-                    'Sohbeti Sil',
-                    'Bu sohbeti silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
-                    [
-                      { text: 'İptal', style: 'cancel' },
-                      { 
-                        text: 'Sil', 
-                        style: 'destructive',
-                        onPress: () => {
-                          // TODO: Sohbeti sil
-                          navigation.goBack();
-                        }
-                      }
-                    ]
-                  );
-                }
-              }
-            ]
-          );
-        }}
-      >
-        <MaterialCommunityIcons name="dots-vertical" size={24} color="#FFFFFF" />
-      </TouchableOpacity>
-    </View>
-  );
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <StatusBar barStyle="light-content" backgroundColor="#1F2937" />
-      
-      {renderHeader()}
+      {/* Messages */}
+      <FlatList
+        ref={flatListRef}
+        data={messages}
+        renderItem={renderMessage}
+        keyExtractor={(item) => item._id}
+        style={styles.messagesList}
+        contentContainerStyle={styles.messagesContainer}
+        showsVerticalScrollIndicator={false}
 
-      <KeyboardAvoidingView 
-        style={styles.content}
+      />
+
+      {/* Input */}
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        style={styles.inputContainer}
       >
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item._id}
-          contentContainerStyle={styles.messagesList}
-          showsVerticalScrollIndicator={false}
-          inverted={true}
-          onEndReached={loadMoreMessages}
-          onEndReachedThreshold={0.1}
-          ListHeaderComponent={
-            hasMore && (
-              <View style={styles.loadMoreContainer}>
-                <TouchableOpacity
-                  style={styles.loadMoreButton}
-                  onPress={loadMoreMessages}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <ActivityIndicator size="small" color={theme.colors.primary} />
-                  ) : (
-                    <Text style={[styles.loadMoreText, { color: theme.colors.primary }]}>
-                      Daha Fazla Mesaj Yükle
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )
-          }
-          ListFooterComponent={
-            messages.length > 0 && (
-              <View style={styles.scrollToBottomContainer}>
-                <TouchableOpacity
-                  style={styles.scrollToBottomButton}
-                  onPress={() => {
-                    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-                  }}
-                >
-                  <MaterialCommunityIcons name="arrow-down" size={20} color="#FFFFFF" />
-                  <Text style={styles.scrollToBottomText}>En Alta Git</Text>
-                </TouchableOpacity>
-              </View>
-            )
-          }
-        />
-
-        <View style={styles.inputContainer}>
+        <View style={styles.inputWrapper}>
           <TextInput
             ref={inputRef}
-            style={[styles.textInput, { 
-              backgroundColor: theme.colors.surface,
-              color: theme.colors.text,
-              borderColor: theme.colors.border
-            }]}
-            placeholder="Mesajınızı yazın..."
-            placeholderTextColor={theme.colors.textTertiary}
+            style={styles.textInput}
             value={newMessage}
             onChangeText={setNewMessage}
+            placeholder="Mesajınızı yazın..."
+            placeholderTextColor={colors.text.tertiary}
             multiline
             maxLength={1000}
             onSubmitEditing={sendMessage}
           />
+          
           <TouchableOpacity
             style={[
-              styles.sendButton,
-              { 
-                backgroundColor: newMessage.trim() && !sending ? theme.colors.primary : theme.colors.border 
-              }
+              styles.sendButton, 
+              !newMessage.trim() && styles.sendButtonDisabled,
+              sending && styles.sendButtonSending
             ]}
             onPress={sendMessage}
             disabled={!newMessage.trim() || sending}
+            activeOpacity={0.8}
           >
             {sending ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <View style={styles.sendingIndicator} />
             ) : (
-              <MaterialCommunityIcons name="send" size={20} color="#FFFFFF" />
+              <Ionicons 
+                name="send" 
+                size={20} 
+                color={newMessage.trim() ? colors.primary.main as any : colors.text.tertiary as any} 
+              />
             )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Options Modal */}
+      <Modal
+        visible={showOptionsModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowOptionsModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowOptionsModal(false)}
+        >
+          <View style={styles.optionsModal}>
+            <TouchableOpacity
+              style={styles.optionItem}
+              onPress={showDeleteConfirmation}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="trash-outline" size={20} color={colors.error.main} />
+              <Text style={[styles.optionText, styles.deleteOptionText]}>
+                Sohbeti Sil
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.optionItem}
+              onPress={() => setShowOptionsModal(false)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={20} color={colors.text.secondary} />
+              <Text style={styles.optionText}>
+                İptal
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -446,151 +488,277 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background.primary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: typography.body2.fontSize,
+    color: colors.text.secondary,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#1F2937',
+    paddingHorizontal: themeDimensions.screenPadding,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.primary,
+    backgroundColor: colors.background.primary,
+    shadowColor: colors.shadow.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   backButton: {
-    marginRight: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.background.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
   },
   headerInfo: {
-    flex: 1,
-  },
-  participantInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
-  participantAvatar: {
+  headerAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    marginRight: 12,
+    marginRight: spacing.sm,
   },
-  defaultParticipantAvatar: {
+  headerDefaultAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
+    backgroundColor: colors.background.secondary,
     justifyContent: 'center',
-    marginRight: 12,
+    alignItems: 'center',
+    marginRight: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
   },
-  defaultParticipantAvatarText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  participantDetails: {
+  headerText: {
     flex: 1,
   },
   headerName: {
-    fontSize: 18,
+    fontSize: typography.body2.fontSize,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.text.primary as any,
+    marginBottom: spacing.xs,
   },
-  headerType: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginTop: 2,
+  userTypeContainer: {
+    marginTop: spacing.xs,
+  },
+  userTypeText: {
+    fontSize: typography.caption.small.fontSize,
+    fontWeight: '500',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    overflow: 'hidden',
+    textAlign: 'center',
+    alignSelf: 'flex-start',
+  },
+  mechanicType: {
+    backgroundColor: colors.primary.ultraLight,
+    color: colors.primary.main,
+    borderWidth: 1,
+    borderColor: colors.primary.main,
+  },
+  driverType: {
+    backgroundColor: colors.success.background,
+    color: colors.success.main,
+    borderWidth: 1,
+    borderColor: colors.success.main,
   },
   moreButton: {
-    padding: 8,
-  },
-  content: {
-    flex: 1,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.background.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
   },
   messagesList: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    flex: 1,
   },
-  loadMoreContainer: {
-    alignItems: 'center',
-    paddingVertical: 16,
-  },
-  loadMoreButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  loadMoreText: {
-    fontSize: 14,
-    fontWeight: '500',
+  messagesContainer: {
+    paddingHorizontal: themeDimensions.screenPadding,
+    paddingVertical: spacing.md,
   },
   messageContainer: {
-    marginVertical: 4,
+    marginBottom: spacing.sm,
+    flexDirection: 'row',
   },
   ownMessage: {
-    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
   },
   otherMessage: {
-    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
   },
   messageBubble: {
     maxWidth: '80%',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 20,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    shadowColor: colors.shadow.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  ownMessageBubble: {
-    borderBottomRightRadius: 4,
+  ownBubble: {
+    backgroundColor: colors.primary.main,
+    borderBottomRightRadius: borderRadius.sm,
   },
-  otherMessageBubble: {
-    borderBottomLeftRadius: 4,
+  otherBubble: {
+    backgroundColor: colors.background.secondary,
+    borderBottomLeftRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
   },
   messageText: {
-    fontSize: 16,
-    lineHeight: 22,
-    marginBottom: 4,
+    fontSize: typography.body3.fontSize,
+    lineHeight: 20,
+    marginBottom: spacing.xs,
+  },
+  ownMessageText: {
+    color: colors.text.inverse,
+  },
+  otherMessageText: {
+    color: colors.text.primary as any,
+  },
+  messageFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
   messageTime: {
-    fontSize: 12,
-    alignSelf: 'flex-end',
+    fontSize: typography.caption.small.fontSize,
+    marginRight: spacing.xs,
   },
+  ownMessageTime: {
+    color: colors.text.inverse,
+    opacity: 0.8,
+  },
+  otherMessageTime: {
+    color: colors.text.tertiary,
+  },
+  readIndicator: {
+    marginLeft: spacing.xs,
+  },
+
   inputContainer: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border.primary,
+    backgroundColor: colors.background.primary,
+    shadowColor: colors.shadow.primary,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  inputWrapper: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 12,
+    paddingHorizontal: themeDimensions.screenPadding,
+    paddingVertical: spacing.md,
   },
   textInput: {
     flex: 1,
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginRight: spacing.sm,
+    fontSize: typography.body2.fontSize,
+    color: colors.text.primary as any,
     maxHeight: 100,
-    fontSize: 16,
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
+    shadowColor: colors.shadow.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   sendButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    alignItems: 'center',
+    backgroundColor: colors.primary.ultraLight,
     justifyContent: 'center',
-  },
-  scrollToBottomContainer: {
     alignItems: 'center',
-    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: colors.primary.main,
+    shadowColor: colors.shadow.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  scrollToBottomButton: {
+  sendButtonDisabled: {
+    backgroundColor: colors.background.tertiary,
+    borderColor: colors.border.secondary,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  sendButtonSending: {
+    backgroundColor: colors.background.tertiary,
+    borderColor: colors.border.secondary,
+  },
+  sendingIndicator: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: colors.primary.main,
+    borderTopColor: 'transparent',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  optionsModal: {
+    backgroundColor: colors.background.primary,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    minWidth: 200,
+    shadowColor: colors.shadow.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  optionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.xs,
   },
-  scrollToBottomText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+  optionText: {
+    fontSize: typography.body2.fontSize,
+    color: colors.text.primary as any,
+    marginLeft: spacing.sm,
     fontWeight: '500',
-    marginLeft: 8,
+  },
+  deleteOptionText: {
+    color: colors.error.main,
   },
 });
 

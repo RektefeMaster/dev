@@ -6,6 +6,46 @@ const router = Router();
 
 /**
  * @swagger
+ * /api/notifications/driver:
+ *   get:
+ *     summary: Şoförün bildirimlerini getir
+ *     description: Giriş yapan şoförün tüm bildirimlerini listeler
+ *     tags:
+ *       - Notifications
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Bildirimler başarıyla getirildi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/driver', auth, NotificationController.getDriverNotifications);
+
+/**
+ * @swagger
+ * /api/notifications/driver/unread-count:
+ *   get:
+ *     summary: Şoförün okunmamış bildirim sayısını getir
+ *     description: Giriş yapan şoförün okunmamış bildirim sayısını döner
+ *     tags:
+ *       - Notifications
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Okunmamış bildirim sayısı başarıyla getirildi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/driver/unread-count', auth, NotificationController.getDriverUnreadCount);
+
+/**
+ * @swagger
  * /api/notifications/mechanic:
  *   get:
  *     summary: Ustanın bildirimlerini getir

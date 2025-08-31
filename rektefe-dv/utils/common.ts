@@ -86,7 +86,6 @@ export const SUCCESS_MESSAGES = {
 export const clearAsyncStorage = async () => {
   try {
     await AsyncStorage.clear();
-    console.log('🔧 AsyncStorage temizlendi');
   } catch (error) {
     console.error('❌ AsyncStorage temizlenirken hata:', error);
   }
@@ -96,7 +95,6 @@ export const clearAsyncStorage = async () => {
 export const clearAuthData = async () => {
   try {
     await AsyncStorage.multiRemove(['token', 'userId', 'refreshToken']);
-    console.log('🔧 Auth verileri temizlendi');
   } catch (error) {
     console.error('❌ Auth verileri temizlenirken hata:', error);
   }

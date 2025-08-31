@@ -1,39 +1,96 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import theme from '../theme/theme';
-import Typography from './Typography';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ViewStyle,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, typography, spacing, borderRadius } from '../theme/theme';
 
-const NoDataCard = ({ text }: { text: string }) => (
-  <View style={styles.container}>
-    <MaterialCommunityIcons 
-      name="inbox-outline" 
-      size={48} 
-      color={theme.colors.text.secondary.dark} 
-      style={styles.icon}
-    />
-    <Typography variant="h6" color="secondary" align="center" style={styles.text}>
-      {text}
-    </Typography>
-  </View>
-);
+export interface EmptyStateProps {
+  icon?: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle?: string;
+  actionText?: string;
+  onActionPress?: () => void;
+  style?: ViewStyle;
+}
+
+const EmptyState: React.FC<EmptyStateProps> = ({
+  icon = 'document-outline',
+  title,
+  subtitle,
+  actionText,
+  onActionPress,
+  style,
+}) => {
+  return (
+    <View style={[styles.container, style]}>
+      {/* Icon */}
+      <View style={styles.iconContainer}>
+        <Ionicons name={icon} size={64} color={colors.text.tertiary} />
+      </View>
+
+      {/* Title */}
+      <Text style={styles.title}>{title}</Text>
+
+      {/* Subtitle */}
+      {subtitle && (
+        <Text style={styles.subtitle}>{subtitle}</Text>
+      )}
+
+      {/* Action Button */}
+      {actionText && onActionPress && (
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={onActionPress}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.actionText}>{actionText}</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
-  container: { 
-    padding: theme.spacing.xxl, 
-    alignItems: 'center', 
+  container: {
+    alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.background.surface.dark,
-    borderRadius: theme.borderRadius.card,
-    margin: theme.spacing.md,
+    padding: spacing.xxl,
+    minHeight: 300,
   },
-  icon: {
-    marginBottom: theme.spacing.md,
+  iconContainer: {
+    marginBottom: spacing.lg,
     opacity: 0.6,
   },
-  text: {
+  title: {
+    fontSize: typography.h3.fontSize,
+    fontWeight: '600',
+    color: colors.text.primary,
     textAlign: 'center',
-  }
+    marginBottom: spacing.sm,
+  },
+  subtitle: {
+    fontSize: typography.body2.fontSize,
+    color: colors.text.tertiary,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+    lineHeight: typography.body2.lineHeight,
+  },
+  actionButton: {
+    backgroundColor: colors.primary.main,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.button,
+  },
+  actionText: {
+    color: colors.text.inverse,
+    fontSize: typography.button.medium.fontSize,
+    fontWeight: '600',
+  },
 });
 
-export default NoDataCard; 
+export default EmptyState; 

@@ -59,17 +59,27 @@ const RegisterScreen = ({ navigation }: any) => {
   const handleGoogleRegister = async (accessToken: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/auth/google`, {
+      const response = await fetch(`${API_URL}/auth/google-register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken }),
+        body: JSON.stringify({ 
+          accessToken,
+          userType: 'driver' // Şöför uygulaması olduğu için driver
+        }),
       });
       const data = await response.json();
       console.log('Backend yanıtı:', data);
       if (response.ok) {
-        if (data.userId && data.token) {
-          console.log('🔧 RegisterScreen: setTokenAndUserId çağrılıyor:', { userId: data.userId, token: !!data.token });
-          await setTokenAndUserId(data.token, data.userId);
+        if (data.data?.userId && data.data?.token) {
+          console.log('🔧 RegisterScreen: setTokenAndUserId çağrılıyor:', { userId: data.data.userId, token: !!data.data.token });
+          await setTokenAndUserId(data.data.token, data.data.userId);
+          
+          // Refresh token'ı da kaydet
+          if (data.data?.refreshToken) {
+            await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.data.refreshToken);
+            console.log('✅ RegisterScreen: Google refresh token kaydedildi');
+          }
+          
           console.log('✅ RegisterScreen: Token ve userId kaydedildi');
           
           // Token kaydedildikten sonra navigation yap
@@ -80,6 +90,8 @@ const RegisterScreen = ({ navigation }: any) => {
               routes: [{ name: 'Main' }],
             });
           }, 100);
+        } else {
+          Alert.alert('Hata', 'Google kayıt bilgileri alınamadı.');
         }
       } else {
         Alert.alert('Hata', data.message || 'Google ile kayıt başarısız oldu.');

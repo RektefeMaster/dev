@@ -160,13 +160,13 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
     { id: 'alt-takim', title: 'Alt Takım', icon: 'cog', color: '#FF9500' },
     { id: 'ust-takim', title: 'Üst Takım', icon: 'nut', color: '#AF52DE' },
     { id: 'kaporta-boya', title: 'Kaporta/Boya', icon: 'spray', color: '#FF3B30' },
-    { id: 'elektrik-elektronik', title: 'Elektrik-Elektronik', icon: 'lightning-bolt', color: '#FF9500' },
-    { id: 'yedek-parca', title: 'Yedek Parça', icon: 'car-wash', color: '#AF52DE' },
-    { id: 'lastik', title: 'Lastik', icon: 'tire', color: '#007AFF' },
-    { id: 'egzoz-emisyon', title: 'Egzoz & Emisyon', icon: 'smoke', color: '#AF52DE' },
-    { id: 'ekspertiz', title: 'Ekspertiz', icon: 'magnify', color: '#FF9500' },
-    { id: 'sigorta-kasko', title: 'Sigorta/Kasko', icon: 'shield-check', color: '#34C759' },
-    { id: 'arac-yikama', title: 'Araç Yıkama', color: '#007AFF' }
+    { id: 'elektrik-elektronik', title: 'Elektrik-Elektronik', icon: 'lightning-bolt', color: '#FFCC00' },
+    { id: 'yedek-parca', title: 'Yedek Parça', icon: 'car-wash', color: '#5856D6' },
+    { id: 'lastik', title: 'Lastik', icon: 'tire', color: '#FF6B35' },
+    { id: 'egzoz-emisyon', title: 'Egzoz & Emisyon', icon: 'smoke', color: '#8E8E93' },
+    { id: 'ekspertiz', title: 'Ekspertiz', icon: 'magnify', color: '#5AC8FA' },
+    { id: 'sigorta-kasko', title: 'Sigorta/Kasko', icon: 'shield-check', color: '#4CD964' },
+    { id: 'arac-yikama', title: 'Araç Yıkama', icon: 'car-wash', color: '#007AFF' },
   ];
 
   // Gerçek mekanik verilerini API'den al

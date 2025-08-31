@@ -13,7 +13,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
-import HomeScreen from '../screens/HomeScreen';
+import HomeScreen from '../screens/HomeScreen/HomeScreen';
 import MaintenancePlanScreen from '../screens/MaintenancePlanScreen';
 import AppointmentsScreen from '../screens/AppointmentsScreen';
 import WalletScreen from '../screens/WalletScreen';

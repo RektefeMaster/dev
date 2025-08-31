@@ -14,6 +14,10 @@ const options = {
     },
     servers: [
       {
+        url: process.env.SERVER_URL || 'http://localhost:3000',
+        description: 'Development Server (Ortak IP)',
+      },
+      {
         url: 'http://localhost:3000',
         description: 'Local Development Server',
       },

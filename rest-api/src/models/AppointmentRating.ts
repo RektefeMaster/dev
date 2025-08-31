@@ -13,8 +13,8 @@ export interface IAppointmentRating extends Document {
 
 const appointmentRatingSchema = new Schema<IAppointmentRating>({
   appointmentId: {
-    type: Schema.Types.ObjectId,
-    ref: 'MaintenanceAppointment',
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Appointment',
     required: true
   },
   userId: {

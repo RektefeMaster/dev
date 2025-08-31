@@ -12,11 +12,11 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { API_URL } from '../constants/config';
+import { API_URL, STORAGE_KEYS } from '../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
-import { theme } from '../components';
+import theme from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -76,21 +76,27 @@ const LoginScreen = ({ navigation }: any) => {
         console.log('🔍 LoginScreen: Google extracted token:', !!token);
         
         if (userId && token) {
-          await setTokenAndUserId(token, userId);
-          if (data.data?.refreshToken || data.refreshToken) {
-            await AsyncStorage.setItem('refreshToken', data.data?.refreshToken || data.refreshToken);
+          // Token validation kontrolü
+          if (typeof token === 'string' && token.trim().length > 0) {
+            await setTokenAndUserId(token, userId);
+            if (data.data?.refreshToken || data.refreshToken) {
+              await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.data?.refreshToken || data.refreshToken);
+            }
+            console.log('LOGIN SCREEN - TOKEN:', token);
+            console.log('LOGIN SCREEN - USERID:', userId);
+            
+            // Token kaydedildikten sonra navigation yap
+            setTimeout(() => {
+              Alert.alert('Başarılı', 'Google ile giriş başarılı!');
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Main' }],
+              });
+            }, 100);
+          } else {
+            console.log('⚠️ LoginScreen: Google geçersiz token formatı:', token);
+            Alert.alert('Hata', 'Geçersiz Google token formatı!');
           }
-          console.log('LOGIN SCREEN - TOKEN:', token);
-          console.log('LOGIN SCREEN - USERID:', userId);
-          
-          // Token kaydedildikten sonra navigation yap
-          setTimeout(() => {
-            Alert.alert('Başarılı', 'Google ile giriş başarılı!');
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Main' }],
-            });
-          }, 100);
         } else {
           console.log('⚠️ LoginScreen: Google userId veya token bulunamadı');
           Alert.alert('Hata', 'Google token bilgileri alınamadı!');
@@ -128,19 +134,31 @@ const LoginScreen = ({ navigation }: any) => {
         console.log('🔍 LoginScreen: Extracted token:', !!token);
         
         if (userId && token) {
-          console.log('🔧 LoginScreen: setTokenAndUserId çağrılıyor:', { userId, token: !!token });
-          await setTokenAndUserId(token, userId);
-          console.log('✅ LoginScreen: Token ve userId kaydedildi');
-          setFailedAttempts(0);
-          
-          // Token kaydedildikten sonra navigation yap
-          setTimeout(() => {
-            Alert.alert('Başarılı', 'Giriş başarılı!');
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Main' }],
-            });
-          }, 100);
+          // Token validation kontrolü
+          if (typeof token === 'string' && token.trim().length > 0) {
+            console.log('🔧 LoginScreen: setTokenAndUserId çağrılıyor:', { userId, token: !!token });
+            await setTokenAndUserId(token, userId);
+            
+            // Refresh token'ı da kaydet
+            if (data.data?.refreshToken || data.refreshToken) {
+              await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.data?.refreshToken || data.refreshToken);
+            }
+            
+            console.log('✅ LoginScreen: Token ve userId kaydedildi');
+            setFailedAttempts(0);
+            
+            // Token kaydedildikten sonra navigation yap
+            setTimeout(() => {
+              Alert.alert('Başarılı', 'Giriş başarılı!');
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Main' }],
+              });
+            }, 100);
+          } else {
+            console.log('⚠️ LoginScreen: Geçersiz token formatı:', token);
+            Alert.alert('Hata', 'Geçersiz token formatı!');
+          }
         } else {
           console.log('⚠️ LoginScreen: userId veya token bulunamadı');
           Alert.alert('Hata', 'Token bilgileri alınamadı!');
@@ -295,9 +313,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   buttonText: {
-    color: theme.colors.primary.contrast,
-    fontSize: theme.typography.fontSizes.lg,
-    fontWeight: theme.typography.fontWeights.bold,
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '700',
   },
   altContainer: {
     alignItems: 'center',

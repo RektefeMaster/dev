@@ -623,25 +623,7 @@ router.delete('/:id', auth, async (req: Request, res: Response) => {
   }
 });
 
-// Test için: Yeni mechanic ekle (sadece development)
-router.post('/mechanic/test-create', async (req: Request, res: Response) => {
-  try {
-    const { name, surname, email, phone } = req.body;
-    const mechanic = new Mechanic({
-      name,
-      surname,
-      email,
-      phone,
-      userType: 'mechanic',
-      serviceCategories: [],
-      vehicleBrands: []
-    });
-    await mechanic.save();
-    res.status(201).json(mechanic);
-  } catch (error) {
-    res.status(500).json({ message: 'Test mechanic eklenemedi', error });
-  }
-});
+// Test endpoint kaldırıldı
 
 /**
  * @swagger
@@ -765,6 +747,62 @@ router.get('/mechanics', async (req: Request, res: Response) => {
  *       500:
  *         description: Sunucu hatası
  */
+// Kategori listesi getir
+router.get('/categories', async (req: Request, res: Response) => {
+  try {
+    const categories = await ServiceCategory.find({ isActive: true })
+      .select('name type description icon subCategories')
+      .sort({ name: 1 });
+
+    res.json({
+      success: true,
+      data: categories,
+      message: 'Kategoriler başarıyla getirildi'
+    });
+  } catch (error: any) {
+    console.error('Kategori listesi hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Kategoriler getirilirken hata oluştu',
+      error: error.message
+    });
+  }
+});
+
+// Servis listesi getir
+router.get('/services', async (req: Request, res: Response) => {
+  try {
+    const { categoryId, mechanicId } = req.query;
+    
+    let query: any = { isActive: true };
+    
+    if (categoryId) {
+      query.categoryId = categoryId;
+    }
+    
+    if (mechanicId) {
+      query.mechanicId = mechanicId;
+    }
+
+    const services = await ServiceCategory.find(query)
+      .populate('categoryId', 'name type')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: services,
+      message: 'Servisler başarıyla getirildi'
+    });
+  } catch (error: any) {
+    console.error('Servis listesi hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Servisler getirilirken hata oluştu',
+      error: error.message
+    });
+  }
+});
+
 router.get('/mechanic-availability', async (req: Request, res: Response) => {
   try {
     const { date, mechanicId } = req.query;
@@ -776,7 +814,7 @@ router.get('/mechanic-availability', async (req: Request, res: Response) => {
       });
     }
 
-    // Basit müsaitlik kontrolü - gerçek uygulamada MaintenanceAppointment modeli kullanılabilir
+    // Basit müsaitlik kontrolü - gerçek uygulamada Appointment modeli kullanılabilir
     const workingHours = {
       start: 8,
       end: 18
