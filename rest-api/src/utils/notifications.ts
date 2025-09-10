@@ -29,18 +29,15 @@ export const sendNotification = async (
     });
 
     await notification.save();
-    console.log(`✅ Bildirim veritabanına kaydedildi: ${recipientId}`);
 
     if (scheduledTime) {
       // Zamanlanmış bildirim
       schedule.scheduleJob(scheduledTime, async () => {
-        console.log(`⏰ Zamanlanmış bildirim gönderildi - Kullanıcı: ${recipientId}, Başlık: ${title}`);
         await sendRealTimeNotification(recipientId, notification);
         await sendPushNotification(recipientId.toString(), title, message, data);
       });
     } else {
       // Anlık bildirim
-      console.log(`🚀 Anlık bildirim gönderildi - Kullanıcı: ${recipientId}, Başlık: ${title}`);
       await sendRealTimeNotification(recipientId, notification);
       await sendPushNotification(recipientId.toString(), title, message, data);
     }
@@ -66,7 +63,7 @@ const sendRealTimeNotification = async (userId: mongoose.Types.ObjectId, notific
       userId: notification.userId,
       data: notification.data
     });
-    console.log(`🔔 Real-time bildirim gönderildi: ${userId}`);
+
   } catch (error) {
     console.error('❌ Real-time bildirim gönderilirken hata:', error);
   }
@@ -172,7 +169,6 @@ export const sendPushNotification = async (
   try {
     const mechanic = await Mechanic.findById(mechanicId);
     if (!mechanic || !mechanic.pushToken) {
-      console.log(`⚠️ Usta bulunamadı veya push token'ı yok: ${mechanicId}`);
       return;
     }
 
@@ -197,7 +193,6 @@ export const sendPushNotification = async (
     for (const chunk of chunks) {
       try {
         await expo.sendPushNotificationsAsync(chunk);
-        console.log(`📱 Push bildirimi başarıyla gönderildi: ${mechanicId}`);
       } catch (error) {
         console.error('❌ Push bildirimi gönderilirken hata:', error);
       }

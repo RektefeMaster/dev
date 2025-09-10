@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { API_URL } from '../constants/config';
+import { API_URL, STORAGE_KEYS } from '../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 
@@ -49,13 +49,12 @@ const OnboardingScreen = ({ navigation }: any) => {
   const [showModal, setShowModal] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
-  // Giriş kontrolü
-  React.useEffect(() => {
-    if (token && isAuthenticated) {
-      console.log('✅ OnboardingScreen: Kullanıcı zaten giriş yapmış, Main\'e yönlendiriliyor');
+  // Eğer kullanıcı zaten authenticated ise ana ekrana yönlendir
+  useEffect(() => {
+    if (isAuthenticated) {
       navigation.replace('Main');
     }
-  }, [token, isAuthenticated, navigation]);
+  }, [isAuthenticated, navigation]);
 
   const updateSlide = (index: number) => {
     setCurrentSlideIndex(index);
@@ -140,25 +139,29 @@ const OnboardingScreen = ({ navigation }: any) => {
             />
             <Text style={styles.modalTitle}>Son bir soru...</Text>
             <Text style={styles.modalDesc}>Hesabın var mı?</Text>
-            <TouchableOpacity
-              style={[styles.button, styles.modalButton]}
-              onPress={() => {
-                setShowModal(false);
-                navigation.navigate('Login');
-              }}
-            >
-              <Text style={styles.buttonText}>Giriş Yap</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalDesc}>Yok mu? Sorun değil, hadi kayıt olalım!</Text>
-            <TouchableOpacity
-              style={[styles.button, styles.modalButton, styles.startButton]}
-              onPress={() => {
-                setShowModal(false);
-                navigation.navigate('Register');
-              }}
-            >
-              <Text style={styles.buttonText}>Kayıt Ol</Text>
-            </TouchableOpacity>
+                          <TouchableOpacity
+                style={[styles.button, styles.modalButton]}
+                onPress={async () => {
+                  setShowModal(false);
+                  // Onboarding tamamlandı olarak işaretle
+                  await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'true');
+                  navigation.navigate('Auth');
+                }}
+              >
+                <Text style={styles.buttonText}>Giriş Yap</Text>
+              </TouchableOpacity>
+              <Text style={styles.modalDesc}>Yok mu? Sorun değil, hadi kayıt olalım!</Text>
+              <TouchableOpacity
+                style={[styles.button, styles.modalButton, styles.startButton]}
+                onPress={async () => {
+                  setShowModal(false);
+                  // Onboarding tamamlandı olarak işaretle
+                  await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'true');
+                  navigation.navigate('Auth');
+                }}
+              >
+                <Text style={styles.buttonText}>Kayıt Ol</Text>
+              </TouchableOpacity>
           </View>
         </View>
       </Modal>

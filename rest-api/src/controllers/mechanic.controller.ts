@@ -7,7 +7,7 @@ import { requireMechanic } from '../middleware/roleAuth';
 interface AuthRequest extends Request {
   user?: {
     userId: string;
-    userType: string;
+    userType: 'driver' | 'mechanic';
   };
 }
 
@@ -21,13 +21,7 @@ export class MechanicController {
       return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
     }
 
-    console.log('🔒 Gizlilik ayarları güncelleniyor:', {
-      userId,
-      body: req.body,
-      phoneHidden: req.body.phoneHidden,
-      emailHidden: req.body.emailHidden,
-      cityHidden: req.body.cityHidden
-    });
+
 
     const mechanic = await MechanicService.createOrUpdateProfile(req.body, userId);
     return ResponseHandler.updated(res, mechanic, 'Mekanik profili başarıyla güncellendi');
@@ -133,18 +127,6 @@ export class MechanicController {
     return ResponseHandler.success(res, mechanics, 'Uzmanlık alanına göre mekanikler getirildi');
   });
 
-  /**
-   * Mekanik istatistiklerini getir
-   */
-  static getMechanicStats = asyncHandler(async (req: AuthRequest, res: Response) => {
-    const userId = req.user?.userId;
-    if (!userId) {
-      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
-    }
-
-    // Bu endpoint için daha sonra istatistik servisi eklenebilir
-    return ResponseHandler.success(res, { message: 'İstatistikler yakında eklenecek' }, 'İstatistikler getirildi');
-  });
 
   /**
    * Mekanik detaylarını getir (rating, yorumlar, iş sayısı dahil)

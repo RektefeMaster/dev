@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: typography.h1.fontSize,
     fontWeight: '700',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
   },
   newMessageButton: {
     width: 44,
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
   participantName: {
     fontSize: typography.body2.fontSize,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     flex: 1,
   },
   lastMessageTime: {
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   unreadMessage: {
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     fontWeight: '500',
   },
   unreadCountContainer: {

@@ -6,13 +6,30 @@ import { CustomError } from '../utils/response';
 import { Vehicle } from '../models/Vehicle';
 
 export interface CreateAppointmentData {
-  userId: string;
+  userId?: string;
+  customerId?: string;
   mechanicId: string;
   serviceType: string;
   appointmentDate: Date;
   timeSlot: string;
-  description: string;
+  description?: string;
   vehicleId?: string;
+  faultReportId?: string;
+  location?: {
+    coordinates?: [number, number];
+    address?: string;
+    city?: string;
+    district?: string;
+    neighborhood?: string;
+  };
+  paymentStatus?: string;
+  isShopAppointment?: boolean;
+  shareContactInfo?: boolean;
+  notificationSettings?: {
+    oneDayBefore?: boolean;
+    oneHourBefore?: boolean;
+    twoHoursBefore?: boolean;
+  };
 }
 
 export interface UpdateAppointmentData {
@@ -27,17 +44,20 @@ export class AppointmentService {
    */
   static async createAppointment(data: CreateAppointmentData) {
     try {
-      console.log('🔍 AppointmentService: createAppointment called with data:', JSON.stringify(data, null, 2));
-      
       // Ustanın müsait olup olmadığını kontrol et
-      const mechanic = await Mechanic.findById(data.mechanicId);
-      console.log('🔍 AppointmentService: Mechanic found:', mechanic ? 'Yes' : 'No');
-      if (!mechanic) {
+      const mechanic = await User.findById(data.mechanicId);
+      if (!mechanic || mechanic.userType !== 'mechanic') {
         throw new CustomError('Usta bulunamadı', 404);
       }
 
       if (!mechanic.isAvailable) {
         throw new CustomError('Usta şu anda müsait değil', 400);
+      }
+
+      // userId veya customerId'den birini al
+      const userId = data.userId || data.customerId;
+      if (!userId) {
+        throw new CustomError('Kullanıcı ID\'si gereklidir', 400);
       }
 
       // appointmentDate'i Date objesine çevir
@@ -58,28 +78,79 @@ export class AppointmentService {
         throw new CustomError('Bu tarih ve saatte usta müsait değil', 400);
       }
 
-      // Eğer vehicleId gönderilmemişse, kullanıcının son kayıtlı aracını ata
-      let resolvedVehicleId: mongoose.Types.ObjectId;
-      if (!data.vehicleId) {
-        const lastVehicle = await Vehicle.findOne({ userId: data.userId }).sort({ updatedAt: -1, createdAt: -1 });
-        if (!lastVehicle) {
-          throw new CustomError('Kullanıcının kayıtlı aracı bulunamadı. Lütfen önce araç ekleyin.', 400);
+      // Aynı faultReportId ile zaten randevu oluşturulmuş mu kontrol et
+      if (data.faultReportId) {
+        const existingFaultReportAppointment = await Appointment.findOne({
+          faultReportId: data.faultReportId,
+          status: { $nin: ['cancelled', 'completed'] }
+        });
+
+        if (existingFaultReportAppointment) {
+          throw new CustomError('Bu arıza bildirimi için zaten randevu oluşturulmuş', 400);
         }
-        resolvedVehicleId = new mongoose.Types.ObjectId((lastVehicle as any)._id.toString());
+      }
+
+      // Eğer vehicleId gönderilmemişse, kullanıcının son kayıtlı aracını ata
+      let resolvedVehicleId: mongoose.Types.ObjectId | undefined;
+      if (!data.vehicleId) {
+        const lastVehicle = await Vehicle.findOne({ userId: userId }).sort({ updatedAt: -1, createdAt: -1 });
+        if (lastVehicle) {
+          resolvedVehicleId = new mongoose.Types.ObjectId((lastVehicle as any)._id.toString());
+        }
       } else {
         resolvedVehicleId = new mongoose.Types.ObjectId(data.vehicleId);
       }
 
+      // Arıza bildiriminden fiyat bilgisini al
+      let faultReportPrice = null;
+      let priceSource = 'to_be_determined';
+      
+      if (data.faultReportId) {
+        try {
+          const FaultReport = require('../models/FaultReport').default;
+          const faultReport = await FaultReport.findById(data.faultReportId);
+          
+          if (faultReport) {
+            // Seçilen teklif varsa onun fiyatını al
+            if (faultReport.selectedQuote && faultReport.selectedQuote.quoteAmount) {
+              faultReportPrice = faultReport.selectedQuote.quoteAmount;
+              priceSource = 'fault_report_quoted';
+            }
+            // Eğer seçilen teklif yoksa ama quotes varsa, ilk teklifin fiyatını al
+            else if (faultReport.quotes && faultReport.quotes.length > 0) {
+              faultReportPrice = faultReport.quotes[0].quoteAmount;
+              priceSource = 'fault_report_quoted';
+            }
+          }
+        } catch (error) {
+          console.log('Arıza bildirimi fiyat bilgisi alınamadı:', error);
+        }
+      }
+
       // Randevu oluştur
       const appointment = new Appointment({
-        userId: new mongoose.Types.ObjectId(data.userId),
+        userId: new mongoose.Types.ObjectId(userId),
         mechanicId: new mongoose.Types.ObjectId(data.mechanicId),
         serviceType: data.serviceType,
         appointmentDate: appointmentDateObj,
         timeSlot: data.timeSlot,
         description: data.description || '',
         vehicleId: resolvedVehicleId,
-        status: 'pending',
+        faultReportId: data.faultReportId ? new mongoose.Types.ObjectId(data.faultReportId) : undefined,
+        location: data.location || undefined,
+        quotedPrice: faultReportPrice, // Arıza bildirimindeki fiyatı kopyala
+        price: faultReportPrice, // Mevcut fiyat alanı için de aynı değer
+        finalPrice: faultReportPrice, // Nihai fiyat
+        priceSource: priceSource, // Fiyat kaynağı
+        status: 'TALEP_EDILDI',
+        paymentStatus: data.paymentStatus || 'pending',
+        shareContactInfo: data.shareContactInfo || false,
+        isShopAppointment: data.isShopAppointment || false, // Ustanın kendi eklediği randevu mu?
+        notificationSettings: data.notificationSettings || {
+          oneDayBefore: false,
+          oneHourBefore: true,
+          twoHoursBefore: false
+        },
         createdAt: new Date()
       });
 
@@ -109,17 +180,7 @@ export class AppointmentService {
         .populate('vehicleId', 'brand modelName year plateNumber fuelType engineType transmission package color mileage lastMaintenanceDate nextMaintenanceDate')
         .sort({ appointmentDate: -1 });
 
-      // Debug: Fiyat bilgilerini kontrol et
-      appointments.forEach((apt, index) => {
-        if (apt.status === 'completed' && apt.paymentStatus === 'pending') {
-          console.log(`🔍 AppointmentService: Ödeme bekleyen appointment ${index + 1}:`, {
-            id: apt._id,
-            price: apt.price,
-            priceType: typeof apt.price,
-            hasPrice: apt.price && apt.price > 0
-          });
-        }
-      });
+
 
       return appointments;
     } catch (error) {
@@ -129,14 +190,118 @@ export class AppointmentService {
   }
 
   /**
+   * FaultReportId ile randevu bul
+   */
+  static async getAppointmentByFaultReportId(faultReportId: string) {
+    try {
+      if (!faultReportId || faultReportId.trim() === '') {
+        return null;
+      }
+      
+      if (!mongoose.Types.ObjectId.isValid(faultReportId)) {
+        return null;
+      }
+      
+      const appointment = await Appointment.findOne({ faultReportId })
+        .populate('mechanicId', 'name surname rating experience city shopName shopType')
+        .populate('vehicleId', 'brand modelName year plateNumber fuelType engineType transmission package color mileage lastMaintenanceDate nextMaintenanceDate')
+        .sort({ appointmentDate: -1 });
+
+      return appointment;
+    } catch (error) {
+      console.error('❌ AppointmentService: FaultReportId ile randevu getirme hatası:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Ustanın randevularını getir (Usta/Dükkan için)
    */
-  static async getMechanicAppointments(mechanicId: string, statusFilter?: string) {
+  static async getMechanicAppointments(mechanicId: string, statusFilter?: string, filters?: any) {
     try {
-      const appointments = await Appointment.find({
-        mechanicId: mechanicId,
-        ...(statusFilter && { status: statusFilter })
-      })
+      const mapENtoTR: Record<string, string> = {
+        'pending': 'TALEP_EDILDI',
+        'confirmed': 'PLANLANDI',
+        'in-progress': 'SERVISTE',
+        'in_progress': 'SERVISTE',
+        'payment-pending': 'ODEME_BEKLIYOR',
+        'completed': 'TAMAMLANDI',
+        'cancelled': 'IPTAL',
+        'no-show': 'TALEP_EDILDI', // no-show'u da pending olarak göster
+      };
+      const legacyMap: Record<string, string[]> = {
+        'TALEP_EDILDI': ['pending', 'no-show'], // no-show'u da TALEP_EDILDI'ye ekle
+        'PLANLANDI': ['confirmed', 'approved'],
+        'SERVISTE': ['in-progress', 'in_progress'],
+        'ODEME_BEKLIYOR': ['payment-pending', 'payment_pending'],
+        'TAMAMLANDI': ['completed', 'paid'],
+        'IPTAL': ['cancelled', 'rejected']
+        // NO_SHOW kaldırıldı - artık TALEP_EDILDI kategorisinde
+      };
+
+      const query: any = { mechanicId: mechanicId };
+      
+      console.log('🔍 getMechanicAppointments: Filtreleme başlıyor...', {
+        mechanicId,
+        statusFilter,
+        filters
+      });
+      
+      if (statusFilter) {
+        // İngilizce status'ları Türkçe'ye çevir
+        const turkishStatus = mapENtoTR[statusFilter] || statusFilter;
+        const statusValues = [turkishStatus];
+        
+        // Eğer Türkçe status gelirse, İngilizce karşılıklarını da ekle
+        if (legacyMap[turkishStatus]) {
+          statusValues.push(...legacyMap[turkishStatus]);
+        }
+        
+        // Özel durum: pending için no-show'u da ekle
+        if (statusFilter === 'pending') {
+          statusValues.push('no-show');
+        }
+        
+        query.status = { $in: statusValues };
+        
+        console.log('🔍 getMechanicAppointments: Status filtresi uygulandı:', {
+          statusFilter,
+          turkishStatus,
+          statusValues,
+          query: query.status
+        });
+      }
+
+      // Tarih filtreleri
+      const now = new Date();
+      if (filters?.range === 'today') {
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        query.appointmentDate = { $gte: start, $lt: end };
+      } else if (filters?.range === 'week') {
+        const day = now.getDay(); // 0 pazar
+        const diffToMonday = (day === 0 ? -6 : 1) - day; // pazartesiye dön
+        const monday = new Date(now);
+        monday.setDate(now.getDate() + diffToMonday);
+        const nextMonday = new Date(monday);
+        nextMonday.setDate(monday.getDate() + 7);
+        query.appointmentDate = { $gte: monday, $lt: nextMonday };
+      }
+
+      if (filters?.overdue === 'true' || filters?.overdue === true) {
+        query.appointmentDate = { ...(query.appointmentDate || {}), $lt: now };
+        query.status = { $in: ['PLANLANDI', 'SERVISTE', ...(legacyMap['PLANLANDI'] || []), ...(legacyMap['SERVISTE'] || [])] };
+      }
+
+      if (filters?.waitingParts === 'true' || filters?.waitingParts === true) {
+        query.parcaBekleniyor = true;
+      }
+
+      if (filters?.paymentPending === 'true' || filters?.paymentPending === true) {
+        query.status = { $in: ['ODEME_BEKLIYOR', ...(legacyMap['ODEME_BEKLIYOR'] || [])] };
+      }
+
+      const appointments = await Appointment.find(query)
       .populate({
         path: 'userId',
         select: 'name surname email phone',
@@ -146,6 +311,16 @@ export class AppointmentService {
       .sort({ appointmentDate: -1 });
 
       // Randevuları frontend formatına çevir
+      const mapTRtoEN: Record<string, string> = {
+        'TALEP_EDILDI': 'pending',
+        'PLANLANDI': 'confirmed',
+        'SERVISTE': 'in-progress',
+        'ODEME_BEKLIYOR': 'payment-pending',
+        'TAMAMLANDI': 'completed',
+        'IPTAL': 'cancelled',
+        'NO_SHOW': 'no-show',
+      };
+
       const formattedAppointments = appointments.map(obj => {
         if (!obj.userId) {
           console.warn('⚠️ AppointmentService: userId populate failed for appointment:', obj._id, '- User document not found or deleted');
@@ -178,8 +353,24 @@ export class AppointmentService {
           };
         }
 
+        const raw = obj.toObject();
+        // Basit arama filtresi (q) - populate sonrası filtreleme
+        const q = (filters?.q || '').toString().toLowerCase();
+        if (q) {
+          const hay = [
+            ((obj.userId as any)?.name || '') + ' ' + ((obj.userId as any)?.surname || ''),
+            (obj as any).serviceType || '',
+            (obj.vehicleId as any)?.plateNumber || '',
+            (obj.vehicleId as any)?.brand || '',
+            (obj.vehicleId as any)?.modelName || ''
+          ].join(' ').toLowerCase();
+          if (!hay.includes(q)) return null as any;
+        }
+
         return {
-          ...obj.toObject(),
+          ...raw,
+          status: mapTRtoEN[raw.status] || raw.status,
+          statusTR: raw.status,
           customer: {
             _id: obj.userId._id,
             name: (obj.userId as any).name || 'Bilinmiyor',
@@ -199,11 +390,100 @@ export class AppointmentService {
   }
 
   /**
+   * Dükkan randevularını getir - ustanın kendi eklediği randevular
+   */
+  static async getShopAppointments(mechanicId: string, status?: string) {
+    try {
+      console.log('🔍 getShopAppointments called:', { mechanicId, status });
+
+      // Status filtreleme
+      let statusFilter: any = {};
+      if (status) {
+        switch (status) {
+          case 'active':
+            statusFilter = { status: { $in: ['pending', 'confirmed', 'in-progress'] } };
+            break;
+          case 'completed':
+            statusFilter = { status: 'completed' };
+            break;
+          case 'cancelled':
+            statusFilter = { status: { $in: ['cancelled', 'rejected'] } };
+            break;
+          default:
+            statusFilter = { status: status };
+        }
+      }
+
+      // Dükkan randevuları: isShopAppointment: true olan randevular
+      const appointments = await Appointment.find({
+        mechanicId: mechanicId,
+        isShopAppointment: true,
+        ...statusFilter
+      })
+        .populate('userId', 'name surname phone email')
+        .populate('vehicleId', 'brand modelName year plateNumber fuelType engineType transmission package color mileage lastMaintenanceDate nextMaintenanceDate')
+        .sort({ appointmentDate: -1, createdAt: -1 });
+
+      console.log('📋 Found shop appointments:', appointments.length);
+
+      // Frontend formatına çevir
+      const formattedAppointments = appointments.map(appointment => {
+        const obj = appointment.toObject();
+        
+        // customer field'ını ekle (userId'den)
+        if (obj.userId) {
+          (obj as any).customer = {
+            _id: (obj.userId as any)._id,
+            name: (obj.userId as any).name,
+            surname: (obj.userId as any).surname,
+            email: (obj.userId as any).email,
+            phone: (obj.userId as any).phone
+          };
+        }
+
+        // vehicle field'ını ekle (vehicleId'den)
+        if (obj.vehicleId) {
+          (obj as any).vehicle = {
+            _id: (obj.vehicleId as any)._id,
+            brand: (obj.vehicleId as any).brand,
+            modelName: (obj.vehicleId as any).modelName,
+            year: (obj.vehicleId as any).year,
+            plateNumber: (obj.vehicleId as any).plateNumber,
+            fuelType: (obj.vehicleId as any).fuelType,
+            engineType: (obj.vehicleId as any).engineType,
+            transmission: (obj.vehicleId as any).transmission,
+            package: (obj.vehicleId as any).package,
+            color: (obj.vehicleId as any).color,
+            mileage: (obj.vehicleId as any).mileage,
+            lastMaintenanceDate: (obj.vehicleId as any).lastMaintenanceDate,
+            nextMaintenanceDate: (obj.vehicleId as any).nextMaintenanceDate
+          };
+        }
+
+        return obj;
+      });
+
+      return formattedAppointments;
+    } catch (error) {
+      console.error('getShopAppointments error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Randevu detayını getir
    */
   static async getAppointmentById(appointmentId: string, userId: string) {
     try {
-      console.log('🔍 AppointmentService: getAppointmentById called with:', appointmentId);
+      // String ID'leri kontrol et (apt_ ile başlayanlar local storage ID'leri)
+      if (appointmentId.startsWith('apt_')) {
+        throw new CustomError('Bu randevu yerel depolamada bulunuyor', 404);
+      }
+
+      // MongoDB ObjectId formatını kontrol et
+      if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+        throw new CustomError('Geçersiz randevu ID formatı', 400);
+      }
       
       const appointment = await Appointment.findById(appointmentId)
         .populate('userId', 'name surname phone email')
@@ -216,7 +496,7 @@ export class AppointmentService {
       
       // Kullanıcının bu randevuyu görme yetkisi var mı kontrol et
       const appointmentUserId = appointment.userId._id ? appointment.userId._id.toString() : appointment.userId.toString();
-      const appointmentMechanicId = appointment.mechanicId._id ? appointment.mechanicId._id.toString() : appointment.mechanicId.toString();
+      const appointmentMechanicId = appointment.mechanicId ? (appointment.mechanicId._id ? appointment.mechanicId._id.toString() : appointment.mechanicId.toString()) : null;
       
       if (appointmentUserId !== userId && appointmentMechanicId !== userId) {
         throw new CustomError('Bu randevuyu görme yetkiniz yok', 403);
@@ -257,8 +537,8 @@ export class AppointmentService {
         delete (obj as any).vehicleId;
       }
       
-      // Reddedilen randevularda hassas bilgileri gizle
-      if (obj.status === 'rejected') {
+      // İptal edilen randevularda hassas bilgileri gizle
+      if (obj.status === 'IPTAL') {
         if ((obj as any).customer) {
           delete (obj as any).customer.phone;
           delete (obj as any).customer.email;
@@ -274,6 +554,87 @@ export class AppointmentService {
   }
 
   /**
+   * Usta fiyat belirleme (normal randevu için)
+   */
+  static async setAppointmentPrice(appointmentId: string, mechanicId: string, price: number, notes?: string) {
+    try {
+      const appointment = await Appointment.findById(appointmentId);
+      if (!appointment) {
+        throw new CustomError('Randevu bulunamadı', 404);
+      }
+
+      if (appointment.mechanicId?.toString() !== mechanicId) {
+        throw new CustomError('Bu randevuya fiyat belirleme yetkiniz yok', 403);
+      }
+
+      if (appointment.status !== 'TALEP_EDILDI' && appointment.status !== 'PLANLANDI') {
+        throw new CustomError('Bu randevuya fiyat belirlenemez', 400);
+      }
+
+      // Fiyat kaynağını güncelle
+      appointment.priceSource = 'mechanic_quoted';
+      appointment.price = price;
+      appointment.finalPrice = price;
+      appointment.mechanicNotes = notes || appointment.mechanicNotes;
+
+      await appointment.save();
+
+      return appointment;
+    } catch (error) {
+      console.error('Fiyat belirleme hatası:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Usta ek fiyat ekleme (arıza bildirimi randevusu için)
+   */
+  static async addPriceIncrease(appointmentId: string, mechanicId: string, additionalAmount: number, reason: string) {
+    try {
+      const appointment = await Appointment.findById(appointmentId);
+      if (!appointment) {
+        throw new CustomError('Randevu bulunamadı', 404);
+      }
+
+      if (appointment.mechanicId?.toString() !== mechanicId) {
+        throw new CustomError('Bu randevuya fiyat ekleme yetkiniz yok', 403);
+      }
+
+      if (appointment.priceSource !== 'fault_report_quoted') {
+        throw new CustomError('Bu randevu türüne ek fiyat eklenemez', 400);
+      }
+
+      if (appointment.status !== 'SERVISTE') {
+        throw new CustomError('Sadece servisteki randevulara ek fiyat eklenebilir', 400);
+      }
+
+      // Fiyat artışı geçmişine ekle
+      const priceIncrease = {
+        amount: additionalAmount,
+        reason: reason,
+        date: new Date(),
+        mechanicId: mechanicId
+      };
+
+      if (!appointment.priceIncreaseHistory) {
+        appointment.priceIncreaseHistory = [];
+      }
+      appointment.priceIncreaseHistory.push(priceIncrease);
+
+      // Nihai fiyatı güncelle
+      const currentFinalPrice = appointment.finalPrice || appointment.quotedPrice || 0;
+      appointment.finalPrice = currentFinalPrice + additionalAmount;
+
+      await appointment.save();
+
+      return appointment;
+    } catch (error) {
+      console.error('Ek fiyat ekleme hatası:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Randevu durumunu güncelle (onay/red/işlem)
    */
   static async updateAppointmentStatus(
@@ -283,34 +644,41 @@ export class AppointmentService {
     mechanicNotes?: string
   ) {
     try {
-      console.log('🔧 AppointmentService: updateAppointmentStatus called with:', {
-        appointmentId,
-        status,
-        rejectionReason,
-        mechanicNotes
-      });
+      const mapENtoTR: Record<string, string> = {
+        'pending': 'TALEP_EDILDI',
+        'confirmed': 'PLANLANDI',
+        'in-progress': 'SERVISTE',
+        'payment-pending': 'ODEME_BEKLIYOR',
+        'completed': 'TAMAMLANDI',
+        'cancelled': 'IPTAL',
+        'no-show': 'NO_SHOW',
+        'rejected': 'IPTAL',
+      };
+      if (status && mapENtoTR[status]) {
+        status = mapENtoTR[status];
+      }
 
       const appointment = await Appointment.findById(appointmentId);
       if (!appointment) {
         throw new CustomError('Randevu bulunamadı', 404);
       }
 
-      // Status geçişlerini kontrol et
+      // Yeni durum geçiş kuralları
       const validTransitions: { [key: string]: string[] } = {
-        'pending': ['confirmed', 'rejected', 'cancelled'],
-        'confirmed': ['in-progress', 'completed', 'cancelled'], // completed eklendi
-        'in-progress': ['completed', 'cancelled'],
-        'completed': ['cancelled'], // completed'dan başka duruma geçilemez
-        'rejected': [], // rejected'dan başka duruma geçilemez
-        'cancelled': [] // cancelled'dan başka duruma geçilemez
+        'pending': ['PLANLANDI', 'IPTAL'],
+        'TALEP_EDILDI': ['PLANLANDI', 'IPTAL'],
+        'PLANLANDI': ['SERVISTE', 'IPTAL', 'NO_SHOW'],
+        'SERVISTE': ['ODEME_BEKLIYOR'],
+        'ODEME_BEKLIYOR': ['TAMAMLANDI', 'IPTAL'],
+        'TAMAMLANDI': [], // Tamamlandı'dan başka duruma geçilemez
+        'IPTAL': [], // İptal'dan başka duruma geçilemez
+        'NO_SHOW': [] // No-show'dan başka duruma geçilemez
       };
 
       const currentStatus = appointment.status;
       
       // Eğer aynı status'e geçilmeye çalışılıyorsa, hata verme, sadece güncelle
       if (currentStatus === status) {
-        console.log(`⚠️ AppointmentService: Aynı status'e geçiş yapılıyor: ${currentStatus} → ${status}`);
-        
         // Sadece rejectionReason veya mechanicNotes güncelleniyorsa
         if (rejectionReason || mechanicNotes) {
           if (rejectionReason) appointment.rejectionReason = rejectionReason;
@@ -333,7 +701,7 @@ export class AppointmentService {
       // Durum güncellemesi
       appointment.status = status as any;
       
-      if (status === 'rejected' && rejectionReason) {
+      if (status === 'IPTAL' && rejectionReason) {
         appointment.rejectionReason = rejectionReason;
       }
 
@@ -342,7 +710,6 @@ export class AppointmentService {
       }
 
       await appointment.save();
-      console.log('🔧 AppointmentService: Appointment status updated successfully to:', appointment.status);
       return appointment;
     } catch (error) {
       console.error('Randevu durumu güncelleme hatası:', error);
@@ -355,33 +722,23 @@ export class AppointmentService {
    */
   static async completeAppointment(appointmentId: string, completionNotes: string, price: number, estimatedDuration?: number) {
     try {
-      console.log('🔧 AppointmentService: completeAppointment called with:', {
-        appointmentId,
-        completionNotes,
-        price,
-        estimatedDuration
-      });
+
 
       const appointment = await Appointment.findById(appointmentId);
       if (!appointment) {
         throw new CustomError('Randevu bulunamadı', 404);
       }
 
-      // Sadece confirmed veya in-progress durumundaki randevular tamamlanabilir
-      if (appointment.status !== 'confirmed' && appointment.status !== 'in-progress') {
-        throw new CustomError('Sadece onaylanmış veya devam eden işler tamamlanabilir', 400);
+      // Sadece SERVISTE durumundaki randevular ödeme beklemeye geçebilir
+      if (appointment.status !== 'SERVISTE') {
+        throw new CustomError('Sadece serviste olan işler tamamlanabilir', 400);
       }
 
-      // Randevuyu tamamla
-      console.log('🔧 AppointmentService: Fiyat kaydediliyor:', price, 'Type:', typeof price);
-      console.log('🔧 AppointmentService: Appointment öncesi price:', appointment.price);
-      
-      appointment.status = 'completed';
+      // Randevuyu ödeme bekliyor durumuna al
+      appointment.status = 'ODEME_BEKLIYOR';
       appointment.mechanicNotes = completionNotes;
       appointment.price = price;
       appointment.paymentStatus = 'pending'; // Ödeme bekleniyor
-      
-      console.log('🔧 AppointmentService: Appointment sonrası price:', appointment.price);
       
       // Usta tahmini süreyi belirler
       if (estimatedDuration && estimatedDuration > 0) {
@@ -391,10 +748,7 @@ export class AppointmentService {
       appointment.actualDuration = appointment.estimatedDuration || 0;
       appointment.completionDate = new Date();
 
-      console.log('🔧 AppointmentService: Appointment kaydedilmeden önce price:', appointment.price);
       await appointment.save();
-      console.log('🔧 AppointmentService: Appointment kaydedildikten sonra price:', appointment.price);
-      console.log('🔧 AppointmentService: Appointment completed successfully with price:', appointment.price);
       return appointment;
     } catch (error) {
       console.error('Randevu tamamlama hatası:', error);
@@ -435,7 +789,7 @@ export class AppointmentService {
     try {
       const appointment = await Appointment.findOneAndUpdate(
         { _id: appointmentId, userId: new mongoose.Types.ObjectId(userId) },
-        { status: 'cancelled', updatedAt: new Date() },
+        { status: 'IPTAL', updatedAt: new Date() },
         { new: true }
       );
 
@@ -488,14 +842,14 @@ export class AppointmentService {
         throw new CustomError('Randevu bulunamadı', 404);
       }
 
-      // Sadece onaylanmış randevularda iletişim bilgileri paylaşılabilir
-      if (appointment.status !== 'confirmed' && appointment.status !== 'in-progress') {
+      // Sadece planlanan veya serviste randevularda iletişim bilgileri paylaşılabilir
+      if (appointment.status !== 'PLANLANDI' && appointment.status !== 'SERVISTE') {
         throw new CustomError('Randevu henüz onaylanmamış', 400);
       }
 
       // Kullanıcının bu randevuyu görme yetkisi var mı kontrol et
       const appointmentUserId = appointment.userId._id ? appointment.userId._id.toString() : appointment.userId.toString();
-      const appointmentMechanicId = appointment.mechanicId._id ? appointment.mechanicId._id.toString() : appointment.mechanicId.toString();
+      const appointmentMechanicId = appointment.mechanicId ? (appointment.mechanicId._id ? appointment.mechanicId._id.toString() : appointment.mechanicId.toString()) : null;
       
       if (appointmentUserId !== userId && appointmentMechanicId !== userId) {
         throw new CustomError('Bu randevuyu görme yetkiniz yok', 403);
@@ -531,16 +885,16 @@ export class AppointmentService {
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
 
-      // Aktif işler (pending + confirmed + in-progress)
+      // Aktif işler (Talep edildi + Planlandı + Serviste)
       const activeJobs = await Appointment.countDocuments({
         mechanicId,
-        status: { $in: ['pending', 'confirmed', 'in-progress'] }
+        status: { $in: ['TALEP_EDILDI', 'PLANLANDI', 'SERVISTE'] }
       });
 
       // Bugünkü kazanç (tamamlanan işler)
       const todayCompletedAppointments = await Appointment.find({
         mechanicId,
-        status: 'completed',
+        status: 'TAMAMLANDI',
         updatedAt: { $gte: startOfDay, $lt: endOfDay }
       });
 

@@ -55,7 +55,7 @@ const ResetPasswordScreen = ({ navigation, route }: any) => {
               text: 'Tamam',
               onPress: () => navigation.reset({
                 index: 0,
-                routes: [{ name: 'Login' }],
+                routes: [{ name: 'Auth' }],
               }),
             },
           ]

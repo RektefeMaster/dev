@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ViewStyle,
+  StyleProp,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../theme/theme';
@@ -15,7 +16,7 @@ export interface EmptyStateProps {
   subtitle?: string;
   actionText?: string;
   onActionPress?: () => void;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 const EmptyState: React.FC<EmptyStateProps> = ({

@@ -38,7 +38,7 @@ const ForgotPasswordScreen = ({ navigation }: any) => {
           [
             {
               text: 'Tamam',
-              onPress: () => navigation.navigate('Login'),
+              onPress: () => navigation.navigate('Auth'),
             },
           ]
         );

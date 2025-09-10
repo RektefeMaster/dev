@@ -5,9 +5,12 @@ import { useTheme } from '../../../context/ThemeContext';
 import { translateServiceName } from '../../../utils/serviceTranslator';
 
 interface Service {
+  id?: string;
   title: string;
   icon: string;
   color: string;
+  description?: string;
+  subServices?: string[];
 }
 
 interface ServicesGridProps {
@@ -154,29 +157,43 @@ export const ServicesGrid: React.FC<ServicesGridProps> = ({
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.grid}>
-          {services.map((service, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.gridItem}
-              onPress={() => onServicePress(service)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.iconWrap, { 
-                backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-                borderColor: currentColors.border.light,
-                borderWidth: 1
-              }]}>
-                <MaterialCommunityIcons name={service.icon as any} size={32} color={service.color} />
-              </View>
-              <Text style={[styles.title, { color: currentColors.text.primary }]}>
-                {translateServiceName(service.title)}
+      <View style={styles.grid}>
+        {services.map((service, index) => (
+          <TouchableOpacity
+            key={service.id || index}
+            style={[styles.gridItem, { 
+              backgroundColor: currentColors.background.card,
+              borderColor: currentColors.border.light,
+              borderWidth: 1,
+              borderRadius: 16,
+              padding: 16,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.08,
+              shadowRadius: 8,
+              elevation: 4,
+            }]}
+            onPress={() => onServicePress(service)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.iconWrap, { 
+              backgroundColor: service.color + '20',
+              borderColor: service.color,
+              borderWidth: 2
+            }]}>
+              <MaterialCommunityIcons name={service.icon as any} size={32} color={service.color} />
+            </View>
+            <Text style={[styles.title, { color: currentColors.text.primary, marginTop: 8 }]}>
+              {translateServiceName(service.title)}
+            </Text>
+            {service.description && (
+              <Text style={[styles.description, { color: currentColors.text.secondary, marginTop: 4 }]}>
+                {service.description}
               </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </ScrollView>
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
     </View>
   );
 };
@@ -191,19 +208,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     marginLeft: 20,
   },
-  scrollView: {
-    maxHeight: 350,
-  },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
+    gap: 16,
   },
   gridItem: {
-    width: '30%',
+    width: '47%',
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 16,
   },
   iconWrap: {
     width: 56,
@@ -222,5 +237,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  description: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 16,
   },
 }); 

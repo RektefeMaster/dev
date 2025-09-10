@@ -11,3 +11,4 @@ export { default as ScheduleCard } from './ScheduleCard';
 export { default as JobCard } from './JobCard';
 export { default as QuickActionCard } from './QuickActionCard';
 export { default as BackButton } from './BackButton';
+export { default as CardNav } from './CardNav';

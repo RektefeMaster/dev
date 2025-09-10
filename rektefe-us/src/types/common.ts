@@ -31,6 +31,20 @@ export interface MechanicProfile extends User {
   shopName?: string;
   vehicleBrands?: string[];
   serviceCategories?: string[];
+  location?: {
+    city: string;
+    district: string;
+    neighborhood: string;
+    street: string;
+    building: string;
+    floor: string;
+    apartment: string;
+    description: string;
+    coordinates: {
+      latitude: number;
+      longitude: number;
+    };
+  };
 }
 
 // ===== SERVİS KATEGORİLERİ VE HİZMETLER =====
@@ -426,10 +440,12 @@ export interface Rating {
 // Bildirimler
 export interface Notification {
   _id: string;
-  userId: string;
+  recipientId: string;
+  recipientType: 'mechanic' | 'driver';
   title: string;
   message: string;
-  type: 'appointment' | 'message' | 'rating' | 'payment' | 'system';
+  type: string;
+  read: boolean;
   isRead: boolean;
   data?: any;
   createdAt: string;
@@ -487,36 +503,43 @@ export type RootStackParamList = {
   Chat: { conversationId: string; otherParticipant: any };
   NewMessage: undefined;
   AppointmentDetail: { appointmentId: string };
-  ServiceManagement: undefined;
-  CustomerManagement: undefined;
+  Appointments: undefined;
+  Notifications: undefined;
   Messages: undefined;
   Wallet: undefined;
   Support: undefined;
   FinancialTracking: undefined;
   Calendar: undefined;
   Profile: undefined;
-  [key: string]: undefined | { conversationId: string; otherParticipant: any } | { appointmentId: string };
+  EditProfile: undefined;
+  FaultReports: undefined;
+  FaultReportDetail: { faultReportId: string };
+  TowingService: undefined;
+  RepairService: undefined;
+  WashService: undefined;
+  TireService: undefined;
+  [key: string]: undefined | { conversationId: string; otherParticipant: any } | { appointmentId: string } | { faultReportId: string };
 };
 
 export type DrawerParamList = {
   MainTabs: undefined;
-  ServiceManagement: undefined;
-  CustomerManagement: undefined;
-  Appointments: undefined;
   Messages: undefined;
-  Wallet: undefined;
-  Support: undefined;
-  FinancialTracking: undefined;
   Calendar: undefined;
+  FaultReports: undefined;
+  Wallet: undefined;
+  FinancialTracking: undefined;
   Profile: undefined;
+  Support: undefined;
   Settings: undefined;
   [key: string]: undefined;
 };
 
 export type TabParamList = {
   Home: undefined;
-  Appointments: undefined;
-  Calendar: undefined;
+  TowingService: undefined;
+  RepairService: undefined;
+  WashService: undefined;
+  TireService: undefined;
   Messages: undefined;
   Wallet: undefined;
   Profile: undefined;

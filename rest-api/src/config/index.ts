@@ -6,10 +6,12 @@ if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable is required');
 }
 
-// MONGODB_URI için varsayılan değer ekleyelim
-// MongoDB Atlas IP whitelist sorunu var, local MongoDB kullan
-export const MONGODB_URI = 'mongodb://127.0.0.1:27017/rektefe';
+// MongoDB connection string (env override, fallback to localhost)
+export const MONGODB_URI: string = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/rektefe';
 
-// PORT için varsayılan değer ekleyelim
-export const PORT = process.env.PORT || 3000;
-export const JWT_SECRET = process.env.JWT_SECRET; 
+// Server port
+export const PORT: number = Number(process.env.PORT) || 3000;
+export const JWT_SECRET = process.env.JWT_SECRET;
+
+// CORS origin (optional). Use specific origin when credentials are enabled
+export const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';

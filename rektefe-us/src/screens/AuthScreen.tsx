@@ -14,10 +14,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 
-import { colors, typography, spacing, borderRadius, shadows, dimensions } from '../theme/theme';
+import { typography, spacing, borderRadius, shadows, dimensions } from '../theme/theme';
 import { Button, Input, Card } from '../components';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { STORAGE_KEYS } from '../constants/config';
 
 const { width, height } = Dimensions.get('window');
@@ -25,6 +27,8 @@ const { width, height } = Dimensions.get('window');
 export default function AuthScreen() {
   const navigation = useNavigation();
   const { login, register } = useAuth();
+  const { themeColors: colors } = useTheme();
+  const styles = createStyles(colors);
   
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -39,8 +43,51 @@ export default function AuthScreen() {
     phone: '',
   });
 
+  // Service categories state
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Service categories data
+  const serviceCategories = [
+    {
+      id: 'towing',
+      title: 'Çekici Hizmeti',
+      icon: 'car',
+      color: '#EF4444',
+      description: 'Acil kurtarma hizmetleri'
+    },
+    {
+      id: 'repair',
+      title: 'Tamir & Bakım',
+      icon: 'construct',
+      color: '#3B82F6',
+      description: 'Arıza tespit ve onarım'
+    },
+    {
+      id: 'wash',
+      title: 'Yıkama Hizmeti',
+      icon: 'water',
+      color: '#10B981',
+      description: 'Araç temizlik hizmetleri'
+    },
+    {
+      id: 'tire',
+      title: 'Lastik & Parça',
+      icon: 'car',
+      color: '#F59E0B',
+      description: 'Lastik ve yedek parça'
+    }
+  ];
+
+  const handleCategoryToggle = (categoryId: string) => {
+    setSelectedCategories(prev => 
+      prev.includes(categoryId) 
+        ? prev.filter(id => id !== categoryId)
+        : [...prev, categoryId]
+    );
   };
 
   const validateForm = () => {
@@ -52,6 +99,11 @@ export default function AuthScreen() {
     if (!isLogin) {
       if (!formData.name || !formData.surname || !formData.phone) {
         Alert.alert('Hata', 'Tüm alanlar gereklidir');
+        return false;
+      }
+      
+      if (selectedCategories.length === 0) {
+        Alert.alert('Hata', 'En az bir hizmet kategorisi seçmelisiniz');
         return false;
       }
       
@@ -90,6 +142,7 @@ export default function AuthScreen() {
           surname: formData.surname,
           phone: formData.phone,
           userType: 'mechanic',
+          serviceCategories: selectedCategories,
         });
         
         if (response.success) {
@@ -103,6 +156,7 @@ export default function AuthScreen() {
             surname: '',
             phone: '',
           });
+          setSelectedCategories([]);
         } else {
           Alert.alert('Hata', response.message || 'Kayıt başarısız');
         }
@@ -235,6 +289,59 @@ export default function AuthScreen() {
               />
             )}
 
+            {/* Service Categories Selection - Only for Registration */}
+            {!isLogin && (
+              <View style={styles.categoriesSection}>
+                <Text style={styles.categoriesTitle}>Hizmet Kategorileri</Text>
+                <Text style={styles.categoriesSubtitle}>
+                  Hangi hizmetleri sunabileceğinizi seçin (en az 1)
+                </Text>
+                
+                <View style={styles.categoriesGrid}>
+                  {serviceCategories.map((category) => (
+                    <TouchableOpacity
+                      key={category.id}
+                      style={[
+                        styles.categoryCard,
+                        selectedCategories.includes(category.id) && styles.selectedCategoryCard,
+                        { borderColor: category.color }
+                      ]}
+                      onPress={() => handleCategoryToggle(category.id)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[
+                        styles.categoryIcon,
+                        { backgroundColor: selectedCategories.includes(category.id) ? category.color : colors.background.secondary }
+                      ]}>
+                        <Ionicons 
+                          name={category.icon as any} 
+                          size={24} 
+                          color={selectedCategories.includes(category.id) ? '#FFFFFF' : category.color} 
+                        />
+                      </View>
+                      <Text style={[
+                        styles.categoryTitle,
+                        selectedCategories.includes(category.id) && styles.selectedCategoryTitle
+                      ]}>
+                        {category.title}
+                      </Text>
+                      <Text style={[
+                        styles.categoryDescription,
+                        selectedCategories.includes(category.id) && styles.selectedCategoryDescription
+                      ]}>
+                        {category.description}
+                      </Text>
+                      {selectedCategories.includes(category.id) && (
+                        <View style={styles.checkmark}>
+                          <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
             {/* Submit Button */}
             <Button
               title={isLogin ? 'Giriş Yap' : 'Kayıt Ol'}
@@ -259,7 +366,7 @@ export default function AuthScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background.primary,
@@ -327,7 +434,85 @@ const styles = StyleSheet.create({
   },
   forgotPasswordText: {
     fontSize: typography.body2.fontSize,
-    color: colors.primary.main,
+    color: colors.primary,
     fontWeight: '600',
   },
+  // Service Categories Styles
+  categoriesSection: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  categoriesTitle: {
+    fontSize: typography.h3.fontSize,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  categoriesSubtitle: {
+    fontSize: typography.body2.fontSize,
+    color: colors.text.secondary,
+    marginBottom: spacing.lg,
+  },
+  categoriesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  categoryCard: {
+    width: '48%',
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 2,
+    borderColor: colors.border.light,
+    position: 'relative',
+    alignItems: 'center',
+    minHeight: 120,
+  },
+  selectedCategoryCard: {
+    backgroundColor: colors.primary.ultraLight,
+    borderColor: colors.primary.main,
+    ...shadows.small,
+  },
+  categoryIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  categoryTitle: {
+    fontSize: typography.body1.fontSize,
+    fontWeight: '600',
+    color: colors.text.primary,
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  selectedCategoryTitle: {
+    color: colors.primary.main,
+  },
+  categoryDescription: {
+    fontSize: typography.caption.fontSize,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  selectedCategoryDescription: {
+    color: colors.text.primary,
+  },
+  checkmark: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.primary.main,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
+
+// styles will be created inside component

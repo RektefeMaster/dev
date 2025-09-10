@@ -1,0 +1,15 @@
+# Environment files
+.env
+
+# Uploads
+uploads/
+public/uploads/
+
+# Build outputs
+dist/
+*.tsbuildinfo
+
+# Logs
+*.log
+logs/
+

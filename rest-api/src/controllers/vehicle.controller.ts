@@ -6,7 +6,7 @@ import { asyncHandler } from '../middleware/errorHandler';
 interface AuthRequest extends Request {
   user?: {
     userId: string;
-    userType: string;
+    userType: 'driver' | 'mechanic';
   };
 }
 
@@ -113,5 +113,32 @@ export class VehicleController {
 
     const vehicles = await VehicleService.searchVehicles(q, userId);
     return ResponseHandler.success(res, vehicles, 'Arama sonuçları başarıyla getirildi');
+  });
+
+  /**
+   * Servis edilmiş araçları getir
+   */
+  static getServicedVehicles = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    const vehicles = await VehicleService.getServicedVehicles(userId);
+    return ResponseHandler.success(res, vehicles, 'Servis edilmiş araçlar başarıyla getirildi');
+  });
+
+  /**
+   * Aracı favorile/favoriden çıkar
+   */
+  static toggleFavorite = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    const { id } = req.params;
+    const vehicle = await VehicleService.toggleFavorite(id, userId);
+    return ResponseHandler.success(res, vehicle, 'Favori durumu başarıyla güncellendi');
   });
 }

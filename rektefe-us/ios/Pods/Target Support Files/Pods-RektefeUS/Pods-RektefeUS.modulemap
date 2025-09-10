@@ -1,0 +1,6 @@
+module Pods_RektefeUS {
+  umbrella header "Pods-RektefeUS-umbrella.h"
+
+  export *
+  module * { export * }
+}

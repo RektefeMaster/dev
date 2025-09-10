@@ -96,40 +96,52 @@ router.get('/', auth, async (req: Request, res: Response) => {
 // Helper functions
 const getActivityType = (status: string) => {
   switch (status) {
-    case 'completed': return 'appointment_completed';
-    case 'confirmed': return 'appointment_confirmed';
-    case 'pending': return 'appointment_created';
-    case 'cancelled': return 'appointment_cancelled';
-    default: return 'appointment_created';
+    case 'TAMAMLANDI': return 'appointment_completed';
+    case 'PLANLANDI': return 'appointment_confirmed';
+    case 'SERVISTE': return 'appointment_in_service';
+    case 'ODEME_BEKLIYOR': return 'appointment_payment_pending';
+    case 'TALEP_EDILDI': return 'appointment_created';
+    case 'IPTAL': return 'appointment_cancelled';
+    case 'NO_SHOW': return 'appointment_no_show';
+    default: return 'appointment_updated';
   }
 };
 
 const getStatusText = (status: string) => {
   switch (status) {
-    case 'completed': return 'tamamlandı';
-    case 'confirmed': return 'onaylandı';
-    case 'pending': return 'bekliyor';
-    case 'cancelled': return 'iptal edildi';
+    case 'TAMAMLANDI': return 'tamamlandı';
+    case 'PLANLANDI': return 'planlandı';
+    case 'SERVISTE': return 'serviste';
+    case 'ODEME_BEKLIYOR': return 'ödeme bekliyor';
+    case 'TALEP_EDILDI': return 'talep edildi';
+    case 'IPTAL': return 'iptal edildi';
+    case 'NO_SHOW': return 'gelinmedi';
     default: return 'güncellendi';
   }
 };
 
 const getStatusColor = (status: string) => {
   switch (status) {
-    case 'completed': return '#10B981';
-    case 'confirmed': return '#3B82F6';
-    case 'pending': return '#F59E0B';
-    case 'cancelled': return '#EF4444';
+    case 'TAMAMLANDI': return '#10B981';
+    case 'PLANLANDI': return '#3B82F6';
+    case 'SERVISTE': return '#8B5CF6';
+    case 'ODEME_BEKLIYOR': return '#F59E0B';
+    case 'TALEP_EDILDI': return '#06B6D4';
+    case 'IPTAL': return '#EF4444';
+    case 'NO_SHOW': return '#F97316';
     default: return '#6B7280';
   }
 };
 
 const getStatusIcon = (status: string) => {
   switch (status) {
-    case 'completed': return 'checkmark-circle';
-    case 'confirmed': return 'time';
-    case 'pending': return 'hourglass';
-    case 'cancelled': return 'close-circle';
+    case 'TAMAMLANDI': return 'checkmark-circle';
+    case 'PLANLANDI': return 'calendar';
+    case 'SERVISTE': return 'build';
+    case 'ODEME_BEKLIYOR': return 'card';
+    case 'TALEP_EDILDI': return 'time';
+    case 'IPTAL': return 'close-circle';
+    case 'NO_SHOW': return 'alert-circle';
     default: return 'information-circle';
   }
 };

@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { AppointmentRating } from '../models/AppointmentRating';
 import { Appointment } from '../models/Appointment';
 import { Mechanic } from '../models/Mechanic';
+import { User } from '../models/User';
 import { sendNotificationToUser } from '../index';
 import { sendResponse } from '../utils/response';
 
@@ -50,7 +51,7 @@ export class AppointmentRatingController {
         return res.status(404).json({ success: false, message: 'Randevu bulunamadı' });
       }
       
-      console.log(`✅ Appointment bulundu: ${appointment._id}, Status: ${appointment.status}, User: ${appointment.userId}`);
+
       
       if (appointment.userId.toString() !== userId) {
         console.error(`❌ User ${userId} bu appointment ${appointmentId} için yetkisiz!`);
@@ -87,17 +88,15 @@ export class AppointmentRatingController {
       await newRating.save();
 
       // Ustanın ortalama puanını güncelle
-      console.log(`🔍 Usta ${mechanicId} için rating güncelleniyor...`);
       await AppointmentRatingController.updateMechanicAverageRating(mechanicId);
-      console.log(`✅ Usta ${mechanicId} rating güncellemesi tamamlandı`);
 
       // Ödeme sonrası başarı bildirimi ve randevu işaretleme
       try {
         // Randevu durumunu güncelle
-        appointment.status = 'completed'; // Tamamlandı olarak işaretle
+        appointment.status = 'TAMAMLANDI'; // Tamamlandı olarak işaretle
         await appointment.save();
 
-        console.log(`✅ Randevu ${appointmentId} tamamlandı ve ödeme işaretlendi`);
+  
 
         // Ustaya bildirim gönder
         sendNotificationToUser(mechanicId.toString(), {
@@ -111,12 +110,12 @@ export class AppointmentRatingController {
           _id: Date.now().toString()
         });
 
-        console.log(`✅ Usta ${mechanicId} için bildirim gönderildi`);
+  
       } catch (notifyErr) {
         console.error('Ödeme işaretleme/bildirim hatası:', notifyErr);
       }
 
-      console.log(`✅ Puanlama başarıyla kaydedildi: Randevu ${appointmentId}, Usta ${mechanicId}, Puan ${rating}`);
+
       sendResponse(res, 201, 'Puanlama başarıyla kaydedildi', { 
         rating: newRating,
         message: 'Değerlendirmeniz kaydedildi ve ustanın puanı güncellendi'
@@ -200,7 +199,7 @@ export class AppointmentRatingController {
         .skip(skip)
         .limit(limit);
 
-      console.log(`🔍 Usta ${mechanicId} için ${ratings.length} değerlendirme bulundu`);
+
 
       // Null userId'li rating'leri filtrele
       const validRatings = ratings.filter(rating => {
@@ -211,7 +210,7 @@ export class AppointmentRatingController {
         return true;
       });
 
-      console.log(`✅ ${validRatings.length} geçerli rating (${ratings.length} toplam)`);
+
 
       const total = await AppointmentRating.countDocuments({ mechanicId: new mongoose.Types.ObjectId(mechanicId) });
 
@@ -246,17 +245,17 @@ export class AppointmentRatingController {
         });
       }
 
-      console.log(`🔍 Şoför ${userId} için rating aranıyor...`);
+
 
       // Önce populate olmadan deneyelim
       const ratings = await AppointmentRating.find({ userId: new mongoose.Types.ObjectId(userId) })
         .select('_id appointmentId mechanicId rating comment createdAt')
         .sort({ createdAt: -1 });
 
-      console.log(`🔍 Şoför ${userId} için ${ratings.length} puan bulundu (populate olmadan)`);
+
 
       if (ratings.length > 0) {
-        console.log('🔍 İlk rating örneği:', JSON.stringify(ratings[0], null, 2));
+  
       }
 
       // Şimdi populate işlemini ayrı ayrı yapalım
@@ -297,11 +296,7 @@ export class AppointmentRatingController {
         }
       }
 
-      console.log(`🔍 Populate edilmiş rating sayısı: ${populatedRatings.length}`);
-      
-      if (populatedRatings.length > 0) {
-        console.log('🔍 İlk populate edilmiş rating örneği:', JSON.stringify(populatedRatings[0], null, 2));
-      }
+
 
       sendResponse(res, 200, 'Puanlarınız başarıyla getirildi', {
         ratings: populatedRatings
@@ -325,7 +320,7 @@ export class AppointmentRatingController {
         return;
       }
 
-      console.log(`🔍 Usta ${mechanicId} için rating hesaplanıyor...`);
+
 
       const result = await AppointmentRating.aggregate([
         { $match: { mechanicId: new mongoose.Types.ObjectId(mechanicId) } },
@@ -338,21 +333,21 @@ export class AppointmentRatingController {
         }
       ]);
 
-      console.log(`🔍 Aggregate sonucu:`, result);
+
 
       if (result.length > 0) {
         const { averageRating, totalRatings } = result[0] as { averageRating: number; totalRatings: number };
-        console.log(`🔍 Hesaplanan rating: ${averageRating} (${totalRatings} puan)`);
+  
         
         const updatedRating = Math.round(averageRating * 10) / 10;
         await Mechanic.updateOne({ _id: mechanicId }, {
           $set: { rating: updatedRating, ratingCount: totalRatings }
         });
-        console.log(`✅ Usta ${mechanicId} puanı güncellendi: ${updatedRating}/5 (${totalRatings} puan)`);
+  
       } else {
         // Hiç puan yoksa sıfırla
         await Mechanic.updateOne({ _id: mechanicId }, { $set: { rating: 0, ratingCount: 0 } });
-        console.log(`✅ Usta ${mechanicId} puanı sıfırlandı`);
+  
       }
     } catch (error) {
       console.error('Ortalama puan güncellenirken hata:', error);
@@ -372,22 +367,29 @@ export class AppointmentRatingController {
         });
       }
 
-      console.log('🔍 getCurrentMechanicStats - userId:', userId);
-
-      // Usta bilgilerini getir - userId ile arama yap
-      const mechanic = await Mechanic.findById(userId);
-      if (!mechanic) {
-        console.log('❌ getCurrentMechanicStats - Mechanic bulunamadı, userId:', userId);
+      // User'ı bul
+      const user = await User.findById(userId);
+      if (!user) {
         return res.status(404).json({
           success: false,
-          message: 'Usta bulunamadı'
+          message: 'Kullanıcı bulunamadı'
         });
       }
 
-      console.log('✅ getCurrentMechanicStats - Mechanic bulundu:', mechanic._id);
+      // Eğer kullanıcı mechanic değilse boş istatistik döndür
+      if (user.userType !== 'mechanic') {
+        return res.status(200).json({
+          success: true,
+          data: {
+            averageRating: 0,
+            totalRatings: 0,
+            ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+          }
+        });
+      }
 
-      // Puan istatistiklerini hesapla
-      const ratings = await AppointmentRating.find({ mechanicId: mechanic._id });
+      // User ID ile direkt arama yap (yeni sistemde mechanicId = userId)
+      const ratings = await AppointmentRating.find({ mechanicId: userId });
       
       if (ratings.length === 0) {
         return res.status(200).json({
@@ -439,22 +441,25 @@ export class AppointmentRatingController {
         });
       }
 
-      console.log('🔍 getCurrentMechanicRecentRatings - userId:', userId);
-
-      // Usta bilgilerini getir - userId ile arama yap
-      const mechanic = await Mechanic.findById(userId);
-      if (!mechanic) {
-        console.log('❌ getCurrentMechanicRecentRatings - Mechanic bulunamadı, userId:', userId);
+      // User'ı bul
+      const user = await User.findById(userId);
+      if (!user) {
         return res.status(404).json({
           success: false,
-          message: 'Usta bulunamadı'
+          message: 'Kullanıcı bulunamadı'
         });
       }
 
-      console.log('✅ getCurrentMechanicRecentRatings - Mechanic bulundu:', mechanic._id);
+      // Eğer kullanıcı mechanic değilse boş array döndür
+      if (user.userType !== 'mechanic') {
+        return res.status(200).json({
+          success: true,
+          data: []
+        });
+      }
 
-      // Son 10 puanı getir
-      const recentRatings = await AppointmentRating.find({ mechanicId: mechanic._id })
+      // User ID ile direkt arama yap (yeni sistemde mechanicId = userId)
+      const recentRatings = await AppointmentRating.find({ mechanicId: userId })
         .populate('userId', 'name surname')
         .populate('appointmentId', 'serviceType appointmentDate')
         .sort({ createdAt: -1 })

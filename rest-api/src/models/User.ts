@@ -11,7 +11,7 @@ export interface IUser extends Document {
   bio?: string;
   phone?: string;
   city?: string;
-  userType: 'user' | 'mechanic' | 'driver';
+  userType: 'user' | 'mechanic' | 'driver' | 'admin';
   // Google OAuth alanları
   googleId?: string;
   emailVerified?: boolean;
@@ -35,6 +35,55 @@ export interface IUser extends Document {
     createdAt: Date;
   }>;
   createdAt: Date;
+  // Usta/Şöför özel alanları
+  username?: string;
+  serviceCategories?: string[];
+  experience?: number;
+  rating?: number;
+  ratingCount?: number;
+  totalServices?: number;
+  isAvailable?: boolean;
+  currentLocation?: {
+    type: string;
+    coordinates: number[];
+    latitude?: number;
+    longitude?: number;
+    address?: string;
+  };
+  documents?: {
+    insurance?: string;
+    license?: string;
+    certificate?: string;
+  };
+  shopName?: string;
+  location?: {
+    city: string;
+    district: string;
+    neighborhood: string;
+    street: string;
+    building: string;
+    floor: string;
+    apartment: string;
+    description?: string;
+    coordinates?: {
+      latitude: number;
+      longitude: number;
+    };
+  };
+  workingHours?: string;
+  carBrands?: string[];
+  engineTypes?: string[];
+  transmissionTypes?: string[];
+  customBrands?: string[];
+  vehicleBrands?: string[];
+  supportedBrands?: string[];
+  washPackages?: any[];
+  washOptions?: any[];
+  notificationSettings?: {
+    push: boolean;
+    email: boolean;
+    sms: boolean;
+  };
 }
 
 const userSchema = new Schema<IUser>({
@@ -83,7 +132,7 @@ const userSchema = new Schema<IUser>({
   },
   userType: {
     type: String,
-    enum: ['user', 'mechanic', 'driver'],
+    enum: ['user', 'mechanic', 'driver', 'admin'],
     default: 'user'
   },
   // Google OAuth alanları
@@ -159,6 +208,118 @@ const userSchema = new Schema<IUser>({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  // Usta/Şöför özel alanları
+  username: {
+    type: String,
+    default: null
+  },
+  serviceCategories: [{
+    type: String,
+    default: []
+  }],
+  experience: {
+    type: Number,
+    default: 0
+  },
+  rating: {
+    type: Number,
+    default: 0
+  },
+  ratingCount: {
+    type: Number,
+    default: 0
+  },
+  totalServices: {
+    type: Number,
+    default: 0
+  },
+  isAvailable: {
+    type: Boolean,
+    default: true
+  },
+  currentLocation: {
+    type: {
+      type: String,
+      default: 'Point'
+    },
+    coordinates: [Number],
+    latitude: Number,
+    longitude: Number,
+    address: String
+  },
+  documents: {
+    insurance: String,
+    license: String,
+    certificate: String
+  },
+  shopName: {
+    type: String,
+    default: ''
+  },
+  location: {
+    city: String,
+    district: String,
+    neighborhood: String,
+    street: String,
+    building: String,
+    floor: String,
+    apartment: String,
+    description: String,
+    coordinates: {
+      latitude: Number,
+      longitude: Number
+    }
+  },
+  workingHours: {
+    type: String,
+    default: ''
+  },
+  carBrands: [{
+    type: String,
+    default: []
+  }],
+  engineTypes: [{
+    type: String,
+    default: []
+  }],
+  transmissionTypes: [{
+    type: String,
+    default: []
+  }],
+  customBrands: [{
+    type: String,
+    default: []
+  }],
+  vehicleBrands: [{
+    type: String,
+    default: []
+  }],
+  supportedBrands: [{
+    type: String,
+    default: []
+  }],
+  washPackages: [{
+    type: Schema.Types.Mixed,
+    default: []
+  }],
+  washOptions: [{
+    type: Schema.Types.Mixed,
+    default: []
+  }],
+  notificationSettings: {
+    push: {
+      type: Boolean,
+      default: true
+    },
+    email: {
+      type: Boolean,
+      default: true
+    },
+    sms: {
+      type: Boolean,
+      default: false
+    }
   }
 });
 

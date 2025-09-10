@@ -75,6 +75,13 @@ npm install
 npm run dev
 ```
 
+Gerekli env değişkenleri:
+
+- `JWT_SECRET` (zorunlu)
+- `MONGODB_URI` (opsiyonel, varsayılan: `mongodb://127.0.0.1:27017/rektefe`)
+- `PORT` (opsiyonel, varsayılan: `3000`)
+- `CORS_ORIGIN` (opsiyonel, varsayılan: `*` — credentials etkinse spesifik origin kullanın)
+
 #### 2. Rektefe-DV Kurulumu (Şoförler)
 
 ```bash

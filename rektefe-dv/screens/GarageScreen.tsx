@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -47,6 +47,7 @@ const GarageScreen = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newVehicle, setNewVehicle] = useState<Partial<Vehicle>>({});
   const [loading, setLoading] = useState(true);
+  const hasFetchedRef = useRef(false);
   const [brandOpen, setBrandOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
   const [packageOpen, setPackageOpen] = useState(false);
@@ -77,17 +78,12 @@ const GarageScreen = () => {
 
   useFocusEffect(
     React.useCallback(() => {
-      if (userId) {
+      if (userId && !hasFetchedRef.current) {
+        hasFetchedRef.current = true;
         fetchVehicles();
       }
     }, [userId])
   );
-
-  useEffect(() => {
-    if (userId) {
-      fetchVehicles();
-    }
-  }, [userId]);
 
   useEffect(() => {
     if (brandValue) {
@@ -138,31 +134,14 @@ const GarageScreen = () => {
 
   const fetchVehicles = async () => {
     try {
-      console.log('🔍 GarageScreen: fetchVehicles çağrıldı');
-      console.log('🔍 GarageScreen: Token:', token ? 'Mevcut' : 'Yok');
-      console.log('🔍 GarageScreen: UserId:', userId ? 'Mevcut' : 'Yok');
-      console.log('🔍 GarageScreen: API_URL:', API_URL);
       
       // Token kontrolü
       if (!token) {
-        console.log('⚠️ GarageScreen: Token bulunamadı');
         setVehicles([]);
         return;
       }
       
-      // Token geçerliliğini kontrol et
-      try {
-        const isValid = await validateToken(token);
-        if (!isValid) {
-          console.log('⚠️ GarageScreen: Token geçersiz');
-          setVehicles([]);
-          return;
-        }
-      } catch (validationError) {
-        console.log('⚠️ GarageScreen: Token validasyon hatası:', validationError);
-        setVehicles([]);
-        return;
-      }
+      // Token validasyonu kaldırıldı - AuthContext zaten kontrol ediyor
       
       setLoading(true);
       const [vehiclesRes, userRes] = await Promise.all([
@@ -170,8 +149,6 @@ const GarageScreen = () => {
         axios.get(`${API_URL}/users/profile`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       
-      console.log('🔍 GarageScreen: Vehicles Response:', vehiclesRes.data);
-      console.log('🔍 GarageScreen: User Response:', userRes.data);
       
       // API response formatı: { success: true, data: {...} }
       const favoriteVehicleId = userRes.data.data?.favoriteVehicle;
@@ -350,10 +327,12 @@ const GarageScreen = () => {
 
     try {
       await axios.put(`${API_URL}/vehicles/${vehicleId}/favorite`, {}, { headers: { Authorization: `Bearer ${token}` } });
-      // fetchVehicles() çağırmaya gerek yok, çünkü state zaten güncel
+      // Backend'den güncel veriyi al
+      await fetchVehicles();
     } catch (error) {
       Alert.alert('Hata', 'Favori araç seçilirken bir hata oluştu.');
-      fetchVehicles(); // Hata olursa geri yükle
+      // Hata olursa geri yükle
+      await fetchVehicles();
     }
   };
 

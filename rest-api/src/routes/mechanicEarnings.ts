@@ -46,7 +46,7 @@ const router = Router();
  */
 router.get('/', auth, async (req: Request, res: Response) => {
   try {
-    const mechanicId = (req as any).user.id;
+    const mechanicId = (req as any).user?.userId;
     
     // Bu ay ve geçen ay kazançları hesapla
     const now = new Date();
@@ -54,12 +54,12 @@ router.get('/', auth, async (req: Request, res: Response) => {
     const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     
     const thisMonthEarnings = await Appointment.aggregate([
-      { $match: { mechanicId, status: 'completed', createdAt: { $gte: thisMonth } } },
+      { $match: { mechanicId, status: 'TAMAMLANDI', createdAt: { $gte: thisMonth } } },
       { $group: { _id: null, total: { $sum: '$price' } } }
     ]);
     
     const lastMonthEarnings = await Appointment.aggregate([
-      { $match: { mechanicId, status: 'completed', createdAt: { $gte: lastMonth, $lt: thisMonth } } },
+      { $match: { mechanicId, status: 'TAMAMLANDI', createdAt: { $gte: lastMonth, $lt: thisMonth } } },
       { $group: { _id: null, total: { $sum: '$price' } } }
     ]);
     
@@ -90,7 +90,7 @@ router.get('/', auth, async (req: Request, res: Response) => {
 // ===== EARNINGS ENDPOINTS =====
 router.get('/summary', auth, async (req: Request, res: Response) => {
   try {
-    const mechanicId = (req as any).user.id;
+    const mechanicId = (req as any).user?.userId;
     
     // Bu ay ve geçen ay kazançları hesapla
     const now = new Date();
@@ -98,12 +98,12 @@ router.get('/summary', auth, async (req: Request, res: Response) => {
     const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     
     const thisMonthEarnings = await Appointment.aggregate([
-      { $match: { mechanicId, status: 'completed', createdAt: { $gte: thisMonth } } },
+      { $match: { mechanicId, status: 'TAMAMLANDI', createdAt: { $gte: thisMonth } } },
       { $group: { _id: null, total: { $sum: '$price' } } }
     ]);
     
     const lastMonthEarnings = await Appointment.aggregate([
-      { $match: { mechanicId, status: 'completed', createdAt: { $gte: lastMonth, $lt: thisMonth } } },
+      { $match: { mechanicId, status: 'TAMAMLANDI', createdAt: { $gte: lastMonth, $lt: thisMonth } } },
       { $group: { _id: null, total: { $sum: '$price' } } }
     ]);
     
@@ -159,7 +159,7 @@ router.get('/summary', auth, async (req: Request, res: Response) => {
  */
 router.get('/breakdown', auth, async (req: Request, res: Response) => {
   try {
-    const mechanicId = (req as any).user.id;
+    const mechanicId = (req as any).user?.userId;
     const period = req.query.period as string || 'month';
 
     let startDate: Date;
@@ -183,7 +183,7 @@ router.get('/breakdown', auth, async (req: Request, res: Response) => {
     }
 
     const breakdown = await Appointment.aggregate([
-      { $match: { mechanicId, status: 'completed', createdAt: { $gte: startDate, $lte: endDate } } },
+      { $match: { mechanicId, status: 'TAMAMLANDI', createdAt: { $gte: startDate, $lte: endDate } } },
       {
         $group: {
           _id: '$category',
@@ -337,7 +337,7 @@ router.get('/transactions', auth, async (req: Request, res: Response) => {
  */
 router.post('/withdraw', auth, async (req: Request, res: Response) => {
   try {
-    const mechanicId = (req as any).user.id;
+    const mechanicId = (req as any).user?.userId;
     const { amount, bankAccount, notes } = req.body;
 
     if (amount < 50) {
@@ -401,7 +401,7 @@ router.post('/withdraw', auth, async (req: Request, res: Response) => {
  */
 router.get('/withdrawals', auth, async (req: Request, res: Response) => {
   try {
-    const mechanicId = (req as any).user.id;
+    const mechanicId = (req as any).user?.userId;
     const status = req.query.status as string || 'pending';
 
     const withdrawals = await Appointment.find({ mechanicId, type: 'withdrawal', status });

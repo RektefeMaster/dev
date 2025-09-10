@@ -2,9 +2,9 @@
  * Rektefe US uygulaması için temel konfigürasyon
  */
 
-// API Konfigürasyonu - Backend port'unu kontrol et
+// API Konfigürasyonu - Env/Expo fallback + Localhost
 export const API_CONFIG = {
-  BASE_URL: process.env.API_BASE_URL || 'http://localhost:3000/api',
+  BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000/api',
   TIMEOUT: 60000,
 };
 

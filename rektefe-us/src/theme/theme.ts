@@ -134,7 +134,6 @@ export const createTheme = (isDark: boolean = false) => {
       icon: themeColors.icon,
       tabIconDefault: themeColors.tabIconDefault,
       tabIconSelected: themeColors.tabIconSelected,
-      shadow: themeColors.shadow,
       divider: themeColors.divider,
       
       // US özel renkleri

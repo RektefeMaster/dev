@@ -8,14 +8,66 @@ const router = express.Router();
 // Tüm aktif hizmet kategorilerini getir
 router.get('/', async (req: Request, res: Response) => {
   try {
-    console.log('ServiceCategory GET endpoint çağrıldı');
-    const categories = await ServiceCategory.find({});
-    console.log('Bulunan kategoriler:', categories.length);
-    console.log('Kategoriler:', JSON.stringify(categories, null, 2));
-    res.json(categories);
+    const categories = await ServiceCategory.find({ isActive: true });
+    res.json({
+      success: true,
+      data: categories
+    });
   } catch (error) {
-    console.error('ServiceCategory GET hatası:', error);
-    res.status(500).json({ message: 'Hizmet kategorileri getirilirken bir hata oluştu' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Hizmet kategorileri getirilirken bir hata oluştu' 
+    });
+  }
+});
+
+// Ana hizmet kategorilerini getir (yeni sistem için)
+router.get('/main-categories', async (req: Request, res: Response) => {
+  try {
+    const mainCategories = [
+      {
+        id: 'towing',
+        name: 'Çekici Hizmeti',
+        description: 'Acil kurtarma hizmetleri',
+        icon: 'truck',
+        color: '#EF4444',
+        subServices: ['Kaza kurtarma', 'Akü takviyesi', 'Lastik değişimi', 'Yakıt takviyesi']
+      },
+      {
+        id: 'repair',
+        name: 'Tamir & Bakım',
+        description: 'Arıza tespit ve onarım',
+        icon: 'wrench',
+        color: '#3B82F6',
+        subServices: ['Genel Bakım', 'Ağır Bakım', 'Alt Takım', 'Üst Takım', 'Kaporta/Boya', 'Elektrik-Elektronik', 'Egzoz & Emisyon', 'Ekspertiz']
+      },
+      {
+        id: 'wash',
+        name: 'Araç Yıkama',
+        description: 'Araç temizlik hizmetleri',
+        icon: 'water',
+        color: '#10B981',
+        subServices: ['Basic', 'Detaylı', 'Seramik', 'Koltuk', 'Motor']
+      },
+      {
+        id: 'tire',
+        name: 'Lastik & Parça',
+        description: 'Lastik ve yedek parça',
+        icon: 'car-tire',
+        color: '#F59E0B',
+        subServices: ['Lastik', 'Jant', 'Fren balata', 'Filtre', 'Yağ']
+      }
+    ];
+
+    res.json({
+      success: true,
+      data: mainCategories
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      message: 'Ana hizmet kategorileri getirilirken bir hata oluştu' 
+    });
   }
 });
 

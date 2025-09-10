@@ -114,10 +114,10 @@ npm start
 - `PATCH /api/appointments/:id/complete` - Randevuyu tamamla
 
 ### Messages
-- `GET /api/messages/conversations` - Sohbetleri getir
-- `GET /api/messages/conversation/:id/messages` - Sohbet mesajlarını getir
-- `POST /api/messages/send` - Mesaj gönder
-- `PUT /api/messages/mark-read` - Mesajları okundu olarak işaretle
+- `GET /api/message/conversations` - Sohbetleri getir
+- `GET /api/message/conversations/:id/messages` - Sohbet mesajlarını getir
+- `POST /api/message/send` - Mesaj gönder
+- `PUT /api/message/mark-read` - Mesajları okundu olarak işaretle
 
 ### Ratings
 - `GET /api/appointment-ratings/mechanic` - Ustanın değerlendirmelerini getir

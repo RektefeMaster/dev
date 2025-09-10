@@ -33,6 +33,7 @@ export class MechanicService {
         if (profileData.city) updateData.city = profileData.city;
         if (profileData.bio !== undefined) updateData.bio = profileData.bio;
         if (profileData.experience !== undefined) updateData.experience = profileData.experience;
+        if (profileData.shopName !== undefined) updateData.shopName = profileData.shopName;
         if (profileData.serviceCategories) updateData.serviceCategories = profileData.serviceCategories;
         if (profileData.carBrands) updateData.carBrands = profileData.carBrands;
         if (profileData.engineTypes) updateData.engineTypes = profileData.engineTypes;
@@ -46,12 +47,7 @@ export class MechanicService {
         if (profileData.emailHidden !== undefined) updateData.emailHidden = profileData.emailHidden;
         if (profileData.cityHidden !== undefined) updateData.cityHidden = profileData.cityHidden;
         
-        console.log('🔒 Gizlilik ayarları güncelleniyor:', {
-          phoneHidden: profileData.phoneHidden,
-          emailHidden: profileData.emailHidden,
-          cityHidden: profileData.cityHidden,
-          updateData
-        });
+
         
         // Konum bilgileri
         if (profileData.location) {
@@ -62,9 +58,11 @@ export class MechanicService {
           if (profileData.location.building) updateData['location.building'] = profileData.location.building;
           if (profileData.location.floor) updateData['location.floor'] = profileData.location.floor;
           if (profileData.location.apartment) updateData['location.apartment'] = profileData.location.apartment;
+          if ((profileData.location as any).description) updateData['location.description'] = (profileData.location as any).description;
+          if (profileData.location.coordinates) updateData['location.coordinates'] = profileData.location.coordinates;
         }
         
-        console.log('Güncellenecek veriler:', updateData);
+
         
         const updatedMechanic = await Mechanic.findByIdAndUpdate(
           userId,
@@ -76,7 +74,7 @@ export class MechanicService {
           throw new CustomError('Mekanik profili güncellenirken hata oluştu', 500);
         }
         
-        console.log('Profil başarıyla güncellendi:', updatedMechanic._id);
+
         return updatedMechanic;
       } else {
         // Yeni profil oluştur (Mechanic model'inde _id = userId)
@@ -101,15 +99,11 @@ export class MechanicService {
           engineTypes: profileData.engineTypes || [],
           transmissionTypes: profileData.transmissionTypes || [],
           customBrands: profileData.customBrands || [],
-          workingHours: profileData.workingHours || []
+          workingHours: profileData.workingHours || ''
         };
-        
-        console.log('Yeni profil oluşturuluyor:', newMechanicData);
         
         mechanic = new Mechanic(newMechanicData);
         await mechanic.save();
-        
-        console.log('Yeni profil oluşturuldu:', mechanic._id);
         return mechanic;
       }
     } catch (error) {
@@ -122,12 +116,47 @@ export class MechanicService {
   /**
    * Mekanik profilini getir
    */
-  static async getProfile(userId: string): Promise<IMechanic> {
+  // Not: Eğer Mechanic dokümanı yoksa User'dan türetilmiş bir profil döndürüyoruz.
+  // Bu nedenle geri dönüş türünü geniş tutuyoruz.
+  static async getProfile(userId: string): Promise<IMechanic | any> {
     try {
-      const mechanic = await Mechanic.findById(userId);
+      // Önce ustanın bilgilerini al - User ID ile email üzerinden bul
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new CustomError('Kullanıcı bulunamadı', 404);
+      }
 
+      // User'ın email'i ile Mechanic tablosunda ara
+      const mechanic = await Mechanic.findOne({ email: user.email });
       if (!mechanic) {
-        throw new CustomError('Mekanik profili bulunamadı', 404);
+        // Mechanic tablosunda yoksa, User'dan mekanik profili oluştur
+        const mechanicProfile = {
+          _id: user._id,
+          name: user.name,
+          surname: user.surname,
+          email: user.email,
+          phone: user.phone,
+          serviceCategories: user.serviceCategories || [],
+          experience: user.experience || 0,
+          rating: user.rating || 0,
+          ratingCount: user.ratingCount || 0,
+          totalServices: user.totalServices || 0,
+          isAvailable: user.isAvailable || true,
+          location: user.location || {},
+          workingHours: user.workingHours || '',
+          shopName: user.shopName || '',
+          bio: user.bio || '',
+          avatar: user.avatar,
+          cover: user.cover,
+          vehicleBrands: user.carBrands || [],
+          engineTypes: user.engineTypes || [],
+          transmissionTypes: user.transmissionTypes || [],
+          customBrands: user.customBrands || [],
+          washPackages: user.washPackages || [],
+          washOptions: user.washOptions || [],
+          createdAt: user.createdAt
+        };
+        return mechanicProfile;
       }
 
       return mechanic;
@@ -140,13 +169,120 @@ export class MechanicService {
   /**
    * Tüm mekanikleri getir
    */
-  static async getAllMechanics(): Promise<IMechanic[]> {
+  static async getAllMechanics(): Promise<any[]> {
     try {
+      // Önce Mechanic modelinden veri çek
       const mechanics = await Mechanic.find()
         .sort({ rating: -1, createdAt: -1 });
       
-      console.log(`✅ ${mechanics.length} mekanik bulundu`);
-      return mechanics;
+      // Mechanic modelindeki koordinatları da düzelt
+      const fixedMechanics = mechanics.map((mechanic: any) => {
+        const coords = mechanic.location?.coordinates;
+        
+        // Şehir koordinatları
+        const cityCoordinates: Record<string, { latitude: number; longitude: number }> = {
+          'İstanbul': { latitude: 41.0082, longitude: 28.9784 },
+          'Ankara': { latitude: 39.9334, longitude: 32.8597 },
+          'İzmir': { latitude: 38.4192, longitude: 27.1287 },
+          'Malatya': { latitude: 38.3552, longitude: 38.3095 }
+        };
+        
+        // Koordinatları geçersizse düzelt
+        if (!coords || coords.latitude === 0 || coords.longitude === 0) {
+          const city: string = mechanic.location?.city || mechanic.city || 'İstanbul';
+          const newCoords = cityCoordinates[city] || cityCoordinates['İstanbul'];
+          
+          return {
+            ...mechanic.toObject(),
+            location: {
+              ...mechanic.location,
+              coordinates: newCoords,
+              city: city
+            }
+          };
+        }
+        
+        return mechanic;
+      });
+      
+      // Sonra User modelinden mechanic tipindeki kullanıcıları çek
+      // Not: userType 'mechanic' olan kullanıcılar rektefe-us (usta) uygulamasından gelir
+      const userMechanics = await User.find({ userType: 'mechanic' })
+        .select('-password')
+        .sort({ rating: -1, createdAt: -1 });
+      
+      // User verilerini Mechanic formatına çevir
+      const convertedUserMechanics = userMechanics.map((user: any) => {
+        // Koordinatları düzelt
+        let fixedLocation: any = user.location || {};
+        const coords = fixedLocation.coordinates;
+        
+        // Şehir koordinatları
+        const cityCoordinates: Record<string, { latitude: number; longitude: number }> = {
+          'İstanbul': { latitude: 41.0082, longitude: 28.9784 },
+          'Ankara': { latitude: 39.9334, longitude: 32.8597 },
+          'İzmir': { latitude: 38.4192, longitude: 27.1287 },
+          'Malatya': { latitude: 38.3552, longitude: 38.3095 }
+        };
+        
+        // Koordinatları geçersizse düzelt
+        if (!coords || coords.latitude === 0 || coords.longitude === 0) {
+          const city: string = fixedLocation.city || user.city || 'İstanbul';
+          const newCoords = cityCoordinates[city] || cityCoordinates['İstanbul'];
+          fixedLocation = {
+            ...fixedLocation,
+            coordinates: newCoords,
+            city: city
+          };
+        }
+        
+        return {
+          _id: user._id,
+          name: user.name,
+          surname: user.surname,
+          email: user.email,
+          phone: user.phone,
+          city: fixedLocation.city || user.city || '',
+          bio: user.bio || '',
+          experience: user.experience || 0,
+          rating: user.rating || 0,
+          ratingCount: user.ratingCount || 0,
+          totalServices: user.totalServices || 0,
+          isAvailable: user.isAvailable || true,
+          serviceCategories: user.serviceCategories || ['Genel Bakım'],
+          specialties: user.serviceCategories || ['Genel Bakım'],
+          location: fixedLocation,
+          workingHours: user.workingHours || '',
+          shopName: user.shopName || '',
+          avatar: user.avatar,
+          cover: user.cover,
+          carBrands: user.carBrands || [],
+          engineTypes: user.engineTypes || [],
+          transmissionTypes: user.transmissionTypes || [],
+          customBrands: user.customBrands || [],
+          washPackages: user.washPackages || [],
+          washOptions: user.washOptions || [],
+          createdAt: user.createdAt
+        };
+      });
+      
+      // Her iki listeyi birleştir ve tekrar edenleri kaldır
+      const allMechanics = [...fixedMechanics, ...convertedUserMechanics];
+      
+      // ID'ye göre tekrar edenleri kaldır
+      const uniqueMechanics = allMechanics.filter((mechanic: any, index, self) => 
+        index === self.findIndex((m: any) => m._id.toString() === mechanic._id.toString())
+      );
+      
+      // Rating ve tarihe göre sırala
+      uniqueMechanics.sort((a, b) => {
+        if (b.rating !== a.rating) {
+          return b.rating - a.rating;
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
+      return uniqueMechanics;
     } catch (error) {
       console.error('getAllMechanics error:', error);
       throw new CustomError('Mekanikler getirilirken hata oluştu', 500);
@@ -278,7 +414,51 @@ export class MechanicService {
    */
   static async getMechanicDetails(mechanicId: string): Promise<any> {
     try {
-      const mechanic = await Mechanic.findById(mechanicId);
+      // Önce Mechanic modelinde ara
+      let mechanic: any = await Mechanic.findById(mechanicId);
+      
+      // Mechanic modelinde yoksa User modelinde ara
+      if (!mechanic) {
+        const user = await User.findById(mechanicId);
+        if (user && user.userType === 'mechanic') {
+          // User verilerini Mechanic formatına çevir
+          mechanic = {
+            _id: user._id,
+            name: user.name,
+            surname: user.surname,
+            email: user.email,
+            phone: user.phone || '',
+            city: user.location?.city || user.city || '',
+            bio: user.bio || '',
+            experience: user.experience || 0,
+            rating: user.rating || 0,
+            ratingCount: user.ratingCount || 0,
+            totalServices: user.totalServices || 0,
+            isAvailable: user.isAvailable || true,
+            serviceCategories: user.serviceCategories || ['Genel Bakım'],
+            location: user.location || {
+              city: '',
+              district: '',
+              neighborhood: '',
+              street: '',
+              building: '',
+              floor: '',
+              apartment: ''
+            },
+            workingHours: user.workingHours || '',
+            shopName: user.shopName || '',
+            avatar: user.avatar,
+            cover: user.cover,
+            carBrands: user.carBrands || [],
+            engineTypes: user.engineTypes || [],
+            transmissionTypes: user.transmissionTypes || [],
+            customBrands: user.customBrands || [],
+            washPackages: user.washPackages || [],
+            washOptions: user.washOptions || [],
+            createdAt: user.createdAt
+          };
+        }
+      }
       
       if (!mechanic) {
         throw new CustomError('Mekanik bulunamadı', 404);

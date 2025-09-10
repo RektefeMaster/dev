@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
   quickHelpTitle: {
     fontSize: typography.h4.fontSize,
     fontWeight: '700',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     marginLeft: spacing.sm,
   },
   quickHelpText: {
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.h4.fontSize,
     fontWeight: '700',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     marginBottom: spacing.md,
   },
   supportSection: {
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
+    borderBottomColor: colors.border.primary,
   },
   supportIcon: {
     width: 50,
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   supportTitle: {
     fontSize: typography.body1.fontSize,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     marginBottom: spacing.xs,
   },
   supportSubtitle: {
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
   contactValue: {
     fontSize: typography.body1.fontSize,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
   },
   faqSection: {
     backgroundColor: colors.background.secondary,
@@ -360,12 +360,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
+    borderBottomColor: colors.border.primary,
   },
   faqQuestion: {
     fontSize: typography.body1.fontSize,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     flex: 1,
   },
   bottomSpacing: {

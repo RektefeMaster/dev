@@ -96,10 +96,14 @@ const ProfileScreen = () => {
       'Çıkış yapmak istediğinize emin misiniz?',
       [
         { text: 'Vazgeç', style: 'cancel' },
-        { text: 'Evet', style: 'destructive', onPress: async () => {
+        { text: 'Evet', onPress: async () => {
             await logout();
             console.log('ProfileScreen: Çıkış yapıldı, token ve userId temizlendi!');
-            navigation.reset({ index: 0, routes: [{ name: 'Login' }] } as never);
+            // Logout sonrası manuel olarak Auth ekranına yönlendir
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Auth' }],
+            });
           }
         },
       ]

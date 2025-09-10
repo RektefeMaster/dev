@@ -250,7 +250,7 @@ export default function WalletScreen() {
               onPress={() => Alert.alert('Bilgi', 'İşlem geçmişi yakında eklenecek')}
               activeOpacity={0.7}
             >
-              <Ionicons name="time" size={20} color={colors.text.primary} />
+              <Ionicons name="time" size={20} color={colors.text.primary.main} />
               <Text style={[styles.actionButtonText, styles.historyButtonText]}>Geçmiş</Text>
             </TouchableOpacity>
           </View>
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: typography.h1.fontSize,
     fontWeight: '700',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
   },
   refreshButton: {
     width: 40,
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
   balanceAmount: {
     fontSize: typography.h1.fontSize,
     fontWeight: '700',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
   },
   balanceActions: {
     flexDirection: 'row',
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
     color: colors.primary.main,
   },
   historyButtonText: {
-    color: colors.text.primary,
+    color: colors.text.primary.main,
   },
   statsSection: {
     flexDirection: 'row',
@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.h3.fontSize,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
   },
   viewAllText: {
     fontSize: typography.body2.fontSize,
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
   transactionTitle: {
     fontSize: typography.body2.fontSize,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     marginBottom: spacing.xs,
   },
   transactionSubtitle: {

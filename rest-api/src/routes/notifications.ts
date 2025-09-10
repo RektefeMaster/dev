@@ -162,4 +162,24 @@ router.delete('/:notificationId', auth, NotificationController.deleteNotificatio
  */
 router.put('/mechanic/mark-all-read', auth, NotificationController.markAllAsRead);
 
+/**
+ * @swagger
+ * /api/notifications/driver/mark-all-read:
+ *   put:
+ *     summary: Şoförün tüm bildirimlerini okundu olarak işaretle
+ *     description: Şoförün tüm okunmamış bildirimlerini okundu olarak işaretler
+ *     tags:
+ *       - Notifications
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Tüm bildirimler başarıyla okundu olarak işaretlendi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.put('/driver/mark-all-read', auth, NotificationController.markAllAsReadDriver);
+
 export default router;

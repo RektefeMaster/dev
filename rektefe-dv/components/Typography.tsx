@@ -44,25 +44,25 @@ const Typography: React.FC<TypographyProps> = ({
     const variantStyles: Record<string, TextStyle> = {
       h1: {
         fontSize: typography.h1.fontSize,
-        fontWeight: typography.h1.fontWeight,
+        fontWeight: typography.h1.fontWeight as TextStyle['fontWeight'],
         lineHeight: typography.h1.lineHeight,
         letterSpacing: typography.h1.letterSpacing,
       },
       h2: {
         fontSize: typography.h2.fontSize,
-        fontWeight: typography.h2.fontWeight,
+        fontWeight: typography.h2.fontWeight as TextStyle['fontWeight'],
         lineHeight: typography.h2.lineHeight,
         letterSpacing: typography.h2.letterSpacing,
       },
       h3: {
         fontSize: typography.h3.fontSize,
-        fontWeight: typography.h3.fontWeight,
+        fontWeight: typography.h3.fontWeight as TextStyle['fontWeight'],
         lineHeight: typography.h3.lineHeight,
         letterSpacing: typography.h3.letterSpacing,
       },
       h4: {
         fontSize: typography.h4.fontSize,
-        fontWeight: typography.h4.fontWeight,
+        fontWeight: typography.h4.fontWeight as TextStyle['fontWeight'],
         lineHeight: typography.h4.lineHeight,
         letterSpacing: typography.h4.letterSpacing,
       },
@@ -80,32 +80,32 @@ const Typography: React.FC<TypographyProps> = ({
       },
       body: {
         fontSize: typography.body1.fontSize,
-        fontWeight: typography.body1.fontWeight,
+        fontWeight: typography.body1.fontWeight as TextStyle['fontWeight'],
         lineHeight: typography.body1.lineHeight,
         letterSpacing: typography.body1.letterSpacing,
       },
       body2: {
         fontSize: typography.body2.fontSize,
-        fontWeight: typography.body2.fontWeight,
+        fontWeight: typography.body2.fontWeight as TextStyle['fontWeight'],
         lineHeight: typography.body2.lineHeight,
         letterSpacing: typography.body2.letterSpacing,
       },
       caption: {
         fontSize: typography.caption.small.fontSize,
-        fontWeight: typography.caption.small.fontWeight,
+        fontWeight: typography.caption.small.fontWeight as TextStyle['fontWeight'],
         lineHeight: typography.caption.small.lineHeight,
         letterSpacing: typography.caption.small.letterSpacing,
       },
       overline: {
         fontSize: typography.caption.small.fontSize,
-        fontWeight: typography.caption.small.fontWeight,
+        fontWeight: typography.caption.small.fontWeight as TextStyle['fontWeight'],
         lineHeight: typography.caption.small.lineHeight,
         letterSpacing: typography.caption.small.letterSpacing,
         textTransform: 'uppercase',
       },
       button: {
         fontSize: typography.button.medium.fontSize,
-        fontWeight: typography.button.medium.fontWeight,
+        fontWeight: typography.button.medium.fontWeight as TextStyle['fontWeight'],
         lineHeight: typography.button.medium.lineHeight,
         letterSpacing: typography.button.medium.letterSpacing,
       },
@@ -118,8 +118,8 @@ const Typography: React.FC<TypographyProps> = ({
     } : {};
 
     // Weight override
-    const weightStyles = weight ? {
-      fontWeight: weight === 'thin' ? '100' : weight === 'light' ? '300' : weight === 'regular' ? '400' : weight === 'medium' ? '500' : weight === 'semibold' ? '600' : weight === 'bold' ? '700' : weight === 'heavy' ? '800' : '900',
+    const weightStyles: TextStyle = weight ? {
+      fontWeight: (weight === 'thin' ? '100' : weight === 'light' ? '300' : weight === 'regular' ? '400' : weight === 'medium' ? '500' : weight === 'semibold' ? '600' : weight === 'bold' ? '700' : weight === 'heavy' ? '800' : '900') as TextStyle['fontWeight'],
     } : {};
 
     // Color styles with dark mode support
@@ -175,12 +175,6 @@ const Typography: React.FC<TypographyProps> = ({
       loose: { lineHeight: 1.8 },
     };
 
-    // Truncate styles
-    const truncateStyles = truncate ? {
-      numberOfLines: 1,
-      ellipsizeMode: 'tail',
-    } : {};
-
     return {
       ...variantStyles[variant],
       ...sizeStyles,
@@ -191,7 +185,6 @@ const Typography: React.FC<TypographyProps> = ({
       ...decorationStyles[decoration],
       ...spacingStyles[spacing],
       ...lineHeightStyles[lineHeight],
-      ...truncateStyles,
     };
   };
 

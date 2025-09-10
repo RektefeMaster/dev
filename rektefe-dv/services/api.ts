@@ -25,14 +25,10 @@ api.interceptors.request.use(
         // Token validation kontrolü
         if (typeof token === 'string' && token.trim().length > 0) {
           config.headers.Authorization = `Bearer ${token}`;
-          console.log('🔑 API İsteği - Token eklendi:', token.substring(0, 20) + '...');
         } else {
-          console.log('⚠️ API İsteği - Token geçersiz format:', token);
           // Geçersiz token'ı temizle
           await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
         }
-      } else {
-        console.log('⚠️ API İsteği - Token bulunamadı');
       }
       return config;
     } catch (error) {
@@ -54,6 +50,28 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     
+    // Network error handling
+    if (!error.response) {
+      console.error('🔍 API Response Interceptor - Hata:', {
+        message: error.message || 'Network Error',
+        status: error.status,
+        statusText: error.statusText,
+        url: originalRequest?.url
+      });
+      
+      // Network error durumunda kullanıcıyı bilgilendir
+      if (error.message === 'Network Error' || error.code === 'NETWORK_ERROR') {
+        console.log('🌐 API Response Interceptor - Network hatası, bağlantı kontrol ediliyor...');
+        // Geçici olarak hata fırlat, kullanıcı tekrar deneyebilir
+        return Promise.reject({
+          ...error,
+          message: 'İnternet bağlantınızı kontrol edin',
+          isNetworkError: true
+        });
+      }
+    }
+    
+    // 401 Unauthorized handling
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       
@@ -61,11 +79,9 @@ api.interceptors.response.use(
         // AuthContext ile tutarlı key kullan
         const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
         if (!refreshToken) {
-          console.log('⚠️ API Yanıtı - Refresh token bulunamadı');
           throw new Error('Refresh token bulunamadı');
         }
 
-        console.log('🔄 API Yanıtı - Token yenileme deneniyor');
         const response = await axios.post(`${API_CONFIG.BASE_URL}/auth/refresh-token`, {
           refreshToken
         });
@@ -77,7 +93,6 @@ api.interceptors.response.use(
             await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, response.data.refreshToken);
           }
           originalRequest.headers.Authorization = `Bearer ${response.data.token}`;
-          console.log('✅ API Yanıtı - Token yenilendi');
           return api(originalRequest);
         }
       } catch (refreshError) {
@@ -86,6 +101,17 @@ api.interceptors.response.use(
         await AsyncStorage.multiRemove([STORAGE_KEYS.AUTH_TOKEN, STORAGE_KEYS.REFRESH_TOKEN, STORAGE_KEYS.USER_ID, STORAGE_KEYS.USER_DATA]);
         throw refreshError;
       }
+    }
+    
+    // Diğer hatalar için detaylı log
+    if (error.response) {
+      console.error('❌ API Error:', {
+        data: error.response.data,
+        message: error.message,
+        status: error.response.status,
+        statusText: error.response.statusText,
+        url: originalRequest?.url
+      });
     }
     
     return Promise.reject(error);
@@ -253,7 +279,7 @@ class ApiService {
 
   // ===== MECHANIC ENDPOINTS =====
   async getMechanics() {
-    const response = await this.api.get('/mechanic/list');
+    const response = await this.api.get('/mechanic-services/mechanics');
     return response.data;
   }
 
@@ -290,15 +316,23 @@ class ApiService {
     return response.data;
   }
 
+  // ===== SERVICES ENDPOINTS =====
+  async getServices() {
+    const response = await this.api.get('/services');
+    return response.data;
+  }
+
   async updateMechanicAvailability(availabilityData: any) {
     const response = await this.api.put('/mechanic/availability', availabilityData);
     return response.data;
   }
 
-  async getMechanicStats() {
-    const response = await this.api.get('/mechanic/stats');
+  // ===== CAMPAIGN ENDPOINTS =====
+  async getCampaigns() {
+    const response = await this.api.get('/campaigns');
     return response.data;
   }
+
 
   // ===== MESSAGE ENDPOINTS =====
   async getConversations() {
@@ -321,8 +355,8 @@ class ApiService {
     return response.data;
   }
 
-  async findConversation(mechanicId: string) {
-    const response = await this.api.get(`/message/conversation/find/${mechanicId}`);
+  async findConversation(otherUserId: string) {
+    const response = await this.api.get(`/message/conversation/find/${otherUserId}`);
     return response.data;
   }
 
@@ -333,7 +367,7 @@ class ApiService {
 
   // ===== NOTIFICATION ENDPOINTS =====
   async getNotifications() {
-    const response = await this.api.get('/users/notifications');
+    const response = await this.api.get('/notifications/driver');
     return response.data;
   }
 
@@ -343,7 +377,28 @@ class ApiService {
   }
 
   async markAllNotificationsAsRead() {
-    const response = await this.api.put('/notifications/mark-all-read');
+    const response = await this.api.put('/notifications/driver/mark-all-read');
+    return response.data;
+  }
+
+  async deleteNotification(notificationId: string) {
+    const response = await this.api.delete(`/notifications/${notificationId}`);
+    return response.data;
+  }
+
+  // ===== PUSH NOTIFICATION ENDPOINTS =====
+  async updatePushToken(token: string) {
+    const response = await this.api.post('/users/push-token', { token });
+    return response.data;
+  }
+
+  async getNotificationSettings() {
+    const response = await this.api.get('/users/notification-settings');
+    return response.data;
+  }
+
+  async updateNotificationSettings(settings: any) {
+    const response = await this.api.put('/users/notification-settings', settings);
     return response.data;
   }
 
@@ -360,6 +415,55 @@ class ApiService {
 
   async updateProfilePhoto(photoUrl: string) {
     const response = await this.api.post('/users/profile-photo', { photoUrl });
+    return response.data;
+  }
+
+  // ===== YENİ HİZMET TALEPLERİ - Usta verilerine entegre =====
+  async createTowingRequest(requestData: any) {
+    const response = await this.api.post('/service-requests/towing', {
+      ...requestData,
+      emergencyLevel: requestData.emergencyLevel || 'medium',
+      towingType: requestData.towingType || 'flatbed',
+      requestType: 'immediate'
+    });
+    return response.data;
+  }
+
+  async createWashBooking(bookingData: any) {
+    const response = await this.api.post('/service-requests/wash', {
+      ...bookingData,
+      serviceType: 'wash',
+      packageType: bookingData.packageType || 'basic',
+      appointmentDate: bookingData.appointmentDate || new Date().toISOString(),
+      timeSlot: bookingData.timeSlot || '09:00-10:00'
+    });
+    return response.data;
+  }
+
+  async createTirePartsRequest(requestData: any) {
+    const response = await this.api.post('/service-requests/tire-parts', {
+      ...requestData,
+      serviceType: 'tire-parts',
+      partType: requestData.partType || 'tire_change',
+      tireSize: requestData.tireSize || '',
+      tireBrand: requestData.tireBrand || '',
+      season: requestData.season || 'all-season'
+    });
+    return response.data;
+  }
+
+  async getMechanicsByService(serviceType: string) {
+    const response = await this.api.get(`/service-requests/mechanics-by-service/${serviceType}`);
+    return response.data;
+  }
+
+  async getMechanicWashPackages(mechanicId: string) {
+    const response = await this.api.get(`/mechanic/${mechanicId}/wash-packages`);
+    return response.data;
+  }
+
+  async getMainServiceCategories() {
+    const response = await this.api.get('/service-categories/main-categories');
     return response.data;
   }
 
@@ -386,11 +490,6 @@ class ApiService {
 
   async getMyMechanics() {
     const response = await this.api.get('/users/my-mechanics');
-    return response.data;
-  }
-
-  async getMyCustomers() {
-    const response = await this.api.get('/users/my-customers');
     return response.data;
   }
 
@@ -467,6 +566,37 @@ class ApiService {
         }]
       };
     }
+  }
+
+  // ===== FAULT REPORT ENDPOINTS =====
+  async createFaultReport(faultReportData: any) {
+    const response = await this.api.post('/fault-reports', faultReportData);
+    return response.data;
+  }
+
+  async getUserFaultReports(params?: { status?: string; page?: number; limit?: number }) {
+    const response = await this.api.get('/fault-reports/my-reports', { params });
+    return response.data;
+  }
+
+  async getFaultReportById(faultReportId: string) {
+    const response = await this.api.get(`/fault-reports/${faultReportId}`);
+    return response.data;
+  }
+
+  async submitQuote(faultReportId: string, quoteData: any) {
+    const response = await this.api.post(`/fault-reports/${faultReportId}/quote`, quoteData);
+    return response.data;
+  }
+
+  async selectQuote(faultReportId: string, quoteIndex: number) {
+    const response = await this.api.post(`/fault-reports/${faultReportId}/select-quote`, { quoteIndex });
+    return response.data;
+  }
+
+  async getMechanicFaultReports(params?: { status?: string; page?: number; limit?: number }) {
+    const response = await this.api.get('/fault-reports/mechanic/reports', { params });
+    return response.data;
   }
 }
 

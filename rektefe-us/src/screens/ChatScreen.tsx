@@ -471,7 +471,7 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
-          <Ionicons name="chevron-back" size={24} color={colors.text.primary} />
+          <Ionicons name="chevron-back" size={24} color={colors.text.primary.main} />
         </TouchableOpacity>
         
         <View style={styles.headerInfo}>
@@ -663,7 +663,7 @@ const styles = StyleSheet.create({
   headerName: {
     fontSize: typography.body2.fontSize,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     marginBottom: spacing.xs,
   },
   headerSubtitle: {
@@ -727,7 +727,7 @@ const styles = StyleSheet.create({
     color: colors.text.inverse,
   },
   otherMessageText: {
-    color: colors.text.primary,
+    color: colors.text.primary.main,
   },
   messageFooter: {
     flexDirection: 'row',
@@ -786,7 +786,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     marginRight: spacing.sm,
     fontSize: typography.body3.fontSize,
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     maxHeight: 100,
     borderWidth: 1,
     borderColor: colors.border.secondary,
@@ -856,7 +856,7 @@ const styles = StyleSheet.create({
   },
   optionText: {
     fontSize: typography.body2.fontSize,
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     marginLeft: spacing.sm,
     fontWeight: '500',
   },

@@ -4,7 +4,7 @@ export interface IServiceCategory extends Document {
   name: string;
   description: string;
   icon?: string;
-  type: 'maintenance' | 'repair' | 'bodywork' | 'tire' | 'wash'; // Hizmet tipi
+  type: 'towing' | 'repair' | 'wash' | 'tire' | 'maintenance' | 'bodywork'; // Hizmet tipi
   subCategories?: string[]; // Alt kategoriler (örn: ağır bakım, alt takım, üst takım, kaporta vs.)
   isActive: boolean;
   createdAt: Date;
@@ -28,7 +28,7 @@ const serviceCategorySchema = new Schema<IServiceCategory>({
   },
   type: {
     type: String,
-    enum: ['maintenance', 'repair', 'bodywork', 'tire', 'wash'],
+    enum: ['towing', 'repair', 'wash', 'tire', 'maintenance', 'bodywork'],
     required: true
   },
   subCategories: [{

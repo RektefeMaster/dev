@@ -13,12 +13,13 @@ import {
   Image,
   RefreshControl
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import * as FileSystem from 'expo-file-system';
 import Background from '../components/Background';
 // @ts-ignore
-import * as Sharing from 'expo-sharing';
+// import * as Sharing from 'expo-sharing';
 import { useTheme } from '../context/ThemeContext';
 import { colors, spacing, borderRadius, typography, shadows } from '../theme/theme';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -34,6 +35,7 @@ const WalletScreen = ({ navigation }: any) => {
   const [showQR, setShowQR] = useState(false);
   const [qrOpacity] = useState(new Animated.Value(0));
   const [selectedPeriod, setSelectedPeriod] = useState('month');
+  const [tefePoints, setTefePoints] = useState(0);
   
   // Hooks
   const { 
@@ -62,6 +64,13 @@ const WalletScreen = ({ navigation }: any) => {
   const [showCardNumbers, setShowCardNumbers] = useState(false);
   const [selectedCard, setSelectedCard] = useState(0);
   const qrRef = useRef<any>(null);
+
+  // Ekran odaklandığında verileri güncelle
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshWalletData();
+    }, [])
+  );
 
   // Animasyonları başlat
   useEffect(() => {
@@ -106,7 +115,8 @@ const WalletScreen = ({ navigation }: any) => {
       qrRef.current.toDataURL(async (data: string) => {
         const fileUri = FileSystem.cacheDirectory + 'qr.png';
         await FileSystem.writeAsStringAsync(fileUri, data, { encoding: FileSystem.EncodingType.Base64 });
-        await Sharing.shareAsync(fileUri);
+        // await Sharing.shareAsync(fileUri);
+        console.log('QR Code sharing temporarily disabled');
       });
     }
   };
@@ -269,12 +279,12 @@ const WalletScreen = ({ navigation }: any) => {
                 <MaterialCommunityIcons 
                   name="arrow-left" 
                   size={20} 
-                  color={isDark ? themeColors.text.primary.dark : themeColors.text.primary.main} 
+                  color={themeColors.text.primary} 
                 />
               </TouchableOpacity>
               <View style={styles.headerCenter}>
                 <Text style={[styles.headerTitle, { 
-                  color: isDark ? themeColors.text.primary.dark : themeColors.text.primary.main 
+                  color: themeColors.text.primary 
                 }]}>
                   Cüzdan
                 </Text>
@@ -290,7 +300,7 @@ const WalletScreen = ({ navigation }: any) => {
                 <MaterialCommunityIcons 
                   name="dots-horizontal" 
                   size={20} 
-                  color={isDark ? themeColors.text.primary.dark : themeColors.text.primary.main} 
+                  color={themeColors.text.primary} 
                 />
               </TouchableOpacity>
             </View>
@@ -379,8 +389,8 @@ const WalletScreen = ({ navigation }: any) => {
           {/* Quick Actions */}
           <View style={styles.quickActionsSection}>
             <Text style={[styles.sectionTitle, { 
-              color: isDark ? themeColors.text.primary.dark : themeColors.text.primary.main 
-            }]}>
+              color: themeColors.text.primary 
+            }]}> 
               Hızlı İşlemler
             </Text>
             <View style={styles.quickActionsGrid}>
@@ -395,7 +405,7 @@ const WalletScreen = ({ navigation }: any) => {
                   <MaterialCommunityIcons name="plus" size={24} color="white" />
                 </View>
                 <Text style={[styles.quickActionText, { 
-                  color: isDark ? themeColors.text.primary.dark : themeColors.text.primary.main 
+                  color: themeColors.text.primary 
                 }]}>
                   Bakiye Yükle
                 </Text>
@@ -412,7 +422,7 @@ const WalletScreen = ({ navigation }: any) => {
                   <MaterialCommunityIcons name="qrcode-scan" size={24} color="white" />
                 </View>
                 <Text style={[styles.quickActionText, { 
-                  color: isDark ? themeColors.text.primary.dark : themeColors.text.primary.main 
+                  color: themeColors.text.primary 
                 }]}>
                   QR ile Öde
                 </Text>
@@ -429,7 +439,7 @@ const WalletScreen = ({ navigation }: any) => {
                   <MaterialCommunityIcons name="credit-card-plus" size={24} color="white" />
                 </View>
                 <Text style={[styles.quickActionText, { 
-                  color: isDark ? themeColors.text.primary.dark : themeColors.text.primary.main 
+                  color: themeColors.text.primary 
                 }]}>
                   Kart Ekle
                 </Text>
@@ -445,8 +455,8 @@ const WalletScreen = ({ navigation }: any) => {
                   <MaterialCommunityIcons name="chart-line" size={24} color="white" />
                 </View>
                 <Text style={[styles.quickActionText, { 
-                  color: isDark ? themeColors.text.primary.dark : themeColors.text.primary.main 
-                }]}>
+                  color: themeColors.text.primary 
+                }]}> 
                   Raporlar
                 </Text>
               </TouchableOpacity>
@@ -461,8 +471,8 @@ const WalletScreen = ({ navigation }: any) => {
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderLeft}>
                 <Text style={[styles.sectionTitle, { 
-                  color: isDark ? themeColors.text.primary.dark : themeColors.text.primary.main 
-                }]}>
+                  color: themeColors.text.primary 
+                }]}> 
                   Kredi Kartlarım
                 </Text>
                 <Text style={[styles.sectionSubtitle, { 
@@ -480,10 +490,10 @@ const WalletScreen = ({ navigation }: any) => {
                 <MaterialCommunityIcons 
                   name={showCardNumbers ? 'eye-off' : 'eye'} 
                   size={18} 
-                  color={isDark ? themeColors.text.primary.dark : themeColors.text.primary.main} 
+                  color={themeColors.text.primary} 
                 />
                 <Text style={[styles.toggleText, { 
-                  color: isDark ? themeColors.text.primary.dark : themeColors.text.primary.main 
+                  color: themeColors.text.primary 
                 }]}>
                   {showCardNumbers ? 'Gizle' : 'Göster'}
                 </Text>
@@ -510,7 +520,7 @@ const WalletScreen = ({ navigation }: any) => {
                   activeOpacity={0.9}
                 >
                   <LinearGradient
-                    colors={card.gradient}
+                    colors={card.gradient as any}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.cardGradient}
@@ -571,7 +581,7 @@ const WalletScreen = ({ navigation }: any) => {
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderLeft}>
                 <Text style={[styles.sectionTitle, { 
-                  color: isDark ? themeColors.text.primary.dark : themeColors.text.primary.main 
+                  color: themeColors.text.primary 
                 }]}>
                   Son İşlemler
                 </Text>
@@ -585,14 +595,14 @@ const WalletScreen = ({ navigation }: any) => {
                 backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' 
               }]}>
                 <Text style={[styles.viewAllText, { 
-                  color: isDark ? themeColors.text.primary.dark : themeColors.text.primary.main 
+                  color: themeColors.text.primary 
                 }]}>
                   Tümünü Gör
                 </Text>
                 <MaterialCommunityIcons 
                   name="chevron-right" 
                   size={16} 
-                  color={isDark ? themeColors.text.primary.dark : themeColors.text.primary.main} 
+                  color={themeColors.text.primary} 
                 />
               </TouchableOpacity>
             </View>
@@ -642,8 +652,8 @@ const WalletScreen = ({ navigation }: any) => {
                     
                     <View style={styles.transactionContent}>
                       <Text style={[styles.transactionTitle, { 
-                        color: isDark ? themeColors.text.primary.dark : themeColors.text.primary.main 
-                      }]}>
+                        color: themeColors.text.primary 
+                      }]}> 
                         {transaction.description}
                       </Text>
                       <Text style={[styles.transactionSubtitle, { 
@@ -715,19 +725,15 @@ const WalletScreen = ({ navigation }: any) => {
           ]}>
             <View style={styles.qrHeader}>
               <Text style={[styles.qrTitle, { 
-                color: isDark ? themeColors.text.primary.dark : themeColors.text.primary.main 
-              }]}>
+                color: themeColors.text.primary 
+              }]}> 
                 Ödeme QR Kodu
               </Text>
               <TouchableOpacity 
                 style={styles.qrCloseButton}
                 onPress={() => setShowQR(false)}
               >
-                <MaterialCommunityIcons 
-                  name="close" 
-                  size={24} 
-                  color={isDark ? themeColors.text.primary.dark : themeColors.text.primary.main} 
-                />
+                <MaterialCommunityIcons name="close" size={24} color={themeColors.text.primary} />
               </TouchableOpacity>
             </View>
             

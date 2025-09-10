@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, FlatList, Image, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, FlatList, Image, StatusBar, Dimensions } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../constants/config';
@@ -7,6 +7,9 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { CustomMapView } from '../components';
+import { sortMechanicsByDistance, getFallbackUserLocation, getRealUserLocation, formatDistance, openLocationInMaps } from '../utils/distanceCalculator';
+import { Linking, Platform, Alert } from 'react-native';
 
 type Mechanic = {
   id: string;
@@ -15,7 +18,8 @@ type Mechanic = {
   rating: number;
   experience: number;
   totalJobs: number;
-  specialties: string[];
+  serviceCategories: string[];
+  serviceType?: string; // Eksik olan property
   city: string;
   isAvailable: boolean;
   avatar?: string;
@@ -40,12 +44,17 @@ type Mechanic = {
     district?: string;
     neighborhood?: string;
     street?: string;
+    coordinates?: {
+      latitude: number;
+      longitude: number;
+    };
   };
   phone?: string;
   workingHours?: string;
   carBrands?: string[];
   engineTypes?: string[];
   transmissionTypes?: string[];
+  formattedDistance?: string;
 };
 
 const MechanicSearchScreen = ({ navigation, route }: any) => {
@@ -60,11 +69,53 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<'rating' | 'experience' | 'jobs'>('rating');
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const [showMapView, setShowMapView] = useState(false);
+  const [selectedMechanic, setSelectedMechanic] = useState<Mechanic | null>(null);
+  const [userLocation, setUserLocation] = useState(getFallbackUserLocation());
+  const [isLocationLoading, setIsLocationLoading] = useState(false);
+  const [locationLoaded, setLocationLoaded] = useState(false);
 
   // Çalışma saatlerini parse eden yardımcı fonksiyon
-  const parseWorkingHours = (workingHoursString: string) => {
+  const parseWorkingHours = (workingHoursString: string | undefined | null) => {
+    if (!workingHoursString) return [];
     try {
-      const workingHours = JSON.parse(workingHoursString);
+      // Eğer zaten obje ise direkt kullan
+      if (typeof workingHoursString === 'object' && workingHoursString !== null) {
+        const workingHours = workingHoursString as any;
+        if (!Array.isArray(workingHours)) return [];
+        return workingHours.map((day: any) => ({
+          day: day.day,
+          isWorking: day.isWorking,
+          startTime: day.startTime,
+          endTime: day.endTime,
+          isBreak: day.isBreak,
+          breakStartTime: day.breakStartTime,
+          breakEndTime: day.breakEndTime
+        }));
+      }
+      
+      // String ise parse et
+      let workingHours;
+      try {
+        workingHours = JSON.parse(workingHoursString);
+      } catch (parseError) {
+        // Eğer JSON parse edilemezse, basit string formatını kontrol et
+        if (workingHoursString.includes('-')) {
+          // "09:00-18:00" formatı
+          return [{
+            day: 'Genel',
+            isWorking: true,
+            startTime: workingHoursString.split('-')[0],
+            endTime: workingHoursString.split('-')[1],
+            isBreak: false,
+            breakStartTime: '',
+            breakEndTime: ''
+          }];
+        }
+        return [];
+      }
+      
+      if (!Array.isArray(workingHours)) return [];
       return workingHours.map((day: any) => ({
         day: day.day,
         isWorking: day.isWorking,
@@ -83,11 +134,22 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
   const fetchMechanics = async () => {
     try {
       setLoading(true);
+      
       // Önce tüm mekanikleri getir
       const response = await fetch(`${API_URL}/mechanic/list`);
 
       if (response.ok) {
         const data = await response.json();
+        
+        // Çekici ustalarını özel olarak kontrol et
+        const towingMechanics = data.data.filter((mech: any) => 
+          mech.serviceCategories?.some((cat: string) => 
+            cat.toLowerCase().includes('çekici') || 
+            cat.toLowerCase().includes('kurtarma') ||
+            cat.toLowerCase().includes('towing') ||
+            cat.toLowerCase().includes('tow')
+          )
+        );
         
         if (!data.data || data.data.length === 0) {
           setMechanics([]);
@@ -112,34 +174,61 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
         );
 
         // API'den gelen mekanikleri ekran formatına dönüştür
-        const mechanicsFromAPI = mechanicsWithDetails.map((mech: any) => ({
-          id: mech._id,
-          name: mech.name,
-          surname: mech.surname,
-          rating: mech.rating || 0,
-          experience: mech.experience || 0,
-          totalJobs: mech.completedJobs || mech.totalJobs || mech.totalServices || 0,
-          specialties: mech.serviceCategories || mech.specialties || [],
-          city: mech.location?.city || mech.city || 'Şehir bilgisi yok',
-          isAvailable: mech.isAvailable || false,
-          avatar: mech.avatar,
-          bio: mech.bio || 'Bio bilgisi yok',
-          // Yeni alanlar
-          ratingCount: mech.ratingCount || mech.totalRatings || 0,
-          ratingStats: mech.ratingStats || {
-            average: mech.rating || 0,
-            total: mech.ratingCount || mech.totalRatings || 0,
-            distribution: mech.ratingDistribution || {}
-          },
-          recentReviews: mech.recentReviews || mech.reviews || [],
-          shopName: mech.shopName,
-          location: mech.location,
-          phone: mech.phone,
-          workingHours: mech.workingHours,
-          carBrands: mech.carBrands,
-          engineTypes: mech.engineTypes,
-          transmissionTypes: mech.transmissionTypes,
-        }));
+        const mechanicsFromAPI = mechanicsWithDetails.map((mech: any, index: number) => {
+          
+          // Sadece API'den gelen gerçek konum bilgilerini kullan
+          // 0,0 koordinatları değil, gerçek koordinatları kontrol et
+          const hasApiLocation = mech.location && 
+            mech.location.coordinates && 
+            mech.location.coordinates.latitude !== 0 && 
+            mech.location.coordinates.longitude !== 0;
+          
+          return {
+            id: mech._id,
+            name: mech.name,
+            surname: mech.surname,
+            rating: mech.rating || 0,
+            experience: mech.experience || mech.yearsOfExperience || 0,
+            totalJobs: mech.completedJobs || mech.totalJobs || mech.totalServices || 0,
+            serviceCategories: mech.serviceCategories || [],
+            city: hasApiLocation ? mech.location.city : 'Konum bilgisi yok',
+            isAvailable: mech.isAvailable || false,
+            avatar: mech.avatar,
+            bio: mech.bio || 'Bio bilgisi yok',
+            // Yeni alanlar
+            ratingCount: mech.ratingCount || mech.totalRatings || 0,
+            ratingStats: mech.ratingStats || {
+              average: mech.rating || 0,
+              total: mech.ratingCount || mech.totalRatings || 0,
+              distribution: mech.ratingDistribution || {}
+            },
+            recentReviews: mech.recentReviews || mech.reviews || [],
+            shopName: mech.shopName,
+            // Sadece gerçek konum bilgisi varsa ekle
+            ...(hasApiLocation && {
+              location: {
+                city: mech.location.city,
+                district: mech.location.district,
+                neighborhood: mech.location.neighborhood,
+                street: mech.location.street,
+                coordinates: mech.location.coordinates
+              },
+              // Address alanı da ekle (mesafe hesaplama için)
+              address: {
+                city: mech.location.city,
+                district: mech.location.district,
+                neighborhood: mech.location.neighborhood,
+                street: mech.location.street,
+                coordinates: mech.location.coordinates
+              }
+            }),
+            phone: mech.phone,
+            workingHours: mech.workingHours,
+            carBrands: mech.carBrands,
+            engineTypes: mech.engineTypes,
+            transmissionTypes: mech.transmissionTypes,
+          };
+        });
         
         setMechanics(mechanicsFromAPI);
       } else {
@@ -159,14 +248,22 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
     { id: 'genel-bakim', title: 'Genel Bakım', icon: 'tools', color: '#34C759' },
     { id: 'alt-takim', title: 'Alt Takım', icon: 'cog', color: '#FF9500' },
     { id: 'ust-takim', title: 'Üst Takım', icon: 'nut', color: '#AF52DE' },
-    { id: 'kaporta-boya', title: 'Kaporta/Boya', icon: 'spray', color: '#FF3B30' },
+    { id: 'kaporta-boya', title: 'Kaporta & Boya', icon: 'spray', color: '#FF3B30' },
     { id: 'elektrik-elektronik', title: 'Elektrik-Elektronik', icon: 'lightning-bolt', color: '#FFCC00' },
     { id: 'yedek-parca', title: 'Yedek Parça', icon: 'car-wash', color: '#5856D6' },
-    { id: 'lastik', title: 'Lastik', icon: 'tire', color: '#FF6B35' },
+    { id: 'lastik', title: 'Lastik Servisi', icon: 'tire', color: '#FF6B35' },
     { id: 'egzoz-emisyon', title: 'Egzoz & Emisyon', icon: 'smoke', color: '#8E8E93' },
     { id: 'ekspertiz', title: 'Ekspertiz', icon: 'magnify', color: '#5AC8FA' },
-    { id: 'sigorta-kasko', title: 'Sigorta/Kasko', icon: 'shield-check', color: '#4CD964' },
+    { id: 'sigorta-kasko', title: 'Sigorta & Kasko', icon: 'shield-check', color: '#4CD964' },
     { id: 'arac-yikama', title: 'Araç Yıkama', icon: 'car-wash', color: '#007AFF' },
+  ];
+
+  // 4 ana hizmet modeli
+  const mainServiceCategories = [
+    { id: 'towing', title: 'Çekici Hizmeti', icon: 'truck', color: '#EF4444' },
+    { id: 'repair', title: 'Tamir & Bakım', icon: 'wrench', color: '#3B82F6' },
+    { id: 'wash', title: 'Araç Yıkama', icon: 'water', color: '#10B981' },
+    { id: 'tire', title: 'Lastik & Parça', icon: 'tire', color: '#F59E0B' },
   ];
 
   // Gerçek mekanik verilerini API'den al
@@ -185,14 +282,73 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
     }, [route.params?.shouldRefresh])
   );
 
-  const filteredMechanics = mechanics.filter(mechanic => {
-    const matchesSearch = mechanic.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         mechanic.surname.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         mechanic.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  const filteredMechanics = (mechanics || []).filter(mechanic => {
+    const matchesSearch = !searchQuery || 
+                         mechanic.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         mechanic.surname?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         mechanic.city?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          mechanic.shopName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          mechanic.bio?.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesService = !selectedService || mechanic.specialties.includes(selectedService);
+    // Hizmet kategorisi filtreleme - hem ana kategoriler hem de detaylı kategoriler
+    let matchesService = true;
+    
+    if (selectedService) {
+      
+      // Önce direkt eşleşme kontrol et
+      matchesService = mechanic.serviceCategories?.includes(selectedService);
+      
+      // Eğer direkt eşleşme yoksa serviceType alanını da kontrol et
+      if (!matchesService && mechanic.serviceType) {
+        matchesService = (selectedService === 'towing' && (
+          mechanic.serviceType.toLowerCase().includes('çekici') || 
+          mechanic.serviceType.toLowerCase().includes('kurtarma') ||
+          mechanic.serviceType.toLowerCase().includes('towing') || 
+          mechanic.serviceType.toLowerCase().includes('tow')
+        )) ||
+        (selectedService === 'repair' && (
+          mechanic.serviceType.toLowerCase().includes('tamir') || 
+          mechanic.serviceType.toLowerCase().includes('bakım') ||
+          mechanic.serviceType.toLowerCase().includes('repair')
+        )) ||
+        (selectedService === 'wash' && (
+          mechanic.serviceType.toLowerCase().includes('yıkama') || 
+          mechanic.serviceType.toLowerCase().includes('wash')
+        )) ||
+        (selectedService === 'tire' && (
+          mechanic.serviceType.toLowerCase().includes('lastik') || 
+          mechanic.serviceType.toLowerCase().includes('tire')
+        ));
+      }
+      
+      // Eğer hala eşleşme yoksa ana hizmet kategorilerine göre filtreleme yap
+      if (!matchesService) {
+        matchesService = (selectedService === 'towing' && mechanic.serviceCategories?.some(cat => 
+          cat?.toLowerCase().includes('çekici') || cat?.toLowerCase().includes('kurtarma') ||
+          cat?.toLowerCase().includes('towing') || cat?.toLowerCase().includes('tow') ||
+          cat?.toLowerCase().includes('çekme') || cat?.toLowerCase().includes('araç çekme') ||
+          cat?.toLowerCase().includes('arac çekme') || cat?.toLowerCase().includes('araç kurtarma') ||
+          cat?.toLowerCase().includes('arac kurtarma') || cat?.toLowerCase().includes('kurtarma') ||
+          cat?.toLowerCase().includes('rescue') || cat?.toLowerCase().includes('recovery')
+        )) ||
+        (selectedService === 'repair' && mechanic.serviceCategories?.some(cat => 
+          cat?.toLowerCase().includes('tamir') || cat?.toLowerCase().includes('bakım') || 
+          cat?.toLowerCase().includes('onarım') || cat?.toLowerCase().includes('ariza') ||
+          cat?.toLowerCase().includes('repair') || cat?.toLowerCase().includes('maintenance') ||
+          cat?.toLowerCase().includes('servis') || cat?.toLowerCase().includes('motor')
+        )) ||
+        (selectedService === 'wash' && mechanic.serviceCategories?.some(cat => 
+          cat?.toLowerCase().includes('yıkama') || cat?.toLowerCase().includes('temizlik') ||
+          cat?.toLowerCase().includes('wash') || cat?.toLowerCase().includes('cleaning') ||
+          cat?.toLowerCase().includes('detailing')
+        )) ||
+        (selectedService === 'tire' && mechanic.serviceCategories?.some(cat => 
+          cat?.toLowerCase().includes('lastik') || cat?.toLowerCase().includes('parça') ||
+          cat?.toLowerCase().includes('tire') || cat?.toLowerCase().includes('wheel') ||
+          cat?.toLowerCase().includes('jant') || cat?.toLowerCase().includes('balans')
+        ));
+      }
+    }
     
     const matchesFilters = selectedFilters.length === 0 || 
                           selectedFilters.some(filter => {
@@ -205,18 +361,151 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
                             }
                           });
     
-    return matchesSearch && matchesService && matchesFilters;
-  }).sort((a, b) => {
-    switch(sortBy) {
-      case 'rating': return b.rating - a.rating;
-      case 'experience': return b.experience - a.experience;
-      case 'jobs': return b.totalJobs - a.totalJobs;
-      default: return b.rating - a.rating;
-    }
+    const result = matchesSearch && matchesService && matchesFilters;
+    
+    
+    return result;
   });
 
+  // Gerçek konumu al
+  const loadUserLocation = async () => {
+    // Eğer konum zaten yüklendiyse tekrar yükleme
+    if (locationLoaded) return;
+    
+    setIsLocationLoading(true);
+    
+    try {
+      // Önce gerçek konumu almaya çalış
+      const realLocation = await getRealUserLocation();
+      if (realLocation) {
+        setUserLocation(realLocation);
+        setLocationLoaded(true);
+      } else {
+        // Gerçek konum alınamazsa fallback kullan
+        const fallbackLocation = getFallbackUserLocation();
+        setUserLocation(fallbackLocation);
+        setLocationLoaded(true);
+      }
+    } catch (error) {
+      console.error('Konum alınamadı:', error);
+      // Hata durumunda fallback kullan
+      const fallbackLocation = getFallbackUserLocation();
+      setUserLocation(fallbackLocation);
+      setLocationLoaded(true);
+    } finally {
+      setIsLocationLoading(false);
+    }
+  };
+
+  // Component mount olduğunda konumu al
+  React.useEffect(() => {
+    loadUserLocation();
+  }, []);
+
+  // Mesafe bilgisi ekle ve sırala
+  const mechanicsWithDistance = sortMechanicsByDistance(filteredMechanics, userLocation);
+
+  // Harita için marker'ları hazırla
+  const mapMarkers = (mechanicsWithDistance || [])
+    .filter(mechanic => mechanic.location?.coordinates)
+    .map(mechanic => ({
+      id: mechanic.id,
+      coordinate: mechanic.location!.coordinates!, // normalize edilerek MapView içinde işleniyor
+      title: `${mechanic.name} ${mechanic.surname}`,
+      description: `${mechanic.formattedDistance} - ${mechanic.rating.toFixed(1)} ⭐`,
+      phone: mechanic.phone || '+90 555 123 4567',
+      mechanic: mechanic, // Tüm usta bilgilerini marker'a ekle
+    }));
+
+  // Harita marker'ına tıklandığında
+  const handleMarkerPress = (marker: any) => {
+    const mechanic = (mechanicsWithDistance || []).find(m => m.id === marker.id);
+    if (mechanic) {
+      setSelectedMechanic(mechanic);
+    }
+  };
+
+  // Haritada konum açma fonksiyonu
+  const handleOpenInMaps = async (mechanic: any) => {
+    try {
+      if (mechanic.location?.coordinates) {
+        const mapData = openLocationInMaps(
+          mechanic.location.coordinates,
+          `${mechanic.name} ${mechanic.surname} - ${mechanic.shopName || 'Usta'}`
+        );
+        
+        const url = Platform.OS === 'ios' ? mapData.appleMapsUrl : mapData.googleMapsUrl;
+        
+        const canOpen = await Linking.canOpenURL(url);
+        if (canOpen) {
+          await Linking.openURL(url);
+        } else {
+          Alert.alert(
+            'Harita Açılamadı',
+            'Harita uygulaması bulunamadı. Lütfen cihazınızda bir harita uygulaması yüklü olduğundan emin olun.',
+            [{ text: 'Tamam' }]
+          );
+        }
+      } else {
+        Alert.alert(
+          'Konum Bilgisi Yok',
+          'Bu ustanın konum bilgisi mevcut değil.',
+          [{ text: 'Tamam' }]
+        );
+      }
+    } catch (error) {
+      console.error('Harita açılırken hata:', error);
+      Alert.alert(
+        'Hata',
+        'Harita açılırken bir hata oluştu.',
+        [{ text: 'Tamam' }]
+      );
+    }
+  };
+
+  // Telefon arama fonksiyonu
+  const handleCallMechanic = async (mechanic: any) => {
+    try {
+      // Telefon numarasını kontrol et
+      const phoneNumber = mechanic.phone || mechanic.phoneNumber;
+      
+      if (!phoneNumber) {
+        Alert.alert(
+          'Telefon Numarası Yok',
+          'Bu ustanın telefon numarası mevcut değil.',
+          [{ text: 'Tamam' }]
+        );
+        return;
+      }
+
+      // Telefon numarasını temizle (sadece rakamlar)
+      const cleanPhoneNumber = phoneNumber.replace(/[^\d+]/g, '');
+      
+      // Arama yap
+      const phoneUrl = `tel:${cleanPhoneNumber}`;
+      const canOpen = await Linking.canOpenURL(phoneUrl);
+      
+      if (canOpen) {
+        await Linking.openURL(phoneUrl);
+      } else {
+        Alert.alert(
+          'Arama Yapılamadı',
+          'Telefon uygulaması bulunamadı.',
+          [{ text: 'Tamam' }]
+        );
+      }
+    } catch (error) {
+      console.error('Telefon arama hatası:', error);
+      Alert.alert(
+        'Hata',
+        'Telefon arama sırasında bir hata oluştu.',
+        [{ text: 'Tamam' }]
+      );
+    }
+  };
+
   const renderMechanicCard = ({ item }: { item: Mechanic }) => (
-    <View style={[styles.mechanicCard, { backgroundColor: theme.colors.card }]}>
+    <View style={[styles.mechanicCard, { backgroundColor: theme.colors.background.card }]}>
       {/* Header Section */}
       <View style={styles.cardHeader}>
         <View style={styles.headerLeft}>
@@ -233,23 +522,33 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
           </View>
           
           <View style={styles.basicInfo}>
-            <Text style={[styles.mechanicName, { color: theme.colors.text }]}>
-              {item.name} {item.surname}
+            <Text style={[styles.mechanicName, { color: theme.colors.text.primary }]}> 
+              {item.name} {item.surname} Usta
             </Text>
             
             {item.shopName && (
-              <Text style={[styles.shopName, { color: theme.colors.primary }]}>
+              <Text style={[styles.shopName, { color: theme.colors.primary.main }]}> 
                 {item.shopName}
               </Text>
             )}
             
             <View style={styles.locationContainer}>
               <MaterialCommunityIcons name="map-marker" size={16} color="#6B7280" />
-              <Text style={[styles.mechanicCity, { color: theme.colors.textSecondary }]}>
+              <Text style={[styles.mechanicCity, { color: theme.colors.text.secondary }]}> 
                 {item.city}
                 {item.location?.district && `, ${item.location.district}`}
               </Text>
             </View>
+            
+            {/* Mesafe Bilgisi */}
+            {item.formattedDistance && (
+              <View style={styles.distanceContainer}>
+                <MaterialCommunityIcons name="map-marker-distance" size={14} color="#3B82F6" />
+                <Text style={[styles.distanceText, { color: '#3B82F6' }]}>
+                  {item.formattedDistance}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
         
@@ -265,10 +564,10 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
                 />
               ))}
             </View>
-            <Text style={[styles.ratingText, { color: theme.colors.text }]}>
+            <Text style={[styles.ratingText, { color: theme.colors.text.primary }]}> 
               {item.rating.toFixed(1)}
             </Text>
-            <Text style={[styles.ratingCount, { color: theme.colors.textSecondary }]}>
+            <Text style={[styles.ratingCount, { color: theme.colors.text.secondary }]}> 
               ({item.ratingCount} değerlendirme)
             </Text>
           </View>
@@ -291,7 +590,7 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
       {/* Bio Section */}
       {item.bio && (
         <View style={styles.bioSection}>
-          <Text style={[styles.bio, { color: theme.colors.textSecondary }]} numberOfLines={2}>
+          <Text style={[styles.bio, { color: theme.colors.text.secondary }]} numberOfLines={2}> 
             {item.bio}
           </Text>
         </View>
@@ -299,33 +598,36 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
 
       {/* Stats Section */}
       <View style={styles.statsSection}>
-        <View style={styles.statCard}>
-          <View style={[styles.statIcon, { backgroundColor: '#EFF6FF' }]}>
-            <MaterialCommunityIcons name="briefcase" size={20} color="#3B82F6" />
+        <TouchableOpacity 
+          style={styles.statCard}
+          onPress={() => handleCallMechanic(item)}
+        >
+          <View style={[styles.statIcon, { backgroundColor: '#F0FDF4' }]}>
+            <MaterialCommunityIcons name="phone" size={18} color="#10B981" />
           </View>
           <View style={styles.statContent}>
-            <Text style={[styles.statValue, { color: theme.colors.text }]}>{item.totalJobs}</Text>
-            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Tamamlanan İş</Text>
+            <Text style={[styles.statValue, { color: theme.colors.text.primary }]}>Ara</Text>
+            <Text style={[styles.statLabel, { color: theme.colors.text.secondary }]}>Telefon</Text>
           </View>
-        </View>
+        </TouchableOpacity>
         
         <View style={styles.statCard}>
           <View style={[styles.statIcon, { backgroundColor: '#F0FDF4' }]}>
-            <MaterialCommunityIcons name="calendar" size={20} color="#10B981" />
+            <MaterialCommunityIcons name="calendar" size={18} color="#10B981" />
           </View>
           <View style={styles.statContent}>
-            <Text style={[styles.statValue, { color: theme.colors.text }]}>{item.experience}</Text>
-            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Deneyim Yılı</Text>
+            <Text style={[styles.statValue, { color: theme.colors.text.primary }]}>{item.experience}</Text>
+            <Text style={[styles.statLabel, { color: theme.colors.text.secondary }]}>Yıl</Text>
           </View>
         </View>
         
         <View style={styles.statCard}>
           <View style={[styles.statIcon, { backgroundColor: '#FEF3C7' }]}>
-            <MaterialCommunityIcons name="star" size={20} color="#F59E0B" />
+            <MaterialCommunityIcons name="star" size={18} color="#F59E0B" />
           </View>
           <View style={styles.statContent}>
-            <Text style={[styles.statValue, { color: theme.colors.text }]}>{item.ratingCount}</Text>
-            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Değerlendirme</Text>
+            <Text style={[styles.statValue, { color: theme.colors.text.primary }]}>{item.ratingCount}</Text>
+            <Text style={[styles.statLabel, { color: theme.colors.text.secondary }]}>Yorum</Text>
           </View>
         </View>
       </View>
@@ -333,7 +635,7 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
       {/* Rating Distribution */}
       {item.ratingStats && item.ratingStats.total > 0 && (
         <View style={styles.ratingSection}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}> 
             Değerlendirme Dağılımı
           </Text>
           <View style={styles.ratingBars}>
@@ -343,7 +645,7 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
               
               return (
                 <View key={star} style={styles.ratingBarItem}>
-                  <Text style={[styles.starLabel, { color: theme.colors.textSecondary }]}>
+                  <Text style={[styles.starLabel, { color: theme.colors.text.secondary }]}> 
                     {star} ⭐
                   </Text>
                   <View style={styles.barContainer}>
@@ -357,7 +659,7 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
                       ]}
                     />
                   </View>
-                  <Text style={[styles.barCount, { color: theme.colors.textSecondary }]}>
+                  <Text style={[styles.barCount, { color: theme.colors.text.secondary }]}> 
                     {count}
                   </Text>
                 </View>
@@ -369,19 +671,19 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
 
       {/* Specialties Section - Expandable */}
       <View style={styles.specialtiesSection}>
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}> 
           Uzmanlık Alanları
         </Text>
         <View style={styles.specialtiesGrid}>
-          {(expandedCards.has(item.id) ? item.specialties : item.specialties.slice(0, 4)).map((specialty, index) => (
+          {(expandedCards.has(item.id) ? item.serviceCategories : (item.serviceCategories || []).slice(0, 4)).map((specialty, index) => (
             <View key={index} style={styles.specialtyTag}>
               <MaterialCommunityIcons name="check-circle" size={14} color="#10B981" />
-              <Text style={[styles.specialtyText, { color: theme.colors.text }]}>
+              <Text style={[styles.specialtyText, { color: theme.colors.text.primary }]}> 
                 {specialty}
               </Text>
             </View>
           ))}
-          {item.specialties.length > 4 && (
+          {(item.serviceCategories || []).length > 4 && (
             <TouchableOpacity 
               style={styles.expandableMoreTag}
               onPress={() => {
@@ -399,12 +701,12 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
                 size={16} 
                 color="#6B7280" 
               />
-              <Text style={styles.expandableMoreText}>
-                {expandedCards.has(item.id) 
-                  ? "Daha Az" 
-                  : `+${item.specialties.length - 4} Devamını Gör`
-                }
-              </Text>
+                <Text style={styles.expandableMoreText}>
+                  {expandedCards.has(item.id) 
+                    ? "Daha Az" 
+                    : `+${(item.serviceCategories || []).length - 4} Devamını Gör`
+                  }
+                </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -413,11 +715,11 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
       {/* Working Hours - Compact */}
       {item.workingHours && (
         <View style={styles.workingHoursSection}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}> 
             Çalışma Saatleri
           </Text>
           <View style={styles.workingHoursCompactGrid}>
-            {parseWorkingHours(item.workingHours).slice(0, expandedCards.has(item.id) ? 7 : 4).map((day, index) => (
+            {(parseWorkingHours(item.workingHours) || []).slice(0, expandedCards.has(item.id) ? 7 : 4).map((day, index) => (
               <View key={index} style={[
                 styles.workingDayCompactCard,
                 { backgroundColor: day.isWorking ? '#F0FDF4' : '#F9FAFB' }
@@ -439,7 +741,7 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
                 )}
               </View>
             ))}
-            {parseWorkingHours(item.workingHours).length > 4 && (
+            {(parseWorkingHours(item.workingHours) || []).length > 4 && (
               <TouchableOpacity 
                 style={styles.expandableMoreTag}
                 onPress={() => {
@@ -460,7 +762,7 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
                 <Text style={styles.expandableMoreText}>
                   {expandedCards.has(item.id) 
                     ? "Az" 
-                    : `+${parseWorkingHours(item.workingHours).length - 4}`
+                    : `+${(parseWorkingHours(item.workingHours) || []).length - 4}`
                   }
                 </Text>
               </TouchableOpacity>
@@ -471,12 +773,12 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
 
       {/* Reviews Section - Expandable */}
       <View style={styles.reviewsSection}>
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}> 
           Son Yorumlar
         </Text>
         {item.recentReviews && item.recentReviews.length > 0 ? (
           <>
-            {(expandedCards.has(item.id) ? item.recentReviews : item.recentReviews.slice(0, 2)).map((review, index) => (
+            {(expandedCards.has(item.id) ? item.recentReviews : (item.recentReviews || []).slice(0, 2)).map((review, index) => (
               <View key={index} style={styles.reviewCard}>
                 <View style={styles.reviewHeader}>
                   <View style={styles.reviewerInfo}>
@@ -486,10 +788,10 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
                       </Text>
                     </View>
                     <View>
-                      <Text style={[styles.reviewerName, { color: theme.colors.text }]}>
+                      <Text style={[styles.reviewerName, { color: theme.colors.text.primary }]}> 
                         {review.userName}
                       </Text>
-                      <Text style={[styles.reviewDate, { color: theme.colors.textSecondary }]}>
+                      <Text style={[styles.reviewDate, { color: theme.colors.text.secondary }]}> 
                         {new Date(review.createdAt).toLocaleDateString('tr-TR')}
                       </Text>
                     </View>
@@ -506,14 +808,14 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
                   </View>
                 </View>
                 {review.comment && (
-                  <Text style={[styles.reviewComment, { color: theme.colors.textSecondary }]} numberOfLines={expandedCards.has(item.id) ? undefined : 2}>
+                  <Text style={[styles.reviewComment, { color: theme.colors.text.secondary }]} numberOfLines={expandedCards.has(item.id) ? undefined : 2}> 
                     "{review.comment}"
                   </Text>
                 )}
               </View>
             ))}
             
-            {item.recentReviews.length > 2 && (
+            {(item.recentReviews || []).length > 2 && (
               <TouchableOpacity 
                 style={styles.expandableMoreTag}
                 onPress={() => {
@@ -534,7 +836,7 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
                 <Text style={styles.expandableMoreText}>
                   {expandedCards.has(item.id) 
                     ? "Daha Az Göster" 
-                    : `+${item.recentReviews.length - 2} Yorum Daha Göster`
+                    : `+${(item.recentReviews || []).length - 2} Yorum Daha Göster`
                   }
                 </Text>
               </TouchableOpacity>
@@ -543,7 +845,7 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
         ) : (
           <View style={styles.noReviewsCard}>
             <MaterialCommunityIcons name="comment-outline" size={24} color="#9CA3AF" />
-            <Text style={[styles.noReviewsText, { color: theme.colors.textSecondary }]}>
+            <Text style={[styles.noReviewsText, { color: theme.colors.text.secondary }]}> 
               Henüz yorum yapılmamış
             </Text>
           </View>
@@ -553,32 +855,42 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
       {/* Action Section */}
       <View style={styles.actionSection}>
         <TouchableOpacity 
-          style={styles.detailButton}
-          onPress={() => navigation.navigate('MechanicDetail', { mechanic: item })}
+          style={[styles.actionButton, styles.mapButton]}
+          onPress={() => handleOpenInMaps(item)}
         >
-          <MaterialCommunityIcons name="eye" size={18} color="#6B7280" />
-          <Text style={[styles.detailButtonText, { color: theme.colors.textSecondary }]}>
-            Detayları Gör
+          <MaterialCommunityIcons name="map-marker" size={16} color="#FFFFFF" />
+          <Text style={styles.actionButtonText}>
+            Harita
           </Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.bookButton, { backgroundColor: theme.colors.primary }]}
+          style={[styles.actionButton, styles.detailButton]}
+          onPress={() => navigation.navigate('MechanicDetail', { mechanic: item })}
+        >
+          <MaterialCommunityIcons name="eye" size={16} color="#FFFFFF" />
+          <Text style={styles.actionButtonText}>
+            Detay
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.bookButton, { backgroundColor: theme.colors.primary.main }]}
           onPress={() => navigation.navigate('BookAppointment', { 
             mechanicId: item.id,
             mechanicName: item.name,
             mechanicSurname: item.surname
           })}
         >
-          <MaterialCommunityIcons name="calendar-plus" size={20} color="#FFFFFF" />
-          <Text style={styles.bookButtonText}>Randevu Al</Text>
+          <MaterialCommunityIcons name="calendar-plus" size={16} color="#FFFFFF" />
+          <Text style={styles.bookButtonText}>Randevu</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
       <StatusBar barStyle="light-content" backgroundColor="#1F2937" />
       <LinearGradient
         colors={['#1F2937', '#374151']}
@@ -593,39 +905,121 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>Usta Ara</Text>
           </View>
-          <TouchableOpacity 
-            style={styles.filterButton}
-            onPress={() => setShowFilters(!showFilters)}
-          >
-            <MaterialCommunityIcons 
-              name={showFilters ? "tune-variant" : "tune"} 
-              size={20} 
-              color="#FFFFFF" 
-            />
-          </TouchableOpacity>
+          <View style={styles.headerRightButtons}>
+            <TouchableOpacity 
+              style={[styles.headerButton, { backgroundColor: showMapView ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)' }]}
+              onPress={() => setShowMapView(!showMapView)}
+            >
+              <MaterialCommunityIcons 
+                name={showMapView ? "format-list-bulleted" : "map"} 
+                size={20} 
+                color="#FFFFFF" 
+              />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.headerButton}
+              onPress={() => setShowFilters(!showFilters)}
+            >
+              <MaterialCommunityIcons 
+                name={showFilters ? "tune-variant" : "tune"} 
+                size={20} 
+                color="#FFFFFF" 
+              />
+            </TouchableOpacity>
+          </View>
         </View>
       </LinearGradient>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Compact Search Bar */}
-        <View style={styles.searchContainer}>
+      {showMapView ? (
+        <View style={styles.mapContainer}>
+          <CustomMapView
+            markers={mapMarkers}
+            onMarkerPress={handleMarkerPress}
+            style={styles.map}
+            showUserLocation={true}
+            followUserLocation={false}
+          />
+          
+          {/* Seçilen Usta Bilgi Kartı */}
+          {selectedMechanic && (
+            <View style={[styles.selectedMechanicCard, { backgroundColor: theme.colors.background.card }]}> 
+              <View style={styles.selectedMechanicHeader}>
+                <Image
+                  source={{ uri: selectedMechanic.avatar || 'https://via.placeholder.com/50' }}
+                  style={styles.selectedMechanicAvatar}
+                  defaultSource={require('../assets/default_avatar.png')}
+                />
+                <View style={styles.selectedMechanicInfo}>
+                  <Text style={[styles.selectedMechanicName, { color: theme.colors.text.primary }]}> 
+                    {selectedMechanic.name} {selectedMechanic.surname}
+                  </Text>
+                  {selectedMechanic.shopName && (
+                    <Text style={[styles.selectedMechanicShop, { color: theme.colors.primary.main }]}> 
+                      {selectedMechanic.shopName}
+                    </Text>
+                  )}
+                  <View style={styles.selectedMechanicRating}>
+                    <MaterialCommunityIcons name="star" size={16} color="#F59E0B" />
+                    <Text style={[styles.selectedMechanicRatingText, { color: theme.colors.text.primary }]}> 
+                      {selectedMechanic.rating.toFixed(1)} ({selectedMechanic.ratingCount} değerlendirme)
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setSelectedMechanic(null)}
+                >
+                  <MaterialCommunityIcons name="close" size={20} color={theme.colors.text.secondary} /> 
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.selectedMechanicActions}>
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.detailButton]}
+                  onPress={() => navigation.navigate('MechanicDetail', { mechanic: selectedMechanic })}
+                >
+                  <MaterialCommunityIcons name="eye" size={14} color="#FFFFFF" />
+                  <Text style={styles.actionButtonText}>
+                    Detay
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.bookButton, { backgroundColor: theme.colors.primary.main }]} 
+                  onPress={() => navigation.navigate('BookAppointment', { 
+                    mechanicId: selectedMechanic.id,
+                    mechanicName: selectedMechanic.name,
+                    mechanicSurname: selectedMechanic.surname
+                  })}
+                >
+                  <MaterialCommunityIcons name="calendar-plus" size={14} color="#FFFFFF" />
+                  <Text style={styles.bookButtonText}>Randevu</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </View>
+      ) : (
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Compact Search Bar */}
+          <View style={styles.searchContainer}>
           <View style={[
             styles.searchInputContainer, 
             { 
-              backgroundColor: theme.colors.card,
-              borderColor: searchFocused ? theme.colors.primary : 'transparent',
+              backgroundColor: theme.colors.background.card,
+              borderColor: searchFocused ? theme.colors.primary.main : 'transparent',
               borderWidth: searchFocused ? 2 : 0,
             }
           ]}>
             <MaterialCommunityIcons 
               name="magnify" 
               size={18} 
-              color={searchFocused ? theme.colors.primary : theme.colors.textSecondary} 
+              color={searchFocused ? theme.colors.primary.main : theme.colors.text.secondary} 
             />
             <TextInput
-              style={[styles.searchInput, { color: theme.colors.text }]}
+              style={[styles.searchInput, { color: theme.colors.text.primary }]} 
               placeholder="Usta, şehir veya hizmet ara..."
-              placeholderTextColor={theme.colors.textTertiary}
+              placeholderTextColor={theme.colors.text.tertiary}
               value={searchQuery}
               onChangeText={setSearchQuery}
               onFocus={() => setSearchFocused(true)}
@@ -633,7 +1027,7 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <MaterialCommunityIcons name="close-circle" size={18} color={theme.colors.textSecondary} />
+                <MaterialCommunityIcons name="close-circle" size={18} color={theme.colors.text.secondary} /> 
               </TouchableOpacity>
             )}
           </View>
@@ -641,18 +1035,18 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
           {/* Compact Stats */}
           <View style={styles.compactStats}>
             <View style={styles.compactStatItem}>
-              <Text style={styles.compactStatNumber}>{mechanics.length}</Text>
+              <Text style={styles.compactStatNumber}>{mechanics?.length || 0}</Text>
               <Text style={styles.compactStatLabel}>Toplam</Text>
             </View>
             <View style={styles.compactStatDivider} />
             <View style={styles.compactStatItem}>
-              <Text style={styles.compactStatNumber}>{filteredMechanics.length}</Text>
+              <Text style={styles.compactStatNumber}>{filteredMechanics?.length || 0}</Text>
               <Text style={styles.compactStatLabel}>Bulunan</Text>
             </View>
             <View style={styles.compactStatDivider} />
             <View style={styles.compactStatItem}>
               <Text style={styles.compactStatNumber}>
-                {mechanics.filter(m => m.isAvailable).length}
+                {mechanics?.filter(m => m.isAvailable).length || 0}
               </Text>
               <Text style={styles.compactStatLabel}>Müsait</Text>
             </View>
@@ -662,7 +1056,7 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
         {/* Advanced Filters */}
         {showFilters && (
           <View style={styles.filtersContainer}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}> 
               Gelişmiş Filtreler
             </Text>
             
@@ -705,7 +1099,7 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
             
             {/* Sort Options */}
             <View style={styles.sortContainer}>
-              <Text style={[styles.sortLabel, { color: theme.colors.textSecondary }]}>
+              <Text style={[styles.sortLabel, { color: theme.colors.text.secondary }]}> 
                 Sıralama:
               </Text>
               <View style={styles.sortButtons}>
@@ -718,14 +1112,14 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
                     key={sort.key}
                     style={[
                       styles.sortButton,
-                      sortBy === sort.key && { backgroundColor: theme.colors.primary }
+                      sortBy === sort.key && { backgroundColor: theme.colors.primary.main }
                     ]}
                     onPress={() => setSortBy(sort.key as any)}
                   >
                     <MaterialCommunityIcons 
                       name={sort.icon as any} 
                       size={16} 
-                      color={sortBy === sort.key ? '#FFFFFF' : theme.colors.textSecondary} 
+                      color={sortBy === sort.key ? '#FFFFFF' : theme.colors.text.secondary} 
                     />
                     <Text style={[
                       styles.sortButtonText,
@@ -740,11 +1134,42 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
           </View>
         )}
 
-        {/* Compact Service Categories */}
+        {/* Ana Hizmet Kategorileri */}
         <View style={styles.serviceCategoriesContainer}>
-                      <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-              Hizmetler
-            </Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}> 
+            Hizmet Kategorileri
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {mainServiceCategories.map((category) => (
+              <TouchableOpacity
+                key={category.id}
+                style={[
+                  styles.serviceCategoryChip,
+                  selectedService === category.id && { backgroundColor: category.color }
+                ]}
+                onPress={() => setSelectedService(selectedService === category.id ? '' : category.id)}
+              >
+                <MaterialCommunityIcons 
+                  name={category.icon as any} 
+                  size={16} 
+                  color={selectedService === category.id ? '#FFFFFF' : category.color} 
+                />
+                <Text style={[
+                  styles.serviceCategoryText,
+                  selectedService === category.id && styles.serviceCategoryTextSelected
+                ]}>
+                  {category.title}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Detaylı Hizmet Kategorileri */}
+        <View style={styles.serviceCategoriesContainer}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}> 
+            Detaylı Hizmetler
+          </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {serviceCategories.map((category) => (
               <TouchableOpacity
@@ -774,30 +1199,30 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
         {/* Mechanics List */}
         <View style={styles.mechanicsContainer}>
           <View style={styles.mechanicsHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}> 
               Usta Listesi
             </Text>
             <View style={styles.mechanicsCount}>
-              <Text style={[styles.countText, { color: theme.colors.textSecondary }]}>
-                {filteredMechanics.length} usta bulundu
+              <Text style={[styles.countText, { color: theme.colors.text.secondary }]}> 
+                {filteredMechanics?.length || 0} usta bulundu
               </Text>
             </View>
           </View>
           
           {loading ? (
             <View style={styles.loadingContainer}>
-              <MaterialCommunityIcons name="loading" size={48} color={theme.colors.primary} />
-              <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+              <MaterialCommunityIcons name="loading" size={48} color={theme.colors.primary.main} /> 
+              <Text style={[styles.loadingText, { color: theme.colors.text.secondary }]}> 
                 Ustalar yükleniyor...
               </Text>
             </View>
-          ) : filteredMechanics.length === 0 ? (
+          ) : (filteredMechanics?.length || 0) === 0 ? (
             <View style={styles.emptyContainer}>
-              <MaterialCommunityIcons name="account-search" size={64} color={theme.colors.textTertiary} />
-              <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+              <MaterialCommunityIcons name="account-search" size={64} color={theme.colors.text.tertiary} /> 
+              <Text style={[styles.emptyTitle, { color: theme.colors.text.primary }]}> 
                 Usta Bulunamadı
               </Text>
-              <Text style={[styles.emptySubtitle, { color: theme.colors.textSecondary }]}>
+              <Text style={[styles.emptySubtitle, { color: theme.colors.text.secondary }]}> 
                 {searchQuery || selectedService || selectedFilters.length > 0 
                   ? 'Arama kriterlerinizi değiştirmeyi deneyin'
                   : 'Henüz usta kaydı bulunmuyor'
@@ -813,25 +1238,25 @@ const MechanicSearchScreen = ({ navigation, route }: any) => {
                     setSortBy('rating');
                   }}
                 >
-                  <MaterialCommunityIcons name="refresh" size={16} color={theme.colors.primary} />
-                  <Text style={[styles.clearFiltersText, { color: theme.colors.primary }]}>
+                  <MaterialCommunityIcons name="refresh" size={16} color={theme.colors.primary.main} /> 
+                  <Text style={[styles.clearFiltersText, { color: theme.colors.primary.main }]}> 
                     Filtreleri Temizle
                   </Text>
                 </TouchableOpacity>
               )}
             </View>
           ) : (
-            <FlatList
-              data={filteredMechanics}
-              renderItem={renderMechanicCard}
-              keyExtractor={(item) => item.id}
-              showsVerticalScrollIndicator={false}
-              scrollEnabled={false}
-              contentContainerStyle={styles.mechanicsList}
-            />
+            <View style={styles.mechanicsList}>
+              {(mechanicsWithDistance || []).map((mechanic) => (
+                <View key={mechanic.id}>
+                  {renderMechanicCard({ item: mechanic })}
+                </View>
+              ))}
+            </View>
           )}
         </View>
-      </ScrollView>
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 };
@@ -877,6 +1302,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
+
   statusIndicator: {
     position: 'absolute',
     bottom: 2,
@@ -911,6 +1337,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 6,
     color: '#6B7280',
+  },
+  distanceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  distanceText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   headerRight: {
     alignItems: 'flex-end',
@@ -966,35 +1402,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 20,
+    gap: 8,
   },
   statCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    padding: 12,
-    borderRadius: 10,
-    marginHorizontal: 3,
+    padding: 10,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     alignItems: 'center',
   },
   statIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   statContent: {
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: '#111827',
   },
   statLabel: {
-    fontSize: 10,
+    fontSize: 9,
     color: '#6B7280',
     textAlign: 'center',
   },
@@ -1197,26 +1633,40 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
+    gap: 6,
   },
-  detailButton: {
+  actionButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  detailButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 6,
+  mapButton: {
+    backgroundColor: '#3B82F6',
+  },
+  detailButton: {
+    backgroundColor: '#6B7280',
+  },
+  actionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   bookButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -1225,9 +1675,9 @@ const styles = StyleSheet.create({
   },
   bookButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: '600',
-    marginLeft: 8,
+    marginLeft: 4,
   },
   header: {
     paddingTop: 16,
@@ -1250,6 +1700,15 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  headerRightButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  headerButton: {
+    padding: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 8,
   },
   filterButton: {
     padding: 6,
@@ -1480,6 +1939,72 @@ const styles = StyleSheet.create({
   },
   mechanicsList: {
     paddingBottom: 20,
+  },
+  // Harita Stilleri
+  mapContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+  map: {
+    flex: 1,
+  },
+  selectedMechanicCard: {
+    position: 'absolute',
+    bottom: 20,
+    left: 16,
+    right: 16,
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  selectedMechanicHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  selectedMechanicAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 12,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  selectedMechanicInfo: {
+    flex: 1,
+  },
+  selectedMechanicName: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  selectedMechanicShop: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  selectedMechanicRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  selectedMechanicRatingText: {
+    fontSize: 12,
+    marginLeft: 4,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  selectedMechanicActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
   },
 });
 

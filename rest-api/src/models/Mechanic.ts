@@ -28,6 +28,10 @@ export interface IMechanic extends IUser {
     building: string;
     floor: string;
     apartment: string;
+    coordinates?: {
+      latitude: number;
+      longitude: number;
+    };
   };
   phone: string;
   // Gizlilik ayarları - User'dan gelen alanları override et
@@ -49,6 +53,9 @@ export interface IMechanic extends IUser {
   
   // Çalışma saatleri
   workingHours?: string;
+  
+  // Arıza bildirimi için desteklenen markalar
+  supportedBrands?: string[];
 }
 
 const mechanicSchema = new Schema<IMechanic>({
@@ -107,6 +114,10 @@ const mechanicSchema = new Schema<IMechanic>({
     building: { type: String, default: '' },
     floor: { type: String, default: '' },
     apartment: { type: String, default: '' },
+    coordinates: {
+      latitude: { type: Number, default: 0 },
+      longitude: { type: Number, default: 0 }
+    }
   },
   phone: { type: String, default: '' },
   // Gizlilik ayarları
@@ -125,6 +136,9 @@ const mechanicSchema = new Schema<IMechanic>({
   
   // Özel markalar
   customBrands: [{ type: String, default: [] }],
+  
+  // Arıza bildirimi için desteklenen markalar
+  supportedBrands: [{ type: String, default: [] }],
 });
 
 // Konum için geospatial index

@@ -152,6 +152,8 @@ export class NotificationController {
       const { notificationId } = req.params;
       const userId = req.user?.userId;
 
+      console.log('Mark as read request:', { notificationId, userId });
+
       if (!userId) {
         return res.status(401).json({
           success: false,
@@ -167,6 +169,8 @@ export class NotificationController {
         { isRead: true },
         { new: true }
       );
+
+      console.log('Notification found and updated:', notification);
 
       if (!notification) {
         return res.status(404).json({
@@ -198,6 +202,8 @@ export class NotificationController {
       const { notificationId } = req.params;
       const userId = req.user?.userId;
 
+      console.log('Delete notification request:', { notificationId, userId });
+
       if (!userId) {
         return res.status(401).json({
           success: false,
@@ -209,6 +215,8 @@ export class NotificationController {
         _id: notificationId,
         recipientId: userId
       });
+
+      console.log('Notification deleted:', notification);
 
       if (!notification) {
         return res.status(404).json({
@@ -231,7 +239,7 @@ export class NotificationController {
   }
 
   /**
-   * Tüm bildirimleri okundu olarak işaretle
+   * Tüm bildirimleri okundu olarak işaretle (Usta)
    */
   static async markAllAsRead(req: Request, res: Response) {
     try {
@@ -252,6 +260,49 @@ export class NotificationController {
         },
         { isRead: true }
       );
+
+      res.json({
+        success: true,
+        message: 'Tüm bildirimler okundu olarak işaretlendi',
+        data: {
+          updatedCount: result.modifiedCount
+        }
+      });
+    } catch (error) {
+      console.error('Tüm bildirimler okundu işaretlenirken hata:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Tüm bildirimler okundu işaretlenirken bir hata oluştu'
+      });
+    }
+  }
+
+  /**
+   * Tüm bildirimleri okundu olarak işaretle (Şoför)
+   */
+  static async markAllAsReadDriver(req: Request, res: Response) {
+    try {
+      const userId = req.user?.userId;
+
+      console.log('Mark all as read driver request:', { userId });
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Kullanıcı doğrulanamadı'
+        });
+      }
+
+      const result = await Notification.updateMany(
+        { 
+          recipientId: userId,
+          recipientType: 'driver',
+          isRead: false
+        },
+        { isRead: true }
+      );
+
+      console.log('Mark all as read result:', result);
 
       res.json({
         success: true,

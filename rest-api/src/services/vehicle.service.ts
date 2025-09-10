@@ -1,5 +1,6 @@
 import { Vehicle, IVehicle } from '../models/Vehicle';
 import { User } from '../models/User';
+import { Appointment } from '../models/Appointment';
 import mongoose from 'mongoose';
 import { CustomError } from '../middleware/errorHandler';
 
@@ -9,11 +10,25 @@ export class VehicleService {
    */
   static async createVehicle(vehicleData: Partial<IVehicle>, userId: string): Promise<IVehicle> {
     try {
+      console.log('🚗 VehicleService: Araç oluşturuluyor...', {
+        vehicleData,
+        userId
+      });
+
+      // ObjectId validation
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        console.log('❌ VehicleService: Geçersiz kullanıcı ID:', userId);
+        throw new CustomError('Geçersiz kullanıcı ID', 400);
+      }
+
       // Kullanıcının var olduğunu kontrol et
       const user = await User.findById(userId);
       if (!user) {
+        console.log('❌ VehicleService: Kullanıcı bulunamadı:', userId);
         throw new CustomError('Kullanıcı bulunamadı', 404);
       }
+
+      console.log('✅ VehicleService: Kullanıcı bulundu:', user.email);
 
       // Araç verilerini hazırla
       const vehicle = new Vehicle({
@@ -21,9 +36,13 @@ export class VehicleService {
         userId: new mongoose.Types.ObjectId(userId)
       });
 
+      console.log('🔧 VehicleService: Araç objesi oluşturuldu:', vehicle);
+
       const savedVehicle = await vehicle.save();
+      console.log('✅ VehicleService: Araç kaydedildi:', savedVehicle._id);
       return savedVehicle;
     } catch (error) {
+      console.error('❌ VehicleService: Hata:', error);
       if (error instanceof CustomError) throw error;
       throw new CustomError('Araç oluşturulurken hata oluştu', 500);
     }
@@ -34,6 +53,11 @@ export class VehicleService {
    */
   static async getUserVehicles(userId: string): Promise<IVehicle[]> {
     try {
+      // ObjectId validation
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        throw new CustomError('Geçersiz kullanıcı ID', 400);
+      }
+
       const vehicles = await Vehicle.find({ userId: new mongoose.Types.ObjectId(userId) })
         .populate('userId', 'name surname email')
         .sort({ createdAt: -1 });
@@ -49,6 +73,14 @@ export class VehicleService {
    */
   static async getVehicleById(vehicleId: string, userId: string): Promise<IVehicle> {
     try {
+      // ObjectId validation
+      if (!mongoose.Types.ObjectId.isValid(vehicleId)) {
+        throw new CustomError('Geçersiz araç ID', 400);
+      }
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        throw new CustomError('Geçersiz kullanıcı ID', 400);
+      }
+
       const vehicle = await Vehicle.findOne({
         _id: new mongoose.Types.ObjectId(vehicleId),
         userId: new mongoose.Types.ObjectId(userId)
@@ -61,6 +93,7 @@ export class VehicleService {
       return vehicle;
     } catch (error) {
       if (error instanceof CustomError) throw error;
+      console.error('VehicleService.getVehicleById error:', error);
       throw new CustomError('Araç getirilirken hata oluştu', 500);
     }
   }
@@ -148,6 +181,98 @@ export class VehicleService {
       return vehicles;
     } catch (error) {
       throw new CustomError('Araç arama yapılırken hata oluştu', 500);
+    }
+  }
+
+  /**
+   * Servis edilmiş araçları getir
+   */
+  static async getServicedVehicles(mechanicId: string): Promise<IVehicle[]> {
+    try {
+      // ObjectId validation
+      if (!mongoose.Types.ObjectId.isValid(mechanicId)) {
+        throw new CustomError('Geçersiz mekanik ID', 400);
+      }
+
+      // Appointment'larda servis edilmiş araçları bul
+      const servicedAppointments = await Appointment.find({
+        mechanicId: new mongoose.Types.ObjectId(mechanicId),
+        status: 'TAMAMLANDI'
+      }).populate('vehicleId');
+
+      // Araç ID'lerini çıkar
+      const vehicleIds = servicedAppointments
+        .map(appointment => appointment.vehicleId)
+        .filter(vehicle => vehicle !== null);
+
+      // Araçları getir
+      const vehicles = await Vehicle.find({
+        _id: { $in: vehicleIds }
+      }).populate('userId', 'name surname email phone');
+
+      return vehicles;
+    } catch (error) {
+      console.error('VehicleService.getServicedVehicles error:', error);
+      throw new CustomError('Servis edilmiş araçlar getirilirken hata oluştu', 500);
+    }
+  }
+
+  /**
+   * Aracı favorile/favoriden çıkar
+   */
+  static async toggleFavorite(vehicleId: string, userId: string): Promise<IVehicle> {
+    try {
+      // ObjectId validation
+      if (!mongoose.Types.ObjectId.isValid(vehicleId)) {
+        throw new CustomError('Geçersiz araç ID', 400);
+      }
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        throw new CustomError('Geçersiz kullanıcı ID', 400);
+      }
+
+      // Aracı bul
+      const vehicle = await Vehicle.findOne({
+        _id: new mongoose.Types.ObjectId(vehicleId),
+        userId: new mongoose.Types.ObjectId(userId)
+      });
+
+      if (!vehicle) {
+        throw new CustomError('Araç bulunamadı', 404);
+      }
+
+      // Kullanıcının diğer araçlarını favoriden çıkar (sadece bir araç favori olabilir)
+      await Vehicle.updateMany(
+        { 
+          userId: new mongoose.Types.ObjectId(userId),
+          _id: { $ne: new mongoose.Types.ObjectId(vehicleId) }
+        },
+        { isFavorite: false }
+      );
+
+      // Bu aracın favori durumunu toggle et
+      vehicle.isFavorite = !vehicle.isFavorite;
+      await vehicle.save();
+
+      // User modelindeki favoriteVehicle field'ını güncelle
+      if (vehicle.isFavorite) {
+        // Aracı favori yap
+        await User.findByIdAndUpdate(
+          new mongoose.Types.ObjectId(userId),
+          { favoriteVehicle: new mongoose.Types.ObjectId(vehicleId) }
+        );
+      } else {
+        // Aracı favoriden çıkar
+        await User.findByIdAndUpdate(
+          new mongoose.Types.ObjectId(userId),
+          { $unset: { favoriteVehicle: 1 } }
+        );
+      }
+
+      return vehicle;
+    } catch (error) {
+      if (error instanceof CustomError) throw error;
+      console.error('VehicleService.toggleFavorite error:', error);
+      throw new CustomError('Favori durumu güncellenirken hata oluştu', 500);
     }
   }
 }

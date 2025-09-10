@@ -5,7 +5,7 @@ export interface INotification extends Document {
   recipientType: 'mechanic' | 'driver';
   title: string;
   message: string;
-  type: 'appointment_request' | 'appointment_confirmed' | 'appointment_rejected' | 'reminder' | 'system';
+  type: 'appointment_request' | 'appointment_confirmed' | 'appointment_rejected' | 'appointment_cancelled' | 'payment_received' | 'payment_pending' | 'rating_received' | 'new_message' | 'job_completed' | 'job_assigned' | 'reminder' | 'system' | 'promotion' | 'update' | 'fault_report' | 'towing_request' | 'wash_request' | 'tire_service' | 'garage_service' | 'wallet' | 'points' | 'general';
   isRead: boolean;
   appointmentId?: mongoose.Types.ObjectId;
   userId?: mongoose.Types.ObjectId;
@@ -36,7 +36,7 @@ const notificationSchema = new Schema<INotification>({
   type: {
     type: String,
     required: true,
-    enum: ['appointment_request', 'appointment_confirmed', 'appointment_rejected', 'reminder', 'system']
+    enum: ['appointment_request', 'appointment_confirmed', 'appointment_rejected', 'appointment_cancelled', 'payment_received', 'payment_pending', 'rating_received', 'new_message', 'job_completed', 'job_assigned', 'reminder', 'system', 'promotion', 'update', 'fault_report', 'towing_request', 'wash_request', 'tire_service', 'garage_service', 'wallet', 'points', 'general']
   },
   isRead: {
     type: Boolean,

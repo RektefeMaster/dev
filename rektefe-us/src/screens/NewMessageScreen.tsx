@@ -161,10 +161,10 @@ const NewMessageScreen = ({ navigation, route }: any) => {
       </LinearGradient>
 
       <View style={styles.searchContainer}>
-        <View style={[styles.searchInputContainer, { backgroundColor: colors.background.paper }]}>
+        <View style={[styles.searchInputContainer, { backgroundColor: colors.background.card }]}>
           <Ionicons name="search" size={20} color={colors.text.secondary} />
           <TextInput
-            style={[styles.searchInput, { color: colors.text.primary }]}
+            style={[styles.searchInput, { color: colors.text.primary.main }]}
             placeholder="Sürücü ara..."
             placeholderTextColor={colors.text.secondary}
             value={searchQuery}
@@ -193,7 +193,7 @@ const NewMessageScreen = ({ navigation, route }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.default,
+    backgroundColor: colors.background.primary,
   },
   header: {
     paddingTop: 20,
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     paddingHorizontal: 16,
-    backgroundColor: colors.background.paper,
+    backgroundColor: colors.background.card,
     borderRadius: 16,
     marginBottom: 12,
     ...shadows.small,
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
   driverName: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     marginBottom: 4,
   },
   driverCity: {
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     marginBottom: 8,
   },
   emptySubtitle: {

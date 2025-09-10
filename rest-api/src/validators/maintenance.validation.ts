@@ -123,6 +123,11 @@ export const updateMechanicProfileSchema = Joi.object({
     street: Joi.string().min(2).max(100).optional(),
     building: Joi.string().min(1).max(50).optional(),
     floor: Joi.string().min(1).max(10).optional(),
-    apartment: Joi.string().min(1).max(10).optional()
+    apartment: Joi.string().min(1).max(10).optional(),
+    description: Joi.string().max(500).optional(),
+    coordinates: Joi.object({
+      latitude: Joi.number().min(-90).max(90).required(),
+      longitude: Joi.number().min(-180).max(180).required()
+    }).optional()
   }).optional()
 });

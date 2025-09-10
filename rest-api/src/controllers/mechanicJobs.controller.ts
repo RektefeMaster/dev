@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
-import { sendResponse } from '../utils/response';
+import { ResponseHandler } from '../utils/response';
+import { AppointmentService } from '../services/appointment.service';
 import { Appointment } from '../models/Appointment';
 
 export class MechanicJobsController {
@@ -8,34 +9,50 @@ export class MechanicJobsController {
    */
   static async getMechanicJobs(req: Request, res: Response) {
     try {
-      // TODO: Implement mechanic jobs logic
-      const mockJobs = [
-        {
-          id: '1',
-          title: 'Motor Bakımı',
-          customer: 'Ahmet Yılmaz',
-          vehicle: 'BMW X5 - 34 ABC 123',
-          status: 'in-progress',
-          estimatedPrice: 800,
-          startDate: new Date(),
-          estimatedDuration: 120
-        },
-        {
-          id: '2',
-          title: 'Fren Tamiri',
-          customer: 'Mehmet Demir',
-          vehicle: 'Mercedes C200 - 06 XYZ 789',
-          status: 'pending',
-          estimatedPrice: 450,
-          startDate: new Date(Date.now() + 86400000),
-          estimatedDuration: 90
-        }
-      ];
+      const userId = (req.user as any)?.userId;
+      if (!userId) {
+        return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+      }
 
-      return sendResponse(res, 200, 'İşler başarıyla getirildi', mockJobs);
+      const { status, q } = req.query as { status?: string; q?: string };
+
+      // Randevuları çek (mevcut servis ile)
+      const statusMap: Record<string, string | undefined> = {
+        pending: 'pending',
+        approved: 'confirmed',
+        confirmed: 'confirmed',
+        active: 'confirmed',
+        inprogress: 'in-progress',
+        'in-progress': 'in-progress',
+        completed: 'completed',
+      };
+
+      const mappedStatus = status ? statusMap[status] ?? status : undefined;
+      const appointments = await AppointmentService.getMechanicAppointments(userId, mappedStatus);
+
+      // Basit arama filtresi (serviceType, description, customer name)
+      const filtered = q
+        ? appointments.filter((apt: any) => {
+            const hay = `${apt.serviceType} ${apt.description || ''} ${apt.customer?.name || ''} ${apt.customer?.surname || ''}`.toLowerCase();
+            return hay.includes(q.toLowerCase());
+          })
+        : appointments;
+
+      // Özet metrikleri hazırla
+      const summary = filtered.reduce(
+        (acc: any, apt: any) => {
+          acc.total += 1;
+          acc.byStatus[apt.status] = (acc.byStatus[apt.status] || 0) + 1;
+          if (apt.status === 'completed') acc.completedAmount += apt.price || 0;
+          return acc;
+        },
+        { total: 0, completedAmount: 0, byStatus: {} as Record<string, number> }
+      );
+
+      return ResponseHandler.success(res, { jobs: filtered, summary }, 'İşler başarıyla getirildi');
     } catch (error) {
       console.error('getMechanicJobs error:', error);
-      return sendResponse(res, 500, 'Sunucu hatası');
+      return ResponseHandler.error(res, 'Sunucu hatası', 500);
     }
   }
 
@@ -45,25 +62,16 @@ export class MechanicJobsController {
   static async getJobDetails(req: Request, res: Response) {
     try {
       const { jobId } = req.params;
-      
-      // TODO: Implement job details logic
-      const mockJob = {
-        id: jobId,
-        title: 'Motor Bakımı',
-        customer: 'Ahmet Yılmaz',
-        vehicle: 'BMW X5 - 34 ABC 123',
-        status: 'in-progress',
-        estimatedPrice: 800,
-        startDate: new Date(),
-        estimatedDuration: 120,
-        description: 'Motor yağı değişimi ve filtre kontrolü',
-        notes: 'Özel motor yağı kullanılacak'
-      };
+      const userId = (req.user as any)?.userId;
+      if (!userId) {
+        return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+      }
 
-      return sendResponse(res, 200, 'İş detayı başarıyla getirildi', mockJob);
+      const job = await AppointmentService.getAppointmentById(jobId, userId);
+      return ResponseHandler.success(res, job, 'İş detayı başarıyla getirildi');
     } catch (error) {
       console.error('getJobDetails error:', error);
-      return sendResponse(res, 500, 'Sunucu hatası');
+      return ResponseHandler.error(res, 'Sunucu hatası', 500);
     }
   }
 
@@ -73,15 +81,13 @@ export class MechanicJobsController {
   static async updateJobStatus(req: Request, res: Response) {
     try {
       const { jobId } = req.params;
-      const { status, notes, estimatedCompletionTime } = req.body;
+      const { status, rejectionReason, mechanicNotes } = req.body;
 
-      // TODO: Implement status update logic
-      console.log(`Job ${jobId} status updated to: ${status}`);
-
-      return sendResponse(res, 200, 'İş durumu başarıyla güncellendi');
+      const updated = await AppointmentService.updateAppointmentStatus(jobId, status, rejectionReason, mechanicNotes);
+      return ResponseHandler.success(res, updated, 'İş durumu başarıyla güncellendi');
     } catch (error) {
       console.error('updateJobStatus error:', error);
-      return sendResponse(res, 500, 'Sunucu hatası');
+      return ResponseHandler.error(res, 'Sunucu hatası', 500);
     }
   }
 
@@ -91,10 +97,10 @@ export class MechanicJobsController {
   static async updateJobPrice(req: Request, res: Response) {
     try {
       const { jobId } = req.params;
-      const { price, breakdown, notes } = req.body;
+      const { price } = req.body;
 
       if (!price || typeof price !== 'number' || price <= 0) {
-        return sendResponse(res, 400, 'Geçerli bir fiyat gerekli');
+        return ResponseHandler.badRequest(res, 'Geçerli bir fiyat gerekli');
       }
 
       // Appointment'ı bul ve fiyatını güncelle
@@ -108,16 +114,13 @@ export class MechanicJobsController {
       );
 
       if (!appointment) {
-        return sendResponse(res, 404, 'Randevu bulunamadı');
+        return ResponseHandler.notFound(res, 'Randevu bulunamadı');
       }
 
-      console.log(`✅ Job ${jobId} price updated to: ${price}`);
-      console.log(`✅ Appointment updated:`, appointment);
-
-      return sendResponse(res, 200, 'Fiyat başarıyla güncellendi', { appointment });
+      return ResponseHandler.success(res, { appointment }, 'Fiyat başarıyla güncellendi');
     } catch (error) {
       console.error('updateJobPrice error:', error);
-      return sendResponse(res, 500, 'Sunucu hatası');
+      return ResponseHandler.error(res, 'Sunucu hatası', 500);
     }
   }
 
@@ -127,15 +130,17 @@ export class MechanicJobsController {
   static async completeJob(req: Request, res: Response) {
     try {
       const { jobId } = req.params;
-      const { finalPrice, workDone, partsUsed, completionTime, customerNotes } = req.body;
+      const { finalPrice, mechanicNotes, estimatedDuration } = req.body;
 
-      // TODO: Implement job completion logic
-      console.log(`Job ${jobId} completed with final price: ${finalPrice}`);
+      if (!finalPrice || typeof finalPrice !== 'number' || finalPrice <= 0) {
+        return ResponseHandler.badRequest(res, 'Geçerli bir ücret gerekli');
+      }
 
-      return sendResponse(res, 200, 'İş başarıyla tamamlandı');
+      const completed = await AppointmentService.completeAppointment(jobId, mechanicNotes || '', finalPrice, estimatedDuration);
+      return ResponseHandler.success(res, completed, 'İş başarıyla tamamlandı');
     } catch (error) {
       console.error('completeJob error:', error);
-      return sendResponse(res, 500, 'Sunucu hatası');
+      return ResponseHandler.error(res, 'Sunucu hatası', 500);
     }
   }
 
@@ -144,23 +149,16 @@ export class MechanicJobsController {
    */
   static async getJobStats(req: Request, res: Response) {
     try {
-      const { period } = req.query;
+      const userId = (req.user as any)?.userId;
+      if (!userId) {
+        return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+      }
 
-      // TODO: Implement job statistics logic
-      const mockStats = {
-        totalJobs: 156,
-        completedJobs: 142,
-        pendingJobs: 8,
-        inProgressJobs: 6,
-        totalEarnings: 125000,
-        averageRating: 4.8,
-        period: period || 'month'
-      };
-
-      return sendResponse(res, 200, 'İstatistikler başarıyla getirildi', mockStats);
+      const stats = await AppointmentService.getAppointmentStats(userId);
+      return ResponseHandler.success(res, stats, 'İstatistikler başarıyla getirildi');
     } catch (error) {
       console.error('getJobStats error:', error);
-      return sendResponse(res, 500, 'Sunucu hatası');
+      return ResponseHandler.error(res, 'Sunucu hatası', 500);
     }
   }
 
@@ -169,28 +167,28 @@ export class MechanicJobsController {
    */
   static async getJobSchedule(req: Request, res: Response) {
     try {
-      const { date, view } = req.query;
+      const userId = (req.user as any)?.userId;
+      if (!userId) {
+        return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+      }
 
-      // TODO: Implement schedule logic
-      const mockSchedule = [
-        {
-          time: '09:00',
-          job: 'Motor Bakımı',
-          customer: 'Ahmet Yılmaz',
-          duration: 120
-        },
-        {
-          time: '14:00',
-          job: 'Lastik Değişimi',
-          customer: 'Mehmet Demir',
-          duration: 60
-        }
-      ];
-
-      return sendResponse(res, 200, 'Program başarıyla getirildi', mockSchedule);
+      // Bugünün onaylı/işlemde randevuları program gibi göster
+      const schedule = await AppointmentService.getTodaysAppointments(userId);
+      return ResponseHandler.success(res, schedule, 'Program başarıyla getirildi');
     } catch (error) {
       console.error('getJobSchedule error:', error);
-      return sendResponse(res, 500, 'Sunucu hatası');
+      return ResponseHandler.error(res, 'Sunucu hatası', 500);
     }
   }
+
+  /**
+   * Usta için detaylı "Servis Aç" (dükkana gelen müşteri/araç) oluştur
+   * Body örneği:
+   * {
+   *   customer: { name, surname, phone, email? },
+   *   vehicle: { brand, modelName, year, plateNumber, fuelType?, engineType?, transmission?, color?, mileage? },
+   *   service: { serviceType, appointmentDate, timeSlot, description?, estimatedDuration?, price?, mechanicNotes?, startImmediately? }
+   * }
+   */
+  // createShopService kaldırıldı (appointments üzerinden ilerleniyor)
 }

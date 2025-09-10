@@ -73,7 +73,7 @@ export default function SettingsScreen() {
       
       {hasSwitch ? (
         <Switch
-          value={settings[setting]}
+          value={settings[setting] as boolean}
           onValueChange={() => handleSettingToggle(setting)}
           trackColor={{ false: colors.border.secondary, true: colors.primary.light }}
           thumbColor={settings[setting] ? colors.primary.main : colors.text.tertiary}
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.h4.fontSize,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     marginBottom: spacing.md,
     paddingHorizontal: spacing.sm,
   },
@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
   settingTitle: {
     fontSize: typography.body1.fontSize,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     marginBottom: spacing.xs,
   },
   settingSubtitle: {

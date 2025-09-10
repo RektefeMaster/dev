@@ -158,17 +158,18 @@ export const QuickAccess: React.FC<QuickAccessProps> = ({
             styles.card,
             card.isClickable && styles.clickableCard,
             { 
-              borderLeftColor: card.color,
+              borderLeftColor: currentColors.text.primary,
               backgroundColor: currentColors.background.card,
-              borderColor: currentColors.border.light
+              borderColor: currentColors.border.light,
+              shadowColor: '#000',
             }
           ]}
           onPress={() => card.isClickable && onCardPress(card)}
           activeOpacity={card.isClickable ? 0.7 : 1}
           disabled={!card.isClickable}
         >
-          <View style={[styles.iconContainer, { backgroundColor: card.color + '20' }]}>
-            <MaterialCommunityIcons name={card.icon as any} size={24} color={card.color} />
+          <View style={[styles.iconContainer, { backgroundColor: currentColors.background.secondary }]}>
+            <MaterialCommunityIcons name={card.icon as any} size={22} color={currentColors.text.primary} />
           </View>
           <View style={styles.contentContainer}>
             <Text style={[styles.title, { color: currentColors.text.secondary }]}>
@@ -195,12 +196,13 @@ export const QuickAccess: React.FC<QuickAccessProps> = ({
             )}
           </View>
           {card.isClickable && (
-            <MaterialCommunityIcons 
-              name="chevron-right" 
-              size={20} 
-              color={currentColors.text.tertiary} 
-              style={styles.chevron}
-            />
+            <View style={[styles.chevronContainer, { backgroundColor: currentColors.background.secondary }]}>
+              <MaterialCommunityIcons 
+                name="chevron-right" 
+                size={18} 
+                color={currentColors.text.tertiary} 
+              />
+            </View>
           )}
         </TouchableOpacity>
       ))}
@@ -215,23 +217,22 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 16,
-    borderLeftWidth: 4,
+    borderLeftWidth: 3,
     borderWidth: 1,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
     elevation: 3,
   },
   clickableCard: {
     // backgroundColor artık dinamik olarak ayarlanıyor
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
@@ -240,21 +241,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 14,
-    marginBottom: 4,
-    fontWeight: '500',
+    fontSize: 15,
+    marginBottom: 6,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   value: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     marginBottom: 4,
+    letterSpacing: -0.3,
   },
   lastUpdate: {
     fontSize: 12,
     opacity: 0.8,
   },
-  chevron: {
-    marginLeft: 8,
+  chevronContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
   },
   messageContainer: {
     flexDirection: 'row',

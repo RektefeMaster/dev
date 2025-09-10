@@ -17,17 +17,10 @@ export class PushNotificationService {
     try {
       const user = await User.findById(userId);
       if (!user || !user.pushToken) {
-        console.log(`⚠️ Kullanıcı bulunamadı veya push token yok: ${userId}`);
         return false;
       }
 
       const success = await this.sendExpoPushNotification(user.pushToken, title, body, data);
-      
-      if (success) {
-        console.log(`✅ Push notification gönderildi: ${userId} - ${title}`);
-      } else {
-        console.log(`❌ Push notification gönderilemedi: ${userId}`);
-      }
       
       return success;
     } catch (error) {
@@ -42,7 +35,6 @@ export class PushNotificationService {
       const users = await User.find({ _id: { $in: userIds }, pushToken: { $exists: true, $ne: null } });
       
       if (users.length === 0) {
-        console.log('⚠️ Push token\'ı olan kullanıcı bulunamadı');
         return 0;
       }
 
@@ -55,7 +47,7 @@ export class PushNotificationService {
 
       await Promise.all(promises);
       
-      console.log(`✅ ${successCount}/${users.length} kullanıcıya push notification gönderildi`);
+
       return successCount;
     } catch (error) {
       console.error('Çoklu push notification gönderme hatası:', error);
@@ -72,7 +64,6 @@ export class PushNotificationService {
       });
       
       if (mechanics.length === 0) {
-        console.log('⚠️ Push token\'ı olan mekanik bulunamadı');
         return 0;
       }
 
@@ -85,7 +76,7 @@ export class PushNotificationService {
 
       await Promise.all(promises);
       
-      console.log(`✅ ${successCount}/${mechanics.length} mekaniğe push notification gönderildi`);
+
       return successCount;
     } catch (error) {
       console.error('Mekaniklere push notification gönderme hatası:', error);

@@ -27,6 +27,7 @@ export const registerSchema = Joi.object({
   phone: Joi.string().optional(),
   experience: Joi.number().min(0).optional(),
   specialties: Joi.array().items(Joi.string()).optional(),
+  serviceCategories: Joi.array().items(Joi.string().valid('towing', 'repair', 'wash', 'tire')).optional(),
   location: Joi.object({
     address: Joi.string().optional(),
     city: Joi.string().optional()
@@ -41,5 +42,8 @@ export const loginSchema = Joi.object({
   password: Joi.string().required().messages({
     'any.required': 'Şifre zorunludur'
   }),
-  userType: Joi.string().valid('driver', 'mechanic').optional()
+  userType: Joi.string().valid('driver', 'mechanic').required().messages({
+    'any.required': 'Kullanıcı tipi zorunludur',
+    'any.only': 'Kullanıcı tipi driver veya mechanic olmalıdır'
+  })
 });

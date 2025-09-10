@@ -71,32 +71,32 @@ export const GreetingHeader: React.FC<GreetingHeaderProps> = ({ userName, favori
 
   const quickActions = [
     {
-      id: 'appointment',
-      title: 'Randevu Al',
-      icon: 'calendar-plus',
-      color: '#007AFF',
-      onPress: () => navigation.navigate('BookAppointment'),
+      id: 'towing',
+      title: 'Çekici',
+      icon: 'truck',
+      color: '#EF4444', // Kırmızı
+      onPress: () => navigation.navigate('TowingRequest'),
     },
     {
-      id: 'mechanic',
-      title: 'Usta Ara',
-      icon: 'account-wrench',
-      color: '#34C759',
-      onPress: () => navigation.navigate('MechanicSearch'),
-    },
-    {
-      id: 'maintenance',
-      title: 'Bakım Planı',
+      id: 'repair',
+      title: 'Tamir & Bakım',
       icon: 'wrench',
-      color: '#FF9500',
+      color: '#3B82F6', // Mavi
       onPress: () => navigation.navigate('MaintenancePlan'),
     },
     {
-      id: 'wallet',
-      title: 'Cüzdan',
-      icon: 'wallet',
-      color: '#AF52DE',
-      onPress: () => navigation.navigate('Wallet'),
+      id: 'wash',
+      title: 'Yıkama',
+      icon: 'water',
+      color: '#10B981', // Yeşil
+      onPress: () => navigation.navigate('WashBooking'),
+    },
+    {
+      id: 'tire',
+      title: 'Lastik & Parça',
+      icon: 'car',
+      color: '#F59E0B', // Turuncu
+      onPress: () => navigation.navigate('TireParts'),
     },
   ];
 

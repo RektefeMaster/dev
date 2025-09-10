@@ -14,10 +14,20 @@
     "scheme": "rektefedv",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.rektefe.dv"
+      "bundleIdentifier": "com.rektefe.dv",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Uygulama yakındaki ustaları gösterebilmek için konumunuza erişim istiyor.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Uygulama yakındaki ustaları gösterebilmek için konumunuza erişim istiyor.",
+        "LSApplicationQueriesSchemes": ["tel", "telprompt", "mailto", "http", "https", "maps"]
+      }
     },
     "android": {
-      "package": "com.rektefe.dv"
+      "package": "com.rektefe.dv",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CALL_PHONE"
+      ]
     },
     "newArchEnabled": true,
     "plugins": [

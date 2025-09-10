@@ -10,12 +10,8 @@ import { tr } from 'date-fns/locale';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import io from 'socket.io-client';
-
-type RootStackParamList = {
-  Login: undefined;
-  Home: undefined;
-  Appointments: undefined;
-};
+import { translateServiceName } from '../utils/serviceTranslator';
+import { RootStackParamList } from '../navigation/AppNavigator';
 
 type AppointmentsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Appointments'>;
 
@@ -36,44 +32,30 @@ const AppointmentsScreen = () => {
 
   const fetchAppointments = async () => {
     try {
-      console.log('🔍 AppointmentsScreen: fetchAppointments başlatılıyor...');
+      console.log('🔍 fetchAppointments başlatıldı');
       
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) throw new Error('Token bulunamadı');
       
-      console.log('🔍 AppointmentsScreen: Token bulundu, API çağrısı yapılıyor...');
+      console.log('🔍 Token alındı, API çağrısı yapılıyor...');
 
       // Yeni ortak API service kullan
       const response = await apiService.getAppointments('driver');
       
-      console.log('🔍 AppointmentsScreen: API response:', JSON.stringify(response, null, 2));
+      console.log('🔍 API yanıtı alındı:', response);
+      
 
       // Backend response formatı: { success: true, data: [...] }
       const appointmentsData = response.data || [];
       
-      console.log('🔍 AppointmentsScreen: Appointments data:', appointmentsData.length, 'randevu bulundu');
       
       // İlk appointment'ın fiyat durumunu kontrol et
       if (appointmentsData.length > 0) {
         const firstAppointment = appointmentsData[0];
-        console.log('🔍 AppointmentsScreen: İlk appointment fiyat kontrolü:', {
-          id: firstAppointment._id,
-          serviceType: firstAppointment.serviceType,
-          price: firstAppointment.price,
-          priceType: typeof firstAppointment.price,
-          hasPrice: firstAppointment.price && firstAppointment.price > 0
-        });
         
         // Tüm appointment'ların fiyat durumunu kontrol et
         appointmentsData.forEach((apt: any, index: number) => {
           if (apt.status === 'completed' && apt.paymentStatus === 'pending') {
-            console.log(`🔍 AppointmentsScreen: Ödeme bekleyen appointment ${index + 1}:`, {
-              id: apt._id,
-              serviceType: apt.serviceType,
-              price: apt.price,
-              priceType: typeof apt.price,
-              hasPrice: apt.price && apt.price > 0
-            });
           }
         });
       }
@@ -83,7 +65,15 @@ const AppointmentsScreen = () => {
         new Date(b.appointmentDate).getTime() - new Date(a.appointmentDate).getTime()
       );
       
-      console.log('🔍 AppointmentsScreen: Sıralanmış randevular:', sortedAppointments.length);
+      // Debug için ilk randevuyu logla
+      if (sortedAppointments.length > 0) {
+        console.log('İlk randevu verisi:', sortedAppointments[0]);
+        console.log('İlk randevu _id:', sortedAppointments[0]._id);
+        console.log('İlk randevu id:', sortedAppointments[0].id);
+        console.log('İlk randevu appointmentId:', sortedAppointments[0].appointmentId);
+        console.log('İlk randevu tüm anahtarlar:', Object.keys(sortedAppointments[0]));
+      }
+      
       setAppointments(sortedAppointments);
     } catch (error: any) {
       console.error('❌ AppointmentsScreen: fetchAppointments hatası:', error);
@@ -91,15 +81,13 @@ const AppointmentsScreen = () => {
       console.error('❌ AppointmentsScreen: Error status:', error.response?.status);
       
       if (error.response?.status === 401) {
-        console.log('❌ AppointmentsScreen: 401 hatası - Oturum sona erdi');
         Alert.alert('Oturum Hatası', 'Oturumunuz sona erdi. Lütfen tekrar giriş yapın.');
-        // Kullanıcıyı login ekranına yönlendir
+        // Kullanıcıyı Auth ekranına yönlendir
         navigation.reset({
           index: 0,
-          routes: [{ name: 'Login' }],
+          routes: [{ name: 'Auth' }],
         });
       } else {
-        console.log('❌ AppointmentsScreen: Genel hata - Kullanıcıya alert gösteriliyor');
         Alert.alert('Hata', 'Randevular yüklenirken bir hata oluştu. Lütfen tekrar deneyin.');
       }
     } finally {
@@ -191,33 +179,44 @@ const AppointmentsScreen = () => {
     appointments.forEach(appointment => {
       const status = appointment.status;
       const paymentStatus = appointment.paymentStatus;
+      const appointmentDate = new Date(appointment.appointmentDate);
+      const now = new Date();
       
-      console.log(`🔍 Randevu ${appointment._id}: status=${status}, paymentStatus=${paymentStatus}`);
+      // Debug için daha detaylı log
+      const timeDiff = appointmentDate.getTime() - now.getTime();
+      const hoursDiff = timeDiff / (1000 * 60 * 60);
       
-      // Güncel randevular: henüz tamamlanmamış, devam eden, onaylanan
-      if (['pending', 'confirmed', 'in-progress'].includes(status)) {
+      
+      // İptal edilmiş veya reddedilmiş randevular her zaman geçmişe gider
+      if (['rejected', 'cancelled'].includes(status)) {
+        past.push(appointment);
+        return;
+      }
+      
+      // Tamamlanmış randevular - ödeme durumuna göre kategorilendir
+      if (status === 'completed') {
+        if (paymentStatus === 'paid') {
+          // Ödeme yapılmış - geçmişe git
+          past.push(appointment);
+        } else {
+          // Ödeme bekleniyor - ödeme bekleyen kategorisine git
+          completed.push(appointment);
+        }
+        return;
+      }
+      
+      // Henüz tamamlanmamış randevular - tarih kontrolü yap
+      if (['pending', 'confirmed', 'in-progress', 'TALEP_EDILDI'].includes(status)) {
+        // Tüm pending, confirmed, in-progress, TALEP_EDILDI randevular güncel kategorisinde
+        // Tarih kontrolü yapmıyoruz, sadece status'a bakıyoruz
         current.push(appointment);
-        console.log(`✅ Güncel'e eklendi: ${appointment._id}`);
-      } 
-      // Tamamlanmış randevular: ustanın tamamladığı, parası henüz ödenmemiş
-      else if (status === 'completed' && paymentStatus === 'pending') {
-        completed.push(appointment);
-        console.log(`✅ Ödeme Bekleyen'e eklendi: ${appointment._id}`);
+        return;
       }
-      // Geçmiş randevular: tamamlanmış ve parası ödenmiş, iptal edilmiş, reddedilmiş
-      else if (['rejected', 'cancelled'].includes(status) || 
-               (status === 'completed' && paymentStatus === 'paid')) {
-        past.push(appointment);
-        console.log(`✅ Geçmiş'e eklendi: ${appointment._id}`);
-      }
-      // Diğer durumlar için varsayılan olarak geçmişe ekle
-      else {
-        past.push(appointment);
-        console.log(`⚠️ Varsayılan olarak Geçmiş'e eklendi: ${appointment._id} (status: ${status}, paymentStatus: ${paymentStatus})`);
-      }
+      
+      // Bilinmeyen durumlar için varsayılan olarak geçmişe ekle
+      past.push(appointment);
     });
 
-    console.log(`📊 Kategoriler: Güncel=${current.length}, Ödeme Bekleyen=${completed.length}, Geçmiş=${past.length}`);
     return { current, completed, past };
   };
 
@@ -277,7 +276,7 @@ const AppointmentsScreen = () => {
                 Alert.alert('Oturum Hatası', 'Oturumunuz sona erdi. Lütfen tekrar giriş yapın.');
                 navigation.reset({
                   index: 0,
-                  routes: [{ name: 'Login' }],
+                  routes: [{ name: 'Auth' }],
                 });
               } else if (error.response?.status === 403) {
                 Alert.alert('Yetki Hatası', 'Bu randevuyu iptal etme yetkiniz yok.');
@@ -294,6 +293,7 @@ const AppointmentsScreen = () => {
   };
 
   const handlePayment = (appointmentId: string, mechanic: any, serviceType: string, appointment: any) => {
+    console.log('handlePayment çağrıldı - appointmentId:', appointmentId, 'appointment:', appointment);
     // Mekanik ismini populate edilmiş veriden türet: önce kullanıcı adı-soyadı, yoksa dükkan adı
     const derivedMechanicName = mechanic?.userId
       ? `${mechanic.userId.name || ''} ${mechanic.userId.surname || ''}`.trim()
@@ -302,35 +302,26 @@ const AppointmentsScreen = () => {
     // Appointment'ın kendi fiyatını kullan (mechanic.price değil, appointment.price)
     const derivedPrice = appointment?.price;
 
-    console.log('🔍 handlePayment - Fiyat bilgileri:', {
-      appointmentId,
-      appointmentPrice: appointment?.price,
-      appointmentPriceType: typeof appointment?.price,
-      mechanicPrice: mechanic?.price,
-      mechanicPriceType: typeof mechanic?.price,
-      derivedPrice,
-      derivedPriceType: typeof derivedPrice,
-      fullAppointment: {
-        id: appointment?._id,
-        serviceType: appointment?.serviceType,
-        status: appointment?.status,
-        price: appointment?.price,
-        priceType: typeof appointment?.price
-      }
-    });
-
     // Fiyat bilgisini doğru şekilde aktar
     const finalPrice = typeof derivedPrice === 'number' && derivedPrice > 0 ? derivedPrice : 0;
     
-    console.log('🔍 handlePayment - Final price:', finalPrice);
-
-    navigation.navigate('Payment' as any, {
+    // PaymentScreen'e geçirilecek parametreler
+    const paymentParams: any = {
       appointmentId,
       mechanicId: mechanic?._id || mechanic,
       mechanicName: derivedMechanicName,
       serviceType,
       price: finalPrice,
-    });
+      amount: finalPrice, // PaymentScreen amount bekliyor
+    };
+
+    // Eğer faultReportId varsa onu da ekle
+    if (appointment?.faultReportId) {
+      paymentParams.faultReportId = appointment.faultReportId;
+    }
+
+    console.log('AppointmentsScreen - PaymentScreen\'e gönderilen params:', paymentParams);
+    navigation.navigate('Payment' as any, paymentParams);
   };
 
   const handleViewDetails = (appointment: any) => {
@@ -378,7 +369,7 @@ const AppointmentsScreen = () => {
                 Alert.alert('Oturum Hatası', 'Oturumunuz sona erdi. Lütfen tekrar giriş yapın.');
                 navigation.reset({
                   index: 0,
-                  routes: [{ name: 'Login' }],
+                  routes: [{ name: 'Auth' }],
                 });
               } else if (error.response?.status === 403) {
                 Alert.alert('Yetki Hatası', 'Bu randevuyu silme yetkiniz yok.');
@@ -422,7 +413,7 @@ const AppointmentsScreen = () => {
                 Alert.alert('Oturum Hatası', 'Oturumunuz sona erdi. Lütfen tekrar giriş yapın.');
                 navigation.reset({
                   index: 0,
-                  routes: [{ name: 'Login' }],
+                  routes: [{ name: 'Auth' }],
                 });
               } else if (error.response?.status === 403) {
                 Alert.alert('Yetki Hatası', 'Bu randevunun bildirim ayarlarını değiştirme yetkiniz yok.');
@@ -506,21 +497,7 @@ const AppointmentsScreen = () => {
   };
 
   const getServiceTypeName = (type: string) => {
-    const serviceTypes: {[key: string]: string} = {
-      'agir-bakim': 'Ağır Bakım',
-      'genel-bakim': 'Genel Bakım',
-      'alt-takim': 'Alt Takım',
-      'ust-takim': 'Üst Takım',
-      'kaporta-boya': 'Kaporta/Boya',
-      'elektrik-elektronik': 'Elektrik-Elektronik',
-      'yedek-parca': 'Yedek Parça',
-      'lastik': 'Lastik',
-      'egzoz-emisyon': 'Egzoz & Emisyon',
-      'ekspertiz': 'Ekspertiz',
-      'sigorta-kasko': 'Sigorta/Kasko',
-      'arac-yikama': 'Araç Yıkama'
-    };
-    return serviceTypes[type] || type;
+    return translateServiceName(type);
   };
 
   const getServiceTypeIcon = (type: string) => {
@@ -560,6 +537,7 @@ const AppointmentsScreen = () => {
       
       switch (status) {
         case 'pending':
+        case 'TALEP_EDILDI':
           return { color: '#FF9500', text: 'Onay Bekleniyor...', icon: 'clock-outline' as any };
         case 'confirmed':
           return { color: '#34C759', text: 'Onaylandı', icon: 'check-circle' as any };
@@ -738,7 +716,7 @@ const AppointmentsScreen = () => {
             </View>
           )}
 
-          {activeTab === 'current' && item.status === 'pending' && !isPast && (
+          {activeTab === 'current' && item.status === 'pending' && (
             <View style={styles.notificationSettingsContainer}>
               <TouchableOpacity
                 style={styles.notificationSettingsButton}

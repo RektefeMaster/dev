@@ -1,504 +1,497 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  TextInput,
+  Image,
+  Dimensions,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { useNavigation } from '@react-navigation/native';
-import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { LinearGradient } from 'expo-linear-gradient';
+import axios from 'axios';
 import { API_URL } from '../constants/config';
 
-// Tab navigation tiplerini import et
-type TabParamList = {
-  Home: undefined;
-  Wallet: undefined;
-  Garage: undefined;
-  TefeWallet: undefined;
-  Support: undefined;
-};
+const { width } = Dimensions.get('window');
 
-type PaymentScreenProps = {
+interface PaymentScreenProps {
   route: {
     params: {
-      appointmentId: string;
-      mechanicId: string;
+      faultReportId?: string;
+      appointmentId?: string;
+      amount: number;
       mechanicName: string;
-      serviceType: string;
-      price: number;
+      serviceCategory?: string;
+      serviceType?: string;
+      price?: number;
     };
   };
-  navigation: any;
-};
+}
 
-const PaymentScreen = ({ route, navigation }: PaymentScreenProps) => {
+const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
+  const navigation = useNavigation();
   const { theme } = useTheme();
   const { token } = useAuth();
-  const tabNavigation = useNavigation<BottomTabNavigationProp<TabParamList>>();
-  const { appointmentId, mechanicId, mechanicName, serviceType, price } = route.params;
+  const { faultReportId, appointmentId, amount, mechanicName, serviceCategory, serviceType, price } = route.params;
+  
+  // Debug için log ekle
+  console.log('PaymentScreen params:', { faultReportId, appointmentId, amount, mechanicName, serviceCategory, serviceType, price });
 
-  // Route params'ı detaylı logla
-  console.log('🔍 PaymentScreen: Route params:', {
-    appointmentId,
-    mechanicId,
-    mechanicName,
-    serviceType,
-    price,
-    priceType: typeof price,
-    priceValid: typeof price === 'number' && price > 0
-  });
-
-  // Fiyat bilgisini detaylı kontrol et
-  if (typeof price === 'number' && price > 0) {
-    console.log('✅ PaymentScreen: Route params\'dan geçerli fiyat alındı:', price);
-  } else {
-    console.log('⚠️ PaymentScreen: Route params\'dan geçersiz fiyat alındı:', price, 'Type:', typeof price);
-  }
-
-  const [paymentMethod, setPaymentMethod] = useState<'qr' | 'card' | null>(null);
-  const [showRatingModal, setShowRatingModal] = useState(false);
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [resolvedMechanicName, setResolvedMechanicName] = useState<string>(mechanicName || 'Usta');
-  const [resolvedPrice, setResolvedPrice] = useState<number>(() => {
-    const initialPrice = typeof price === 'number' && price > 0 ? price : 0;
-    console.log('🔍 PaymentScreen: Initial price from route params:', initialPrice);
-    console.log('🔍 PaymentScreen: Route params price value:', price, 'Type:', typeof price);
-    return initialPrice;
-  });
-
-  useEffect(() => {
-    const fetchAppointmentDetail = async () => {
-      try {
-        // Eğer isim veya fiyat boşsa, randevu detayını getir
-        if ((!mechanicName || !mechanicName.trim()) || resolvedPrice === 0) {
-          const res = await fetch(`${API_URL}/appointments/${appointmentId}`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          if (res.ok) {
-            const json = await res.json();
-            const apt = json?.data;
-            if (apt) {
-              // Mekanik adı
-              const mechName = apt?.mechanicId?.userId
-                ? `${apt.mechanicId.userId.name || ''} ${apt.mechanicId.userId.surname || ''}`.trim()
-                : (apt?.mechanicId?.shopName || resolvedMechanicName);
-              if (mechName && mechName.trim()) setResolvedMechanicName(mechName);
-              // Fiyat (mekaniğin tamamladığı fiyat alanını bekler, yoksa 0)
-              console.log('🔍 Appointment detayları:', {
-                aptPrice: apt?.price,
-                aptPriceType: typeof apt?.price,
-                aptTotalPrice: apt?.totalPrice,
-                aptTotalPriceType: typeof apt?.totalPrice,
-                aptMechanicPrice: apt?.mechanicPrice,
-                aptMechanicPriceType: typeof apt?.mechanicPrice,
-                aptServicePrice: apt?.servicePrice,
-                aptServicePriceType: typeof apt?.servicePrice
-              });
-              
-              // Farklı fiyat alanlarını kontrol et
-              let foundPrice = 0;
-              if (typeof apt?.price === 'number' && apt.price > 0) {
-                foundPrice = apt.price;
-                console.log('✅ Appointment.price\'dan fiyat alındı:', foundPrice);
-              } else if (typeof apt?.totalPrice === 'number' && apt.totalPrice > 0) {
-                foundPrice = apt.totalPrice;
-                console.log('✅ Appointment.totalPrice\'dan fiyat alındı:', foundPrice);
-              } else if (typeof apt?.mechanicPrice === 'number' && apt.mechanicPrice > 0) {
-                foundPrice = apt.mechanicPrice;
-                console.log('✅ Appointment.mechanicPrice\'dan fiyat alındı:', foundPrice);
-              } else if (typeof apt?.servicePrice === 'number' && apt.servicePrice > 0) {
-                foundPrice = apt.servicePrice;
-                console.log('✅ Appointment.servicePrice\'dan fiyat alındı:', foundPrice);
-              }
-              
-              if (foundPrice > 0) {
-                console.log('✅ Fiyat bulundu ve güncellendi:', foundPrice);
-                setResolvedPrice(foundPrice);
-              } else {
-                console.log('⚠️ Appointment\'da hiçbir fiyat alanında geçerli değer yok');
-                console.log('⚠️ Mevcut resolvedPrice kullanılıyor:', resolvedPrice);
-                
-                // Eğer fiyat 0 ise, kullanıcıya bilgi ver
-                if (resolvedPrice === 0) {
-                  console.log('⚠️ UYARI: Fiyat 0 TL olarak gözüküyor!');
-                  console.log('⚠️ Usta henüz fiyat belirlememiş olabilir.');
-                }
-              }
-            }
-          }
-        }
-      } catch (e) {
-        // Sessiz geç
-      }
-    };
-    fetchAppointmentDetail();
-  }, [appointmentId, token]);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'credit_card' | 'bank_transfer' | 'cash'>('credit_card');
+  const [cardNumber, setCardNumber] = useState('4532 1234 5678 9012');
+  const [expiryDate, setExpiryDate] = useState('12/25');
+  const [cvv, setCvv] = useState('123');
+  const [cardHolderName, setCardHolderName] = useState('Ahmet Yılmaz');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const paymentMethods = [
-    { id: 'qr', title: 'QR Kod ile Öde', icon: 'qrcode-scan', color: '#007AFF' },
-    { id: 'card', title: 'Kart ile Öde', icon: 'credit-card', color: '#34C759' },
+    {
+      id: 'credit_card',
+      name: 'Kredi Kartı',
+      icon: 'card',
+      color: '#3B82F6',
+      description: 'Visa, Mastercard, American Express'
+    },
+    {
+      id: 'bank_transfer',
+      name: 'Banka Havalesi',
+      icon: 'business',
+      color: '#10B981',
+      description: 'EFT/Havale ile ödeme'
+    },
+    {
+      id: 'cash',
+      name: 'Nakit Ödeme',
+      icon: 'cash',
+      color: '#F59E0B',
+      description: 'Usta ile buluştuğunuzda'
+    }
   ];
 
-  const handlePayment = async (method: 'qr' | 'card') => {
-    setPaymentMethod(method);
-    
+  const formatCardNumber = (text: string) => {
+    const cleaned = text.replace(/\s/g, '');
+    const match = cleaned.match(/.{1,4}/g);
+    return match ? match.join(' ') : cleaned;
+  };
+
+  const formatExpiryDate = (text: string) => {
+    const cleaned = text.replace(/\D/g, '');
+    if (cleaned.length >= 2) {
+      return cleaned.substring(0, 2) + '/' + cleaned.substring(2, 4);
+    }
+    return cleaned;
+  };
+
+  const handlePayment = async () => {
+    if (selectedPaymentMethod === 'credit_card') {
+      if (!cardNumber || !expiryDate || !cvv || !cardHolderName) {
+        Alert.alert('Hata', 'Lütfen tüm kart bilgilerini doldurun');
+        return;
+      }
+      
+      // Kart numarası validasyonu
+      const cleanCardNumber = cardNumber.replace(/\s/g, '');
+      if (cleanCardNumber.length < 13 || cleanCardNumber.length > 19) {
+        Alert.alert('Hata', 'Geçerli bir kart numarası girin');
+        return;
+      }
+      
+      // CVV validasyonu
+      if (cvv.length < 3) {
+        Alert.alert('Hata', 'Geçerli bir CVV kodu girin');
+        return;
+      }
+    }
+
+    setIsProcessing(true);
+
     try {
-      console.log('🔍 Ödeme başlatılıyor:', {
-        appointmentId,
-        method,
-        price: resolvedPrice,
-        mechanicId
-      });
-
-      // Ödeme durumunu backend'de güncelle
-      const response = await fetch(`${API_URL}/appointments/${appointmentId}/payment-status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          paymentStatus: 'paid',
-          paymentDate: new Date().toISOString()
-        })
-      });
-
-      if (response.ok) {
-        console.log('✅ Ödeme durumu güncellendi');
-        
-        // Usta bilgilendirme ve para aktarımı (opsiyonel)
+      let paymentResponse;
+      let finalAppointmentId = appointmentId;
+      
+      // Debug için log ekle
+      console.log('handlePayment - appointmentId:', appointmentId, 'faultReportId:', faultReportId);
+      
+      // Eğer appointmentId yoksa ama faultReportId varsa, o faultReportId'ye ait randevuyu bul
+      if (!appointmentId && faultReportId) {
+        console.log('AppointmentId bulunamadı, faultReportId ile randevu aranıyor:', faultReportId);
         try {
-          const transferResponse = await fetch(`${API_URL}/appointments/${appointmentId}/transfer-payment`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              amount: resolvedPrice,
-              mechanicId: mechanicId
-            })
+          const response = await axios.get(`${API_URL}/appointments/by-fault-report/${faultReportId}`, {
+            headers: { Authorization: `Bearer ${token}` }
           });
-
-          if (transferResponse.ok) {
-            console.log('✅ Para aktarımı başarılı');
-          } else {
-            console.log('⚠️ Para aktarımı başarısız ama ödeme tamamlandı');
+          if (response.data.success && response.data.data) {
+            finalAppointmentId = response.data.data._id;
+            console.log('Randevu bulundu:', finalAppointmentId);
           }
-        } catch (transferError) {
-          console.log('⚠️ Para aktarımı hatası ama ödeme tamamlandı:', transferError);
+        } catch (error) {
+          console.log('FaultReportId ile randevu bulunamadı, doğrudan faultReportId kullanılacak');
         }
-        
-        // Başarı mesajı göster
-        const successMessage = method === 'qr' 
-          ? 'QR Kod Okutuldu\nÖdeme işlemi başarıyla tamamlandı!\n\n💰 Para ustaya aktarıldı.'
-          : 'Kart ile Ödeme\nÖdeme işlemi başarıyla tamamlandı!\n\n💰 Para ustaya aktarıldı.';
-
-        Alert.alert(
-          'Ödeme Başarılı',
-          successMessage,
-          [
-            {
-              text: 'Tamam',
-              onPress: () => {
-                setShowRatingModal(true);
-              }
-            }
-          ]
+      }
+      
+      // Randevu ödemesi
+      if (finalAppointmentId) {
+        console.log('Randevu ödemesi yapılıyor:', finalAppointmentId);
+        paymentResponse = await axios.post(
+          `${API_URL}/appointments/${finalAppointmentId}/payment`,
+          { 
+            paymentMethod: selectedPaymentMethod,
+            cardDetails: selectedPaymentMethod === 'credit_card' ? {
+              cardNumber: cardNumber.replace(/\s/g, ''),
+              expiryDate,
+              cvv,
+              cardHolderName
+            } : undefined
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
         );
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('❌ Ödeme durumu güncellenemedi:', response.status, errorData);
-        Alert.alert('Hata', `Ödeme tamamlandı ama durum güncellenemedi: ${errorData.message || 'Bilinmeyen hata'}`);
+        throw new Error('Ödeme için gerekli randevu ID bulunamadı');
       }
-    } catch (error) {
-      console.error('❌ Ödeme durumu güncellenirken hata:', error);
-      Alert.alert('Hata', 'Ödeme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.');
-    }
-  };
 
-  const handleRatingSubmit = async () => {
-    if (rating === 0) {
-      Alert.alert('Hata', 'Lütfen puan verin');
-      return;
-    }
-
-    try {
-      setLoading(true);
+      console.log('Ödeme oluşturma yanıtı:', paymentResponse.data);
       
-      console.log('🔍 Değerlendirme gönderiliyor:', {
-        appointmentId,
-        mechanicId,
-        rating,
-        comment
-      });
-      
-      // Rating API'si burada çağrılacak
-      const response = await fetch(`${API_URL}/appointment-ratings/appointments/${appointmentId}/rating`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          rating,
-          comment,
-          mechanicId
-        })
-      });
-
-      const responseData = await response.json();
-      console.log('🔍 API Response:', responseData);
-
-      if (response.ok) {
-        Alert.alert(
-          'Teşekkürler!',
-          'Değerlendirmeniz kaydedildi ve ödeme tamamlandı.',
-          [
-            {
-              text: 'Ana Sayfaya Dön',
-              onPress: () => {
-                // Ana sayfaya yönlendir
-                navigation.navigate('Main');
-              }
-            },
-            {
-              text: 'Puanlarımı Görüntüle',
-              onPress: () => {
-                // MyRatings ekranına yönlendir ve verileri yenile
-                navigation.navigate('MyRatings', { refresh: true });
-              }
-            }
-          ]
-        );
-      } else {
-        let errorMessage = responseData.message || 'Değerlendirme kaydedilirken bir hata oluştu';
+      if (paymentResponse.data.success) {
+        // Ödeme onayla
+        const transactionId = `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
-        // Özel hata mesajları
-        if (response.status === 400 && responseData.message?.includes('3 gün')) {
-          errorMessage = 'Değerlendirme süresi dolmuş. Randevu tamamlandıktan sonra 3 gün içinde değerlendirme yapabilirsiniz.';
-        } else if (response.status === 400 && responseData.message?.includes('henüz tamamlanmamış')) {
-          errorMessage = 'Bu randevu henüz tamamlanmamış. Değerlendirme yapmak için randevunun tamamlanmasını bekleyin.';
+        console.log('Ödeme onaylama başlatılıyor...');
+        let confirmResponse;
+        
+        if (finalAppointmentId) {
+        confirmResponse = await axios.post(
+          `${API_URL}/appointments/${finalAppointmentId}/confirm-payment`,
+          { 
+            transactionId,
+            amount: amount // TefePuan hesaplama için gerekli
+          },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+        } else {
+          throw new Error('Ödeme onaylama için randevu ID bulunamadı');
         }
-        
-        Alert.alert('Hata', errorMessage);
+
+        if (confirmResponse.data.success) {
+          const tefePointAmount = Math.floor(amount);
+          console.log(`🎉 Ödeme başarılı! TefePuan kazanılacak: ${tefePointAmount} puan`);
+          Alert.alert(
+            'Ödeme Başarılı',
+            `Ödemeniz başarıyla tamamlandı. Usta işe başlayabilir.\n\n🎉 ${tefePointAmount} TefePuan kazandınız!`,
+            [
+              {
+                text: 'Tamam',
+                onPress: () => {
+                  // Önce bir önceki ekrana git, sonra tekrar FaultReportDetail'e git
+                  navigation.goBack();
+                  // Kısa bir gecikme sonra durumu güncelle
+                  setTimeout(() => {
+                    navigation.navigate('FaultReportDetail', { faultReportId });
+                  }, 100);
+                }
+              }
+            ]
+          );
+        } else {
+          throw new Error(confirmResponse.data.message || 'Ödeme onaylanamadı');
+        }
+      } else {
+        throw new Error(paymentResponse.data.message || 'Ödeme oluşturulamadı');
       }
-    } catch (error) {
-      console.error('Rating hatası:', error);
-      Alert.alert('Hata', 'Değerlendirme kaydedilirken bir hata oluştu');
+    } catch (error: any) {
+      console.error('Ödeme hatası:', error);
+      console.error('Hata detayları:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      let errorMessage = 'Ödeme işlemi sırasında bir hata oluştu';
+      
+      if (error.response?.status === 404) {
+        errorMessage = 'Ödeme endpoint\'i bulunamadı. Lütfen backend servisinin çalıştığından emin olun.';
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'Bu işlem için yetkiniz bulunmuyor.';
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert(
+        'Ödeme Hatası',
+        errorMessage,
+        [
+          {
+            text: 'Tekrar Dene',
+            onPress: () => setIsProcessing(false)
+          },
+          {
+            text: 'İptal',
+            style: 'cancel',
+            onPress: () => navigation.goBack()
+          }
+        ]
+      );
     } finally {
-      setLoading(false);
+      if (!isProcessing) {
+        setIsProcessing(false);
+      }
     }
   };
 
-  const renderStars = () => {
-    return (
-      <View style={styles.starsContainer}>
-        {[1, 2, 3, 4, 5].map((star) => (
-          <TouchableOpacity
-            key={star}
-            onPress={() => setRating(star)}
-            style={styles.starButton}
-            activeOpacity={0.7}
-          >
-            <MaterialCommunityIcons
-              name={star <= rating ? 'star' : 'star-outline'}
-              size={36}
-              color={star <= rating ? '#FFD700' : '#D1D5DB'}
-            />
-          </TouchableOpacity>
-        ))}
+  const renderCreditCardForm = () => (
+    <View style={styles.paymentForm}>
+      <Text style={[styles.formTitle, { color: theme.colors.text.primary }]}>
+        Kart Bilgileri
+      </Text>
+      
+      <View style={styles.inputGroup}>
+        <Text style={[styles.inputLabel, { color: theme.colors.text.secondary }]}>
+          Kart Numarası
+        </Text>
+        <TextInput
+          style={[styles.input, { 
+            backgroundColor: theme.colors.background.secondary,
+            color: theme.colors.text.primary,
+            borderColor: theme.colors.border.primary
+          }]}
+          placeholder="1234 5678 9012 3456"
+          placeholderTextColor={theme.colors.text.tertiary}
+          value={cardNumber}
+          onChangeText={(text) => setCardNumber(formatCardNumber(text))}
+          keyboardType="numeric"
+          maxLength={19}
+        />
       </View>
-    );
-  };
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={[styles.inputLabel, { color: theme.colors.text.secondary }]}>
+            Son Kullanma
+          </Text>
+          <TextInput
+            style={[styles.input, { 
+              backgroundColor: theme.colors.background.secondary,
+              color: theme.colors.text.primary,
+              borderColor: theme.colors.border.primary
+            }]}
+            placeholder="MM/YY"
+            placeholderTextColor={theme.colors.text.tertiary}
+            value={expiryDate}
+            onChangeText={(text) => setExpiryDate(formatExpiryDate(text))}
+            keyboardType="numeric"
+            maxLength={5}
+          />
+        </View>
+
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={[styles.inputLabel, { color: theme.colors.text.secondary }]}>
+            CVV
+          </Text>
+          <TextInput
+            style={[styles.input, { 
+              backgroundColor: theme.colors.background.secondary,
+              color: theme.colors.text.primary,
+              borderColor: theme.colors.border.primary
+            }]}
+            placeholder="123"
+            placeholderTextColor={theme.colors.text.tertiary}
+            value={cvv}
+            onChangeText={setCvv}
+            keyboardType="numeric"
+            maxLength={3}
+            secureTextEntry
+          />
+        </View>
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={[styles.inputLabel, { color: theme.colors.text.secondary }]}>
+          Kart Sahibi Adı
+        </Text>
+        <TextInput
+          style={[styles.input, { 
+            backgroundColor: theme.colors.background.secondary,
+            color: theme.colors.text.primary,
+            borderColor: theme.colors.border.primary
+          }]}
+          placeholder="Ad Soyad"
+          placeholderTextColor={theme.colors.text.tertiary}
+          value={cardHolderName}
+          onChangeText={setCardHolderName}
+          autoCapitalize="words"
+        />
+      </View>
+    </View>
+  );
+
+  const renderBankTransferInfo = () => (
+    <View style={styles.paymentInfo}>
+      <Text style={[styles.infoTitle, { color: theme.colors.text.primary }]}>
+        Banka Havalesi Bilgileri
+      </Text>
+      <View style={styles.bankInfo}>
+        <Text style={[styles.bankText, { color: theme.colors.text.secondary }]}>
+          <Text style={styles.bankLabel}>Banka:</Text> Türkiye İş Bankası
+        </Text>
+        <Text style={[styles.bankText, { color: theme.colors.text.secondary }]}>
+          <Text style={styles.bankLabel}>IBAN:</Text> TR33 0006 4000 0011 2345 6789 01
+        </Text>
+        <Text style={[styles.bankText, { color: theme.colors.text.secondary }]}>
+          <Text style={styles.bankLabel}>Açıklama:</Text> {faultReportId}
+        </Text>
+        <Text style={[styles.bankText, { color: theme.colors.text.secondary }]}>
+          <Text style={styles.bankLabel}>Tutar:</Text> {amount}₺
+        </Text>
+      </View>
+      <Text style={[styles.noteText, { color: theme.colors.text.tertiary }]}>
+        Havale yaptıktan sonra "Ödemeyi Onayla" butonuna basın.
+      </Text>
+    </View>
+  );
+
+  const renderCashInfo = () => (
+    <View style={styles.paymentInfo}>
+      <Text style={[styles.infoTitle, { color: theme.colors.text.primary }]}>
+        Nakit Ödeme
+      </Text>
+      <Text style={[styles.cashText, { color: theme.colors.text.secondary }]}>
+        Ödemenizi usta ile buluştuğunuzda nakit olarak yapabilirsiniz.
+      </Text>
+      <Text style={[styles.cashText, { color: theme.colors.text.secondary }]}>
+        Usta işe başlamadan önce ödemenizi alacaktır.
+      </Text>
+    </View>
+  );
 
   return (
-    <KeyboardAvoidingView 
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-    >
-      <LinearGradient
-        colors={[theme.colors.primary, theme.colors.secondary]}
-        style={styles.header}
-      >
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
+      {/* Header */}
+      <View style={[styles.header, { borderBottomColor: theme.colors.border.primary }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color={theme.colors.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Ödeme</Text>
+        <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
+          Ödeme
+        </Text>
         <View style={styles.placeholder} />
-      </LinearGradient>
+      </View>
 
-      <ScrollView 
-        style={styles.content} 
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ flexGrow: 1 }}
-      >
-        <View style={styles.paymentCard}>
-          <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
-            Ödeme Bilgileri
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Ödeme Özeti */}
+        <View style={[styles.summaryCard, { backgroundColor: theme.colors.background.secondary }]}>
+          <Text style={[styles.summaryTitle, { color: theme.colors.text.primary }]}>
+            Ödeme Özeti
           </Text>
           
-          <View style={styles.paymentInfo}>
-            <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>Usta:</Text>
-              <Text style={[styles.infoValue, { color: theme.colors.text }]}>{resolvedMechanicName}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>Hizmet:</Text>
-              <Text style={[styles.infoValue, { color: theme.colors.text }]}>{serviceType}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>Tutar:</Text>
-              {resolvedPrice > 0 ? (
-                <Text style={[styles.infoValue, { color: theme.colors.primary, fontSize: 24, fontWeight: 'bold' }]}>
-                  ₺{resolvedPrice}
-                </Text>
-              ) : (
-                <View style={styles.priceWarningContainer}>
-                  <Text style={[styles.infoValue, { color: '#FF6B6B', fontSize: 18, fontWeight: '600' }]}>
-                    ₺0
-                  </Text>
-                  <Text style={[styles.priceWarningText, { color: '#FF6B6B', fontSize: 12 }]}>
-                    Usta henüz fiyat belirlememiş
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.paymentMethods}>
-            <Text style={[styles.methodsTitle, { color: theme.colors.text }]}>
-              Ödeme Yöntemi Seçin
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, { color: theme.colors.text.secondary }]}>
+              Hizmet:
             </Text>
-            {paymentMethods.map((method) => (
-              <TouchableOpacity
-                key={method.id}
-                style={[
-                  styles.methodButton,
-                  paymentMethod === method.id && { 
-                    backgroundColor: '#3498DB',
-                    borderColor: '#2980B9'
-                  }
-                ]}
-                onPress={() => handlePayment(method.id as 'qr' | 'card')}
-              >
-                <MaterialCommunityIcons
-                  name={method.icon as any}
-                  size={24}
-                  color={method.color}
-                />
-                <Text style={styles.methodText}>
-                  {method.title}
-                </Text>
-                {paymentMethod === method.id && (
-                  <MaterialCommunityIcons
-                    name="check-circle"
-                    size={20}
-                    color="#FFFFFF"
-                    style={styles.checkIcon}
-                  />
-                )}
-              </TouchableOpacity>
-            ))}
+            <Text style={[styles.summaryValue, { color: theme.colors.text.primary }]}>
+              {serviceCategory}
+            </Text>
+          </View>
+          
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, { color: theme.colors.text.secondary }]}>
+              Usta:
+            </Text>
+            <Text style={[styles.summaryValue, { color: theme.colors.text.primary }]}>
+              {mechanicName}
+            </Text>
+          </View>
+          
+          <View style={[styles.summaryRow, styles.totalRow]}>
+            <Text style={[styles.totalLabel, { color: theme.colors.text.primary }]}>
+              Toplam:
+            </Text>
+            <Text style={[styles.totalValue, { color: theme.colors.primary.main }]}>
+              {amount}₺
+            </Text>
           </View>
         </View>
+
+        {/* Ödeme Yöntemi Seçimi */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+            Ödeme Yöntemi
+          </Text>
+          
+          {paymentMethods.map((method) => (
+            <TouchableOpacity
+              key={method.id}
+              style={[
+                styles.paymentMethodCard,
+                { 
+                  backgroundColor: theme.colors.background.secondary,
+                  borderColor: selectedPaymentMethod === method.id ? theme.colors.primary.main : theme.colors.border.primary
+                }
+              ]}
+              onPress={() => setSelectedPaymentMethod(method.id as any)}
+            >
+              <View style={styles.paymentMethodInfo}>
+                <View style={[styles.paymentMethodIcon, { backgroundColor: method.color }]}>
+                  <Ionicons name={method.icon as any} size={24} color="#FFFFFF" />
+                </View>
+                <View style={styles.paymentMethodText}>
+                  <Text style={[styles.paymentMethodName, { color: theme.colors.text.primary }]}>
+                    {method.name}
+                  </Text>
+                  <Text style={[styles.paymentMethodDescription, { color: theme.colors.text.secondary }]}>
+                    {method.description}
+                  </Text>
+                </View>
+              </View>
+              <View style={[
+                styles.radioButton,
+                { 
+                  borderColor: selectedPaymentMethod === method.id ? theme.colors.primary.main : theme.colors.border.primary,
+                  backgroundColor: selectedPaymentMethod === method.id ? theme.colors.primary.main : 'transparent'
+                }
+              ]}>
+                {selectedPaymentMethod === method.id && (
+                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                )}
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Ödeme Formu */}
+        {selectedPaymentMethod === 'credit_card' && renderCreditCardForm()}
+        {selectedPaymentMethod === 'bank_transfer' && renderBankTransferInfo()}
+        {selectedPaymentMethod === 'cash' && renderCashInfo()}
       </ScrollView>
 
-      {/* Puanlama Modal */}
-      <Modal
-        visible={showRatingModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowRatingModal(false)}
-      >
-        <TouchableOpacity 
-          style={styles.modalBackdrop} 
-          activeOpacity={1} 
-          onPress={() => setShowRatingModal(false)}
+      {/* Ödeme Butonu */}
+      <View style={[styles.footer, { backgroundColor: theme.colors.background.primary, borderTopColor: theme.colors.border.primary }]}>
+        <TouchableOpacity
+          style={[
+            styles.payButton,
+            { 
+              backgroundColor: theme.colors.primary.main,
+              opacity: isProcessing ? 0.7 : 1
+            }
+          ]}
+          onPress={handlePayment}
+          disabled={isProcessing}
         >
-          <TouchableOpacity 
-            style={styles.modalContent} 
-            activeOpacity={1} 
-            onPress={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <View style={styles.modalHeaderIcon}>
-                <MaterialCommunityIcons name="star-circle" size={32} color="#FFD700" />
-              </View>
-              <Text style={styles.modalTitle}>
-                Ustanızı Değerlendirin
-              </Text>
-              <Text style={styles.modalSubtitle}>
-                {resolvedMechanicName} ustasının hizmet kalitesi hakkında puan verin
-              </Text>
-            </View>
-
-            {/* Stars Rating */}
-            <View style={styles.ratingSection}>
-              <Text style={styles.ratingLabel}>Puanınız:</Text>
-              {renderStars()}
-              <Text style={styles.ratingText}>
-                {rating === 0 ? 'Puan seçin' : `${rating}/5 yıldız`}
-              </Text>
-            </View>
-
-            {/* Comment Input */}
-            <View style={styles.commentSection}>
-              <Text style={styles.commentLabel}>Yorumunuz (opsiyonel):</Text>
-              <TextInput
-                style={styles.commentInput}
-                placeholder="Hizmet kalitesi hakkında düşüncelerinizi paylaşın..."
-                placeholderTextColor="#9CA3AF"
-                value={comment}
-                onChangeText={setComment}
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-              />
-            </View>
-
-            {/* Action Buttons */}
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setShowRatingModal(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.cancelButtonText}>Vazgeç</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.submitButton,
-                  rating === 0 && styles.submitButtonDisabled,
-                  loading && styles.submitButtonLoading
-                ]}
-                onPress={handleRatingSubmit}
-                disabled={loading || rating === 0}
-                activeOpacity={0.8}
-              >
-                {loading ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                    <Text style={styles.submitButtonText}>Gönderiliyor...</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.submitButtonText}>Değerlendirmeyi Gönder</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
+          <Ionicons name="card" size={20} color="#FFFFFF" />
+          <Text style={styles.payButtonText}>
+            {isProcessing ? 'İşleniyor...' : `${amount}₺ Öde`}
+          </Text>
         </TouchableOpacity>
-      </Modal>
-    </KeyboardAvoidingView>
+      </View>
+    </SafeAreaView>
   );
 };
 
@@ -509,245 +502,183 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
   },
   backButton: {
     padding: 8,
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'center',
   },
   placeholder: {
     width: 40,
   },
   content: {
     flex: 1,
+    padding: 16,
+  },
+  summaryCard: {
     padding: 20,
-  },
-  paymentCard: {
-    backgroundColor: '#34495E',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-    color: '#FFFFFF',
-  },
-  paymentInfo: {
+    borderRadius: 12,
     marginBottom: 24,
   },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
-  },
-  infoLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#BDC3C7',
-  },
-  infoValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  paymentMethods: {
-    marginTop: 20,
-  },
-  methodsTitle: {
+  summaryTitle: {
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 16,
-    color: '#FFFFFF',
   },
-  methodButton: {
+  summaryRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    borderWidth: 2,
-    borderRadius: 12,
-    marginBottom: 12,
-    backgroundColor: '#2C3E50',
-    borderColor: '#34495E',
-  },
-  methodText: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginLeft: 12,
-    flex: 1,
-    color: '#FFFFFF',
-  },
-  checkIcon: {
-    marginLeft: 'auto',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: 400,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 0,
-    maxHeight: '85%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  modalHeader: {
-    alignItems: 'center',
-    paddingTop: 32,
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  modalHeaderIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#FEF3C7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
     marginBottom: 8,
-    color: '#1F2937',
   },
-  modalSubtitle: {
+  summaryLabel: {
     fontSize: 16,
-    textAlign: 'center',
-    color: '#6B7280',
-    lineHeight: 22,
   },
-  ratingSection: {
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  ratingLabel: {
+  summaryValue: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 16,
-  },
-  starsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  starButton: {
-    padding: 8,
-    marginHorizontal: 4,
-  },
-  ratingText: {
-    fontSize: 14,
-    color: '#6B7280',
     fontWeight: '500',
   },
-  commentSection: {
-    paddingHorizontal: 24,
-    paddingBottom: 20,
+  totalRow: {
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    paddingTop: 12,
+    marginTop: 8,
   },
-  commentLabel: {
-    fontSize: 16,
+  totalLabel: {
+    fontSize: 18,
     fontWeight: '600',
-    color: '#374151',
+  },
+  totalValue: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  paymentMethodCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
     marginBottom: 12,
   },
-  commentInput: {
-    borderWidth: 2,
-    borderRadius: 16,
-    padding: 16,
+  paymentMethodInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  paymentMethodIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  paymentMethodText: {
+    flex: 1,
+  },
+  paymentMethodName: {
     fontSize: 16,
-    textAlignVertical: 'top',
-    color: '#1F2937',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  paymentMethodDescription: {
+    fontSize: 14,
+  },
+  radioButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentForm: {
+    marginTop: 16,
+  },
+  formTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
+  row: {
+    flexDirection: 'row',
+  },
+  paymentInfo: {
+    marginTop: 16,
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  bankInfo: {
     backgroundColor: '#F9FAFB',
-    borderColor: '#E5E7EB',
-    minHeight: 100,
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 12,
   },
-  modalActions: {
+  bankText: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  bankLabel: {
+    fontWeight: '600',
+  },
+  noteText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  cashText: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  footer: {
+    padding: 16,
+    borderTopWidth: 1,
+  },
+  payButton: {
     flexDirection: 'row',
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-    gap: 12,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: 16,
-    borderRadius: 16,
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  submitButton: {
-    flex: 1,
+    justifyContent: 'center',
     paddingVertical: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-    backgroundColor: '#10B981',
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    borderRadius: 12,
   },
-  submitButtonDisabled: {
-    backgroundColor: '#D1D5DB',
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  submitButtonLoading: {
-    opacity: 0.8,
-  },
-  submitButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+  payButtonText: {
     color: '#FFFFFF',
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  priceWarningContainer: {
-    alignItems: 'flex-end',
-  },
-  priceWarningText: {
-    marginTop: 4,
-    textAlign: 'right',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });
 

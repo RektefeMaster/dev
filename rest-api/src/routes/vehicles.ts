@@ -187,6 +187,39 @@ router.get('/all', auth, VehicleController.getAllVehicles);
 
 /**
  * @swagger
+ * /api/vehicles/serviced:
+ *   get:
+ *     summary: Servis edilmiş araçları getir
+ *     description: Mekanik tarafından servis edilmiş araçları listeler
+ *     tags:
+ *       - Vehicles
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Servis edilmiş araçlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Vehicle'
+ *                 message:
+ *                   type: string
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/serviced', auth, VehicleController.getServicedVehicles);
+
+/**
+ * @swagger
  * /api/vehicles/{id}:
  *   get:
  *     summary: Belirli bir aracı getir
@@ -305,5 +338,35 @@ router.put('/:id', auth, VehicleController.updateVehicle);
  *         description: Sunucu hatası
  */
 router.delete('/:id', auth, VehicleController.deleteVehicle);
+
+/**
+ * @swagger
+ * /api/vehicles/{id}/favorite:
+ *   put:
+ *     summary: Aracı favorile/favoriden çıkar
+ *     description: Belirli bir aracı favori olarak işaretler veya favoriden çıkarır
+ *     tags:
+ *       - Vehicles
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Araç ID'si
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Favori durumu başarıyla güncellendi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       404:
+ *         description: Araç bulunamadı
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.put('/:id/favorite', auth, VehicleController.toggleFavorite);
 
 export default router; 

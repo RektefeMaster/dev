@@ -21,6 +21,7 @@ export interface IVehicle extends Document {
     cost?: number;
     mileage?: number;
   }>;
+  isFavorite?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -49,7 +50,8 @@ const VehicleSchema: Schema = new Schema({
     description: { type: String, required: true },
     cost: { type: Number },
     mileage: { type: Number }
-  }]
+  }],
+  isFavorite: { type: Boolean, default: false }
 }, {
   timestamps: true
 });

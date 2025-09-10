@@ -50,12 +50,8 @@ export const MyRatingsScreen: React.FC = ({ route }: any) => {
   const fetchMyRatings = async () => {
     try {
       setLoading(true);
-      console.log('🔍 MyRatings: fetchMyRatings başlatıldı');
-      console.log('🔍 MyRatings: Token:', token ? 'Mevcut' : 'Eksik');
-      console.log('🔍 MyRatings: API URL:', `${API_URL}/appointment-ratings/my-ratings`);
       
       if (!token) {
-        console.log('❌ MyRatings: Token eksik, API çağrısı yapılamıyor');
         setLoading(false);
         return;
       }
@@ -67,54 +63,27 @@ export const MyRatingsScreen: React.FC = ({ route }: any) => {
         },
       });
 
-      console.log('🔍 MyRatings: Response status:', response.status);
-      console.log('🔍 MyRatings: Response ok:', response.ok);
 
       if (response.ok) {
         const data = await response.json();
-        console.log('📊 MyRatings: API Response:', JSON.stringify(data, null, 2));
         
         if (data && data.success && data.data && data.data.ratings && Array.isArray(data.data.ratings)) {
-          console.log('✅ MyRatings: Ratings found in data.data.ratings');
-          console.log('✅ MyRatings: Ratings count:', data.data.ratings.length);
-          console.log('✅ MyRatings: First rating:', JSON.stringify(data.data.ratings[0], null, 2));
           
           // Her rating'in populate edilmiş verilerini kontrol et
           data.data.ratings.forEach((rating: any, index: number) => {
-            console.log(`🔍 MyRatings: Rating ${index + 1} populate kontrolü:`, {
-              hasAppointmentId: !!rating.appointmentId,
-              appointmentIdType: typeof rating.appointmentId,
-              hasMechanicId: !!rating.mechanicId,
-              mechanicIdType: typeof rating.mechanicId,
-              appointmentData: rating.appointmentId,
-              mechanicData: rating.mechanicId
-            });
           });
           
           setRatings(data.data.ratings);
         } else if (data && data.success && data.data && Array.isArray(data.data)) {
-          console.log('✅ MyRatings: Ratings found in data.data (alternative path)');
-          console.log('✅ MyRatings: Ratings count:', data.data.length);
-          console.log('✅ MyRatings: First rating:', JSON.stringify(data.data[0], null, 2));
           setRatings(data.data);
         } else {
-          console.log('⚠️ MyRatings: No ratings found in expected structure');
-          console.log('⚠️ MyRatings: Full data structure:', JSON.stringify(data, null, 2));
-          console.log('⚠️ MyRatings: data.success:', data?.success);
-          console.log('⚠️ MyRatings: data.data:', data?.data);
-          console.log('⚠️ MyRatings: data.data.ratings:', data?.data?.ratings);
-          console.log('⚠️ MyRatings: data.data type:', typeof data?.data);
-          console.log('⚠️ MyRatings: data.data isArray:', Array.isArray(data?.data));
           setRatings([]);
         }
       } else {
         const errorText = await response.text();
-        console.log('❌ MyRatings: API Error:', response.status, response.statusText);
-        console.log('❌ MyRatings: Error response:', errorText);
         setRatings([]);
       }
     } catch (error) {
-      console.log('❌ MyRatings: Fetch Error:', error);
       setRatings([]);
     } finally {
       setLoading(false);
@@ -134,7 +103,6 @@ export const MyRatingsScreen: React.FC = ({ route }: any) => {
   // Route parametresinden refresh gelirse verileri yenile
   useEffect(() => {
     if (route?.params?.refresh) {
-      console.log('🔄 MyRatings: Refresh parametresi alındı, veriler yenileniyor...');
       fetchMyRatings();
       // Parametreyi temizle
       route.params.refresh = false;
@@ -207,7 +175,7 @@ export const MyRatingsScreen: React.FC = ({ route }: any) => {
       'alt-takim': 'Alt Takım',
       'agir-bakim': 'Ağır Bakım',
       'yedek-parca': 'Yedek Parça',
-      'lastik': 'Lastik',
+      'lastik': 'Lastik Servisi',
       'ekspertiz': 'Ekspertiz',
       'egzoz-emisyon': 'Egzoz & Emisyon',
       'sigorta-kasko': 'Sigorta & Kasko',

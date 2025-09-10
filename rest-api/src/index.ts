@@ -5,9 +5,12 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { createServer } from 'http';
 import { Server, Socket } from 'socket.io';
+import jwt from 'jsonwebtoken';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './config/swagger';
 import { errorHandler, notFound } from './middleware/errorHandler';
+import helmet from 'helmet';
+import compression from 'compression';
 
 // Route'ları import et
 import authRoutes from './routes/auth';
@@ -26,39 +29,50 @@ import mechanicJobsRoutes from './routes/mechanicJobs';
 import mechanicEarningsRoutes from './routes/mechanicEarnings';
 import appointmentRoutes from './routes/appointments';
 import notificationRoutes from './routes/notifications';
+import pushNotificationRoutes from './routes/pushNotifications';
 import appointmentRatingRoutes from './routes/appointmentRating';
 import messageRoutes from './routes/message';
 import walletRoutes from './routes/wallet';
+import tefePointRoutes from './routes/tefePoint';
 import activityRoutes from './routes/activity';
+import faultReportRoutes from './routes/faultReport';
+import serviceRequestRoutes from './routes/serviceRequests';
 
 
 
 // .env dosyasını yükle
 dotenv.config();
 
-// API anahtarlarını kontrol et
-console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'Mevcut' : 'Eksik');
-console.log('REKAI_API_KEY:', process.env.REKAI_API_KEY ? 'Mevcut' : 'Eksik');
+
 
 const app = express();
-app.use(cors({ origin: '*', credentials: true }));
+
+// Security & performance middleware
+app.use(helmet());
+app.use(compression());
+
+// CORS configuration
+import { MONGODB_URI } from './config';
+import { PORT as CONFIG_PORT, CORS_ORIGIN, JWT_SECRET } from './config';
+
+const allowCredentials = CORS_ORIGIN !== '*';
+app.use(cors({
+  origin: CORS_ORIGIN === '*' ? true : CORS_ORIGIN,
+  credentials: allowCredentials,
+}));
 app.use(express.json());
 
 // Sadece önemli istekleri logla (development modunda)
 if (process.env.NODE_ENV === 'development') {
   app.use((req, res, next) => {
-    // Sadece POST, PUT, DELETE isteklerini ve hataları logla
-    if (['POST', 'PUT', 'DELETE'].includes(req.method) || req.url.includes('/error')) {
-      console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-    }
+
     next();
   });
 }
 
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = CONFIG_PORT;
 
 // MongoDB bağlantısı
-import { MONGODB_URI } from './config';
 
 // Mongoose modellerini import et (register için)
 import './models/User';
@@ -70,9 +84,10 @@ import './models/Conversation';
 import './models/Notification';
 import './models/AppointmentRating';
 import './models/ServiceCategory';
+import './models/FaultReport';
+import './models/TefePoint';
 
 mongoose.connect(MONGODB_URI)
-  .then(() => console.log('MongoDB bağlantısı başarılı!'))
   .catch(err => console.error('MongoDB bağlantı hatası:', err));
 
 // HTTP sunucusu oluştur
@@ -81,14 +96,14 @@ const httpServer = createServer(app);
 // Socket.io sunucusu oluştur - TÜM ORIGIN'LER İÇİN AÇIK
 export const io = new Server(httpServer, {
   cors: {
-    origin: true, // TÜM ORIGIN'LERİ KABUL ET
+    origin: CORS_ORIGIN === '*' ? true : CORS_ORIGIN,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    credentials: true,
+    credentials: allowCredentials,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     preflightContinue: false,
     optionsSuccessStatus: 204
   },
-  transports: ['polling'], // SADECE POLLING - KARARLI BAĞLANTI
+  transports: ['websocket', 'polling'],
   allowEIO3: true,
   // allowEIO4: true, // Bu özellik mevcut değil
   pingTimeout: 120000, // 2 dakika
@@ -99,6 +114,28 @@ export const io = new Server(httpServer, {
   allowRequest: (req, callback) => {
     // TÜM İSTEKLERİ KABUL ET
     callback(null, true);
+  }
+});
+
+// Socket.IO auth middleware - JWT doğrulama
+io.use((socket, next) => {
+  try {
+    const authHeader = socket.handshake.headers['authorization'];
+    const tokenFromHeader = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+      ? authHeader.replace('Bearer ', '')
+      : undefined;
+    const token = (socket.handshake.auth && (socket.handshake.auth as any).token) || tokenFromHeader;
+
+    if (!token) {
+      return next(new Error('Unauthorized'));
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET!) as { userId: string; userType: 'driver' | 'mechanic' };
+    (socket.data as any).userId = decoded.userId;
+    (socket.data as any).userType = decoded.userType;
+    return next();
+  } catch (err) {
+    return next(new Error('Unauthorized'));
   }
 });
 
@@ -114,10 +151,21 @@ io.on('connection', (socket: Socket) => {
     console.error('Socket.IO: Bağlantı hatası:', error);
   });
   
-  // Kullanıcı odaya katılma
+  // Bağlanırken kendi odasına otomatik katıl
+  try {
+    const authedUserId = (socket.data as any).userId;
+    if (authedUserId) {
+      socket.join(authedUserId);
+    }
+  } catch {}
+
+  // Eski istemciler için 'join' desteği: sadece kendi odasına izin ver
   socket.on('join', (userId: string) => {
     try {
-      socket.join(userId);
+      const authedUserId = (socket.data as any).userId;
+      if (userId && authedUserId && userId === authedUserId) {
+        socket.join(userId);
+      }
     } catch (error) {
       console.error('Socket.IO: Odaya katılma hatası:', error);
     }
@@ -127,9 +175,7 @@ io.on('connection', (socket: Socket) => {
   socket.on('disconnect', (reason: string) => {
     // Sessiz disconnect
     const rooms = Array.from(socket.rooms);
-    if (rooms.length > 1) { // 1'den fazla çünkü socket.id de bir oda
-      console.log(`🏠 Socket.IO: Kullanıcı şu odalardan çıkarıldı:`, rooms.slice(1));
-    }
+
   });
   
   // Ping/Pong kontrolü
@@ -140,16 +186,7 @@ io.on('connection', (socket: Socket) => {
 
 // Bildirim gönderme fonksiyonu
 export function sendNotificationToUser(userId: string, notification: any) {
-  console.log('🔔 Backend: sendNotificationToUser çağrıldı');
-  console.log('🔔 Backend: userId:', userId);
-  console.log('🔔 Backend: notification:', notification);
-  
-  const room = io.sockets.adapter.rooms.get(userId);
-  console.log('🔔 Backend: Oda mevcut mu?', !!room);
-  console.log('🔔 Backend: Odadaki socket sayısı:', room ? room.size : 0);
-  
   io.to(userId).emit('notification', notification);
-  console.log('🔔 Backend: Bildirim gönderildi!');
 }
 
 // Swagger UI
@@ -199,10 +236,14 @@ app.use('/api/mechanic-jobs', mechanicJobsRoutes);
 app.use('/api/mechanic-earnings', mechanicEarningsRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/users', pushNotificationRoutes);
 
 app.use('/api/message', messageRoutes);
 app.use('/api/wallet', walletRoutes);
+app.use('/api/tefe-points', tefePointRoutes);
 app.use('/api/activity', activityRoutes);
+app.use('/api/fault-reports', faultReportRoutes);
+app.use('/api/service-requests', serviceRequestRoutes);
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
@@ -211,5 +252,5 @@ app.use(notFound);
 app.use(errorHandler);
 
 httpServer.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Rektefe API listening on http://0.0.0.0:${PORT}`);
 });

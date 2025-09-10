@@ -28,7 +28,7 @@ export const useSocketConnection = ({ token, onNotification }: UseSocketConnecti
         reconnectionAttempts: 3, // 3 deneme
         reconnectionDelay: 2000, // 2 saniye gecikme
         reconnectionDelayMax: 10000, // Maksimum 10 saniye gecikme
-        maxReconnectionAttempts: 3, // Maksimum 3 deneme
+        // maxReconnectionAttempts kaldırıldı; Socket.IO v4'te reconnectionAttempts kullanılır
         transports: ['polling'], // SADECE POLLING - KARARLI BAĞLANTI
         upgrade: false, // Transport upgrade devre dışı
         rememberUpgrade: false, // Upgrade'i hatırlama
@@ -42,7 +42,6 @@ export const useSocketConnection = ({ token, onNotification }: UseSocketConnecti
 
       // Bağlantı başarılı
       newSocket.on('connect', () => {
-        console.log('✅ Socket.IO bağlantısı başarılı');
         setIsConnected(true);
         setConnectionError(null);
         reconnectAttempts.current = 0;
@@ -66,7 +65,6 @@ export const useSocketConnection = ({ token, onNotification }: UseSocketConnecti
         setConnectionError(error.message);
         
         // Socket.IO'nun kendi reconnection'ı çalışacak
-        console.log('🔄 Socket.IO otomatik yeniden bağlanma aktif');
       });
 
       // Bağlantı kesildi
@@ -76,7 +74,6 @@ export const useSocketConnection = ({ token, onNotification }: UseSocketConnecti
         
         // Socket.IO'nun kendi reconnection'ı çalışacak
         if (reason === 'io server disconnect') {
-          console.log('🔄 Sunucu bağlantıyı kesti, otomatik yeniden bağlanma bekleniyor...');
         } else if (reason === 'ping timeout') {
           console.log('⏰ Ping timeout, otomatik yeniden bağlanma bekleniyor...');
         }
@@ -84,7 +81,6 @@ export const useSocketConnection = ({ token, onNotification }: UseSocketConnecti
 
       // Reconnection event'leri
       newSocket.on('reconnect', (attemptNumber: number) => {
-        console.log(`✅ Socket.IO yeniden bağlandı! Deneme: ${attemptNumber}`);
         setIsConnected(true);
         setConnectionError(null);
         
@@ -101,7 +97,6 @@ export const useSocketConnection = ({ token, onNotification }: UseSocketConnecti
       });
 
       newSocket.on('reconnect_attempt', (attemptNumber: number) => {
-        console.log(`🔄 Socket.IO yeniden bağlanma denemesi: ${attemptNumber}`);
       });
 
       newSocket.on('reconnect_error', (error: any) => {

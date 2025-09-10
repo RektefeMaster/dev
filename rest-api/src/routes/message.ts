@@ -62,11 +62,6 @@ router.get('/conversations/:conversationId/messages', auth, async (req: Request,
     const limit = parseInt(req.query.limit as string) || 50;
     const userId = req.user?.userId;
     
-    console.log('🔍 Backend: GET /conversations/:conversationId/messages called');
-    console.log('🔍 Backend: conversationId:', conversationId);
-    console.log('🔍 Backend: userId:', userId);
-    console.log('🔍 Backend: page:', page, 'limit:', limit);
-    
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -74,13 +69,11 @@ router.get('/conversations/:conversationId/messages', auth, async (req: Request,
       });
     }
     
-    const result = await MessageService.getMessages(conversationId, userId, page, limit);
-    
-    console.log('🔍 Backend: getMessages result:', result.messages.length, 'messages');
+    const result = await MessageService.getMessages(conversationId, page, limit);
     
     res.json({
       success: true,
-      data: result.messages,
+      data: result,
       message: 'Messages başarıyla getirildi'
     });
   } catch (error: any) {
@@ -99,12 +92,6 @@ router.post('/send', auth, async (req: Request, res: Response) => {
     const { receiverId, content, messageType = 'text' } = req.body;
     const senderId = req.user?.userId;
     
-    console.log('🔍 Backend: POST /send called');
-    console.log('🔍 Backend: senderId:', senderId);
-    console.log('🔍 Backend: receiverId:', receiverId);
-    console.log('🔍 Backend: content:', content);
-    console.log('🔍 Backend: messageType:', messageType);
-    
     if (!senderId) {
       return res.status(401).json({
         success: false,
@@ -120,8 +107,6 @@ router.post('/send', auth, async (req: Request, res: Response) => {
     }
 
     const message = await MessageService.sendMessage(senderId, receiverId, content, messageType);
-    
-    console.log('🔍 Backend: sendMessage result:', message._id);
     
     res.json({
       success: true,
@@ -158,7 +143,7 @@ router.put('/mark-read', auth, async (req: Request, res: Response) => {
       });
     }
 
-    await MessageService.markMessagesAsRead(userId, conversationId);
+    await MessageService.markMessagesAsRead(conversationId, userId);
     
     res.json({
       success: true,
@@ -217,7 +202,7 @@ router.get('/conversations/:conversationId/messages/after/:messageId', auth, asy
       });
     }
     
-    const messages = await MessageService.getMessagesAfter(conversationId, userId, messageId, limit);
+    const messages = await MessageService.getMessagesAfter(conversationId, messageId, limit);
     
     res.json({
       success: true,
@@ -238,21 +223,21 @@ router.get('/conversations/:conversationId/messages/after/:messageId', auth, asy
 
 /**
  * @swagger
- * /api/message/conversation/find/{mechanicId}:
+ * /api/message/conversation/find/{otherUserId}:
  *   get:
- *     summary: Mekanik ile konuşma bul
- *     description: Belirli bir mekanik ile konuşma bulur veya yeni konuşma oluşturur
+ *     summary: Kullanıcı ile konuşma bul
+ *     description: Belirli bir kullanıcı ile konuşma bulur veya yeni konuşma oluşturur
  *     tags:
  *       - Messages
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: mechanicId
+ *         name: otherUserId
  *         required: true
  *         schema:
  *           type: string
- *         description: Mekanik ID'si
+ *         description: Diğer kullanıcı ID'si (usta veya şöför)
  *         example: "507f1f77bcf86cd799439011"
  *     responses:
  *       200:
@@ -262,9 +247,9 @@ router.get('/conversations/:conversationId/messages/after/:messageId', auth, asy
  *       500:
  *         description: Sunucu hatası
  */
-router.get('/conversation/find/:mechanicId', auth, async (req: Request, res: Response) => {
+router.get('/conversation/find/:otherUserId', auth, async (req: Request, res: Response) => {
   try {
-    const { mechanicId } = req.params;
+    const { otherUserId } = req.params;
     const userId = req.user?.userId;
     
     if (!userId) {
@@ -274,8 +259,8 @@ router.get('/conversation/find/:mechanicId', auth, async (req: Request, res: Res
       });
     }
     
-    // Mevcut konuşmayı bul veya oluştur
-    const conversation = await MessageService.findOrCreateConversation(userId, mechanicId);
+    // Mevcut konuşmayı bul veya oluştur (otherParticipant field'ı ile)
+    const conversation = await MessageService.findOrCreateConversationWithOtherParticipant(userId, otherUserId);
     
     res.json({
       success: true,
@@ -298,10 +283,6 @@ router.get('/poll-messages', auth, async (req: Request, res: Response) => {
     const userId = req.user?.userId;
     const lastMessageId = req.query.lastMessageId as string;
     
-    console.log('🔍 Backend: GET /poll-messages called');
-    console.log('🔍 Backend: userId:', userId);
-    console.log('🔍 Backend: lastMessageId:', lastMessageId);
-    
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -313,7 +294,6 @@ router.get('/poll-messages', auth, async (req: Request, res: Response) => {
     let newMessages = await MessageService.getNewMessages(userId, lastMessageId);
     
     if (newMessages.length > 0) {
-      console.log('🔍 Backend: Yeni mesajlar bulundu:', newMessages.length);
       return res.json({
         success: true,
         data: newMessages,
@@ -322,8 +302,6 @@ router.get('/poll-messages', auth, async (req: Request, res: Response) => {
       });
     }
     
-    console.log('🔍 Backend: Yeni mesaj yok, long polling başlatılıyor...');
-    
     // Yeni mesaj yoksa long polling başlat
     const startTime = Date.now();
     const timeout = 30000; // 30 saniye timeout
@@ -331,7 +309,6 @@ router.get('/poll-messages', auth, async (req: Request, res: Response) => {
     
     // Client bağlantısı kesildiğinde interval'i temizle
     req.on('close', () => {
-      console.log('🔍 Backend: Client bağlantısı kesildi, polling durduruldu');
       if (pollInterval) {
         clearInterval(pollInterval);
       }
@@ -339,7 +316,6 @@ router.get('/poll-messages', auth, async (req: Request, res: Response) => {
     
     // Timeout kontrolü
     const timeoutId = setTimeout(() => {
-      console.log('🔍 Backend: Long polling timeout');
       if (pollInterval) {
         clearInterval(pollInterval);
       }
@@ -371,8 +347,6 @@ router.get('/poll-messages', auth, async (req: Request, res: Response) => {
         newMessages = await MessageService.getNewMessages(userId, lastMessageId);
         
         if (newMessages.length > 0) {
-          console.log('🔍 Backend: Long polling ile yeni mesajlar bulundu:', newMessages.length);
-          
           if (pollInterval) {
             clearInterval(pollInterval);
           }
@@ -388,8 +362,6 @@ router.get('/poll-messages', auth, async (req: Request, res: Response) => {
         
         // Timeout kontrolü
         if (Date.now() - startTime > timeout) {
-          console.log('🔍 Backend: Long polling timeout');
-          
           if (pollInterval) {
             clearInterval(pollInterval);
           }

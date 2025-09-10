@@ -3,70 +3,39 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 
 const ColorPaletteDemo = () => {
-  const { isDark, themeColors, palette } = useTheme();
+  const { isDark, colors: themeColors } = useTheme();
 
   const renderColorSwatch = (name: string, color: string, description: string) => (
     <View key={name} style={styles.colorSwatch}>
       <View style={[styles.colorBox, { backgroundColor: color }]} />
       <View style={styles.colorInfo}>
-        <Text style={[styles.colorName, { color: themeColors.text }]}>{name}</Text>
-        <Text style={[styles.colorCode, { color: themeColors.text }]}>{color}</Text>
-        <Text style={[styles.colorDescription, { color: themeColors.text }]}>{description}</Text>
+        <Text style={[styles.colorName, { color: themeColors.text.primary }]}>{name}</Text>
+        <Text style={[styles.colorCode, { color: themeColors.text.secondary }]}>{color}</Text>
+        <Text style={[styles.colorDescription, { color: themeColors.text.tertiary }]}>{description}</Text>
       </View>
     </View>
   );
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: themeColors.background }]}>
-      <Text style={[styles.title, { color: themeColors.text }]}>
+    <ScrollView style={[styles.container, { backgroundColor: themeColors.background.primary }]}>
+      <Text style={[styles.title, { color: themeColors.text.primary }]}>
         Rektefe-DV Renk Paleti Demo
       </Text>
       
-      <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-        Dark Tema (31 ile biten renkler)
-      </Text>
-      {renderColorSwatch('Dark Blue', palette.darkBlue, 'Orta mavi - vurgu rengi')}
-      {renderColorSwatch('Dark Blue Deep', palette.darkBlueDeep, 'Koyu mavi - kart arka planı')}
-      {renderColorSwatch('Dark Blue Very', palette.darkBlueVery, 'Çok koyu mavi - ana arka plan')}
-      {renderColorSwatch('Dark Blue Almost', palette.darkBlueAlmost, 'Neredeyse siyah - gölge')}
-      {renderColorSwatch('Dark Gray', palette.darkGray, 'Koyu gri - yüzey')}
-      {renderColorSwatch('Dark Brown', palette.darkBrown, 'Altın kahverengi - vurgu')}
+      <Text style={[styles.sectionTitle, { color: themeColors.text.primary }]}>Örnek Renkler</Text>
+      {renderColorSwatch('Primary', themeColors.primary.main, 'Ana vurgu rengi')}
+      {renderColorSwatch('Secondary', themeColors.secondary.main, 'İkincil vurgu rengi')}
+      {renderColorSwatch('Accent', themeColors.accent.main, 'Aksiyon rengi')}
+      {renderColorSwatch('Success', themeColors.success.main, 'Başarı')}
+      {renderColorSwatch('Warning', themeColors.warning.main, 'Uyarı')}
+      {renderColorSwatch('Error', themeColors.error.main, 'Hata')}
 
-      <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-        Light Tema (27 ile biten renkler)
-      </Text>
-      {renderColorSwatch('Light Gray Very', palette.lightGrayVery, 'Çok koyu gri - ana metin')}
-      {renderColorSwatch('Light Gray Dark', palette.lightGrayDark, 'Koyu gri - ikon')}
-      {renderColorSwatch('Light Gray Medium', palette.lightGrayMedium, 'Orta gri - tab ikonu')}
-      {renderColorSwatch('Light Gray Light', palette.lightGrayLight, 'Açık gri - gölge')}
-      {renderColorSwatch('Light Gray Very Light', palette.lightGrayVeryLight, 'Çok açık gri - ayırıcı')}
-
-      <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-        Ortak Renkler (28 ile biten)
-      </Text>
-      {renderColorSwatch('Common Blue Very', palette.commonBlueVery, 'Çok koyu lacivert')}
-      {renderColorSwatch('Common Blue', palette.commonBlue, 'Orta mavi - ana renk')}
-      {renderColorSwatch('Common Blue Light', palette.commonBlueLight, 'Açık mavi-gri - bilgi')}
-      {renderColorSwatch('Common Gray', palette.commonGray, 'Çok açık gri')}
-      {renderColorSwatch('Common Brown', palette.commonBrown, 'Orta kahverengi - ikincil')}
-      {renderColorSwatch('Common Peach', palette.commonPeach, 'Açık şeftali')}
-
-      <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-        Tema Renkleri
-      </Text>
-      {renderColorSwatch('Text', themeColors.text, 'Ana metin rengi')}
-      {renderColorSwatch('Background', themeColors.background, 'Ana arka plan')}
-      {renderColorSwatch('Card', themeColors.card, 'Kart arka planı')}
-      {renderColorSwatch('Surface', themeColors.surface, 'Yüzey rengi')}
-      {renderColorSwatch('Border', themeColors.border, 'Kenarlık rengi')}
-      {renderColorSwatch('Shadow', themeColors.shadow, 'Gölge rengi')}
-      {renderColorSwatch('Accent', themeColors.accent, 'Vurgu rengi')}
-      {renderColorSwatch('Divider', themeColors.divider, 'Ayırıcı rengi')}
-      {renderColorSwatch('Tint', themeColors.tint, 'Tint rengi')}
-      {renderColorSwatch('Icon', themeColors.icon, 'İkon rengi')}
-      {renderColorSwatch('Tab Icon Default', themeColors.tabIconDefault, 'Varsayılan tab ikonu')}
-      {renderColorSwatch('Tab Icon Selected', themeColors.tabIconSelected, 'Seçili tab ikonu')}
-      {renderColorSwatch('Card Border', themeColors.cardBorder, 'Kart kenarlığı')}
+      <Text style={[styles.sectionTitle, { color: themeColors.text.primary }]}>Tema Renkleri</Text>
+      {renderColorSwatch('Text Primary', themeColors.text.primary, 'Ana metin')}
+      {renderColorSwatch('Text Secondary', themeColors.text.secondary, 'İkincil metin')}
+      {renderColorSwatch('Background', themeColors.background.primary, 'Arka plan')}
+      {renderColorSwatch('Card', themeColors.background.card, 'Kart arka planı')}
+      {renderColorSwatch('Border', themeColors.border.primary, 'Kenarlık')}
 
       <View style={{ height: 50 }} />
     </ScrollView>

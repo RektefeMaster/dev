@@ -14,16 +14,19 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors, spacing, borderRadius, shadows, typography, dimensions as themeDimensions } from '../theme/theme';
+import { spacing, borderRadius, shadows, typography, dimensions as themeDimensions } from '../theme/theme';
 import { Button, LoadingSpinner } from '../components';
 import apiService from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { Appointment } from '../types/common';
 
 export default function AppointmentDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute();
+  const { themeColors: colors } = useTheme();
   const { user } = useAuth();
+  const styles = createStyles(colors);
   
   const { appointmentId } = route.params as { appointmentId: string };
   
@@ -113,11 +116,11 @@ export default function AppointmentDetailScreen() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return colors.warning.main;
-      case 'confirmed': return colors.success.main;
-      case 'rejected': return colors.error.main;
-      case 'in-progress': return colors.primary.main;
-      case 'completed': return colors.secondary.main;
+      case 'pending': return colors.warning;
+      case 'confirmed': return colors.success;
+      case 'rejected': return colors.error;
+      case 'in-progress': return colors.primary;
+      case 'completed': return colors.secondary;
       case 'cancelled': return colors.text.tertiary;
       default: return colors.text.tertiary;
     }
@@ -204,24 +207,41 @@ export default function AppointmentDetailScreen() {
       <StatusBar barStyle="dark-content" backgroundColor={colors.background.primary} />
       
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.background.primary }]}>
         <TouchableOpacity
-          style={styles.backButton}
+          style={[styles.backButton, { backgroundColor: colors.background.secondary }]}
           onPress={() => navigation.goBack()}
         >
           <Ionicons name="chevron-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Randevu Detayları</Text>
+        <View style={styles.headerContent}>
+          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Randevu Detayları</Text>
+          <Text style={[styles.headerSubtitle, { color: colors.text.secondary }]}>
+            {appointment?.serviceType}
+          </Text>
+        </View>
         <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Status Card */}
-        <View style={styles.statusCard}>
+        <View style={[styles.statusCard, { backgroundColor: colors.background.secondary }]}>
           <View style={styles.statusHeader}>
-            <Text style={styles.statusLabel}>Durum</Text>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(appointment.status) }]}>
-              <Text style={styles.statusText}>{getStatusText(appointment.status)}</Text>
+            <View style={styles.statusInfo}>
+              <Text style={[styles.statusLabel, { color: colors.text.secondary }]}>Durum</Text>
+              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(appointment.status) }]}>
+                <Text style={styles.statusText}>{getStatusText(appointment.status)}</Text>
+              </View>
+            </View>
+            <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(appointment.status) + '20' }]}>
+              <Ionicons 
+                name={appointment.status === 'pending' ? 'time' : 
+                      appointment.status === 'confirmed' ? 'checkmark-circle' :
+                      appointment.status === 'in-progress' ? 'construct' :
+                      appointment.status === 'completed' ? 'checkmark-done-circle' : 'close-circle'} 
+                size={24} 
+                color={getStatusColor(appointment.status)} 
+              />
             </View>
           </View>
         </View>
@@ -264,14 +284,14 @@ export default function AppointmentDetailScreen() {
               title="Kabul Et"
               onPress={handleApprove}
               loading={processing}
-              style={[styles.actionButton, { backgroundColor: colors.success.main }] as any}
+              style={[styles.actionButton, { backgroundColor: colors.success }] as any}
               textStyle={styles.actionButtonText}
             />
             <Button
               title="Reddet"
               onPress={() => setShowRejectModal(true)}
               loading={processing}
-              style={[styles.actionButton, { backgroundColor: colors.error.main }] as any}
+              style={[styles.actionButton, { backgroundColor: colors.error }] as any}
               textStyle={styles.actionButtonText}
             />
           </View>
@@ -304,7 +324,7 @@ export default function AppointmentDetailScreen() {
                 <Text style={styles.modalButtonText}>İptal</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: colors.error.main }]}
+                style={[styles.modalButton, { backgroundColor: colors.error }]}
                 onPress={handleReject}
               >
                 <Text style={[styles.modalButtonText, { color: colors.text.inverse }]}>
@@ -319,7 +339,7 @@ export default function AppointmentDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background.primary,
@@ -362,13 +382,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border.secondary,
   },
-  headerTitle: {
+  headerContent: {
     flex: 1,
+    alignItems: 'center',
+    marginHorizontal: spacing.md,
+  },
+  headerTitle: {
     fontSize: typography.h1.fontSize,
     fontWeight: '700',
     color: colors.text.primary,
     textAlign: 'center',
-    marginHorizontal: spacing.md,
+    marginBottom: 2,
+  },
+  headerSubtitle: {
+    fontSize: typography.body2.fontSize,
+    color: colors.text.secondary,
+    textAlign: 'center',
   },
   headerSpacer: {
     width: 40,
@@ -379,31 +408,48 @@ const styles = StyleSheet.create({
   },
   statusCard: {
     backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     padding: spacing.lg,
     marginVertical: spacing.md,
     borderWidth: 1,
     borderColor: colors.border.secondary,
+    shadowColor: colors.shadow.dark,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   statusHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  statusInfo: {
+    flex: 1,
+  },
   statusLabel: {
     fontSize: typography.body2.fontSize,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
   },
   statusBadge: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.sm,
+    alignSelf: 'flex-start',
   },
   statusText: {
     fontSize: typography.caption.small.fontSize,
     fontWeight: '600',
     color: colors.text.inverse,
+  },
+  statusIndicator: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   infoSection: {
     marginBottom: spacing.lg,
@@ -519,3 +565,5 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
   },
 });
+
+// styles will be created inside component

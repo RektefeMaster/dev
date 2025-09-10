@@ -41,7 +41,7 @@ export class ActivityController {
       // Son tamamlanan işler
       const completedJobs = await Appointment.find({
         mechanicId,
-        status: 'completed'
+        status: 'TAMAMLANDI'
       })
       .populate('userId', 'name surname')
       .populate('vehicleId', 'brand modelName')
@@ -98,7 +98,7 @@ export class ActivityController {
       // Son onaylanan randevular
       const approvedAppointments = await Appointment.find({
         mechanicId,
-        status: 'approved'
+        status: 'PLANLANDI'
       })
       .populate('userId', 'name surname')
       .populate('vehicleId', 'brand modelName')

@@ -1,10 +1,14 @@
 import { Request, Response } from 'express';
 import { AppointmentService } from '../services/appointment.service';
-// Test import kaldırıldı
+import { Appointment } from '../models/Appointment';
+import { User } from '../models/User';
+import { TefePointService } from '../services/tefePoint.service';
+import { Wallet } from '../models/Wallet';
 
 import { sendAppointmentRequestNotification, sendAppointmentStatusNotification } from '../utils/notifications';
 import { CustomError } from '../utils/response';
 import pushNotificationService from '../services/pushNotification.service';
+import { NotificationTriggerService } from '../services/notificationTriggerService';
 
 export class AppointmentController {
   /**
@@ -12,7 +16,7 @@ export class AppointmentController {
    */
   static async createAppointment(req: Request, res: Response) {
     try {
-      const { mechanicId, serviceType, appointmentDate, timeSlot, description, vehicleId } = req.body;
+      const { mechanicId, serviceType, appointmentDate, timeSlot, description, vehicleId, faultReportId } = req.body;
       const userId = req.user?.userId;
 
       if (!userId) {
@@ -26,7 +30,8 @@ export class AppointmentController {
         appointmentDate: new Date(appointmentDate),
         timeSlot,
         description,
-        vehicleId
+        vehicleId,
+        faultReportId
       });
 
       // Ustaya bildirim gönder
@@ -39,15 +44,22 @@ export class AppointmentController {
           appointmentDate,
           timeSlot
         );
-        console.log('✅ Socket bildirimi başarıyla gönderildi');
-        
         // Push notification gönder
         await pushNotificationService.sendAppointmentNotification(
           mechanicId,
           'new',
           appointment
         );
-        console.log('✅ Push notification başarıyla gönderildi');
+
+        // Gerçek bildirim tetikleyicisi
+        const driver = await User.findById(userId);
+        await NotificationTriggerService.sendAppointmentRequestNotification(
+          mechanicId,
+          driver?.name || 'Müşteri',
+          serviceType,
+          appointmentDate.split('T')[0],
+          timeSlot
+        );
         
       } catch (notificationError) {
         console.error('❌ Bildirim gönderilirken hata:', notificationError);
@@ -124,14 +136,7 @@ export class AppointmentController {
       }
 
       const { status } = req.query;
-      console.log('🔧 AppointmentController: getMechanicAppointments called with status filter:', status);
-
       const appointments = await AppointmentService.getMechanicAppointments(mechanicId, status as string);
-      
-      console.log('🔧 AppointmentController: Sending appointments count:', appointments.length);
-      if (appointments.length > 0) {
-        console.log('🔧 AppointmentController: First appointment sample:', JSON.stringify(appointments[0], null, 2));
-      }
       res.status(200).json({
         success: true,
         data: { appointments }
@@ -160,7 +165,7 @@ export class AppointmentController {
       const { id } = req.params;
       const userId = req.user?.userId;
 
-      console.log('🔍 AppointmentController: getAppointmentById called with id:', id);
+
 
       if (!userId) {
         throw new CustomError('Kullanıcı bilgisi bulunamadı', 401);
@@ -168,13 +173,7 @@ export class AppointmentController {
 
       const appointment = await AppointmentService.getAppointmentById(id, userId);
       
-      console.log('🔍 AppointmentController: Sending appointment data:', {
-        appointmentId: id,
-        userId: appointment.userId,
-        vehicleId: appointment.vehicleId,
-        serviceType: appointment.serviceType,
-        description: appointment.description
-      });
+
       
       res.status(200).json({
         success: true,
@@ -193,6 +192,86 @@ export class AppointmentController {
           message: 'Randevu detayı getirilirken bir hata oluştu'
         });
       }
+    }
+  }
+
+  /**
+   * Usta fiyat belirleme (normal randevu için)
+   */
+  static async setAppointmentPrice(req: Request, res: Response) {
+    try {
+      const { appointmentId } = req.params;
+      const { price, notes } = req.body;
+      const mechanicId = req.user?.userId;
+
+      if (!mechanicId) {
+        throw new CustomError('Usta bilgisi bulunamadı', 401);
+      }
+
+      if (!price || isNaN(Number(price)) || Number(price) <= 0) {
+        throw new CustomError('Geçerli bir fiyat giriniz', 400);
+      }
+
+      const appointment = await AppointmentService.setAppointmentPrice(
+        appointmentId,
+        mechanicId,
+        Number(price),
+        notes
+      );
+
+      res.json({
+        success: true,
+        message: 'Fiyat başarıyla belirlendi',
+        data: appointment
+      });
+    } catch (error: any) {
+      console.error('Fiyat belirleme hatası:', error);
+      res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.message || 'Fiyat belirlenirken bir hata oluştu'
+      });
+    }
+  }
+
+  /**
+   * Usta ek fiyat ekleme (arıza bildirimi randevusu için)
+   */
+  static async addPriceIncrease(req: Request, res: Response) {
+    try {
+      const { appointmentId } = req.params;
+      const { additionalAmount, reason } = req.body;
+      const mechanicId = req.user?.userId;
+
+      if (!mechanicId) {
+        throw new CustomError('Usta bilgisi bulunamadı', 401);
+      }
+
+      if (!additionalAmount || isNaN(Number(additionalAmount)) || Number(additionalAmount) <= 0) {
+        throw new CustomError('Geçerli bir ek fiyat giriniz', 400);
+      }
+
+      if (!reason || reason.trim().length === 0) {
+        throw new CustomError('Ek fiyat sebebi gereklidir', 400);
+      }
+
+      const appointment = await AppointmentService.addPriceIncrease(
+        appointmentId,
+        mechanicId,
+        Number(additionalAmount),
+        reason.trim()
+      );
+
+      res.json({
+        success: true,
+        message: 'Ek fiyat başarıyla eklendi',
+        data: appointment
+      });
+    } catch (error: any) {
+      console.error('Ek fiyat ekleme hatası:', error);
+      res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.message || 'Ek fiyat eklenirken bir hata oluştu'
+      });
     }
   }
 
@@ -225,6 +304,39 @@ export class AppointmentController {
         appointment.timeSlot,
         rejectionReason
       );
+
+      // Gerçek bildirim tetikleyicisi
+      try {
+        const mechanic = await User.findById(mechanicId);
+        const driver = await User.findById(appointment.userId);
+        
+        if (status === 'confirmed') {
+          await NotificationTriggerService.sendAppointmentConfirmedNotification(
+            appointment.userId.toString(),
+            mechanic?.name || 'Usta',
+            appointment.serviceType,
+            appointment.appointmentDate.toISOString().split('T')[0],
+            appointment.timeSlot
+          );
+        } else if (status === 'rejected') {
+          await NotificationTriggerService.createAndSendNotification({
+            recipientId: appointment.userId.toString(),
+            recipientType: 'driver',
+            type: 'appointment_cancelled',
+            title: 'Randevu Reddedildi',
+            message: `${mechanic?.name || 'Usta'} randevunuzu reddetti${rejectionReason ? `. Sebep: ${rejectionReason}` : ''}`,
+            data: {
+              mechanicName: mechanic?.name,
+              rejectionReason,
+              appointmentDate: appointment.appointmentDate,
+              timeSlot: appointment.timeSlot
+            }
+          });
+        }
+      } catch (notificationError) {
+        console.error('Bildirim gönderme hatası:', notificationError);
+        // Bildirim hatası ana işlemi engellemez
+      }
 
       res.status(200).json({
         success: true,
@@ -651,4 +763,256 @@ export class AppointmentController {
   }
 
   // Test method kaldırıldı
+
+  // Ödeme oluşturma
+  static async createPayment(req: Request, res: Response) {
+    try {
+      const { appointmentId } = req.params;
+      const { paymentMethod = 'credit_card' } = req.body;
+      const userId = req.user?.userId;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Kullanıcı doğrulanamadı'
+        });
+      }
+
+      // Randevuyu bul
+      const appointment = await Appointment.findById(appointmentId)
+        .populate('userId', 'name surname email')
+        .populate('mechanicId', 'name surname email phone');
+
+      if (!appointment) {
+        return res.status(404).json({
+          success: false,
+          message: 'Randevu bulunamadı'
+        });
+      }
+
+      // Sadece randevu sahibi ödeme yapabilir
+      if (appointment.userId._id.toString() !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Bu randevu için ödeme yapma yetkiniz yok'
+        });
+      }
+
+      // Sadece belirli durumlarda ödeme yapılabilir
+      if (!['TALEP_EDILDI', 'PLANLANDI', 'SERVISTE', 'ODEME_BEKLIYOR'].includes(appointment.status)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Bu randevu için ödeme yapılamaz'
+        });
+      }
+
+      // Ödeme bilgilerini güncelle
+      appointment.paymentStatus = 'pending';
+      appointment.status = 'ODEME_BEKLIYOR';
+
+      await appointment.save();
+
+      // Ustaya bildirim gönder
+      const notification = {
+        type: 'payment_pending',
+        title: 'Ödeme Bekleniyor',
+        message: `${(appointment.userId as any).name} ${(appointment.userId as any).surname} ödeme yapmaya hazırlanıyor`,
+        data: {
+          appointmentId: appointment._id,
+          amount: appointment.price || 0,
+          customerName: `${(appointment.userId as any).name} ${(appointment.userId as any).surname}`
+        }
+      };
+
+      // sendNotificationToUser(appointment.mechanicId._id.toString(), notification);
+
+      res.json({
+        success: true,
+        message: 'Ödeme oluşturuldu',
+        data: {
+          appointmentId: appointment._id,
+          amount: appointment.price || 0,
+          paymentMethod,
+          status: 'payment_pending'
+        }
+      });
+
+    } catch (error) {
+      console.error('Ödeme oluşturma hatası:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Ödeme oluşturulurken bir hata oluştu'
+      });
+    }
+  }
+
+  // Ödeme onaylama
+  static async confirmPayment(req: Request, res: Response) {
+    try {
+      const { appointmentId } = req.params;
+      const { transactionId, amount } = req.body;
+      const userId = req.user?.userId;
+
+      console.log(`🔍 confirmPayment çağrıldı - appointmentId: ${appointmentId}, amount: ${amount}, userId: ${userId}`);
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Kullanıcı doğrulanamadı'
+        });
+      }
+
+      // Randevuyu bul
+      const appointment = await Appointment.findById(appointmentId)
+        .populate('userId', 'name surname email')
+        .populate('mechanicId', 'name surname email phone');
+
+      if (!appointment) {
+        return res.status(404).json({
+          success: false,
+          message: 'Randevu bulunamadı'
+        });
+      }
+
+      // Sadece randevu sahibi ödeme onaylayabilir
+      if (appointment.userId._id.toString() !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Bu randevu için ödeme onaylama yetkiniz yok'
+        });
+      }
+
+      // Sadece payment_pending durumundaki randevular için ödeme onaylanabilir
+      if (appointment.status !== 'ODEME_BEKLIYOR') {
+        return res.status(400).json({
+          success: false,
+          message: 'Bu randevu için ödeme onaylanamaz'
+        });
+      }
+
+      // Ödeme bilgilerini güncelle
+      appointment.paymentStatus = 'completed';
+      appointment.status = 'PLANLANDI'; // Ödeme tamamlandıktan sonra planlandı durumuna geç
+      appointment.paymentDate = new Date();
+      appointment.transactionId = transactionId;
+      
+      // Eğer price değeri yoksa, quotedPrice'dan al
+      if (!appointment.price && appointment.quotedPrice) {
+        appointment.price = appointment.quotedPrice;
+      }
+      
+      // Eğer hala price yoksa, frontend'den gelen amount'u kullan
+      if (!appointment.price) {
+        const { amount } = req.body;
+        console.log(`🔍 Frontend'den gelen amount: ${amount}`);
+        if (amount) {
+          appointment.price = amount;
+          console.log(`🔍 Appointment.price set edildi: ${appointment.price}`);
+        }
+      }
+
+      await appointment.save();
+
+      // TefePuan kazanma işlemi
+      try {
+        const baseAmount = appointment.finalPrice || appointment.price || 0;
+        
+        console.log(`🔍 TefePuan hesaplama: baseAmount=${baseAmount}`);
+        console.log(`🔍 Appointment detayları:`, {
+          _id: appointment._id,
+          price: appointment.price,
+          finalPrice: appointment.finalPrice,
+          quotedPrice: appointment.quotedPrice,
+          serviceType: appointment.serviceType
+        });
+        
+        // TefePuan kazandır
+        const tefePointResult = await TefePointService.processPaymentTefePoints({
+          userId,
+          amount: baseAmount,
+          paymentType: 'appointment',
+          serviceCategory: appointment.serviceType || 'maintenance',
+          description: `Randevu ödemesi - ${appointment.serviceType || 'genel-bakım'}`,
+          serviceId: (appointment._id as any).toString(),
+          appointmentId: (appointment._id as any).toString()
+        });
+
+        if (tefePointResult.success && tefePointResult.earnedPoints) {
+          console.log(`✅ Randevu TefePuan eklendi: ${tefePointResult.earnedPoints} puan, Kullanıcı: ${userId}`);
+        }
+      } catch (tefeError) {
+        console.error('❌ TefePuan ekleme hatası:', tefeError);
+        // TefePuan hatası ödeme işlemini durdurmaz
+      }
+
+      // Wallet'a transaction ekle
+      try {
+        const walletAmount = appointment.finalPrice || appointment.price || 0;
+        console.log(`🔍 Wallet transaction ekleniyor - amount: ${walletAmount}`);
+        
+        // Wallet'ı bul veya oluştur
+        let wallet = await Wallet.findOne({ userId });
+        
+        if (!wallet) {
+          wallet = new Wallet({
+            userId,
+            balance: 0,
+            transactions: []
+          });
+        }
+        
+        // Yeni transaction ekle
+        const walletTransaction = {
+          type: 'debit' as const,
+          amount: walletAmount,
+          description: `Randevu ödemesi - ${appointment.serviceType || 'genel-bakım'}`,
+          date: new Date(),
+          status: 'completed' as const
+        };
+        
+        wallet.transactions.push(walletTransaction);
+        wallet.balance -= walletAmount; // Ödeme yapıldığı için balance azalır
+        
+        await wallet.save();
+        
+        console.log(`✅ Wallet transaction eklendi: ${walletAmount} TL, Kullanıcı: ${userId}`);
+      } catch (walletError) {
+        console.error('❌ Wallet transaction ekleme hatası:', walletError);
+        // Wallet hatası ödeme işlemini durdurmaz
+      }
+
+      // Ustaya bildirim gönder
+      const notification = {
+        type: 'payment_completed',
+        title: 'Ödeme Tamamlandı',
+        message: `${(appointment.userId as any).name} ${(appointment.userId as any).surname} ödemeyi tamamladı. İşe başlayabilirsiniz.`,
+        data: {
+          appointmentId: appointment._id,
+          amount: appointment.price || 0,
+          customerName: `${(appointment.userId as any).name} ${(appointment.userId as any).surname}`,
+          transactionId
+        }
+      };
+
+      // sendNotificationToUser(appointment.mechanicId._id.toString(), notification);
+
+      res.json({
+        success: true,
+        message: 'Ödeme başarıyla tamamlandı',
+        data: {
+          appointmentId: appointment._id,
+          amount: appointment.price || 0,
+          status: 'completed',
+          transactionId
+        }
+      });
+
+    } catch (error) {
+      console.error('Ödeme onaylama hatası:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Ödeme onaylanırken bir hata oluştu'
+      });
+    }
+  }
 }

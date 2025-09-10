@@ -61,6 +61,14 @@ export interface ServiceRequest {
   createdAt: string;
 }
 
+// Arıza bildirimi yanıtları
+export interface MechanicResponse {
+  mechanicId: string;
+  responseType: 'quote' | 'not_available' | 'check_tomorrow' | 'contact_me';
+  message?: string;
+  createdAt: string;
+}
+
 // Konum tipleri
 export interface Location {
   latitude: number;

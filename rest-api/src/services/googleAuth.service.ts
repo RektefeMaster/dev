@@ -1,6 +1,5 @@
 import { OAuth2Client } from 'google-auth-library';
 import { User } from '../models/User';
-import { Mechanic } from '../models/Mechanic';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
@@ -154,57 +153,37 @@ export class GoogleAuthService {
       
       await user.save();
       
-      // Mechanic ise Mechanic model'ine de ekle
+      // Mechanic için ek bilgileri User modelinde sakla
       if (userType === 'mechanic') {
-        try {
-          const username = `${googleUser.email.split('@')[0]}_${Date.now()}`;
-          
-          const mechanicData = {
-            _id: user._id,
-            name: googleUser.name,
-            surname: googleUser.surname,
-            email: googleUser.email,
-            password: hashedPassword,
-            userType: 'mechanic',
-            username,
-            shopName: '',
-            phone: '',
-            location: {
-              city: '',
-              district: '',
-              neighborhood: '',
-              street: '',
-              building: '',
-              floor: '',
-              apartment: ''
-            },
-            bio: '',
-            serviceCategories: ['Genel Bakım'],
-            vehicleBrands: ['Genel'],
-            workingHours: '',
-            documents: { 
-              insurance: 'Sigorta bilgisi eklenecek' 
-            },
-            experience: 0,
-            rating: 0,
-            totalServices: 0,
-            isAvailable: true,
-            currentLocation: {
-              type: 'Point',
-              coordinates: [0, 0]
-            },
-            googleId: googleUser.googleId,
-            profileImage: googleUser.picture
-          };
-          
-          const mechanic = new Mechanic(mechanicData);
-          await mechanic.save();
-        } catch (err) {
-          console.error('Mechanic kayıt hatası:', err);
-          // Mechanic kaydı başarısız olursa User'ı da sil
-          await User.findByIdAndDelete(user._id);
-          throw err;
-        }
+        user.username = `${googleUser.email.split('@')[0]}_${Date.now()}`;
+        user.serviceCategories = ['Genel Bakım'];
+        user.experience = 0;
+        user.rating = 0;
+        user.ratingCount = 0;
+        user.totalServices = 0;
+        user.isAvailable = true;
+        user.currentLocation = {
+          type: 'Point',
+          coordinates: [0, 0]
+        };
+        user.documents = { insurance: 'Sigorta bilgisi eklenecek' };
+        user.shopName = '';
+        user.location = {
+          city: '',
+          district: '',
+          neighborhood: '',
+          street: '',
+          building: '',
+          floor: '',
+          apartment: ''
+        };
+        user.workingHours = '';
+        user.carBrands = ['Genel'];
+        user.engineTypes = [];
+        user.transmissionTypes = [];
+        user.customBrands = [];
+        
+        await user.save();
       }
       
       return user;

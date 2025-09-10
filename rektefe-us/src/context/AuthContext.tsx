@@ -11,6 +11,7 @@ interface AuthContextType {
   setToken: (token: string | null) => void;
   setUserId: (userId: string | null) => void;
   setUser: (user: MechanicProfile | null) => void;
+  updateUser: (updates: Partial<MechanicProfile>) => void;
   setTokenAndUserId: (token: string, userId: string) => Promise<void>;
   login: (email: string, password: string) => Promise<any>;
   register: (userData: any) => Promise<any>;
@@ -37,22 +38,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const storedUserId = await AsyncStorage.getItem(STORAGE_KEYS.USER_ID);
         const storedUserData = await AsyncStorage.getItem(STORAGE_KEYS.USER_DATA);
         
-        console.log('🔍 AuthContext: AsyncStorage\'dan yüklenen:', { 
-          storedToken: !!storedToken, 
-          storedUserId: !!storedToken,
-          storedUserData: !!storedUserData 
-        });
         
         if (storedToken && storedUserId) {
           // Token'ı test et
           try {
-            console.log('🔍 AuthContext: Token test ediliyor...');
-            console.log('🔍 AuthContext: Stored token:', storedToken.substring(0, 20) + '...');
-            console.log('🔍 AuthContext: Stored userId:', storedUserId);
             
             const testResponse = await apiService.getMechanicProfile();
             if (testResponse.success) {
-              console.log('✅ AuthContext: Token test başarılı, authentication set ediliyor');
               setToken(storedToken);
               setUserId(storedUserId);
               setIsAuthenticated(true);
@@ -61,7 +53,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 try {
                   const userData = JSON.parse(storedUserData);
                   setUser(userData);
-                  console.log('✅ AuthContext: User data AsyncStorage\'dan yüklendi');
                 } catch (error) {
                   console.error('❌ AuthContext: User data parse hatası:', error);
                   // Parse hatası varsa API'den çek
@@ -75,19 +66,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               // Onboarding tamamlandı olarak işaretle
               await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'true');
               
-              console.log('✅ AuthContext: Token ve userId yüklendi');
             } else {
               // Token geçersiz, temizle
-              console.log('❌ AuthContext: Token geçersiz, temizleniyor...');
               await clearStoredData();
             }
           } catch (error) {
             // Token hatası, temizle
-            console.log('❌ AuthContext: Token hatası, temizleniyor...', error);
             await clearStoredData();
           }
         } else {
-          console.log('⚠️ AuthContext: AsyncStorage\'da token veya userId yok');
         }
       } catch (error) {
         console.error('❌ AuthContext: AsyncStorage yükleme hatası:', error);
@@ -102,15 +89,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // User data'yı API'den yükle
   const loadUserDataFromAPI = async () => {
     try {
-      console.log('🔄 AuthContext: User data API\'den çekiliyor...');
       const userResponse = await apiService.getMechanicProfile();
       if (userResponse.success && userResponse.data) {
         setUser(userResponse.data);
         await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userResponse.data));
         await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'true');
-        console.log('✅ AuthContext: User data API\'den çekildi ve kaydedildi');
       } else {
-        console.log('❌ AuthContext: API\'den user data alınamadı');
       }
     } catch (error) {
       console.error('❌ AuthContext: User data API hatası:', error);
@@ -131,7 +115,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUserId(null);
       setUser(null);
       setIsAuthenticated(false);
-      console.log('✅ AuthContext: Stored data temizlendi, authentication false yapıldı');
     } catch (error) {
       console.error('❌ AuthContext: Data temizleme hatası:', error);
     }
@@ -139,10 +122,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const setTokenAndUserId = async (newToken: string, newUserId: string) => {
     try {
-      console.log('🔧 AuthContext: setTokenAndUserId çağrıldı:', { 
-        newToken: !!newToken, 
-        newUserId: !!newUserId 
-      });
       
       // AsyncStorage'a kaydet
       await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, newToken);
@@ -154,7 +133,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUserId(newUserId);
       setIsAuthenticated(true);
       
-      console.log('✅ AuthContext: Token ve userId başarıyla kaydedildi');
     } catch (error) {
       console.error('❌ AuthContext: Token kaydetme hatası:', error);
     }
@@ -168,29 +146,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const response = await apiService.login(email, password, 'mechanic');
       
       if (response.success && response.data) {
+        
         const { token, userId, user } = response.data;
         
         // Token ve userId'yi kaydet
         await setTokenAndUserId(token, userId);
         
-        // User data'yı kaydet ve log'la
+        // User data'yı kaydet
         if (user) {
-          console.log('👤 AuthContext: User data alındı:', { 
-            name: user.name, 
-            surname: user.surname, 
-            email: user.email 
-          });
           setUser(user);
           await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
           await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'true');
-        } else {
-          console.log('⚠️ AuthContext: User data bulunamadı');
         }
-        
-        console.log('✅ AuthContext: Login başarılı');
         return response;
       } else {
-        console.log('❌ AuthContext: Login başarısız:', response.message);
         return { success: false, message: response.message || 'Giriş başarısız' };
       }
     } catch (error) {
@@ -210,7 +179,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'true');
       }
       
-      console.log('✅ AuthContext: Register başarılı');
       return response;
     } catch (error) {
       console.error('❌ AuthContext: Register hatası:', error);
@@ -220,7 +188,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     try {
-      console.log('🚪 AuthContext: Logout çağrıldı');
       
       // AsyncStorage'ı temizle
       await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
@@ -234,9 +201,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(null);
       setIsAuthenticated(false);
       
-      console.log('✅ AuthContext: Logout başarılı');
     } catch (error) {
       console.error('❌ AuthContext: Logout hatası:', error);
+    }
+  };
+
+  const updateUser = (updates: Partial<MechanicProfile>) => {
+    if (user) {
+      const updatedUser = { ...user, ...updates };
+      setUser(updatedUser);
+      AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUser));
     }
   };
 
@@ -248,6 +222,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setToken,
       setUserId,
       setUser,
+      updateUser,
       setTokenAndUserId, 
       login,
       register,

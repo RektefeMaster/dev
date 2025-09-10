@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
 
@@ -16,24 +16,34 @@ interface QuickActionsProps {
 }
 
 export const QuickActions: React.FC<QuickActionsProps> = ({ actions }) => {
-  const { colors } = useTheme();
+  const { theme } = useTheme();
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Hızlı Aksiyonlar</Text>
+      <Text style={[styles.title, { color: theme.colors.text.primary }]}>Hizmetler</Text>
       <View style={styles.actionsGrid}>
-        {actions.map((action) => (
+        {actions.map((action, index) => (
           <TouchableOpacity
             key={action.id}
-            style={[styles.actionButton, { backgroundColor: action.color }]}
+            style={[
+              styles.actionButton, 
+              { 
+                backgroundColor: theme.colors.background.card,
+                borderColor: theme.colors.border.primary,
+                shadowColor: '#000',
+              }
+            ]}
             onPress={action.onPress}
+            activeOpacity={0.7}
           >
-            <MaterialCommunityIcons 
-              name={action.icon as any} 
-              size={24} 
-              color="white" 
-            />
-            <Text style={styles.actionText}>{action.title}</Text>
+            <View style={[styles.iconContainer, { backgroundColor: action.color + '20' }]}>
+              <MaterialCommunityIcons 
+                name={action.icon as any} 
+                size={24} 
+                color={action.color} 
+              />
+            </View>
+            <Text style={[styles.actionText, { color: theme.colors.text.primary }]}>{action.title}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -43,37 +53,45 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ actions }) => {
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 15,
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 16,
+    letterSpacing: -0.5,
   },
   actionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    gap: 12,
   },
   actionButton: {
     width: '48%',
-    aspectRatio: 1,
+    aspectRatio: 1.2,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
-    shadowColor: '#000',
+    padding: 20,
+    borderWidth: 1,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 3,
   },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   actionText: {
-    color: 'white',
     fontSize: 14,
     fontWeight: '600',
-    marginTop: 8,
     textAlign: 'center',
+    letterSpacing: -0.1,
   },
 });

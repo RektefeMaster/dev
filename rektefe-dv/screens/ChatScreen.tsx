@@ -11,16 +11,16 @@ import {
   Alert,
   StatusBar,
   Image,
-  Animated,
-  Modal,
+  ActivityIndicator,
+  ActionSheetIOS,
 } from 'react-native';
+
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing, borderRadius, shadows, dimensions as themeDimensions } from '../theme/theme';
-
+import { colors, typography, spacing, borderRadius } from '../theme/theme';
 import { API_URL } from '../constants/config';
 
 type Message = {
@@ -62,32 +62,33 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
   const { theme } = useTheme();
   const { token, userId } = useAuth();
   const { conversationId, otherParticipant } = route.params;
+  const [resolvedConversationId, setResolvedConversationId] = useState<string | null>(conversationId || null);
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [showOptionsModal, setShowOptionsModal] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const flatListRef = useRef<FlatList>(null);
-  const inputRef = useRef<TextInput>(null);
-  
-  // Animasyon değerleri
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastMessageIdRef = useRef<string | null>(null);
 
   const fetchMessages = useCallback(async () => {
-    // Geçici conversation ID ise mesaj çekme
-    if (conversationId.startsWith('temp_')) {
+    if (!resolvedConversationId || resolvedConversationId.length === 0) {
+      console.log('❌ fetchMessages: resolvedConversationId yok:', resolvedConversationId);
+      return;
+    }
+    if (resolvedConversationId.startsWith('temp_')) {
+      console.log('❌ fetchMessages: Geçici conversation ID:', resolvedConversationId);
       setMessages([]);
       setLoading(false);
       return;
     }
 
     try {
+      console.log('🔄 fetchMessages: Mesajlar yükleniyor, conversationId:', resolvedConversationId);
       setLoading(true);
       const response = await fetch(
-        `${API_URL}/message/conversations/${conversationId}/messages?page=1&limit=50`,
+        `${API_URL}/message/conversations/${resolvedConversationId}/messages?page=1&limit=50`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -96,63 +97,156 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
         }
       );
 
+      console.log('📡 fetchMessages: Response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('📡 fetchMessages: Response data:', data);
+        
         if (data.success && data.data) {
           const newMessages = Array.isArray(data.data) ? data.data : (data.data.messages || []);
+          console.log('✅ fetchMessages: Mesajlar yüklendi, sayı:', newMessages.length);
+          setMessages(newMessages);
           
-          // Mesajları tarihe göre sırala (en eski üstte, en yeni altta)
-          const sortedMessages = [...newMessages].sort((a, b) => {
-            const dateA = new Date(a.createdAt || a.created_at || 0);
-            const dateB = new Date(b.createdAt || b.created_at || 0);
-            return dateA.getTime() - dateB.getTime();
-          });
-          
-          setMessages(sortedMessages);
-          
-          // Mesajları okundu olarak işaretle
-          markMessagesAsRead();
+          // Son mesaj zamanını güncelle
+          if (newMessages.length > 0) {
+            const lastMessage = newMessages[newMessages.length - 1];
+            lastMessageIdRef.current = lastMessage._id;
+          } else {
+            lastMessageIdRef.current = null;
+          }
         } else {
-          console.error('API response formatı hatalı:', data);
+          console.log('❌ fetchMessages: API success false veya data yok:', data);
+          setMessages([]);
         }
       } else {
-        console.error('Mesajlar getirilemedi:', response.status);
+        console.error('❌ fetchMessages: API hatası:', response.status, response.statusText);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ fetchMessages: Error data:', errorData);
+        setMessages([]);
       }
     } catch (error) {
-      console.error('Mesajlar yüklenirken hata:', error);
+      console.error('❌ fetchMessages: Network hatası:', error);
+      setMessages([]);
     } finally {
       setLoading(false);
     }
-  }, [conversationId]); // ✅ Sadece conversationId değiştiğinde çalışsın
+  }, [resolvedConversationId, token]);
 
-  // Mesajları okundu olarak işaretle
-  const markMessagesAsRead = async () => {
+  // Yeni mesajları kontrol et (polling)
+  const checkForNewMessages = useCallback(async () => {
+    if (!resolvedConversationId || resolvedConversationId.startsWith('temp_')) {
+      console.log('❌ checkForNewMessages: resolvedConversationId yok veya geçici');
+      return;
+    }
+
     try {
-      const response = await fetch(`${API_URL}/message/mark-read`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          conversationId: conversationId,
-          userId: userId
-        })
-      });
+      let response;
+      
+      if (lastMessageIdRef.current) {
+        console.log('🔄 checkForNewMessages: Son mesajdan sonraki mesajlar aranıyor:', lastMessageIdRef.current);
+        // Son mesajdan sonraki mesajları getir
+        response = await fetch(
+          `${API_URL}/message/conversations/${resolvedConversationId}/messages/after/${encodeURIComponent(lastMessageIdRef.current)}?limit=50`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      } else {
+        console.log('🔄 checkForNewMessages: Tüm mesajlar getiriliyor');
+        // Tüm mesajları getir
+        response = await fetch(
+          `${API_URL}/message/conversations/${resolvedConversationId}/messages?page=1&limit=50`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      }
+
+      console.log('📡 checkForNewMessages: Response status:', response.status);
 
       if (response.ok) {
-        console.log('✅ Mesajlar okundu olarak işaretlendi');
+        const data = await response.json();
+        console.log('📡 checkForNewMessages: Response data:', data);
+        
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+          const newMessages = data.data;
+          console.log('✅ checkForNewMessages: Yeni mesajlar bulundu:', newMessages.length);
+
+          setMessages(prev => {
+            // Yeni mesajları ekle (duplicate kontrolü ile)
+            const existingIds = new Set(prev.map(msg => msg._id));
+            const uniqueNewMessages = newMessages.filter((msg: any) => !existingIds.has(msg._id));
+
+            if (uniqueNewMessages.length > 0) {
+              console.log('✅ checkForNewMessages: Benzersiz yeni mesajlar:', uniqueNewMessages.length);
+              // Son mesaj ID'sini güncelle
+              const lastNewMessage = uniqueNewMessages[uniqueNewMessages.length - 1];
+              lastMessageIdRef.current = lastNewMessage._id;
+
+              // En alta scroll
+              setTimeout(() => {
+                flatListRef.current?.scrollToEnd({ animated: true });
+              }, 100);
+            } else {
+              console.log('ℹ️ checkForNewMessages: Tüm mesajlar zaten mevcut');
+            }
+
+            return [...prev, ...uniqueNewMessages];
+          });
+        } else {
+          console.log('ℹ️ checkForNewMessages: Yeni mesaj yok');
+        }
+      } else {
+        console.error('❌ checkForNewMessages: API hatası:', response.status, response.statusText);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ checkForNewMessages: Error data:', errorData);
       }
     } catch (error) {
-      console.error('❌ Mesajları okundu olarak işaretlerken hata:', error);
+      console.error('❌ checkForNewMessages: Network hatası:', error);
     }
-  };
+  }, [resolvedConversationId, token]);
 
   const sendMessage = async () => {
     if (!newMessage.trim() || sending) return;
 
+    const messageContent = newMessage.trim();
+    setNewMessage(''); // Hemen input'u temizle
+
     try {
       setSending(true);
+      
+      // Optimistic update - mesajı hemen göster
+      const tempMessage: Message = {
+        _id: `temp_${Date.now()}`,
+        content: messageContent,
+        messageType: 'text',
+        createdAt: new Date().toISOString(),
+        senderId: {
+          _id: userId || '',
+          name: 'Sen',
+          surname: '',
+        },
+        receiverId: {
+          _id: otherParticipant._id,
+          name: otherParticipant.name,
+          surname: otherParticipant.surname,
+        }
+      };
+      
+      setMessages(prev => [...prev, tempMessage]);
+      
+      // En alta scroll
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+
       const response = await fetch(`${API_URL}/message/send`, {
         method: 'POST',
         headers: {
@@ -161,147 +255,163 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
         },
         body: JSON.stringify({
           receiverId: otherParticipant._id,
-          content: newMessage.trim(),
+          content: messageContent,
           messageType: 'text'
         })
       });
 
       if (response.ok) {
-        const sentMessage = await response.json();
-        if (sentMessage.success) {
-          // Yeni mesajı listeye ekle
-          const newMessageObj: Message = {
-            _id: sentMessage.data._id,
-            content: newMessage,
-            messageType: 'text',
-            createdAt: sentMessage.data.createdAt,
-            senderId: {
-              _id: userId!,
-              name: 'Şöför', // ✅ Doğru etiket
-              surname: ''
-            },
-            receiverId: {
-              _id: otherParticipant._id,
-              name: otherParticipant.name,
-              surname: otherParticipant.surname
-            }
-          };
-          
-          setMessages(prev => [...prev, newMessageObj]);
-          setNewMessage('');
-          
-          // Mesajı okundu olarak işaretle
-          markMessagesAsRead();
-        }
+        // Temp mesajı kaldır, gerçek mesaj polling ile gelecek
+        setMessages(prev => prev.filter(msg => msg._id !== tempMessage._id));
+        
+        // Hemen yeni mesajları kontrol et
+        setTimeout(() => {
+          checkForNewMessages();
+        }, 500);
+      } else {
+        // Hata durumunda temp mesajı kaldır
+        setMessages(prev => prev.filter(msg => msg._id !== tempMessage._id));
+        Alert.alert('Hata', 'Mesaj gönderilemedi');
       }
     } catch (error) {
-      console.error('Mesaj gönderilirken hata:', error);
+      // Hata durumunda temp mesajı kaldır
+      setMessages(prev => prev.filter(msg => msg._id !== `temp_${Date.now()}`));
       Alert.alert('Hata', 'Mesaj gönderilemedi');
     } finally {
       setSending(false);
     }
   };
 
-  const deleteConversation = async () => {
+  const handleTextChange = (text: string) => {
+    setNewMessage(text);
+  };
+
+  const deleteMessage = async (messageId: string) => {
     try {
-      setDeleting(true);
-      setShowOptionsModal(false);
-      
-      const response = await fetch(`${API_URL}/message/conversations/${conversationId}`, {
+      const response = await fetch(`${API_URL}/message/message/${messageId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (response.ok) {
-        Alert.alert(
-          'Sohbet Silindi',
-          'Sohbet başarıyla silindi',
-          [
-            {
-              text: 'Tamam',
-              onPress: () => navigation.goBack()
-            }
-          ]
-        );
+        // Mesajı listeden kaldır
+        setMessages(prev => prev.filter(msg => msg._id !== messageId));
       } else {
-        Alert.alert('Hata', 'Sohbet silinirken hata oluştu');
+        Alert.alert('Hata', 'Mesaj silinemedi');
       }
     } catch (error) {
-      console.error('Sohbet silinirken hata:', error);
-      Alert.alert('Hata', 'Sohbet silinirken hata oluştu');
-    } finally {
-      setDeleting(false);
+      Alert.alert('Hata', 'Mesaj silinemedi');
     }
   };
 
-  const showDeleteConfirmation = () => {
+  const deleteConversation = async () => {
     Alert.alert(
       'Sohbeti Sil',
-      'Bu sohbeti silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
+      'Bu sohbeti silmek istediğinizden emin misiniz? Tüm mesajlar kalıcı olarak silinecektir.',
       [
-        {
-          text: 'İptal',
-          style: 'cancel'
-        },
+        { text: 'İptal', style: 'cancel' },
         {
           text: 'Sil',
           style: 'destructive',
-          onPress: deleteConversation
+          onPress: async () => {
+            try {
+              const response = await fetch(`${API_URL}/message/conversations/${resolvedConversationId}`, {
+                method: 'DELETE',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+
+              if (response.ok) {
+                Alert.alert('Başarılı', 'Sohbet silindi', [
+                  { text: 'Tamam', onPress: () => navigation.goBack() }
+                ]);
+              } else {
+                Alert.alert('Hata', 'Sohbet silinemedi');
+              }
+            } catch (error) {
+              Alert.alert('Hata', 'Sohbet silinemedi');
+            }
+          }
         }
       ]
     );
   };
 
-  useEffect(() => {
-    fetchMessages();
+  const showMessageOptions = (message: Message) => {
+    const isOwnMessage = message.senderId?._id?.toString() === userId?.toString();
     
-    // Giriş animasyonu
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!conversationId.startsWith('temp_')) {
-        fetchMessages();
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: isOwnMessage ? ['Mesajı Sil', 'İptal'] : ['İptal'],
+          destructiveButtonIndex: isOwnMessage ? 0 : undefined,
+          cancelButtonIndex: isOwnMessage ? 1 : 0,
+          title: 'Mesaj Seçenekleri'
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 0 && isOwnMessage) {
+            Alert.alert(
+              'Mesajı Sil',
+              'Bu mesajı silmek istediğinizden emin misiniz?',
+              [
+                { text: 'İptal', style: 'cancel' },
+                {
+                  text: 'Sil',
+                  style: 'destructive',
+                  onPress: () => deleteMessage(message._id)
+                }
+              ]
+            );
+          }
+        }
+      );
+    } else {
+      if (isOwnMessage) {
+        Alert.alert(
+          'Mesaj Seçenekleri',
+          'Ne yapmak istiyorsunuz?',
+          [
+            { text: 'İptal', style: 'cancel' },
+            {
+              text: 'Mesajı Sil',
+              style: 'destructive',
+              onPress: () => {
+                Alert.alert(
+                  'Mesajı Sil',
+                  'Bu mesajı silmek istediğinizden emin misiniz?',
+                  [
+                    { text: 'İptal', style: 'cancel' },
+                    {
+                      text: 'Sil',
+                      style: 'destructive',
+                      onPress: () => deleteMessage(message._id)
+                    }
+                  ]
+                );
+              }
+            }
+          ]
+        );
       }
-    }, []) // ✅ Dependency array'i boş bırak - sadece ekran odaklandığında çalışsın
-  );
-
-  const formatMessageTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('tr-TR', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
+    }
   };
 
-  const renderMessage = ({ item, index }: { item: Message; index: number }) => {
-    const isOwnMessage = item.senderId._id === userId;
+  const renderMessage = ({ item }: { item: Message }) => {
+    const isOwnMessage = item.senderId?._id?.toString() === userId?.toString();
     
     return (
-      <Animated.View 
+      <TouchableOpacity
         style={[
-          styles.messageContainer,
-          isOwnMessage ? styles.ownMessage : styles.otherMessage,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          }
+          styles.messageWrapper,
+          isOwnMessage ? styles.ownMessageWrapper : styles.otherMessageWrapper
         ]}
+        onLongPress={() => showMessageOptions(item)}
+        activeOpacity={0.7}
       >
         <View style={[
           styles.messageBubble,
@@ -313,32 +423,124 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
           ]}>
             {item.content}
           </Text>
-          <View style={styles.messageFooter}>
-            <Text style={[
-              styles.messageTime,
-              isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime
-            ]}>
-              {formatMessageTime(item.createdAt)}
-            </Text>
-            {isOwnMessage && (
-              <View style={styles.readIndicator}>
-                <Ionicons 
-                  name="checkmark-done" 
-                  size={14} 
-                  color={colors.primary.main} 
-                />
-              </View>
-            )}
-          </View>
+          <Text style={[
+            styles.messageTime,
+            isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime
+          ]}>
+            {new Date(item.createdAt).toLocaleTimeString('tr-TR', {
+              hour: '2-digit',
+              minute: '2-digit'
+            })}
+          </Text>
         </View>
-      </Animated.View>
+      </TouchableOpacity>
     );
   };
+
+
+
+  // Polling sistemi - yeni mesajları kontrol et
+  useEffect(() => {
+    if (!resolvedConversationId || resolvedConversationId.startsWith('temp_')) return;
+
+    // Polling başlat (2 saniyede bir kontrol et)
+    pollingIntervalRef.current = setInterval(() => {
+      checkForNewMessages();
+    }, 2000);
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [resolvedConversationId, checkForNewMessages]);
+
+  // Sadece bir kez mesajları yükle
+  useEffect(() => {
+    if (resolvedConversationId && !resolvedConversationId.startsWith('temp_')) {
+      fetchMessages();
+    }
+  }, [resolvedConversationId]);
+
+  // Resolve conversation id if missing or temporary
+  useEffect(() => {
+    const ensureConversationId = async () => {
+      try {
+        console.log('🔍 ensureConversationId: Başlatılıyor...');
+        console.log('🔍 conversationId:', conversationId);
+        console.log('🔍 otherParticipant._id:', otherParticipant?._id);
+        console.log('🔍 token var mı:', !!token);
+        
+        if ((!
+          conversationId || conversationId.length === 0 || conversationId.startsWith('temp_')
+        ) && otherParticipant?._id && token) {
+          console.log('🔄 ensureConversationId: Conversation aranıyor...');
+          const resp = await fetch(`${API_URL}/message/conversation/find/${otherParticipant._id}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          console.log('📡 ensureConversationId: Response status:', resp.status);
+          
+          if (resp.ok) {
+            const data = await resp.json();
+            console.log('📡 ensureConversationId: Response data:', data);
+            
+            if (data?.success && data?.data?._id) {
+              console.log('✅ ensureConversationId: Conversation bulundu:', data.data._id);
+              setResolvedConversationId(data.data._id);
+              return;
+            } else {
+              console.log('❌ ensureConversationId: Conversation bulunamadı veya data yok');
+            }
+          } else {
+            console.error('❌ ensureConversationId: API hatası:', resp.status, resp.statusText);
+            const errorData = await resp.json().catch(() => ({}));
+            console.error('❌ ensureConversationId: Error data:', errorData);
+          }
+        }
+        
+        if (conversationId && conversationId.length > 0) {
+          console.log('✅ ensureConversationId: Mevcut conversationId kullanılıyor:', conversationId);
+          setResolvedConversationId(conversationId);
+        } else {
+          console.log('❌ ensureConversationId: Conversation ID bulunamadı');
+        }
+      } catch (error) {
+        console.error('❌ ensureConversationId: Hata:', error);
+      }
+    };
+    ensureConversationId();
+  }, [conversationId, otherParticipant?._id, token]);
+
+  // Focus olduğunda mesajları yenile (sadece bir kez)
+  useFocusEffect(
+    useCallback(() => {
+      if (resolvedConversationId && !resolvedConversationId.startsWith('temp_')) {
+        fetchMessages();
+        
+        // Polling başlat
+        pollingIntervalRef.current = setInterval(checkForNewMessages, 2000);
+      }
+      
+      // Cleanup
+      return () => {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+      };
+    }, [resolvedConversationId, checkForNewMessages])
+  );
 
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary.main} />
           <Text style={styles.loadingText}>Mesajlar yükleniyor...</Text>
         </View>
       </SafeAreaView>
@@ -360,7 +562,7 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
         </TouchableOpacity>
         
         <View style={styles.headerInfo}>
-          {otherParticipant.avatar ? (
+          {otherParticipant?.avatar ? (
             <Image source={{ uri: otherParticipant.avatar }} style={styles.headerAvatar} />
           ) : (
             <View style={styles.headerDefaultAvatar}>
@@ -369,25 +571,20 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
           )}
           <View style={styles.headerText}>
             <Text style={styles.headerName}>
-              {otherParticipant.name} {otherParticipant.surname}
+              {otherParticipant?.name} {otherParticipant?.surname}
             </Text>
-            <View style={styles.userTypeContainer}>
-              <Text style={[
-                styles.userTypeText,
-                otherParticipant.userType === 'usta' || otherParticipant.userType === 'mechanic' ? styles.mechanicType : styles.driverType
-              ]}>
-                {otherParticipant.userType === 'usta' || otherParticipant.userType === 'mechanic' ? 'Usta' : 'Usta'}
-              </Text>
-            </View>
+            <Text style={styles.headerSubtitle}>
+              Usta
+            </Text>
           </View>
         </View>
         
-        <TouchableOpacity 
-          style={styles.moreButton} 
+        <TouchableOpacity
+          style={styles.moreButton}
+          onPress={deleteConversation}
           activeOpacity={0.7}
-          onPress={() => setShowOptionsModal(true)}
         >
-          <Ionicons name="ellipsis-vertical" size={20} color={colors.text.secondary} />
+          <Ionicons name="ellipsis-vertical" size={20} color={colors.text.primary as any} />
         </TouchableOpacity>
       </View>
 
@@ -401,6 +598,7 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
         contentContainerStyle={styles.messagesContainer}
         showsVerticalScrollIndicator={false}
 
+        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
       />
 
       {/* Input */}
@@ -410,77 +608,39 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
       >
         <View style={styles.inputWrapper}>
           <TextInput
-            ref={inputRef}
             style={styles.textInput}
             value={newMessage}
-            onChangeText={setNewMessage}
+            onChangeText={handleTextChange}
             placeholder="Mesajınızı yazın..."
             placeholderTextColor={colors.text.tertiary}
             multiline
             maxLength={1000}
             onSubmitEditing={sendMessage}
+            returnKeyType="send"
+            blurOnSubmit={false}
           />
           
           <TouchableOpacity
             style={[
               styles.sendButton, 
-              !newMessage.trim() && styles.sendButtonDisabled,
-              sending && styles.sendButtonSending
+              !newMessage.trim() && styles.sendButtonDisabled
             ]}
             onPress={sendMessage}
             disabled={!newMessage.trim() || sending}
             activeOpacity={0.8}
           >
             {sending ? (
-              <View style={styles.sendingIndicator} />
+              <ActivityIndicator size="small" color={colors.text.inverse} />
             ) : (
               <Ionicons 
                 name="send" 
                 size={20} 
-                color={newMessage.trim() ? colors.primary.main as any : colors.text.tertiary as any} 
+                color={newMessage.trim() ? colors.text.inverse as any : colors.text.tertiary as any} 
               />
             )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-
-      {/* Options Modal */}
-      <Modal
-        visible={showOptionsModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowOptionsModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowOptionsModal(false)}
-        >
-          <View style={styles.optionsModal}>
-            <TouchableOpacity
-              style={styles.optionItem}
-              onPress={showDeleteConfirmation}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="trash-outline" size={20} color={colors.error.main} />
-              <Text style={[styles.optionText, styles.deleteOptionText]}>
-                Sohbeti Sil
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.optionItem}
-              onPress={() => setShowOptionsModal(false)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="close" size={20} color={colors.text.secondary} />
-              <Text style={styles.optionText}>
-                İptal
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </SafeAreaView>
   );
 };
@@ -498,20 +658,21 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: typography.body2.fontSize,
     color: colors.text.secondary,
+    marginTop: 12,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: themeDimensions.screenPadding,
-    paddingVertical: spacing.md,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.primary,
     backgroundColor: colors.background.primary,
     shadowColor: colors.shadow.primary,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
   },
   backButton: {
     width: 40,
@@ -520,7 +681,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.secondary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
+    marginRight: 12,
     borderWidth: 1,
     borderColor: colors.border.secondary,
   },
@@ -533,7 +694,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    marginRight: spacing.sm,
+    marginRight: 12,
   },
   headerDefaultAvatar: {
     width: 40,
@@ -542,7 +703,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.secondary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.sm,
+    marginRight: 12,
     borderWidth: 1,
     borderColor: colors.border.secondary,
   },
@@ -553,32 +714,11 @@ const styles = StyleSheet.create({
     fontSize: typography.body2.fontSize,
     fontWeight: '600',
     color: colors.text.primary as any,
-    marginBottom: spacing.xs,
+    marginBottom: 2,
   },
-  userTypeContainer: {
-    marginTop: spacing.xs,
-  },
-  userTypeText: {
+  headerSubtitle: {
     fontSize: typography.caption.small.fontSize,
-    fontWeight: '500',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
-    overflow: 'hidden',
-    textAlign: 'center',
-    alignSelf: 'flex-start',
-  },
-  mechanicType: {
-    backgroundColor: colors.primary.ultraLight,
-    color: colors.primary.main,
-    borderWidth: 1,
-    borderColor: colors.primary.main,
-  },
-  driverType: {
-    backgroundColor: colors.success.background,
-    color: colors.success.main,
-    borderWidth: 1,
-    borderColor: colors.success.main,
+    color: colors.text.secondary,
   },
   moreButton: {
     width: 40,
@@ -594,44 +734,43 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   messagesContainer: {
-    paddingHorizontal: themeDimensions.screenPadding,
-    paddingVertical: spacing.md,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  messageContainer: {
-    marginBottom: spacing.sm,
-    flexDirection: 'row',
+  messageWrapper: {
+    marginBottom: 12,
   },
-  ownMessage: {
-    justifyContent: 'flex-end',
+  ownMessageWrapper: {
+    alignItems: 'flex-end',
   },
-  otherMessage: {
-    justifyContent: 'flex-start',
+  otherMessageWrapper: {
+    alignItems: 'flex-start',
   },
   messageBubble: {
     maxWidth: '80%',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.lg,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 20,
     shadowColor: colors.shadow.primary,
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 2,
-    elevation: 1,
+    elevation: 2,
   },
   ownBubble: {
     backgroundColor: colors.primary.main,
-    borderBottomRightRadius: borderRadius.sm,
+    borderBottomRightRadius: 6,
   },
   otherBubble: {
     backgroundColor: colors.background.secondary,
-    borderBottomLeftRadius: borderRadius.sm,
+    borderBottomLeftRadius: 6,
     borderWidth: 1,
     borderColor: colors.border.secondary,
   },
   messageText: {
     fontSize: typography.body3.fontSize,
     lineHeight: 20,
-    marginBottom: spacing.xs,
+    marginBottom: 4,
   },
   ownMessageText: {
     color: colors.text.inverse,
@@ -639,14 +778,8 @@ const styles = StyleSheet.create({
   otherMessageText: {
     color: colors.text.primary as any,
   },
-  messageFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
   messageTime: {
     fontSize: typography.caption.small.fontSize,
-    marginRight: spacing.xs,
   },
   ownMessageTime: {
     color: colors.text.inverse,
@@ -655,9 +788,6 @@ const styles = StyleSheet.create({
   otherMessageTime: {
     color: colors.text.tertiary,
   },
-  readIndicator: {
-    marginLeft: spacing.xs,
-  },
 
   inputContainer: {
     borderTopWidth: 1,
@@ -665,48 +795,41 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.primary,
     shadowColor: colors.shadow.primary,
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: themeDimensions.screenPadding,
-    paddingVertical: spacing.md,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   textInput: {
     flex: 1,
     backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginRight: spacing.sm,
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginRight: 12,
     fontSize: typography.body2.fontSize,
     color: colors.text.primary as any,
     maxHeight: 100,
     borderWidth: 1,
     borderColor: colors.border.secondary,
-    shadowColor: colors.shadow.primary,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
   },
   sendButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.primary.ultraLight,
+    backgroundColor: colors.primary.main,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.primary.main,
     shadowColor: colors.shadow.primary,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
   },
   sendButtonDisabled: {
     backgroundColor: colors.background.tertiary,
@@ -714,52 +837,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
     elevation: 0,
   },
-  sendButtonSending: {
-    backgroundColor: colors.background.tertiary,
-    borderColor: colors.border.secondary,
-  },
-  sendingIndicator: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: colors.primary.main,
-    borderTopColor: 'transparent',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  optionsModal: {
-    backgroundColor: colors.background.primary,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    minWidth: 200,
-    shadowColor: colors.shadow.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  optionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.xs,
-  },
-  optionText: {
-    fontSize: typography.body2.fontSize,
-    color: colors.text.primary as any,
-    marginLeft: spacing.sm,
-    fontWeight: '500',
-  },
-  deleteOptionText: {
-    color: colors.error.main,
-  },
 });
 
 export default ChatScreen;
+

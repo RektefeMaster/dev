@@ -6,17 +6,7 @@ import { asyncHandler } from '../middleware/errorHandler';
 export class AuthController {
   // Kullanıcı kaydı
   static register = asyncHandler(async (req: Request, res: Response) => {
-    console.log('Kayıt isteği alındı:', JSON.stringify(req.body, null, 2));
-    
     const result = await AuthService.register(req.body);
-    
-    console.log('Kayıt başarılı:', { 
-      name: req.body.name, 
-      surname: req.body.surname, 
-      email: req.body.email, 
-      userType: req.body.userType, 
-      userId: result.userId 
-    });
     
     return ResponseHandler.created(res, result, 'Kayıt başarılı!');
   });

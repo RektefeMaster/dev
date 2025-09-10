@@ -13,7 +13,7 @@ const tireStatusSchema = new mongoose.Schema({
 
 const TireStatus = mongoose.models.TireStatus || mongoose.model('TireStatus', tireStatusSchema);
 
-// Kullanıcıya ait lastik durumunu getir
+// Kullanıcıya ait lastik servisi durumunu getir
 router.get('/:userId', async (req: Request, res: Response) => {
   try {
     const status = await TireStatus.findOne({ userId: req.params.userId });

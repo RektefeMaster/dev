@@ -12,15 +12,18 @@ import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors, typography, spacing, borderRadius, shadows, dimensions as themeDimensions } from '../theme/theme';
+import { typography, spacing, borderRadius, shadows, dimensions as themeDimensions } from '../theme/theme';
 import { BackButton } from '../components';
 import apiService from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { Appointment } from '../types/common';
 
 export default function CalendarScreen() {
   const navigation = useNavigation();
   const { user, isAuthenticated } = useAuth();
+  const { themeColors: colors } = useTheme();
+  const styles = createStyles(colors);
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,13 +92,13 @@ export default function CalendarScreen() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return colors.warning.main;
-      case 'confirmed': return colors.success.main;
-      case 'rejected': return colors.error.main;
-      case 'in-progress': return colors.primary.main;
-      case 'completed': return colors.secondary.main;
-      case 'cancelled': return colors.text.disabled;
-      default: return colors.text.disabled;
+      case 'pending': return colors.warning;
+      case 'confirmed': return colors.success;
+      case 'rejected': return colors.error;
+      case 'in-progress': return colors.primary;
+      case 'completed': return colors.secondary;
+      case 'cancelled': return colors.text.tertiary;
+      default: return colors.text.tertiary;
     }
   };
 
@@ -122,30 +125,43 @@ export default function CalendarScreen() {
     return (
       <View style={styles.calendarContainer}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: colors.background.primary }]}>
           <View style={styles.headerTop}>
             <BackButton />
             <View style={styles.headerContent}>
-              <Text style={styles.headerTitle}>Takvim</Text>
-              <Text style={styles.headerSubtitle}>
+              <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Takvim</Text>
+              <Text style={[styles.headerSubtitle, { color: colors.text.secondary }]}>
                 {currentWeek === 0 ? 'Bu Hafta' : 
                  currentWeek > 0 ? `${currentWeek} Hafta Sonra` : `${Math.abs(currentWeek)} Hafta Önce`}
               </Text>
+            </View>
+            <View style={styles.headerStats}>
+              <View style={[styles.statBadge, { backgroundColor: colors.primary + '15' }]}>
+                <Text style={[styles.statText, { color: colors.primary }]}>
+                  {appointments.length} Randevu
+                </Text>
+              </View>
             </View>
           </View>
         </View>
 
         {/* Week Navigation */}
-        <View style={styles.weekNavigation}>
+        <View style={[styles.weekNavigation, { backgroundColor: colors.background.secondary }]}>
           <TouchableOpacity 
-            style={styles.navButton}
+            style={[styles.navButton, { backgroundColor: colors.background.primary }]}
             onPress={() => navigateWeek('prev')}
           >
             <Ionicons name="chevron-back" size={20} color={colors.text.primary} />
           </TouchableOpacity>
           
+          <View style={styles.weekInfo}>
+            <Text style={[styles.weekText, { color: colors.text.primary }]}>
+              {weekDays[0].toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })} - {weekDays[6].toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })}
+            </Text>
+          </View>
+          
           <TouchableOpacity 
-            style={styles.navButton}
+            style={[styles.navButton, { backgroundColor: colors.background.primary }]}
             onPress={() => navigateWeek('next')}
           >
             <Ionicons name="chevron-forward" size={20} color={colors.text.primary} />
@@ -160,7 +176,7 @@ export default function CalendarScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={[colors.primary.main]}
+              colors={[colors.primary]}
             />
           }
         >
@@ -257,7 +273,7 @@ export default function CalendarScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background.primary,
@@ -301,22 +317,51 @@ const styles = StyleSheet.create({
     fontSize: typography.body2.fontSize,
     color: colors.text.secondary,
   },
+  headerStats: {
+    alignItems: 'flex-end',
+  },
+  statBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+  },
+  statText: {
+    fontSize: typography.caption.small.fontSize,
+    fontWeight: '600',
+  },
   weekNavigation: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: themeDimensions.screenPadding,
     paddingVertical: spacing.md,
-    backgroundColor: colors.background.primary,
+    backgroundColor: colors.background.secondary,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.primary,
   },
   navButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.background.secondary,
+    backgroundColor: colors.background.primary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border.secondary,
+    shadowColor: colors.shadow.dark,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  weekInfo: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  weekText: {
+    fontSize: typography.body2.fontSize,
+    fontWeight: '600',
+    color: colors.text.primary,
   },
   calendarScroll: {
     flex: 1,
@@ -331,7 +376,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   todayCard: {
-    borderColor: colors.primary.main,
+    borderColor: colors.primary,
     borderWidth: 2,
   },
   dayHeader: {
@@ -353,7 +398,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   todayDayName: {
-    color: colors.primary.main,
+    color: colors.primary,
   },
   dayDate: {
     fontSize: typography.h2.fontSize,
@@ -361,10 +406,10 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
   },
   todayDayDate: {
-    color: colors.primary.main,
+    color: colors.primary,
   },
   appointmentCount: {
-    backgroundColor: colors.primary.main,
+    backgroundColor: colors.primary,
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -387,7 +432,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.primary,
     borderRadius: borderRadius.sm,
     borderLeftWidth: 3,
-    borderLeftColor: colors.primary.main,
+    borderLeftColor: colors.primary,
   },
   appointmentTime: {
     marginRight: spacing.md,
@@ -436,3 +481,5 @@ const styles = StyleSheet.create({
     color: colors.text.tertiary,
   },
 });
+
+// styles will be created inside component

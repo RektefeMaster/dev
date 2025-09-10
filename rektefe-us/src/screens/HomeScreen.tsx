@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import apiService from '../services/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Rating } from '../types/common';
 import { DrawerActions } from '@react-navigation/native';
+import { CardNav } from '../components';
 
 interface Appointment {
   _id: string;
@@ -63,6 +64,11 @@ interface Activity {
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const { user, isAuthenticated } = useAuth();
+  
+  // Debug log'ları - sadece geliştirme sırasında gerekli
+  // console.log('🏠 HomeScreen render - user:', user);
+  // console.log('🏠 HomeScreen render - isAuthenticated:', isAuthenticated);
+  // console.log('🏠 HomeScreen render - userCapabilities:', user?.serviceCategories);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<Stats>({
@@ -75,21 +81,218 @@ export default function HomeScreen() {
   const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
   const [recentRatings, setRecentRatings] = useState<Rating[]>([]);
+  const [faultReportsCount, setFaultReportsCount] = useState(0);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   
   // Real-time güncelleme için
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const appState = useRef(AppState.currentState);
   const spinValue = useRef(new Animated.Value(0)).current;
 
+  // Usta yetenekleri tanımı
+const mechanicCapabilities = [
+    {
+      id: 'towing',
+      title: 'Çekici Hizmeti',
+      icon: 'car',
+      color: '#EF4444',
+      description: 'Acil kurtarma hizmetleri'
+    },
+    {
+      id: 'repair',
+      title: 'Tamir & Bakım',
+      icon: 'construct',
+      color: '#3B82F6',
+      description: 'Arıza tespit ve onarım'
+    },
+    {
+      id: 'wash',
+      title: 'Yıkama Hizmeti',
+      icon: 'water',
+      color: '#10B981',
+      description: 'Araç temizlik hizmetleri'
+    },
+    {
+      id: 'tire',
+      title: 'Lastik & Parça',
+      icon: 'car',
+      color: '#F59E0B',
+      description: 'Lastik ve yedek parça'
+    }
+  ];
+
+  // Ustanın yeteneklerine göre dinamik menü oluştur - useMemo ile optimize edildi
+  const navItems = useMemo(() => {
+    // İş Yönetimi menüleri
+    const workManagementItems = [
+      {
+        id: 'messages',
+        label: 'Mesajlaşma',
+        links: [
+          {
+            label: 'Müşteri Mesajları',
+            onPress: () => navigation.navigate('Messages'),
+          },
+          {
+            label: 'Sohbet',
+            onPress: () => navigation.navigate('Chat'),
+          },
+        ],
+      },
+      {
+        id: 'calendar',
+        label: 'Takvim',
+        links: [
+          {
+            label: 'Günlük Görünüm',
+            onPress: () => navigation.navigate('Calendar'),
+          },
+          {
+            label: 'Haftalık Görünüm',
+            onPress: () => navigation.navigate('Calendar'),
+          },
+        ],
+      },
+    ];
+
+    // Finansal menüler
+    const financialItems = [
+      {
+        id: 'financial',
+        label: 'Cüzdan',
+        links: [
+          {
+            label: 'Bakiye',
+            onPress: () => navigation.navigate('Wallet'),
+          },
+          {
+            label: 'Gelir Raporu',
+            onPress: () => navigation.navigate('FinancialTracking'),
+          },
+          {
+            label: 'Ödeme Geçmişi',
+            onPress: () => navigation.navigate('FinancialTracking'),
+          },
+        ],
+      },
+    ];
+
+    // Hesap menüleri
+    const accountItems = [
+      {
+        id: 'profile',
+        label: 'Profil',
+        links: [
+          {
+            label: 'Profil Ayarları',
+            onPress: () => navigation.navigate('Profile'),
+          },
+          {
+            label: 'Yardım Merkezi',
+            onPress: () => navigation.navigate('Support'),
+          },
+          {
+            label: 'Uygulama Ayarları',
+            onPress: () => navigation.navigate('Settings'),
+          },
+        ],
+      },
+    ];
+
+    // Ustanın yeteneklerine göre hizmet kategorileri ekle
+    const userCapabilities = user?.serviceCategories || [];
+    const capabilityItems = [];
+
+    // Hizmet kategorileri - daha detaylı menüler
+    if (userCapabilities.includes('towing')) {
+      capabilityItems.push({
+        id: 'towing',
+        label: 'Çekici Hizmetleri',
+        links: [
+          {
+            label: 'Aktif Çekici İşleri',
+            onPress: () => navigation.navigate('TowingService'),
+          },
+          {
+            label: 'Çekici Geçmişi',
+            onPress: () => navigation.navigate('TowingService'),
+          },
+          {
+            label: 'Araç Durumu',
+            onPress: () => navigation.navigate('TowingService'),
+          },
+        ],
+      });
+    }
+
+    if (userCapabilities.includes('repair')) {
+      capabilityItems.push({
+        id: 'repair',
+        label: 'Tamir Hizmetleri',
+        links: [
+          {
+            label: 'Arıza Bildirimleri',
+            onPress: () => navigation.navigate('FaultReports'),
+          },
+          {
+            label: 'Aktif Tamir İşleri',
+            onPress: () => navigation.navigate('RepairService'),
+          },
+          {
+            label: 'Tamir Geçmişi',
+            onPress: () => navigation.navigate('RepairService'),
+          },
+        ],
+      });
+    }
+
+    if (userCapabilities.includes('wash')) {
+      capabilityItems.push({
+        id: 'wash',
+        label: 'Yıkama Hizmetleri',
+        links: [
+          {
+            label: 'Aktif Yıkama İşleri',
+            onPress: () => navigation.navigate('WashService'),
+          },
+          {
+            label: 'Yıkama Paketleri',
+            onPress: () => navigation.navigate('WashService'),
+          },
+          {
+            label: 'Yıkama Geçmişi',
+            onPress: () => navigation.navigate('WashService'),
+          },
+        ],
+      });
+    }
+
+    if (userCapabilities.includes('tire')) {
+      capabilityItems.push({
+        id: 'tire',
+        label: 'Lastik Hizmetleri',
+        links: [
+          {
+            label: 'Aktif Lastik İşleri',
+            onPress: () => navigation.navigate('TireService'),
+          },
+          {
+            label: 'Lastik Geçmişi',
+            onPress: () => navigation.navigate('TireService'),
+          },
+        ],
+      });
+    }
+
+    // Tüm menüleri birleştir: Hizmet kategorileri + İş Yönetimi + Finansal + Hesap
+    return [...capabilityItems, ...workManagementItems, ...financialItems, ...accountItems];
+  }, [user?.serviceCategories, navigation]); // Sadece user capabilities değiştiğinde yeniden hesapla
+
   useEffect(() => {
-    console.log('🔍 HomeScreen: useEffect - isAuthenticated:', isAuthenticated, 'user:', !!user);
-    
     if (isAuthenticated && user) {
-      console.log('✅ HomeScreen: Kullanıcı authenticated, dashboard verisi çekiliyor');
       fetchDashboardData();
       startAutoRefresh();
     } else {
-      console.log('⚠️ HomeScreen: Kullanıcı authenticated değil, loading false yapılıyor');
       setLoading(false);
     }
 
@@ -102,6 +305,18 @@ export default function HomeScreen() {
       }
       subscription?.remove();
     };
+  }, [isAuthenticated, user?._id]); // Sadece user ID'si değiştiğinde tetikle
+
+  // Arıza bildirimleri için özel polling
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      // Her 30 saniyede bir arıza bildirimlerini kontrol et
+      const faultReportInterval = setInterval(() => {
+        checkFaultReports();
+      }, 30000); // 30 saniye
+
+      return () => clearInterval(faultReportInterval);
+    }
   }, [isAuthenticated, user]);
 
   // Loading animasyonu
@@ -123,46 +338,35 @@ export default function HomeScreen() {
   // Sayfa odaklandığında veri yenile
   useFocusEffect(
     useCallback(() => {
-      console.log('🔍 HomeScreen: useFocusEffect - isAuthenticated:', isAuthenticated, 'user:', !!user);
       if (isAuthenticated && user) {
-        console.log('✅ HomeScreen: Sayfa odaklandı, dashboard verisi yenileniyor');
         fetchDashboardData();
-      } else {
-        console.log('⚠️ HomeScreen: Sayfa odaklandı ama kullanıcı authenticated değil');
       }
-    }, [isAuthenticated, user])
+    }, [isAuthenticated, user?._id]) // Sadece user ID'si değiştiğinde tetikle
   );
 
   const handleAppStateChange = (nextAppState: AppStateStatus) => {
     if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
       // App aktif olduğunda veri yenile
       if (isAuthenticated && user) {
-        console.log('🔄 HomeScreen: App state değişti, dashboard verisi yenileniyor');
         fetchDashboardData();
-      } else {
-        console.log('⚠️ HomeScreen: App state değişti ama kullanıcı authenticated değil');
       }
     }
     appState.current = nextAppState;
   };
 
   const startAutoRefresh = () => {
-    // Her 15 saniyede bir veri yenile (daha sık güncelleme)
+    // Her 30 saniyede bir veri yenile
     intervalRef.current = setInterval(() => {
       if (isAuthenticated && user && appState.current === 'active') {
-        console.log('🔄 HomeScreen: Auto refresh - dashboard verisi yenileniyor');
         fetchDashboardData(false); // Loading gösterme
-      } else {
-        console.log('⚠️ HomeScreen: Auto refresh - kullanıcı authenticated değil veya app aktif değil');
       }
-    }, 15000);
+    }, 30000); // 30 saniyeye çıkardım
   };
 
   const fetchDashboardData = async (showLoading = true) => {
     try {
       // Authentication kontrolü
       if (!isAuthenticated || !user) {
-        console.log('⚠️ HomeScreen: Kullanıcı authenticated değil, API çağrıları yapılmıyor');
         setLoading(false);
         return;
       }
@@ -171,8 +375,6 @@ export default function HomeScreen() {
         setLoading(true);
       }
       
-      console.log('🔍 HomeScreen: API çağrıları başlatılıyor, kullanıcı:', user._id);
-      
       // Paralel olarak tüm verileri çek
       const [
         todayAppointmentsRes,
@@ -180,14 +382,18 @@ export default function HomeScreen() {
         activityRes,
         ratingsRes,
         ratingStatsRes,
-        appointmentStatsRes
+        appointmentStatsRes,
+        faultReportsRes,
+        notificationsRes
       ] = await Promise.allSettled([
         apiService.getMechanicAppointments('confirmed'),
         apiService.getMechanicAppointments('completed'),
         apiService.getRecentActivity(),
         apiService.getRecentRatings(),
         apiService.getRatingStats(),
-        apiService.getAppointmentStats()
+        apiService.getAppointmentStats(),
+        apiService.getMechanicFaultReports('pending'),
+        apiService.getNotifications()
       ]);
 
       // Bugünkü onaylanan randevular
@@ -280,6 +486,29 @@ export default function HomeScreen() {
         }));
       }
 
+      // Arıza bildirimleri sayısı
+      if (faultReportsRes.status === 'fulfilled' && faultReportsRes.value.success && faultReportsRes.value.data) {
+        const faultReports = Array.isArray(faultReportsRes.value.data) 
+          ? faultReportsRes.value.data 
+          : [];
+        setFaultReportsCount(faultReports.length);
+      }
+
+      // Okunmamış bildirim sayısı
+      if (notificationsRes.status === 'fulfilled' && notificationsRes.value.success && notificationsRes.value.data) {
+        const notifications = Array.isArray(notificationsRes.value.data.notifications) 
+          ? notificationsRes.value.data.notifications 
+          : Array.isArray(notificationsRes.value.data) 
+          ? notificationsRes.value.data 
+          : [];
+        
+        const unreadCount = notifications.filter((notification: any) => 
+          !notification.read && !notification.isRead
+        ).length;
+        
+        setUnreadNotificationCount(unreadCount);
+      }
+
     } catch (error) {
       console.error('Dashboard veri çekme hatası:', error);
       Alert.alert('Hata', 'Veriler yüklenirken bir hata oluştu');
@@ -294,8 +523,68 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
+  // Arıza bildirimlerini kontrol et (polling için)
+  const checkFaultReports = async () => {
+    try {
+      const response = await apiService.getMechanicFaultReports('pending');
+      if (response.success && response.data) {
+        const faultReports = Array.isArray(response.data) ? response.data : [];
+        setFaultReportsCount(faultReports.length);
+        console.log(`📊 Arıza bildirimleri güncellendi: ${faultReports.length} adet`);
+      }
+    } catch (error) {
+      console.error('❌ Arıza bildirimleri kontrol hatası:', error);
+    }
+  };
+
   const openDrawer = () => {
     navigation.dispatch(DrawerActions.openDrawer());
+  };
+
+  const handleNavItemPress = (item: any) => {
+    console.log('Ana kategori seçildi:', item.label);
+  };
+
+  const handleNavLinkPress = (link: any) => {
+    console.log('Alt link seçildi:', link.label);
+    if (link.onPress) {
+      link.onPress();
+    }
+  };
+
+  const getPrimaryServiceText = useMemo(() => {
+    const userCapabilities = user?.serviceCategories || [];
+    
+    // Öncelik sırası: repair > towing > wash > tire
+    if (userCapabilities.includes('repair') || userCapabilities.includes('Genel Bakım')) {
+      return 'Randevular';
+    } else if (userCapabilities.includes('towing') || userCapabilities.includes('Çekici Hizmeti')) {
+      return 'Çekici İşleri';
+    } else if (userCapabilities.includes('wash') || userCapabilities.includes('Yıkama Hizmeti')) {
+      return 'Yıkama İşleri';
+    } else if (userCapabilities.includes('tire') || userCapabilities.includes('Lastik & Parça')) {
+      return 'Lastik İşleri';
+    } else {
+      return 'Profil';
+    }
+  }, [user?.serviceCategories]);
+
+  const handleCtaPress = () => {
+    // Kullanıcının hizmet kategorisine göre öncelik sırasına göre yönlendir
+    const userCapabilities = user?.serviceCategories || [];
+    
+    // Öncelik sırası: repair > towing > wash > tire
+    if (userCapabilities.includes('repair') || userCapabilities.includes('Genel Bakım')) {
+      navigation.navigate('Appointments');
+    } else if (userCapabilities.includes('towing') || userCapabilities.includes('Çekici Hizmeti')) {
+      navigation.navigate('TowingService');
+    } else if (userCapabilities.includes('wash') || userCapabilities.includes('Yıkama Hizmeti')) {
+      navigation.navigate('WashService');
+    } else if (userCapabilities.includes('tire') || userCapabilities.includes('Lastik & Parça')) {
+      navigation.navigate('TireService');
+    } else {
+      navigation.navigate('Profile');
+    }
   };
 
   if (loading) {
@@ -322,34 +611,47 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       
+      {/* CardNav Drawer */}
+      <CardNav
+        logoAlt="Rektefe"
+        items={navItems}
+        onItemPress={handleNavItemPress}
+        onLinkPress={handleNavLinkPress}
+        onCtaPress={handleCtaPress}
+        ctaText={getPrimaryServiceText}
+        baseColor="#FFFFFF"
+        menuColor="#1E293B"
+        buttonBgColor="#3B82F6"
+        buttonTextColor="#FFFFFF"
+        maxItems={3}
+      />
+
       {/* Modern Header with Clean Design */}
       <View style={styles.modernHeader}>
         <View style={styles.headerTop}>
-          <TouchableOpacity
-            style={styles.menuButton}
-            onPress={openDrawer}
-          >
-            <View style={styles.menuIconContainer}>
-              <Ionicons name="menu" size={24} color="#1E293B" />
-            </View>
-          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerGreeting}>
+              {getGreeting()}, {getPersonalGreeting(user?.name)}
+            </Text>
+            <Text style={styles.headerSubtitle}>
+              Bugün {stats.activeJobs} aktif işin var
+            </Text>
+          </View>
           
-          <TouchableOpacity
+          {/* Notification Button */}
+          <TouchableOpacity 
             style={styles.notificationButton}
-            onPress={() => navigation.navigate('Support')}
+            onPress={() => navigation.navigate('Notifications')}
           >
-            <Ionicons name="notifications" size={24} color="#1E293B" />
+            <Ionicons name="notifications-outline" size={24} color="#1E293B" />
+            {unreadNotificationCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
-        </View>
-
-        <View style={styles.headerContent}>
-          <Text style={styles.headerGreeting}>
-            {getGreeting()}, {getPersonalGreeting(user?.name)}
-          </Text>
-          <Text style={styles.headerSubtitle}>
-            Bugün {stats.todayConfirmedAppointments} onaylanan randevun var
-          </Text>
-
         </View>
 
         {/* Modern Stats Row */}
@@ -399,173 +701,93 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Quick Actions */}
+        {/* Quick Actions - Sadece kullanıcının hizmet kategorilerine göre */}
         <View style={styles.quickActionsSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Hızlı Erişim</Text>
           </View>
           
           <View style={styles.quickActions}>
+            {user?.serviceCategories?.includes('towing') && (
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => navigation.navigate('TowingService')}
+              >
+                <View style={[styles.quickActionGradient, { backgroundColor: '#FEF2F2' }]}>
+                  <Ionicons name="car" size={28} color="#EF4444" />
+                </View>
+                <Text style={styles.quickActionText}>Çekici İşleri</Text>
+              </TouchableOpacity>
+            )}
+
+            {(user?.serviceCategories?.includes('repair') || user?.serviceCategories?.includes('Genel Bakım')) && (
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => navigation.navigate('RepairService')}
+              >
+                <View style={[styles.quickActionGradient, { backgroundColor: '#EFF6FF' }]}>
+                  <Ionicons name="construct" size={28} color="#3B82F6" />
+                </View>
+                <Text style={styles.quickActionText}>Tamir İşleri</Text>
+              </TouchableOpacity>
+            )}
+
+            {user?.serviceCategories?.includes('wash') && (
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => navigation.navigate('WashService')}
+              >
+                <View style={[styles.quickActionGradient, { backgroundColor: '#ECFDF5' }]}>
+                  <Ionicons name="water" size={28} color="#10B981" />
+                </View>
+                <Text style={styles.quickActionText}>Yıkama İşleri</Text>
+              </TouchableOpacity>
+            )}
+
+            {user?.serviceCategories?.includes('tire') && (
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => navigation.navigate('TireService')}
+              >
+                <View style={[styles.quickActionGradient, { backgroundColor: '#FFFBEB' }]}>
+                  <Ionicons name="car" size={28} color="#F59E0B" />
+                </View>
+                <Text style={styles.quickActionText}>Lastik İşleri</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Arıza Bildirimleri - Tüm ustalar için */}
             <TouchableOpacity
               style={styles.quickActionCard}
-              onPress={() => navigation.navigate('Appointments')}
+              onPress={() => navigation.navigate('FaultReports')}
             >
-              <View style={[styles.quickActionGradient, { backgroundColor: '#ECFDF5' }]}>
-                <Ionicons name="briefcase" size={28} color="#10B981" />
+              <View style={[styles.quickActionGradient, { backgroundColor: '#FEF2F2' }]}>
+                <Ionicons name="warning" size={28} color="#EF4444" />
+                {faultReportsCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{faultReportsCount}</Text>
+                  </View>
+                )}
               </View>
-              <Text style={styles.quickActionText}>Randevular</Text>
+              <Text style={styles.quickActionText}>Arıza Bildirimleri</Text>
+              {faultReportsCount > 0 && (
+                <Text style={styles.quickActionSubtext}>{faultReportsCount} yeni bildirim</Text>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.quickActionCard}
               onPress={() => navigation.navigate('Wallet')}
             >
-              <View style={[styles.quickActionGradient, { backgroundColor: '#EFF6FF' }]}>
-                <Ionicons name="wallet" size={28} color="#3B82F6" />
+              <View style={[styles.quickActionGradient, { backgroundColor: '#F3F4F6' }]}>
+                <Ionicons name="wallet" size={28} color="#6B7280" />
               </View>
               <Text style={styles.quickActionText}>Cüzdan</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Today's Appointments with Modern Cards */}
-        <View style={styles.appointmentsSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Bugünün Randevuları</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Appointments')}>
-              <Text style={styles.seeAllText}>Tümünü Gör</Text>
-            </TouchableOpacity>
-          </View>
-          
-          {todayAppointments.length > 0 ? (
-            <View style={styles.appointmentsList}>
-              {todayAppointments.map((appointment, index) => (
-                <TouchableOpacity 
-                  key={appointment._id || index} 
-                  style={styles.appointmentCard}
-                  onPress={() => navigation.navigate('AppointmentDetail' as any, { appointmentId: appointment._id })}
-                >
-                  <View style={styles.appointmentHeader}>
-                    <View style={styles.timeContainer}>
-                      <Ionicons name="time-outline" size={16} color="#667eea" />
-                      <Text style={styles.timeText}>
-                        {appointment.timeSlot || new Date(appointment.appointmentDate).toLocaleTimeString('tr-TR', {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </Text>
-                    </View>
-                    <View style={[
-                      styles.statusBadge,
-                      { backgroundColor: getStatusColor(appointment.status) + '20' }
-                    ]}>
-                      <Text style={[
-                        styles.statusText,
-                        { color: getStatusColor(appointment.status) }
-                      ]}>
-                        {getStatusText(appointment.status)}
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  <View style={styles.appointmentDetails}>
-                    <View style={styles.customerRow}>
-                      <Ionicons name="person-outline" size={16} color="#64748B" />
-                      <Text style={styles.customerName}>
-                        {typeof appointment.userId === 'string' 
-                          ? appointment.userId 
-                          : `${appointment.userId?.name || 'Bilinmeyen'} ${appointment.userId?.surname || 'Müşteri'}`
-                        }
-                      </Text>
-                    </View>
-                    
-                    <View style={styles.serviceRow}>
-                      <Ionicons name="construct-outline" size={16} color="#64748B" />
-                      <Text style={styles.serviceType}>{appointment.serviceType}</Text>
-                    </View>
-                    
-                    {appointment.vehicleId && (
-                      <View style={styles.vehicleRow}>
-                        <Ionicons name="car-outline" size={16} color="#64748B" />
-                        <Text style={styles.vehicleInfo}>
-                          {typeof appointment.vehicleId === 'string' 
-                            ? appointment.vehicleId
-                            : `${appointment.vehicleId?.brand || 'Bilinmeyen'} ${appointment.vehicleId?.modelName || 'Araç'}`
-                          }
-                          {typeof appointment.vehicleId === 'object' && appointment.vehicleId?.plateNumber && 
-                            ` (${appointment.vehicleId.plateNumber})`
-                          }
-                        </Text>
-                      </View>
-                    )}
 
-                    {appointment.notes && (
-                      <View style={styles.notesRow}>
-                        <Ionicons name="document-text-outline" size={16} color="#64748B" />
-                        <Text style={styles.notesText}>{appointment.notes}</Text>
-                      </View>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : (
-            <View style={styles.emptyAppointments}>
-              <Ionicons name="calendar-outline" size={48} color="#9CA3AF" />
-              <Text style={styles.emptyTitle}>Bugün Randevu Yok</Text>
-              <Text style={styles.emptyText}>
-                Yeni randevu talepleri burada görünecek
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Recent Activity with Real Data */}
-        <View style={styles.recentSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Son Aktiviteler</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Support')}>
-              <Text style={styles.seeAllText}>Tümünü Gör</Text>
-            </TouchableOpacity>
-          </View>
-          
-          {recentActivity.length > 0 ? (
-            <View style={styles.activityList}>
-              {recentActivity.slice(0, 5).map((activity, index) => (
-                <View key={activity._id || index} style={styles.activityItem}>
-                  <View style={[
-                    styles.activityIcon, 
-                    { backgroundColor: getActivityBgColor(activity.type) }
-                  ]}>
-                    <Ionicons name={getActivityIcon(activity.type)} size={20} color={getActivityColor(activity.type)} />
-                  </View>
-                  <View style={styles.activityContent}>
-                    <Text style={styles.activityTitle}>{activity.description}</Text>
-                    {activity.amount && (
-                      <Text style={styles.activityAmount}>
-                        {activity.type.includes('payment') || activity.type.includes('completed') ? '₺' : ''}{Number(activity.amount).toLocaleString('tr-TR')}
-                      </Text>
-                    )}
-                    <Text style={styles.activityTime}>
-                      {new Date(activity.createdAt).toLocaleDateString('tr-TR', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <View style={styles.emptyAppointments}>
-              <Ionicons name="time-outline" size={48} color="#9CA3AF" />
-              <Text style={styles.emptyTitle}>Henüz Aktivite Yok</Text>
-              <Text style={styles.emptyText}>Yeni işler yapıldıkça burada görünecek</Text>
-            </View>
-          )}
-        </View>
 
         {/* Recent Ratings */}
         {recentRatings.length > 0 && (
@@ -621,9 +843,10 @@ export default function HomeScreen() {
 // Helper functions
 const getGreeting = () => {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Günaydın';
-  if (hour < 18) return 'İyi günler';
-  return 'İyi akşamlar';
+  if (hour >= 5 && hour < 12) return 'Günaydın';
+  if (hour >= 12 && hour < 18) return 'İyi günler';
+  if (hour >= 18 && hour < 22) return 'İyi akşamlar';
+  return 'İyi geceler';
 };
 
 const getPersonalGreeting = (name?: string) => {
@@ -739,30 +962,38 @@ const styles = StyleSheet.create({
   },
   headerTop: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 20,
   },
-  menuButton: {
-    padding: 8,
-  },
-  menuIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
+  headerContent: {
+    flex: 1,
     alignItems: 'center',
   },
   notificationButton: {
     position: 'relative',
     padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    marginLeft: 12,
   },
-  headerContent: {
-    paddingHorizontal: 20,
+  notificationBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   headerGreeting: {
     fontSize: 30,
@@ -888,6 +1119,31 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1E293B',
     textAlign: 'center',
+  },
+  quickActionSubtext: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#EF4444',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  badge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#EF4444',
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   appointmentsSection: {
     marginTop: 30,

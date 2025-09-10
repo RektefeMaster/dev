@@ -16,7 +16,7 @@ export const checkRatingTimeLimit = async (req: Request, res: Response, next: Ne
     }
 
     // Randevu durumunu kontrol et
-    if (appointment.status !== 'completed') {
+    if (appointment.status !== 'TAMAMLANDI') {
       return res.status(400).json({
         success: false,
         message: 'Bu randevu henüz tamamlanmamış'

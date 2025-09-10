@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Animated } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
@@ -39,112 +39,28 @@ export const UserProfile: React.FC<UserProfileProps> = ({
   onNotificationPress,
   unreadCount = 0
 }) => {
-  const { colors } = useTheme();
+  const { theme } = useTheme();
   const navigation = useNavigation<any>();
   
-  // Animasyon değerleri
-  const hamburgerRotation = useRef(new Animated.Value(0)).current;
-  const hamburgerScale = useRef(new Animated.Value(1)).current;
-  const isMenuOpen = useRef(false);
-
-  // Hamburger buton animasyonu
-  const toggleHamburger = () => {
-    const toValue = isMenuOpen.current ? 0 : 1;
-    
-    Animated.parallel([
-      Animated.timing(hamburgerRotation, {
-        toValue: toValue,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.spring(hamburgerScale, {
-        toValue: 0.9,
-        friction: 3,
-        tension: 40,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      Animated.spring(hamburgerScale, {
-        toValue: 1,
-        friction: 3,
-        tension: 40,
-        useNativeDriver: true,
-      }).start();
-    });
-
-    isMenuOpen.current = !isMenuOpen.current;
-    
-    // Drawer'ı aç
-    navigation.openDrawer();
-  };
-
-  // Drawer kapandığında hamburger'i sıfırla
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      if (isMenuOpen.current) {
-        Animated.timing(hamburgerRotation, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }).start();
-        isMenuOpen.current = false;
-      }
-    });
-
-    return unsubscribe;
-  }, [navigation]);
 
   return (
     <View style={styles.container}>
-      {/* Header Section with Hamburger and Notification */}
+      {/* Header Section with Notification */}
       <View style={styles.headerSection}>
-        {/* Hamburger Menu Button */}
-        <TouchableOpacity 
-          style={styles.hamburgerButton} 
-          onPress={toggleHamburger}
-          activeOpacity={0.7}
-        >
-          <Animated.View style={[
-            styles.hamburgerContainer,
-            {
-              transform: [
-                { scale: hamburgerScale },
-                { rotate: hamburgerRotation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['0deg', '180deg']
-                })}
-              ]
-            }
-          ]}>
-            <View style={[
-              styles.hamburgerLine,
-              { backgroundColor: colors.primary.main }
-            ]} />
-            <View style={[
-              styles.hamburgerLine,
-              { backgroundColor: colors.primary.main }
-            ]} />
-            <View style={[
-              styles.hamburgerLine,
-              { backgroundColor: colors.primary.main }
-            ]} />
-          </Animated.View>
-        </TouchableOpacity>
-
         <View style={styles.greetingSection}>
-          <Text style={styles.greeting}>{getGreeting(userName)}</Text>
-          <Text style={styles.subtitle}>Bugün nasılsın?</Text>
+          <Text style={[styles.greeting, { color: theme.colors.text.primary }]}>{getGreeting(userName)}</Text>
+          <Text style={[styles.subtitle, { color: theme.colors.text.secondary }]}>Bugün nasılsın?</Text>
         </View>
         
         {/* Notification Bell Icon */}
-        <TouchableOpacity style={styles.notificationButton} onPress={onNotificationPress}>
+        <TouchableOpacity style={[styles.notificationButton, { backgroundColor: theme.colors.background.secondary }]} onPress={onNotificationPress}>
           <MaterialCommunityIcons 
             name="bell-outline" 
-            size={28} 
-            color={colors.primary.main} 
+            size={24} 
+            color={theme.colors.text.primary} 
           />
           {unreadCount > 0 && (
-            <View style={[styles.notificationBadge, { backgroundColor: colors.primary.main }]}>
+            <View style={[styles.notificationBadge, { backgroundColor: theme.colors.text.primary }]}>
               <Text style={styles.notificationBadgeText}>
                 {unreadCount > 99 ? '99+' : unreadCount}
               </Text>
@@ -155,33 +71,33 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 
       {/* User Info Section */}
       <View style={styles.userInfoSection}>
-        <TouchableOpacity style={styles.profileButton} onPress={onProfilePress}>
-          <View style={styles.avatarContainer}>
-            <MaterialCommunityIcons name="account" size={32} color={colors.primary.main} />
+        <TouchableOpacity style={[styles.profileButton, { backgroundColor: theme.colors.background.card, borderColor: theme.colors.border.primary }]} onPress={onProfilePress} activeOpacity={0.7}>
+          <View style={[styles.avatarContainer, { backgroundColor: theme.colors.background.secondary }]}>
+            <MaterialCommunityIcons name="account" size={28} color={theme.colors.text.primary} />
           </View>
           <View style={styles.userDetails}>
-            <Text style={styles.userName}>{userName}</Text>
-            <Text style={styles.userStatus}>Aktif</Text>
+            <Text style={[styles.userName, { color: theme.colors.text.primary }]}>{userName}</Text>
+            <Text style={[styles.userStatus, { color: theme.colors.text.secondary }]}>Aktif</Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={24} color={colors.text.secondary} />
+          <MaterialCommunityIcons name="chevron-right" size={24} color={theme.colors.text.secondary} />
         </TouchableOpacity>
       </View>
 
       {/* Favorite Car Section */}
       {favoriteCar && (
         <View style={styles.carSection}>
-          <TouchableOpacity style={styles.carButton} onPress={onCarPress}>
-            <View style={styles.carIcon}>
-              <MaterialCommunityIcons name="car" size={24} color={colors.primary.main} />
+          <TouchableOpacity style={[styles.carButton, { backgroundColor: theme.colors.background.card, borderColor: theme.colors.border.primary }]} onPress={onCarPress} activeOpacity={0.7}>
+            <View style={[styles.carIcon, { backgroundColor: theme.colors.background.secondary }]}>
+              <MaterialCommunityIcons name="car" size={22} color={theme.colors.text.primary} />
             </View>
             <View style={styles.carDetails}>
-              <Text style={styles.carTitle}>Favori Aracım</Text>
-              <Text style={styles.carInfo}>
+              <Text style={[styles.carTitle, { color: theme.colors.text.secondary }]}>Favori Aracım</Text>
+              <Text style={[styles.carInfo, { color: theme.colors.text.primary }]}>
                 {favoriteCar.brand} {favoriteCar.model}
               </Text>
-              <Text style={styles.carPlate}>{favoriteCar.plateNumber}</Text>
+              <Text style={[styles.carPlate, { color: theme.colors.text.secondary }]}>{favoriteCar.plateNumber}</Text>
             </View>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.text.secondary} />
+            <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.text.secondary} />
           </TouchableOpacity>
         </View>
       )}
@@ -202,17 +118,17 @@ const styles = StyleSheet.create({
   greetingSection: {
     flex: 1,
     marginBottom: 20,
-    marginLeft: 15,
   },
   greeting: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1a1a1a',
+    fontWeight: '700',
     marginBottom: 4,
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: 15,
+    fontWeight: '400',
+    opacity: 0.8,
   },
   userInfoSection: {
     marginBottom: 15,
@@ -220,43 +136,41 @@ const styles = StyleSheet.create({
   profileButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 12,
+    padding: 18,
+    borderRadius: 16,
+    borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
   },
   avatarContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#f0f0f0',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    marginRight: 16,
   },
   userDetails: {
     flex: 1,
   },
   userName: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '600',
-    color: '#1a1a1a',
     marginBottom: 2,
+    letterSpacing: -0.2,
   },
   userStatus: {
-    fontSize: 14,
-    color: '#34C759',
+    fontSize: 13,
     fontWeight: '500',
+    opacity: 0.7,
   },
   notificationButton: {
     position: 'relative',
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    padding: 12,
+    borderRadius: 24,
   },
   notificationBadge: {
     position: 'absolute',
@@ -280,63 +194,42 @@ const styles = StyleSheet.create({
   carButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 12,
+    padding: 18,
+    borderRadius: 16,
+    borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
   },
   carIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    marginRight: 16,
   },
   carDetails: {
     flex: 1,
   },
   carTitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
+    fontSize: 13,
+    fontWeight: '500',
+    marginBottom: 3,
+    opacity: 0.8,
   },
   carInfo: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 2,
+    marginBottom: 3,
+    letterSpacing: -0.1,
   },
   carPlate: {
     fontSize: 14,
-    color: '#007AFF',
     fontWeight: '500',
-  },
-  hamburgerButton: {
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
-    marginRight: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  hamburgerContainer: {
-    width: 20,
-    height: 16,
-    justifyContent: 'space-between',
-  },
-  hamburgerLine: {
-    height: 2,
-    width: '100%',
-    borderRadius: 1,
+    opacity: 0.7,
   },
 });
 

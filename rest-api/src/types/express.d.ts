@@ -6,7 +6,7 @@ declare global {
     interface Request {
       user?: {
         userId: string;
-        userType: string;
+        userType: 'driver' | 'mechanic';
         name?: string;
         email?: string;
       };
@@ -18,8 +18,8 @@ declare global {
 export interface AuthRequest extends Request {
   user?: {
     userId: string;
-    userType: string;
+    userType: 'driver' | 'mechanic';
     name?: string;
     email?: string;
   };
-} 
+}

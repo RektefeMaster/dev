@@ -6,6 +6,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { API_URL } from '../constants/config';
+import LocationService, { UserLocation } from '../services/locationService';
 
 type BookAppointmentScreenProps = {
   route: {
@@ -13,6 +14,11 @@ type BookAppointmentScreenProps = {
       mechanicId: string;
       mechanicName: string;
       mechanicSurname: string;
+      vehicleId?: string;
+      serviceType?: string;
+      description?: string;
+      faultReportId?: string;
+      price?: number;
     };
   };
   navigation: any;
@@ -21,7 +27,25 @@ type BookAppointmentScreenProps = {
 const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps) => {
   const { theme } = useTheme();
   const { token, userId } = useAuth();
-  const { mechanicId, mechanicName, mechanicSurname } = route.params || {};
+  const { 
+    mechanicId, 
+    mechanicName, 
+    mechanicSurname, 
+    vehicleId: preselectedVehicleId, 
+    serviceType: preselectedServiceType, 
+    description: preselectedDescription,
+    faultReportId,
+    price
+  } = route.params || {};
+
+  // FaultReport'dan gelip gelmediğini kontrol et
+  useEffect(() => {
+    if (faultReportId) {
+      setIsFromFaultReport(true);
+      // FaultReport bilgilerini getir
+      fetchFaultReportData();
+    }
+  }, [faultReportId]);
 
   // mechanicId yoksa usta seçim ekranına yönlendir
   useEffect(() => {
@@ -42,6 +66,30 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
       );
     }
   }, [mechanicId, navigation]);
+
+  const fetchFaultReportData = async () => {
+    if (!faultReportId || !token) return;
+    
+    try {
+      const response = await fetch(`${API_URL}/fault-reports/${faultReportId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          setFaultReportData(data.data);
+          // Otomatik doldur
+          setServiceType(data.data.serviceCategory || preselectedServiceType);
+          setDescription(data.data.faultDescription || preselectedDescription);
+        }
+      }
+    } catch (error) {
+      console.error('FaultReport verisi getirme hatası:', error);
+    }
+  };
 
   // Araçları getir
   useEffect(() => {
@@ -72,28 +120,59 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
     fetchVehicles();
   }, [token]);
 
-  const [serviceType, setServiceType] = useState('');
-  const [selectedVehicle, setSelectedVehicle] = useState('');
+  // Konum bilgisini al
+  const getCurrentLocation = async () => {
+    try {
+      setLocationLoading(true);
+      const locationService = LocationService.getInstance();
+      const location = await locationService.getCurrentLocation();
+      
+      if (location) {
+        setCurrentLocation(location);
+        console.log('📍 BookAppointmentScreen: Konum alındı:', location);
+      } else {
+        console.log('📍 BookAppointmentScreen: Konum alınamadı');
+      }
+    } catch (error) {
+      console.error('BookAppointmentScreen: Konum alma hatası:', error);
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  // Sayfa yüklendiğinde konum al
+  useEffect(() => {
+    getCurrentLocation();
+  }, []);
+
+  const [serviceType, setServiceType] = useState(preselectedServiceType || '');
+  const [selectedVehicle, setSelectedVehicle] = useState(preselectedVehicleId || '');
   const [vehicles, setVehicles] = useState([]);
   const [appointmentDate, setAppointmentDate] = useState(new Date());
   const [timeSlot, setTimeSlot] = useState('');
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState(preselectedDescription || '');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingVehicles, setLoadingVehicles] = useState(false);
+  
+  // FaultReport'dan gelen bilgiler için
+  const [isFromFaultReport, setIsFromFaultReport] = useState(false);
+  const [faultReportData, setFaultReportData] = useState(null);
+  const [currentLocation, setCurrentLocation] = useState<UserLocation | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
 
   const services = [
     { id: 'agir-bakim', title: 'Ağır Bakım', icon: 'wrench', color: '#007AFF' },
     { id: 'genel-bakim', title: 'Genel Bakım', icon: 'tools', color: '#34C759' },
     { id: 'alt-takim', title: 'Alt Takım', icon: 'cog', color: '#FF9500' },
     { id: 'ust-takim', title: 'Üst Takım', icon: 'nut', color: '#AF52DE' },
-    { id: 'kaporta-boya', title: 'Kaporta/Boya', icon: 'spray', color: '#FF3B30' },
+    { id: 'kaporta-boya', title: 'Kaporta & Boya', icon: 'spray', color: '#FF3B30' },
     { id: 'elektrik-elektronik', title: 'Elektrik-Elektronik', icon: 'lightning-bolt', color: '#FFCC00' },
     { id: 'yedek-parca', title: 'Yedek Parça', icon: 'car-wash', color: '#5856D6' },
-    { id: 'lastik', title: 'Lastik', icon: 'tire', color: '#FF6B35' },
+    { id: 'lastik', title: 'Lastik Servisi', icon: 'tire', color: '#FF6B35' },
     { id: 'egzoz-emisyon', title: 'Egzoz & Emisyon', icon: 'smoke', color: '#8E8E93' },
     { id: 'ekspertiz', title: 'Ekspertiz', icon: 'magnify', color: '#5AC8FA' },
-    { id: 'sigorta-kasko', title: 'Sigorta/Kasko', icon: 'shield-check', color: '#4CD964' },
+    { id: 'sigorta-kasko', title: 'Sigorta & Kasko', icon: 'shield-check', color: '#4CD964' },
     { id: 'arac-yikama', title: 'Araç Yıkama', icon: 'car-wash', color: '#007AFF' },
   ];
 
@@ -102,32 +181,23 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
   ];
 
   const handleBookAppointment = async () => {
-    console.log('🔍 BookAppointmentScreen: Randevu oluşturma başlatılıyor...');
-    console.log('🔍 BookAppointmentScreen: Seçilen araç:', selectedVehicle);
-    console.log('🔍 BookAppointmentScreen: Seçilen hizmet:', serviceType);
-    console.log('🔍 BookAppointmentScreen: Seçilen saat:', timeSlot);
-    console.log('🔍 BookAppointmentScreen: Açıklama uzunluğu:', description.length);
     
     if (!selectedVehicle) {
-      console.log('❌ BookAppointmentScreen: Araç seçimi eksik');
       Alert.alert('Hata', 'Lütfen bir araç seçin');
       return;
     }
 
     if (!serviceType.trim()) {
-      console.log('❌ BookAppointmentScreen: Hizmet türü seçimi eksik');
       Alert.alert('Hata', 'Lütfen hizmet türünü seçin');
       return;
     }
 
     if (!timeSlot) {
-      console.log('❌ BookAppointmentScreen: Saat seçimi eksik');
       Alert.alert('Hata', 'Lütfen saat seçin');
       return;
     }
 
     if (!description.trim() || description.trim().length < 10) {
-      console.log('❌ BookAppointmentScreen: Açıklama yetersiz:', description.length, 'karakter');
       Alert.alert('Hata', 'Açıklama en az 10 karakter olmalıdır');
       return;
     }
@@ -142,15 +212,33 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
       // Debug: Gönderilecek veriyi logla
       const requestBody = {
         userId: userId,
-        mechanicId,
+        mechanicId: typeof mechanicId === 'string' ? mechanicId : mechanicId?._id || mechanicId,
         vehicleId: selectedVehicle,
         serviceType: serviceType.toLowerCase().replace(/\s+/g, '-'),
         appointmentDate: appointmentDateObj.toISOString(),
         timeSlot,
-        description
+        description,
+        faultReportId: faultReportId || undefined,
+        // Fiyat bilgisi varsa gönder
+        ...(price && {
+          quotedPrice: price,
+          price: price,
+          finalPrice: price,
+          priceSource: 'fault_report_quote'
+        }),
+        // Location bilgisi varsa gönder, yoksa gönderme
+        ...(currentLocation && {
+          location: {
+            coordinates: [currentLocation.longitude, currentLocation.latitude],
+            address: 'Konum bilgisi mevcut',
+            city: 'Malatya',
+            district: 'Battalgazi',
+            neighborhood: 'Merkez'
+          }
+        })
       };
       
-      console.log('🔍 BookAppointmentScreen: Gönderilecek veri:', JSON.stringify(requestBody, null, 2));
+      console.log('📤 BookAppointmentScreen: Gönderilecek veri:', requestBody);
       
       const response = await fetch(`${API_URL}/appointments`, {
         method: 'POST',
@@ -161,9 +249,11 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
         body: JSON.stringify(requestBody)
       });
 
+      console.log('📥 BookAppointmentScreen: API Yanıtı:', response.status, response.statusText);
+
       if (response.ok) {
-        console.log('✅ BookAppointmentScreen: Randevu başarıyla oluşturuldu!');
-        console.log('✅ BookAppointmentScreen: Response status:', response.status);
+        const responseData = await response.json();
+        console.log('✅ BookAppointmentScreen: Başarılı yanıt:', responseData);
         
         Alert.alert(
           '🎉 Randevu Başarıyla Oluşturuldu!',
@@ -172,7 +262,6 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
             {
               text: 'Ana Sayfaya Git',
               onPress: () => {
-                console.log('✅ BookAppointmentScreen: Ana sayfaya yönlendiriliyor');
                 // Otomatik olarak Main (TabNavigator) → Home'a yönlendir
                 navigation.navigate('Main', { screen: 'MainTabs' });
               }
@@ -180,19 +269,46 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
           ]
         );
       } else {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ message: 'Sunucu hatası' }));
         console.error('❌ BookAppointmentScreen: API Hatası:', response.status, errorData);
-        Alert.alert('Hata', `Randevu oluşturulamadı: ${errorData.message || 'Bilinmeyen hata'}`);
+        
+        let errorMessage = 'Randevu oluşturulamadı';
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (response.status === 401) {
+          errorMessage = 'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.';
+        } else if (response.status === 400) {
+          errorMessage = 'Gönderilen veriler hatalı. Lütfen kontrol edin.';
+        } else if (response.status >= 500) {
+          errorMessage = 'Sunucu hatası. Lütfen daha sonra tekrar deneyin.';
+        }
+        
+        Alert.alert('Hata', errorMessage);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ BookAppointmentScreen: Network Hatası:', error);
-      Alert.alert('Hata', 'Randevu oluşturulurken bir hata oluştu');
+      
+      let errorMessage = 'Randevu oluşturulurken bir hata oluştu';
+      
+      if (error.message === 'Network Error' || error.code === 'NETWORK_ERROR') {
+        errorMessage = 'İnternet bağlantınızı kontrol edin ve tekrar deneyin.';
+      } else if (error.message?.includes('timeout')) {
+        errorMessage = 'Bağlantı zaman aşımı. Lütfen tekrar deneyin.';
+      } else if (error.message?.includes('fetch')) {
+        errorMessage = 'Sunucuya bağlanılamıyor. Lütfen daha sonra tekrar deneyin.';
+      }
+      
+      Alert.alert('Bağlantı Hatası', errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   const canSubmitAppointment = () => {
+    if (isFromFaultReport) {
+      // FaultReport'dan geldiğinde sadece tarih ve saat gerekli
+      return selectedVehicle && timeSlot;
+    }
     return selectedVehicle && 
            serviceType.trim() && 
            timeSlot && 
@@ -203,14 +319,13 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
     setShowDatePicker(false);
     if (selectedDate) {
       setAppointmentDate(selectedDate);
-      console.log('🔍 BookAppointmentScreen: Tarih seçildi:', selectedDate.toLocaleDateString('tr-TR'));
     }
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
       <LinearGradient
-        colors={[theme.colors.primary, theme.colors.secondary]}
+        colors={[theme.colors.primary.main, theme.colors.secondary.main]}
         style={styles.header}
       >
         <TouchableOpacity
@@ -225,64 +340,167 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
 
       <View style={styles.content}>
         <View style={styles.mechanicInfo}>
-          <Text style={[styles.mechanicName, { color: theme.colors.text }]}>
+          <Text style={[styles.mechanicName, { color: theme.colors.text.primary }]}>
             {mechanicName} {mechanicSurname}
           </Text>
-          <Text style={[styles.mechanicSubtitle, { color: theme.colors.textSecondary }]}>
-            Usta ile randevu oluşturun
+          <Text style={[styles.mechanicSubtitle, { color: theme.colors.text.secondary }]}>
+            {isFromFaultReport ? 'Kabul edilen teklif ile randevu oluşturun' : 'Usta ile randevu oluşturun'}
           </Text>
+          {price && (
+            <View style={[styles.priceContainer, { backgroundColor: theme.colors.success.light }]}>
+              <MaterialCommunityIcons name="currency-try" size={20} color={theme.colors.success.main} />
+              <Text style={[styles.priceText, { color: theme.colors.success.main }]}>
+                {new Intl.NumberFormat('tr-TR', {
+                  style: 'currency',
+                  currency: 'TRY',
+                }).format(price)}
+              </Text>
+            </View>
+          )}
         </View>
 
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-            Hizmet Türü
-          </Text>
-          <View style={styles.serviceGrid}>
-            {services.map((service) => (
-              <TouchableOpacity
-                key={service.id}
-                style={[
-                  styles.serviceChip,
-                  serviceType === service.id && {
-                    backgroundColor: service.color,
-                    borderColor: service.color
-                  }
-                ]}
-                onPress={() => setServiceType(service.id)}
-              >
-                <MaterialCommunityIcons
-                  name={service.icon as any}
-                  size={20}
-                  color={serviceType === service.id ? '#FFFFFF' : service.color}
-                />
-                <Text style={[
-                  styles.serviceText,
-                  serviceType === service.id && styles.serviceTextSelected
-                ]}>
-                  {service.title}
+        {/* FaultReport Bilgileri */}
+        {isFromFaultReport && faultReportData && (
+          <View style={[styles.faultReportInfo, { backgroundColor: theme.colors.background.card }]}>
+            <View style={styles.faultReportHeader}>
+              <MaterialCommunityIcons name="information" size={20} color={theme.colors.primary.main} />
+              <Text style={[styles.faultReportTitle, { color: theme.colors.text.primary }]}>
+                Arıza Bildirimi Bilgileri
+              </Text>
+            </View>
+            <View style={styles.faultReportContent}>
+              <View style={styles.faultReportItem}>
+                <Text style={[styles.faultReportLabel, { color: theme.colors.text.secondary }]}>Araç:</Text>
+                <Text style={[styles.faultReportValue, { color: theme.colors.text.primary }]}>
+                  {faultReportData.vehicleId?.brand} {faultReportData.vehicleId?.modelName} - {faultReportData.vehicleId?.plateNumber}
                 </Text>
-              </TouchableOpacity>
-            ))}
+              </View>
+              <View style={styles.faultReportItem}>
+                <Text style={[styles.faultReportLabel, { color: theme.colors.text.secondary }]}>Hizmet:</Text>
+                <Text style={[styles.faultReportValue, { color: theme.colors.text.primary }]}>
+                  {faultReportData.serviceCategory}
+                </Text>
+              </View>
+              <View style={styles.faultReportItem}>
+                <Text style={[styles.faultReportLabel, { color: theme.colors.text.secondary }]}>Açıklama:</Text>
+                <Text style={[styles.faultReportValue, { color: theme.colors.text.primary }]}>
+                  {faultReportData.faultDescription}
+                </Text>
+              </View>
+            </View>
           </View>
+        )}
+
+        {/* Araç Seçimi */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+            Araç Seçimi
+          </Text>
+          {loadingVehicles ? (
+            <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background.card }]}>
+              <Text style={[styles.loadingText, { color: theme.colors.text.secondary }]}>
+                Araçlar yükleniyor...
+              </Text>
+            </View>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.vehicleScroll}>
+              {vehicles.map((vehicle: any) => (
+                <TouchableOpacity
+                  key={vehicle._id}
+                  style={[
+                    styles.vehicleCard,
+                    { backgroundColor: theme.colors.background.card },
+                    selectedVehicle === vehicle._id && {
+                      backgroundColor: theme.colors.primary.main,
+                      borderColor: theme.colors.primary.main
+                    }
+                  ]}
+                  onPress={() => setSelectedVehicle(vehicle._id)}
+                >
+                  <MaterialCommunityIcons
+                    name="car"
+                    size={24}
+                    color={selectedVehicle === vehicle._id ? '#FFFFFF' : theme.colors.primary.main}
+                  />
+                  <Text style={[
+                    styles.vehicleText,
+                    { color: selectedVehicle === vehicle._id ? '#FFFFFF' : theme.colors.text.primary }
+                  ]}>
+                    {vehicle.brand} {vehicle.modelName}
+                  </Text>
+                  <Text style={[
+                    styles.vehiclePlate,
+                    { color: selectedVehicle === vehicle._id ? '#FFFFFF' : theme.colors.text.secondary }
+                  ]}>
+                    {vehicle.plateNumber}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+            Hizmet Türü
+            {isFromFaultReport && (
+              <Text style={[styles.readonlyLabel, { color: theme.colors.text.secondary }]}> (Arıza bildiriminden)</Text>
+            )}
+          </Text>
+          {isFromFaultReport ? (
+            <View style={[styles.readonlyField, { backgroundColor: theme.colors.background.secondary }]}>
+              <Text style={[styles.readonlyText, { color: theme.colors.text.primary }]}>
+                {faultReportData?.serviceCategory || serviceType}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.serviceGrid}>
+              {services.map((service) => (
+                <TouchableOpacity
+                  key={service.id}
+                  style={[
+                    styles.serviceChip,
+                    serviceType === service.id && {
+                      backgroundColor: service.color,
+                      borderColor: service.color
+                    }
+                  ]}
+                  onPress={() => setServiceType(service.id)}
+                >
+                  <MaterialCommunityIcons
+                    name={service.icon as any}
+                    size={20}
+                    color={serviceType === service.id ? '#FFFFFF' : service.color}
+                  />
+                  <Text style={[
+                    styles.serviceText,
+                    serviceType === service.id && styles.serviceTextSelected
+                  ]}>
+                    {service.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
             Tarih
           </Text>
           <TouchableOpacity
-            style={[styles.dateButton, { backgroundColor: theme.colors.card }]}
+            style={[styles.dateButton, { backgroundColor: theme.colors.background.card }]}
             onPress={() => setShowDatePicker(true)}
           >
-            <MaterialCommunityIcons name="calendar" size={20} color={theme.colors.primary} />
-            <Text style={[styles.dateText, { color: theme.colors.text }]}>
+            <MaterialCommunityIcons name="calendar" size={20} color={theme.colors.primary.main} />
+            <Text style={[styles.dateText, { color: theme.colors.text.primary }]}>
               {appointmentDate.toLocaleDateString('tr-TR')}
             </Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
             Saat
           </Text>
           <View style={styles.timeGrid}>
@@ -292,8 +510,8 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
                 style={[
                   styles.timeChip,
                   timeSlot === time && {
-                    backgroundColor: theme.colors.primary,
-                    borderColor: theme.colors.primary
+                    backgroundColor: theme.colors.primary.main,
+                    borderColor: theme.colors.primary.main
                   }
                 ]}
                 onPress={() => setTimeSlot(time)}
@@ -310,48 +528,61 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
             Açıklama
+            {isFromFaultReport && (
+              <Text style={[styles.readonlyLabel, { color: theme.colors.text.secondary }]}> (Arıza bildiriminden)</Text>
+            )}
           </Text>
-          <TextInput
-            style={[styles.descriptionInput, { 
-              backgroundColor: theme.colors.card,
-              color: theme.colors.text,
-              borderColor: description.length < 10 ? theme.colors.error.main : theme.colors.border
-            }]}
-            placeholder="Randevu detaylarını açıklayın... (en az 10 karakter)"
-            placeholderTextColor={theme.colors.textSecondary}
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-            minLength={10}
-          />
-          <View style={styles.descriptionFooter}>
-            <Text style={[
-              styles.characterCount,
-              { color: description.length < 10 ? theme.colors.error.main : theme.colors.textSecondary }
-            ]}>
-              {description.length}/500 karakter
-            </Text>
-            {description.length < 10 && description.length > 0 && (
-              <Text style={[styles.validationMessage, { color: theme.colors.error.main }]}>
-                En az 10 karakter gerekli
+          {isFromFaultReport ? (
+            <View style={[styles.readonlyField, { backgroundColor: theme.colors.background.secondary }]}>
+              <Text style={[styles.readonlyText, { color: theme.colors.text.primary }]}>
+                {faultReportData?.faultDescription || description}
               </Text>
-            )}
-            {description.length >= 10 && (
-              <Text style={[styles.validationMessage, { color: theme.colors.success.main }]}>
-                ✓ Açıklama yeterli
-              </Text>
-            )}
-          </View>
+            </View>
+          ) : (
+            <>
+              <TextInput
+                style={[styles.descriptionInput, { 
+                  backgroundColor: theme.colors.background.card,
+                  color: theme.colors.text.primary,
+                  borderColor: description.length < 10 ? theme.colors.error.main : theme.colors.border.primary
+                }]}
+                placeholder="Randevu detaylarını açıklayın... (en az 10 karakter)"
+                placeholderTextColor={theme.colors.text.secondary}
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                // minLength is not a valid TextInput prop; validation handled separately
+              />
+              <View style={styles.descriptionFooter}>
+                <Text style={[
+                  styles.characterCount,
+                  { color: description.length < 10 ? theme.colors.error.main : theme.colors.text.secondary }
+                ]}>
+                  {description.length}/500 karakter
+                </Text>
+                {description.length < 10 && description.length > 0 && (
+                  <Text style={[styles.validationMessage, { color: theme.colors.error.main }]}>
+                    En az 10 karakter gerekli
+                  </Text>
+                )}
+                {description.length >= 10 && (
+                  <Text style={[styles.validationMessage, { color: theme.colors.success.main }]}>
+                    ✓ Açıklama yeterli
+                  </Text>
+                )}
+              </View>
+            </>
+          )}
         </View>
 
         <TouchableOpacity
           style={[
             styles.bookButton,
-            { backgroundColor: canSubmitAppointment() ? theme.colors.primary : theme.colors.border },
+            { backgroundColor: canSubmitAppointment() ? theme.colors.primary.main : theme.colors.border.primary },
             loading && styles.bookButtonDisabled
           ]}
           onPress={handleBookAppointment}
@@ -365,14 +596,17 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
         {!canSubmitAppointment() && (
           <View style={styles.validationSummary}>
             <Text style={[styles.validationSummaryText, { color: theme.colors.error.main }]}>
-              Randevu oluşturmak için tüm alanları doldurun:
+              {isFromFaultReport 
+                ? 'Randevu oluşturmak için tarih ve saat seçin:'
+                : 'Randevu oluşturmak için tüm alanları doldurun:'
+              }
             </Text>
             {!selectedVehicle && (
               <Text style={[styles.validationItem, { color: theme.colors.error.main }]}>
                 • Araç seçimi gerekli
               </Text>
             )}
-            {!serviceType && (
+            {!isFromFaultReport && !serviceType && (
               <Text style={[styles.validationItem, { color: theme.colors.error.main }]}>
                 • Hizmet türü seçimi gerekli
               </Text>
@@ -382,7 +616,7 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
                 • Saat seçimi gerekli
               </Text>
             )}
-            {description.length < 10 && (
+            {!isFromFaultReport && description.length < 10 && (
               <Text style={[styles.validationItem, { color: theme.colors.error.main }]}>
                 • Açıklama en az 10 karakter olmalı
               </Text>
@@ -443,6 +677,19 @@ const styles = StyleSheet.create({
   },
   mechanicSubtitle: {
     fontSize: 16,
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginTop: 10,
+  },
+  priceText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 8,
   },
   section: {
     marginBottom: 25,
@@ -562,6 +809,90 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 16,
     marginBottom: 8,
+  },
+  // FaultReport styles
+  faultReportInfo: {
+    marginBottom: 20,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  faultReportHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  faultReportTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  faultReportContent: {
+    gap: 8,
+  },
+  faultReportItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  faultReportLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    width: 80,
+    marginRight: 8,
+  },
+  faultReportValue: {
+    fontSize: 14,
+    flex: 1,
+    lineHeight: 20,
+  },
+  // Readonly field styles
+  readonlyLabel: {
+    fontSize: 12,
+    fontWeight: '400',
+  },
+  readonlyField: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  readonlyText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  // Vehicle selection styles
+  loadingContainer: {
+    padding: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+  },
+  vehicleScroll: {
+    marginHorizontal: -20,
+    paddingHorizontal: 20,
+  },
+  vehicleCard: {
+    width: 140,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+    marginRight: 12,
+    alignItems: 'center',
+  },
+  vehicleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  vehiclePlate: {
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'center',
   },
 });
 

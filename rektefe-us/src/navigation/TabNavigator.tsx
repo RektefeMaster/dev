@@ -1,21 +1,178 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Modal, ScrollView, Switch, Alert } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius, shadows } from '../theme/theme';
 import { TabParamList } from '../types/common';
+import { useAuth } from '../context/AuthContext';
 import apiService from '../services/api';
 
 // Screens
 import HomeScreen from '../screens/HomeScreen';
-import AppointmentsScreen from '../screens/AppointmentsScreen';
-import CalendarScreen from '../screens/CalendarScreen';
 import MessagesScreen from '../screens/MessagesScreen';
 import WalletScreen from '../screens/WalletScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 const { width } = Dimensions.get('window');
+
+// Hamburger Menu Component
+interface HamburgerMenuProps {
+  visible: boolean;
+  onClose: () => void;
+  navigation: any;
+}
+
+const HamburgerMenu = ({ visible, onClose, navigation }: HamburgerMenuProps) => {
+  const { user, logout } = useAuth();
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  const handleNavigation = (screenName: string) => {
+    onClose();
+    navigation.navigate(screenName);
+  };
+
+  const handleLogout = async () => {
+    try {
+      onClose();
+      await logout();
+    } catch (error) {
+      console.error('Logout hatası:', error);
+    }
+  };
+
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
+  };
+
+  const menuItems = [
+    { icon: 'calendar-outline', label: 'Takvim', screen: 'Calendar' },
+    { icon: 'trending-up', label: 'Kazanç Takibi', screen: 'FinancialTracking' },
+    { icon: 'help-circle', label: 'Destek', screen: 'Support' },
+    { icon: 'settings', label: 'Ayarlar', screen: 'Settings' },
+  ];
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.overlay}>
+        <View style={styles.menuContainer}>
+          {/* Header */}
+          <View style={styles.menuHeader}>
+            <View style={styles.avatarContainer}>
+              <Text style={styles.avatarText}>
+                {user?.name?.charAt(0) || 'U'}
+              </Text>
+            </View>
+            <View style={styles.profileInfo}>
+              <Text style={styles.helloText}>Merhaba,</Text>
+              <Text style={styles.nameText}>
+                {user?.name} {user?.surname}
+              </Text>
+              <View style={styles.roleContainer}>
+                <Ionicons name="construct" size={14} color={colors.primary.main} />
+                <Text style={styles.roleText}>Usta</Text>
+              </View>
+            </View>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color={colors.text.primary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Menu Items */}
+          <ScrollView style={styles.menuContent}>
+            <Text style={styles.menuTitle}>İş Yönetimi</Text>
+            
+            {menuItems.slice(0, 2).map((item, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.menuItem}
+                onPress={() => handleNavigation(item.screen)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.menuItemContent}>
+                  <View style={styles.menuIconContainer}>
+                    <Ionicons name={item.icon as any} size={20} color={colors.primary.main} />
+                  </View>
+                  <Text style={styles.menuItemText}>{item.label}</Text>
+                  <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
+                </View>
+              </TouchableOpacity>
+            ))}
+
+            <Text style={[styles.menuTitle, { marginTop: spacing.lg }]}>Finansal</Text>
+            
+            {menuItems.slice(2, 4).map((item, index) => (
+              <TouchableOpacity
+                key={index + 2}
+                style={styles.menuItem}
+                onPress={() => handleNavigation(item.screen)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.menuItemContent}>
+                  <View style={styles.menuIconContainer}>
+                    <Ionicons name={item.icon as any} size={20} color={colors.primary.main} />
+                  </View>
+                  <Text style={styles.menuItemText}>{item.label}</Text>
+                  <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
+                </View>
+              </TouchableOpacity>
+            ))}
+
+            <Text style={[styles.menuTitle, { marginTop: spacing.lg }]}>Hesap</Text>
+            
+            {menuItems.slice(4).map((item, index) => (
+              <TouchableOpacity
+                key={index + 4}
+                style={styles.menuItem}
+                onPress={() => handleNavigation(item.screen)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.menuItemContent}>
+                  <View style={styles.menuIconContainer}>
+                    <Ionicons name={item.icon as any} size={20} color={colors.primary.main} />
+                  </View>
+                  <Text style={styles.menuItemText}>{item.label}</Text>
+                  <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
+                </View>
+              </TouchableOpacity>
+            ))}
+
+            {/* Theme Toggle */}
+            <View style={styles.themeSection}>
+              <View style={styles.themeItem}>
+                <View style={styles.themeInfo}>
+                  <Ionicons name="moon" size={18} color={colors.text.secondary} />
+                  <Text style={styles.themeText}>Karanlık Mod</Text>
+                </View>
+                <Switch
+                  value={isDarkMode}
+                  onValueChange={toggleTheme}
+                  trackColor={{ false: colors.border.secondary, true: colors.primary.light }}
+                  thumbColor={isDarkMode ? colors.primary.main : colors.background.secondary}
+                />
+              </View>
+            </View>
+
+            {/* Logout Button */}
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={handleLogout}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="log-out-outline" size={18} color={colors.error.main} />
+              <Text style={styles.logoutText}>Çıkış Yap</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 interface TabBarProps {
   state: any;
@@ -26,6 +183,9 @@ interface TabBarProps {
 const CustomTabBar = ({ state, descriptors, navigation }: TabBarProps) => {
   const currentRoute = state.routes[state.index]?.name;
   const [unreadCount, setUnreadCount] = useState(0);
+  
+  // Debug için log ekle
+  console.log('🔄 CustomTabBar render - routes:', state.routes.map(r => r.name));
   
   // Gerçek okunmamış mesaj sayısını al
   useEffect(() => {
@@ -67,16 +227,24 @@ const CustomTabBar = ({ state, descriptors, navigation }: TabBarProps) => {
               icon = 'home';
               label = 'Ana Sayfa';
               break;
-            case 'Appointments':
-              icon = 'briefcase';
-              label = 'İşler';
+            case 'TowingService':
+              icon = 'car';
+              label = 'Çekici';
               break;
-            case 'Calendar':
-              icon = 'calendar';
-              label = 'Takvim';
+            case 'RepairService':
+              icon = 'construct';
+              label = 'Tamir';
+              break;
+            case 'WashService':
+              icon = 'water';
+              label = 'Yıkama';
+              break;
+            case 'TireService':
+              icon = 'car';
+              label = 'Lastik';
               break;
             case 'Messages':
-              icon = 'chatbubbles';
+              icon = 'chatbubble';
               label = 'Mesajlar';
               badge = unreadCount;
               break;
@@ -164,14 +332,41 @@ const TabButton = ({ isFocused, icon, label, badge, onPress }: TabButtonProps) =
 };
 
 const TabNavigator = () => {
+  const { user, isAuthenticated } = useAuth();
+  const userCapabilities = user?.serviceCategories || [];
+  const [hamburgerVisible, setHamburgerVisible] = useState(false);
+
+  // Ana hizmeti belirle (öncelik sırasına göre)
+  const getPrimaryService = () => {
+    // Tamir & Bakım için varsayılan Home ekranını kullan
+    if (userCapabilities.includes('repair') || userCapabilities.includes('Genel Bakım')) {
+      return 'Home';
+    }
+    if (userCapabilities.includes('towing') || userCapabilities.includes('Çekici Hizmeti')) {
+      return 'TowingService';
+    }
+    if (userCapabilities.includes('wash') || userCapabilities.includes('Yıkama Hizmeti')) {
+      return 'WashService';
+    }
+    if (userCapabilities.includes('tire') || userCapabilities.includes('Lastik & Parça')) {
+      return 'TireService';
+    }
+    return 'Home';
+  };
+
+  const primaryService = getPrimaryService();
+
   return (
-    <Tab.Navigator
-      tabBar={(props) => <CustomTabBar {...props} />}
-      screenOptions={{
-        headerShown: false,
-      }}
-      initialRouteName="Home"
-    >
+    <>
+      <Tab.Navigator
+        key={userCapabilities.join(',')} // Force re-render when capabilities change
+        tabBar={(props) => <CustomTabBar {...props} />}
+        screenOptions={{
+          headerShown: false,
+        }}
+        initialRouteName={primaryService}
+      >
+      {/* Ana Sayfa - herkes için */}
       <Tab.Screen 
         name="Home" 
         component={HomeScreen}
@@ -179,20 +374,41 @@ const TabNavigator = () => {
           title: 'Ana Sayfa',
         }}
       />
-      <Tab.Screen 
-        name="Appointments" 
-        component={AppointmentsScreen}
-        options={{
-          title: 'İşler',
-        }}
-      />
-      <Tab.Screen 
-        name="Calendar" 
-        component={CalendarScreen}
-        options={{
-          title: 'Takvim',
-        }}
-      />
+
+      {/* Hizmet kategorilerine göre tab'lar */}
+      {userCapabilities.includes('towing') && (
+        <Tab.Screen 
+          name="TowingService" 
+          component={require('../screens/TowingServiceScreen').default}
+          options={{
+            title: 'Çekici',
+          }}
+        />
+      )}
+
+      {/* Tamir & Bakım için RepairService tab'ı yok - varsayılan Home ekranını kullanıyor */}
+
+      {userCapabilities.includes('wash') && (
+        <Tab.Screen 
+          name="WashService" 
+          component={require('../screens/WashServiceScreen').default}
+          options={{
+            title: 'Yıkama',
+          }}
+        />
+      )}
+
+      {userCapabilities.includes('tire') && (
+        <Tab.Screen 
+          name="TireService" 
+          component={require('../screens/TireServiceScreen').default}
+          options={{
+            title: 'Lastik',
+          }}
+        />
+      )}
+
+      {/* Mesajlar - herkes için */}
       <Tab.Screen 
         name="Messages" 
         component={MessagesScreen}
@@ -200,6 +416,9 @@ const TabNavigator = () => {
           title: 'Mesajlar',
         }}
       />
+
+
+      {/* Cüzdan - herkes için */}
       <Tab.Screen 
         name="Wallet" 
         component={WalletScreen}
@@ -207,6 +426,8 @@ const TabNavigator = () => {
           title: 'Cüzdan',
         }}
       />
+
+      {/* Profil - herkes için */}
       <Tab.Screen 
         name="Profile" 
         component={ProfileScreen}
@@ -214,7 +435,18 @@ const TabNavigator = () => {
           title: 'Profil',
         }}
       />
-    </Tab.Navigator>
+      </Tab.Navigator>
+      
+      {/* Hamburger Menu */}
+      <HamburgerMenu
+        visible={hamburgerVisible}
+        onClose={() => setHamburgerVisible(false)}
+        navigation={{ navigate: (screen: string) => {
+          // Navigation logic will be handled by the parent navigator
+          console.log('Navigate to:', screen);
+        }}}
+      />
+    </>
   );
 };
 
@@ -298,6 +530,152 @@ const styles = StyleSheet.create({
     height: 2,
     backgroundColor: colors.primary.main,
     borderRadius: borderRadius.xs,
+  },
+
+  // Hamburger Menu Styles
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-start',
+  },
+  menuContainer: {
+    width: width * 0.85,
+    height: '100%',
+    backgroundColor: colors.background.primary,
+    borderTopRightRadius: borderRadius.xl,
+    borderBottomRightRadius: borderRadius.xl,
+    ...shadows.large,
+  },
+  menuHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.light,
+    marginBottom: spacing.lg,
+  },
+  avatarContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.primary.main,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+    ...shadows.medium,
+  },
+  avatarText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text.inverse,
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  helloText: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  nameText: {
+    ...typography.h4,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  roleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.primary.ultraLight,
+    borderRadius: borderRadius.sm,
+    alignSelf: 'flex-start',
+  },
+  roleText: {
+    ...typography.body3,
+    color: colors.primary.main,
+    fontWeight: '600',
+  },
+  closeButton: {
+    padding: spacing.sm,
+  },
+  menuContent: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+  },
+  menuTitle: {
+    ...typography.label,
+    color: colors.text.secondary,
+    marginBottom: spacing.md,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  menuItem: {
+    marginBottom: spacing.xs,
+  },
+  menuItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+  },
+  menuIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.background.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  menuItemText: {
+    ...typography.body1,
+    color: colors.text.primary,
+    fontWeight: '500',
+    flex: 1,
+  },
+  themeSection: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  themeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.md,
+  },
+  themeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  themeText: {
+    ...typography.body2,
+    color: colors.text.primary,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.error.ultraLight,
+    borderWidth: 1,
+    borderColor: colors.error.light,
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+  },
+  logoutText: {
+    ...typography.body1,
+    color: colors.error.main,
+    fontWeight: '600',
   },
 });
 

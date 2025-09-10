@@ -78,13 +78,13 @@ const MaintenancePlanScreen = () => {
     { id: 'genel-bakim', name: 'Genel Bakım', icon: 'tools' },
     { id: 'alt-takim', name: 'Alt Takım', icon: 'cog' },
     { id: 'ust-takim', name: 'Üst Takım', icon: 'nut' },
-    { id: 'kaporta-boya', name: 'Kaporta/Boya', icon: 'spray' },
+    { id: 'kaporta-boya', name: 'Kaporta & Boya', icon: 'spray' },
     { id: 'elektrik-elektronik', name: 'Elektrik-Elektronik', icon: 'lightning-bolt' },
     { id: 'yedek-parca', name: 'Yedek Parça', icon: 'car-wash' },
-    { id: 'lastik', name: 'Lastik', icon: 'tire' },
+    { id: 'lastik', name: 'Lastik Servisi', icon: 'tire' },
     { id: 'egzoz-emisyon', name: 'Egzoz & Emisyon', icon: 'smoke' },
     { id: 'ekspertiz', name: 'Ekspertiz', icon: 'magnify' },
-    { id: 'sigorta-kasko', name: 'Sigorta/Kasko', icon: 'shield-check' },
+    { id: 'sigorta-kasko', name: 'Sigorta & Kasko', icon: 'shield-check' },
     { id: 'arac-yikama', name: 'Araç Yıkama', icon: 'car-wash' },
   ];
 

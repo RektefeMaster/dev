@@ -38,6 +38,7 @@ const NewMessageScreen = ({ navigation, route }: any) => {
   useEffect(() => {
     // Route params'tan selectedUser'ı al
     if (route.params?.selectedUser) {
+      console.log('🔍 NewMessage: selectedUser alındı:', route.params.selectedUser);
       setSelectedUser(route.params.selectedUser);
     }
     fetchMechanics();
@@ -96,11 +97,15 @@ const NewMessageScreen = ({ navigation, route }: any) => {
 
   // Seçili kullanıcı ile sohbet başlat
   const startConversationWithSelectedUser = () => {
+    console.log('🔍 NewMessage: startConversationWithSelectedUser çağrıldı, selectedUser:', selectedUser);
     if (selectedUser) {
+      console.log('🔍 NewMessage: ChatScreen\'e yönlendiriliyor...');
       navigation.navigate('ChatScreen', {
         conversationId: `temp_${selectedUser._id}`,
         otherParticipant: selectedUser
       });
+    } else {
+      console.log('❌ NewMessage: selectedUser yok!');
     }
   };
 
@@ -113,7 +118,7 @@ const NewMessageScreen = ({ navigation, route }: any) => {
         {item.avatar ? (
           <Image source={{ uri: item.avatar }} style={styles.avatar} />
         ) : (
-          <View style={[styles.defaultAvatar, { backgroundColor: theme.colors.primary }]}>
+          <View style={[styles.defaultAvatar, { backgroundColor: theme.colors.primary.main }]}>
             <Text style={styles.defaultAvatarText}>
               {item.name.charAt(0).toUpperCase()}
             </Text>
@@ -122,22 +127,22 @@ const NewMessageScreen = ({ navigation, route }: any) => {
       </View>
 
       <View style={styles.mechanicInfo}>
-        <Text style={[styles.mechanicName, { color: theme.colors.text }]}>
+        <Text style={[styles.mechanicName, { color: theme.colors.text.primary }]}>
           {item.name} {item.surname}
         </Text>
-        <Text style={[styles.mechanicCity, { color: theme.colors.textSecondary }]}>
+        <Text style={[styles.mechanicCity, { color: theme.colors.text.secondary }]}>
           {item.city}
         </Text>
         <View style={styles.mechanicStats}>
           <View style={styles.statItem}>
             <MaterialCommunityIcons name="star" size={16} color="#F59E0B" />
-            <Text style={[styles.statText, { color: theme.colors.textSecondary }]}>
+            <Text style={[styles.statText, { color: theme.colors.text.secondary }]}>
               {item.rating.toFixed(1)}
             </Text>
           </View>
           <View style={styles.statItem}>
             <MaterialCommunityIcons name="briefcase" size={16} color="#3B82F6" />
-            <Text style={[styles.statText, { color: theme.colors.textSecondary }]}>
+            <Text style={[styles.statText, { color: theme.colors.text.secondary }]}>
               {item.experience} yıl
             </Text>
           </View>
@@ -160,7 +165,7 @@ const NewMessageScreen = ({ navigation, route }: any) => {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
       <StatusBar barStyle="light-content" backgroundColor="#1F2937" />
       
       <LinearGradient
@@ -191,7 +196,7 @@ const NewMessageScreen = ({ navigation, route }: any) => {
               {selectedUser.avatar ? (
                 <Image source={{ uri: selectedUser.avatar }} style={styles.avatar} />
               ) : (
-                <View style={[styles.defaultAvatar, { backgroundColor: theme.colors.primary }]}>
+                <View style={[styles.defaultAvatar, { backgroundColor: theme.colors.primary.main }]}>
                   <Text style={styles.defaultAvatarText}>
                     {selectedUser.name.charAt(0).toUpperCase()}
                   </Text>
@@ -199,16 +204,16 @@ const NewMessageScreen = ({ navigation, route }: any) => {
               )}
             </View>
             <View style={styles.selectedUserDetails}>
-              <Text style={[styles.selectedUserName, { color: theme.colors.text }]}>
+              <Text style={[styles.selectedUserName, { color: theme.colors.text.primary }]}>
                 {selectedUser.name} {selectedUser.surname}
               </Text>
-              <Text style={[styles.selectedUserType, { color: theme.colors.textSecondary }]}>
-                {selectedUser.userType === 'mechanic' ? 'Usta' : 'Şöför'}
+              <Text style={[styles.selectedUserType, { color: theme.colors.text.secondary }]}>
+                Usta
               </Text>
             </View>
           </View>
           <TouchableOpacity
-            style={[styles.startChatButton, { backgroundColor: theme.colors.primary }]}
+            style={[styles.startChatButton, { backgroundColor: theme.colors.primary.main }]}
             onPress={startConversationWithSelectedUser}
           >
             <MaterialCommunityIcons name="message" size={20} color="#FFFFFF" />
@@ -219,18 +224,18 @@ const NewMessageScreen = ({ navigation, route }: any) => {
         // Normal usta listesi
         <>
           <View style={styles.searchContainer}>
-            <View style={[styles.searchInputContainer, { backgroundColor: theme.colors.surface }]}>
-              <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.textTertiary} />
+            <View style={[styles.searchInputContainer, { backgroundColor: theme.colors.background.secondary }]}>
+              <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.text.tertiary} />
               <TextInput
-                style={[styles.searchInput, { color: theme.colors.text }]}
+                style={[styles.searchInput, { color: theme.colors.text.primary }]}
                 placeholder="Usta ara..."
-                placeholderTextColor={theme.colors.textTertiary}
+                placeholderTextColor={theme.colors.text.tertiary}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
               />
               {searchQuery.length > 0 && (
                 <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <MaterialCommunityIcons name="close" size={20} color={theme.colors.textTertiary} />
+                  <MaterialCommunityIcons name="close" size={20} color={theme.colors.text.tertiary} />
                 </TouchableOpacity>
               )}
             </View>
@@ -247,12 +252,12 @@ const NewMessageScreen = ({ navigation, route }: any) => {
                 <MaterialCommunityIcons 
                   name="account-search" 
                   size={64} 
-                  color={theme.colors.textTertiary} 
+                  color={theme.colors.text.tertiary} 
                 />
-                <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+                <Text style={[styles.emptyTitle, { color: theme.colors.text.primary }]}>
                   {searchQuery ? 'Usta Bulunamadı' : 'Henüz Usta Yok'}
                 </Text>
-                <Text style={[styles.emptySubtitle, { color: theme.colors.textSecondary }]}>
+                <Text style={[styles.emptySubtitle, { color: theme.colors.text.secondary }]}>
                   {searchQuery 
                     ? 'Arama kriterlerinizi değiştirmeyi deneyin'
                     : 'Sohbet başlatmak için usta bulunması gerekiyor'

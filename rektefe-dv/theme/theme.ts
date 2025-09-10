@@ -51,13 +51,9 @@ export const colors = {
     background: '#CDD5DB',
   },
   
-  // Metin renkleri - yüksek kontrast ama sakin
+  // Metin renkleri - yüksek kontrast ama sakin (string olarak tutulur)
   text: {
-    primary: {
-      main: Colors.text.primary,
-      light: Colors.text.inverse,
-      dark: '#000000',
-    },
+    primary: Colors.text.primary,
     secondary: Colors.text.secondary,
     tertiary: Colors.text.tertiary,
     quaternary: Colors.background.secondary,
@@ -412,5 +408,8 @@ const theme = {
   animations,
   zIndex,
 };
+
+// Named exports
+export const { colors: themeColors, spacing: themeSpacing, borderRadius: themeBorderRadius, typography: themeTypography, shadows: themeShadows, dimensions: themeDimensions } = theme;
 
 export default theme; 

@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { ResponseHandler } from '../utils/response';
 
 export interface AuthenticatedRequest extends Request {
@@ -10,16 +10,18 @@ export interface AuthenticatedRequest extends Request {
 
 // Role-based authorization middleware
 export const requireRole = (allowedRoles: ('driver' | 'mechanic')[]) => {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      return ResponseHandler.unauthorized(res, 'Yetkilendirme gerekli');
+      ResponseHandler.unauthorized(res, 'Yetkilendirme gerekli');
+      return;
     }
 
     if (!allowedRoles.includes(req.user.userType)) {
-      return ResponseHandler.forbidden(
-        res, 
+      ResponseHandler.forbidden(
+        res,
         `Bu işlem için ${req.user.userType} yetkisi yeterli değil. Gerekli roller: ${allowedRoles.join(', ')}`
       );
+      return;
     }
 
     next();
@@ -27,32 +29,35 @@ export const requireRole = (allowedRoles: ('driver' | 'mechanic')[]) => {
 };
 
 // Sadece driver'lar için
-export const requireDriver = requireRole(['driver']);
+export const requireDriver: RequestHandler = requireRole(['driver']);
 
 // Sadece mechanic'ler için
-export const requireMechanic = requireRole(['mechanic']);
+export const requireMechanic: RequestHandler = requireRole(['mechanic']);
 
 // Driver veya mechanic olabilir
-export const requireAnyUser = requireRole(['driver', 'mechanic']);
+export const requireAnyUser: RequestHandler = requireRole(['driver', 'mechanic']);
 
 // Resource ownership check middleware
 export const requireOwnership = (resourceModel: any, resourceIdParam: string = 'id') => {
-  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.user) {
-        return ResponseHandler.unauthorized(res, 'Yetkilendirme gerekli');
+        ResponseHandler.unauthorized(res, 'Yetkilendirme gerekli');
+        return;
       }
 
       const resourceId = req.params[resourceIdParam];
       const resource = await resourceModel.findById(resourceId);
 
       if (!resource) {
-        return ResponseHandler.notFound(res, 'Kayıt bulunamadı');
+        ResponseHandler.notFound(res, 'Kayıt bulunamadı');
+        return;
       }
 
       // Resource'un kullanıcıya ait olup olmadığını kontrol et
       if (resource.userId && resource.userId.toString() !== req.user.userId) {
-        return ResponseHandler.forbidden(res, 'Bu kayıt üzerinde işlem yapamazsınız');
+        ResponseHandler.forbidden(res, 'Bu kayıt üzerinde işlem yapamazsınız');
+        return;
       }
 
       // Resource'u request'e ekle
@@ -60,16 +65,17 @@ export const requireOwnership = (resourceModel: any, resourceIdParam: string = '
       next();
     } catch (error) {
       console.error('Ownership check error:', error);
-      return ResponseHandler.error(res, 'Yetki kontrolü sırasında hata oluştu');
+      ResponseHandler.error(res, 'Yetki kontrolü sırasında hata oluştu');
     }
   };
 };
 
 // Mechanic availability check middleware
-export const requireMechanicAvailable = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export const requireMechanicAvailable = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     if (!req.user || req.user.userType !== 'mechanic') {
-      return ResponseHandler.forbidden(res, 'Bu işlem sadece ustalar için geçerlidir');
+      ResponseHandler.forbidden(res, 'Bu işlem sadece ustalar için geçerlidir');
+      return;
     }
 
     // Mechanic'in müsait olup olmadığını kontrol et
@@ -79,6 +85,6 @@ export const requireMechanicAvailable = async (req: AuthenticatedRequest, res: R
     next();
   } catch (error) {
     console.error('Mechanic availability check error:', error);
-    return ResponseHandler.error(res, 'Müsaitlik kontrolü sırasında hata oluştu');
+    ResponseHandler.error(res, 'Müsaitlik kontrolü sırasında hata oluştu');
   }
 };

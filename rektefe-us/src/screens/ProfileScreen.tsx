@@ -9,6 +9,7 @@ import {
   Alert,
   StatusBar,
   Dimensions,
+  Modal,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,7 +24,7 @@ const { width } = Dimensions.get('window');
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, updateUser } = useAuth();
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -38,6 +39,8 @@ export default function ProfileScreen() {
   });
   const [recentReviews, setRecentReviews] = useState<any[]>([]);
   const [showAllReviews, setShowAllReviews] = useState(false);
+  const [showCapabilitiesModal, setShowCapabilitiesModal] = useState(false);
+  const [selectedCapabilities, setSelectedCapabilities] = useState<string[]>([]);
 
   const fetchProfileData = useCallback(async () => {
     try {
@@ -98,6 +101,8 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (isAuthenticated && user) {
       fetchProfileData();
+      // Load user capabilities
+      setSelectedCapabilities(user.serviceCategories || []);
     }
   }, [isAuthenticated, user, fetchProfileData]);
 
@@ -125,6 +130,83 @@ export default function ProfileScreen() {
     if (rating >= 3.0) return 'Orta';
     if (rating >= 2.0) return 'Kötü';
     return 'Çok Kötü';
+  };
+
+  // Capabilities data
+  const capabilities = [
+    {
+      id: 'towing',
+      title: 'Çekici Hizmeti',
+      icon: 'car',
+      color: '#EF4444',
+      description: 'Acil kurtarma hizmetleri'
+    },
+    {
+      id: 'repair',
+      title: 'Tamir & Bakım',
+      icon: 'construct',
+      color: '#3B82F6',
+      description: 'Arıza tespit ve onarım'
+    },
+    {
+      id: 'wash',
+      title: 'Yıkama Hizmeti',
+      icon: 'water',
+      color: '#10B981',
+      description: 'Araç temizlik hizmetleri'
+    },
+    {
+      id: 'tire',
+      title: 'Lastik & Parça',
+      icon: 'car',
+      color: '#F59E0B',
+      description: 'Lastik ve yedek parça'
+    }
+  ];
+
+  const handleCapabilityToggle = (capabilityId: string) => {
+    setSelectedCapabilities(prev => 
+      prev.includes(capabilityId) 
+        ? prev.filter(id => id !== capabilityId)
+        : [...prev, capabilityId]
+    );
+  };
+
+  const handleSaveCapabilities = async () => {
+    try {
+      setLoading(true);
+      
+      
+      // API call to update capabilities
+      const response = await apiService.updateUserCapabilities(selectedCapabilities);
+      
+      
+      if (response.success) {
+        // AuthContext'teki user'ı güncelle
+        updateUser({ serviceCategories: selectedCapabilities });
+        
+        
+        Alert.alert(
+          'Başarılı',
+          'Hizmet alanlarınız başarıyla güncellendi.',
+          [
+            {
+              text: 'Tamam',
+              onPress: () => {
+                setShowCapabilitiesModal(false);
+              }
+            }
+          ]
+        );
+      } else {
+        throw new Error(response.message || 'Yetenekler güncellenemedi');
+      }
+    } catch (error) {
+      console.error('❌ ProfileScreen: Yetenek güncelleme hatası:', error);
+      Alert.alert('Hata', 'Yetenekler güncellenirken bir hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderRatingBar = (stars: number, count: number) => {
@@ -401,13 +483,19 @@ export default function ProfileScreen() {
 
         {/* Profile Actions */}
         <View style={styles.profileActions}>
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('EditProfile' as never)}
+          >
             <Ionicons name="person" size={20} color={colors.primary.main} />
             <Text style={styles.actionButtonText}>Profili Düzenle</Text>
             <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => setShowCapabilitiesModal(true)}
+          >
             <Ionicons name="construct" size={20} color={colors.primary.main} />
             <Text style={styles.actionButtonText}>Hizmet Alanlarım</Text>
             <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
@@ -432,6 +520,85 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Capabilities Modal */}
+      <Modal
+        visible={showCapabilitiesModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowCapabilitiesModal(false)}>
+              <Text style={styles.modalCancelText}>İptal</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Hizmet Alanlarım</Text>
+            <TouchableOpacity onPress={handleSaveCapabilities}>
+              <Text style={styles.modalSaveText}>Kaydet</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalContent}>
+            <Text style={styles.modalDescription}>
+              Hangi hizmet alanlarında çalışmak istiyorsunuz? Seçtiğiniz alanlara göre menünüz güncellenecek.
+            </Text>
+            
+            <View style={styles.capabilitiesList}>
+              {capabilities.map((capability) => (
+                <TouchableOpacity
+                  key={capability.id}
+                  style={[
+                    styles.capabilityCard,
+                    {
+                      backgroundColor: selectedCapabilities.includes(capability.id)
+                        ? capability.color + '20'
+                        : colors.background.secondary,
+                      borderColor: selectedCapabilities.includes(capability.id)
+                        ? capability.color
+                        : colors.border.secondary,
+                    }
+                  ]}
+                  onPress={() => handleCapabilityToggle(capability.id)}
+                >
+                  <View style={styles.capabilityContent}>
+                    <View style={[
+                      styles.capabilityIcon,
+                      { backgroundColor: capability.color }
+                    ]}>
+                      <Ionicons 
+                        name={capability.icon as any} 
+                        size={24} 
+                        color="#FFFFFF" 
+                      />
+                    </View>
+                    <View style={styles.capabilityText}>
+                      <Text style={[
+                        styles.capabilityTitle,
+                        { color: colors.text.primary.main }
+                      ]}>
+                        {capability.title}
+                      </Text>
+                      <Text style={[
+                        styles.capabilityDescription,
+                        { color: colors.text.secondary }
+                      ]}>
+                        {capability.description}
+                      </Text>
+                    </View>
+                    {selectedCapabilities.includes(capability.id) && (
+                      <Ionicons 
+                        name="checkmark-circle" 
+                        size={24} 
+                        color={capability.color} 
+                      />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
@@ -513,7 +680,7 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: typography.h2.fontSize,
     fontWeight: '700',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     marginBottom: spacing.xs,
   },
   profileEmail: {
@@ -565,7 +732,7 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: typography.h2.fontSize,
     fontWeight: '700',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     marginBottom: spacing.xs,
   },
   statLabel: {
@@ -591,7 +758,7 @@ const styles = StyleSheet.create({
   ratingTitle: {
     fontSize: typography.h3.fontSize,
     fontWeight: '700',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
   },
   ratingBadge: {
     backgroundColor: colors.primary.ultraLight,
@@ -625,7 +792,7 @@ const styles = StyleSheet.create({
   satisfactionText: {
     fontSize: typography.h4.fontSize,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     marginBottom: spacing.xs,
   },
   satisfactionPercentage: {
@@ -640,7 +807,7 @@ const styles = StyleSheet.create({
   distributionTitle: {
     fontSize: typography.h4.fontSize,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     marginBottom: spacing.md,
     textAlign: 'center',
   },
@@ -655,7 +822,7 @@ const styles = StyleSheet.create({
   ratingStars: {
     fontSize: typography.body2.fontSize,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     width: 20,
   },
   ratingBarContainer: {
@@ -694,7 +861,7 @@ const styles = StyleSheet.create({
   earningsTitle: {
     fontSize: typography.h3.fontSize,
     fontWeight: '700',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     marginLeft: spacing.sm,
   },
   earningsContent: {
@@ -712,7 +879,7 @@ const styles = StyleSheet.create({
   earningsValue: {
     fontSize: typography.h4.fontSize,
     fontWeight: '700',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
   },
 
   // Reviews Section
@@ -728,7 +895,7 @@ const styles = StyleSheet.create({
   reviewsTitle: {
     fontSize: typography.h3.fontSize,
     fontWeight: '700',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
   },
   viewAllText: {
     fontSize: typography.body3.fontSize,
@@ -764,7 +931,7 @@ const styles = StyleSheet.create({
   reviewCustomerName: {
     fontSize: typography.body1.fontSize,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     marginBottom: spacing.xs,
   },
   reviewDate: {
@@ -777,7 +944,7 @@ const styles = StyleSheet.create({
   reviewRatingText: {
     fontSize: typography.body1.fontSize,
     fontWeight: '700',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     marginBottom: spacing.xs,
   },
   reviewStars: {
@@ -798,7 +965,7 @@ const styles = StyleSheet.create({
   reviewLabelText: {
     fontSize: typography.caption.large.fontSize,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
   },
   reviewText: {
     fontSize: typography.body3.fontSize,
@@ -861,7 +1028,79 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: typography.body1.fontSize,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: colors.text.primary.main,
     marginLeft: spacing.sm,
+  },
+
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: colors.background.primary,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.secondary,
+  },
+  modalTitle: {
+    fontSize: typography.h3.fontSize,
+    fontWeight: '700',
+    color: colors.text.primary.main,
+  },
+  modalCancelText: {
+    fontSize: typography.body1.fontSize,
+    color: colors.text.secondary,
+  },
+  modalSaveText: {
+    fontSize: typography.body1.fontSize,
+    color: colors.primary.main,
+    fontWeight: '600',
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+  },
+  modalDescription: {
+    fontSize: typography.body1.fontSize,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginVertical: spacing.lg,
+    lineHeight: 20,
+  },
+  capabilitiesList: {
+    gap: spacing.md,
+  },
+  capabilityCard: {
+    borderRadius: borderRadius.lg,
+    borderWidth: 2,
+    padding: spacing.md,
+  },
+  capabilityContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  capabilityIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  capabilityText: {
+    flex: 1,
+  },
+  capabilityTitle: {
+    fontSize: typography.h4.fontSize,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  capabilityDescription: {
+    fontSize: typography.body3.fontSize,
+    fontWeight: '500',
   },
 });

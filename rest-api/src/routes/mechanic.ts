@@ -7,6 +7,8 @@ import { Appointment } from '../models/Appointment';
 import { Wallet } from '../models/Wallet';
 import { Mechanic } from '../models/Mechanic'; // Added missing import
 import { AppointmentRating } from '../models/AppointmentRating'; // Added missing import
+import { User } from '../models/User'; // Added User import for wash packages
+import { ResponseHandler } from '../utils/response';
 
 const router = Router();
 
@@ -47,6 +49,62 @@ router.get('/me', auth, MechanicController.getProfile);
  *         description: Sunucu hatası
  */
 router.get('/list', MechanicController.getAllMechanics);
+
+/**
+ * @swagger
+ * /api/mechanic/appointments/counts:
+ *   get:
+ *     summary: Randevu sayılarını getir
+ *     description: Mekanik için her durumdaki randevu sayılarını getirir
+ *     tags:
+ *       - Mechanic
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Randevu sayıları başarıyla getirildi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/appointments/counts', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Yetkilendirme hatası' });
+    }
+
+    const counts = await Appointment.aggregate([
+      { $match: { mechanicId: userId } },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const result = {
+      pending: 0,
+      confirmed: 0,
+      'in-progress': 0,
+      'payment-pending': 0,
+      completed: 0,
+      cancelled: 0,
+      'no-show': 0
+    };
+
+    counts.forEach((item: any) => {
+      result[item._id as keyof typeof result] = item.count;
+    });
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Counts hatası:', error);
+    res.status(500).json({ success: false, message: 'Sunucu hatası' });
+  }
+});
 
 /**
  * @swagger
@@ -288,25 +346,6 @@ router.put('/availability', auth, MechanicController.updateAvailability);
  */
 router.put('/rating', auth, MechanicController.updateRating);
 
-/**
- * @swagger
- * /api/mechanic/stats:
- *   get:
- *     summary: Mekanik istatistikleri
- *     description: Giriş yapan mekaniğin istatistiklerini getirir
- *     tags:
- *       - Mechanic
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: İstatistikler başarıyla getirildi
- *       401:
- *         description: Yetkilendirme hatası
- *       500:
- *         description: Sunucu hatası
- */
-router.get('/stats', auth, MechanicController.getMechanicStats);
 
 /**
  * @swagger
@@ -445,14 +484,14 @@ router.get('/dashboard/stats', auth, async (req: Request, res: Response) => {
 
     // Randevu istatistikleri
     const appointments = await Appointment.find({ mechanicId });
-    const activeJobs = appointments.filter(a => ['confirmed', 'in-progress'].includes(a.status)).length;
-    const completedJobs = appointments.filter(a => a.status === 'completed').length;
+    const activeJobs = appointments.filter(a => ['PLANLANDI', 'SERVISTE'].includes(a.status)).length;
+    const completedJobs = appointments.filter(a => a.status === 'TAMAMLANDI').length;
     
     // Bugünkü kazanç
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayAppointments = appointments.filter(a => 
-      a.status === 'completed' && 
+      a.status === 'TAMAMLANDI' && 
       a.paymentStatus === 'paid' &&
       new Date(a.updatedAt) >= today
     );
@@ -617,26 +656,43 @@ router.get('/ratings/recent', auth, async (req: Request, res: Response) => {
       });
     }
 
-    // Son rating'ler - şimdilik basit veri
+    // Önce ustanın bilgilerini al - User ID ile email üzerinden bul
+    const user = await User.findById(mechanicId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı'
+      });
+    }
+
+    // User'ın email'i ile Mechanic tablosunda ara
+    const mechanic = await Mechanic.findOne({ email: user.email });
+    if (!mechanic) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usta bulunamadı'
+      });
+    }
+
+    // Gerçek değerlendirmeleri getir
+    const ratings = await AppointmentRating.find({ mechanicId: mechanic._id })
+      .populate('userId', 'name surname')
+      .populate('appointmentId', 'serviceType appointmentDate')
+      .sort({ createdAt: -1 })
+      .limit(10);
+
+    const formattedRatings = ratings.map(rating => ({
+      id: rating._id,
+      rating: rating.rating,
+      comment: rating.comment,
+      customerName: `${(rating.userId as any)?.name || 'Bilinmeyen'} ${(rating.userId as any)?.surname || 'Müşteri'}`,
+      date: rating.createdAt
+    }));
+
     res.json({
       success: true,
       data: {
-        ratings: [
-          {
-            id: '1',
-            rating: 5,
-            comment: 'Çok iyi hizmet aldım',
-            customerName: 'Ahmet Y.',
-            date: new Date().toISOString()
-          },
-          {
-            id: '2',
-            rating: 4,
-            comment: 'Güzel iş çıkardı',
-            customerName: 'Mehmet K.',
-            date: new Date().toISOString()
-          }
-        ]
+        ratings: formattedRatings
       },
       message: 'Son rating\'ler başarıyla getirildi'
     });
@@ -650,44 +706,10 @@ router.get('/ratings/recent', auth, async (req: Request, res: Response) => {
   }
 });
 
-// ===== CUSTOMER MANAGEMENT ENDPOINTS =====
-router.get('/customers', auth, async (req: Request, res: Response) => {
-  try {
-    const mechanicId = (req as any).user.id;
-    
-    // Bu ustaya hizmet verilen müşterileri getir
-    const customers = await Appointment.aggregate([
-      { $match: { mechanicId } },
-      { $group: { _id: '$userId' } },
-      { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'customer' } },
-      { $unwind: '$customer' },
-      { $project: { 
-        _id: '$customer._id', 
-        name: '$customer.name', 
-        surname: '$customer.surname',
-        email: '$customer.email',
-        phone: '$customer.phone'
-      }}
-    ]);
-    
-    res.json({
-      success: true,
-      data: customers,
-      message: 'Müşteri listesi başarıyla getirildi'
-    });
-  } catch (error: any) {
-    console.error('Customer list hatası:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Müşteri listesi getirilirken hata oluştu',
-      error: error.message
-    });
-  }
-});
 
 router.get('/serviced-vehicles', auth, async (req: Request, res: Response) => {
   try {
-    const mechanicId = (req as any).user.id;
+    const mechanicId = (req as any).user.userId;
     
     // Bu ustaya hizmet verilen araçları getir
     const vehicles = await Appointment.aggregate([
@@ -719,34 +741,6 @@ router.get('/serviced-vehicles', auth, async (req: Request, res: Response) => {
   }
 });
 
-router.post('/customers/:customerId/notes', auth, async (req: Request, res: Response) => {
-  try {
-    const mechanicId = (req as any).user.id;
-    const { customerId } = req.params;
-    const { note } = req.body;
-    
-    // Müşteri notu ekle (bu örnek için basit bir yapı)
-    const customerNote = {
-      mechanicId,
-      customerId,
-      note,
-      createdAt: new Date()
-    };
-    
-    res.json({
-      success: true,
-      data: customerNote,
-      message: 'Müşteri notu başarıyla eklendi'
-    });
-  } catch (error: any) {
-    console.error('Customer note hatası:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Müşteri notu eklenirken hata oluştu',
-      error: error.message
-    });
-  }
-});
 
 // ===== SERVICE PACKAGES ENDPOINT =====
 
@@ -938,7 +932,7 @@ router.get('/stats', auth, async (req: Request, res: Response) => {
     
     // Toplam kazanç
     const totalEarnings = await Appointment.aggregate([
-      { $match: { mechanicId, status: 'completed' } },
+      { $match: { mechanicId, status: 'TAMAMLANDI' } },
       { $group: {
         _id: null,
         total: { $sum: '$price' }
@@ -1389,6 +1383,99 @@ router.get('/list', async (req: Request, res: Response) => {
 
 /**
  * @swagger
+ * /api/mechanic/nearby:
+ *   get:
+ *     summary: En yakın ustaları getir
+ *     description: Verilen konuma en yakın ustaları mesafeye göre sıralı döndürür
+ *     tags:
+ *       - Mechanic
+ *     parameters:
+ *       - in: query
+ *         name: lat
+ *         schema:
+ *           type: number
+ *         required: true
+ *         description: Enlem (latitude)
+ *         example: 41.0082
+ *       - in: query
+ *         name: lng
+ *         schema:
+ *           type: number
+ *         required: true
+ *         description: Boylam (longitude)
+ *         example: 28.9784
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: number
+ *         description: Döndürülecek usta sayısı
+ *         example: 20
+ *     responses:
+ *       200:
+ *         description: En yakın ustalar başarıyla getirildi
+ *       400:
+ *         description: Geçersiz parametreler
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/nearby', async (req: Request, res: Response) => {
+  try {
+    const lat = parseFloat(req.query.lat as string);
+    const lng = parseFloat(req.query.lng as string);
+    const limit = Math.min(parseInt((req.query.limit as string) || '20', 10), 50);
+
+    if (Number.isNaN(lat) || Number.isNaN(lng)) {
+      return res.status(400).json({ success: false, message: 'Geçersiz koordinatlar' });
+    }
+
+    const mechanics = await Mechanic.find({}).select(
+      'name surname shopName avatar cover bio serviceCategories vehicleBrands rating ratingCount totalServices isAvailable location phone experience'
+    ).lean();
+
+    // Haversine ile mesafeye göre sırala
+    const origin: [number, number] = [lng, lat];
+    const withDistance = mechanics.map(m => {
+      const coords = (m as any).location?.coordinates;
+      let lon: number | null = null;
+      let lat: number | null = null;
+      if (coords) {
+        if (Array.isArray(coords) && coords.length === 2 && typeof coords[0] === 'number' && typeof coords[1] === 'number') {
+          // [lng, lat]
+          lon = coords[0];
+          lat = coords[1];
+        } else if (typeof coords.longitude === 'number' && typeof coords.latitude === 'number') {
+          lon = coords.longitude;
+          lat = coords.latitude;
+        }
+      }
+      if (lat !== null && lon !== null && lat !== 0 && lon !== 0) {
+        const dist = haversineDistance(origin, [lon, lat]);
+        return { ...m, distance: dist };
+      }
+      return { ...m, distance: Number.POSITIVE_INFINITY };
+    }).sort((a, b) => a.distance - b.distance)
+      .slice(0, limit);
+
+    return res.json({ success: true, data: withDistance, message: 'En yakın ustalar getirildi' });
+  } catch (error) {
+    console.error('Nearby mechanics hatası:', error);
+    return res.status(500).json({ success: false, message: 'Sunucu hatası' });
+  }
+});
+
+function haversineDistance(a: [number, number], b: [number, number]): number {
+  const R = 6371; // km
+  const dLat = (b[1] - a[1]) * Math.PI / 180;
+  const dLon = (b[0] - a[0]) * Math.PI / 180;
+  const lat1 = a[1] * Math.PI / 180;
+  const lat2 = b[1] * Math.PI / 180;
+
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/**
+ * @swagger
  * /api/mechanic/details/{id}:
  *   get:
  *     summary: Mekanik detaylarını getir
@@ -1458,6 +1545,40 @@ router.get('/details/:id', async (req: Request, res: Response) => {
       message: 'Mekanik detayları getirilirken hata oluştu',
       error: error.message
     });
+  }
+});
+
+// Ustanın yıkama paketlerini getir
+router.get('/:mechanicId/wash-packages', async (req: Request, res: Response) => {
+  try {
+    const { mechanicId } = req.params;
+    
+    // Ustayı bul ve yıkama paketlerini getir
+    const mechanic = await User.findById(mechanicId)
+      .select('washPackages washOptions shopName name surname')
+      .lean();
+
+    if (!mechanic) {
+      return ResponseHandler.notFound(res, 'Usta bulunamadı.');
+    }
+
+    // Eğer ustanın yıkama paketleri yoksa boş döndür
+    if (!mechanic.washPackages || mechanic.washPackages.length === 0) {
+      return ResponseHandler.success(res, {
+        packages: [],
+        options: []
+      }, 'Bu usta için yıkama paketi bulunamadı.');
+    }
+
+    const washData = {
+      packages: mechanic.washPackages || [],
+      options: mechanic.washOptions || []
+    };
+
+    return ResponseHandler.success(res, washData, 'Yıkama paketleri başarıyla getirildi.');
+  } catch (error) {
+    console.error('Yıkama paketleri getirme hatası:', error);
+    return ResponseHandler.error(res, 'Yıkama paketleri getirilirken bir hata oluştu.');
   }
 });
 

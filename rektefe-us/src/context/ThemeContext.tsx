@@ -42,7 +42,8 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const themeColors = isDark ? Colors.dark : Colors.light;
+  const theme = createTheme(isDark);
+  const themeColors = theme.colors;
   const palette = Colors;
 
   return (

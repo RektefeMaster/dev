@@ -405,7 +405,7 @@ router.get('/mechanic/:id', auth, async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Usta bulunamadı' });
     }
     // Sadece kendi profilini görebilir veya admin ise
-    if (req.user.userId !== id && req.user.userType !== 'admin') {
+    if (req.user.userId !== id && (req.user.userType as string) !== 'admin') {
       return res.status(403).json({ message: 'Yetkisiz erişim' });
     }
     res.json(mechanic);
@@ -523,7 +523,7 @@ router.put('/mechanic/:id', auth, async (req: Request, res: Response) => {
     if (!req.user) {
       return res.status(401).json({ message: 'Kullanıcı doğrulanamadı.' });
     }
-    if (req.user.userId !== id && req.user.userType !== 'admin') {
+    if (req.user.userId !== id && (req.user.userType as string) !== 'admin') {
       return res.status(403).json({ message: 'Yetkisiz erişim' });
     }
 

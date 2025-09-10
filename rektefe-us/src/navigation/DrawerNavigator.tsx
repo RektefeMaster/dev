@@ -8,12 +8,9 @@ import { useAuth } from '../context/AuthContext';
 import { DrawerParamList } from '../types/common';
 import { colors, typography, spacing, borderRadius, shadows } from '../theme/theme';
 import TabNavigator from './TabNavigator';
-import AppointmentsScreen from '../screens/AppointmentsScreen';
 import MessagesScreen from '../screens/MessagesScreen';
 import WalletScreen from '../screens/WalletScreen';
 import SupportScreen from '../screens/SupportScreen';
-import ServiceManagementScreen from '../screens/ServiceManagementScreen';
-import CustomerManagementScreen from '../screens/CustomerManagementScreen';
 import FinancialTrackingScreen from '../screens/FinancialTrackingScreen';
 import CalendarScreen from '../screens/CalendarScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -73,7 +70,7 @@ const CustomDrawerContent = (props: any) => {
   const navigation = useNavigation<DrawerNavigationProp<DrawerParamList>>();
   const { user, logout } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [activeRoute, setActiveRoute] = useState<string>('ServiceManagement');
+  const [activeRoute, setActiveRoute] = useState<string>('Home');
 
   const handleNavigation = (screenName: keyof DrawerParamList) => {
     setActiveRoute(screenName as string);
@@ -120,25 +117,19 @@ const CustomDrawerContent = (props: any) => {
 
       {/* Navigation Menu */}
       <View style={styles.menuSection}>
-        <Text style={styles.menuTitle}>Ana Menü</Text>
+        <Text style={styles.menuTitle}>İş Yönetimi</Text>
 
         <DrawerItem 
-          icon="construct" 
-          label="Servis Yönetimi" 
-          onPress={() => handleNavigation('ServiceManagement')} 
-          isActive={activeRoute === 'ServiceManagement'}
+          icon="calendar-outline" 
+          label="Takvim" 
+          onPress={() => handleNavigation('Calendar')} 
+          isActive={activeRoute === 'Calendar'}
         />
         <DrawerItem 
-          icon="people" 
-          label="Müşteri Yönetimi" 
-          onPress={() => handleNavigation('CustomerManagement')} 
-          isActive={activeRoute === 'CustomerManagement'}
-        />
-        <DrawerItem 
-          icon="calendar" 
-          label="Randevularım" 
-          onPress={() => handleNavigation('Appointments')} 
-          isActive={activeRoute === 'Appointments'}
+          icon="warning" 
+          label="Arıza Bildirimleri" 
+          onPress={() => handleNavigation('FaultReports')} 
+          isActive={activeRoute === 'FaultReports'}
         />
         <DrawerItem 
           icon="chatbubbles" 
@@ -147,11 +138,29 @@ const CustomDrawerContent = (props: any) => {
           badge={3}
           isActive={activeRoute === 'Messages'}
         />
+
+        <Text style={[styles.menuTitle, { marginTop: spacing.lg }]}>Finansal</Text>
+
         <DrawerItem 
           icon="wallet" 
           label="Cüzdan" 
           onPress={() => handleNavigation('Wallet')} 
           isActive={activeRoute === 'Wallet'}
+        />
+        <DrawerItem 
+          icon="trending-up" 
+          label="Kazanç Takibi" 
+          onPress={() => handleNavigation('FinancialTracking')} 
+          isActive={activeRoute === 'FinancialTracking'}
+        />
+
+        <Text style={[styles.menuTitle, { marginTop: spacing.lg }]}>Hesap</Text>
+
+        <DrawerItem 
+          icon="person" 
+          label="Profil" 
+          onPress={() => handleNavigation('Profile')} 
+          isActive={activeRoute === 'Profile'}
         />
         <DrawerItem 
           icon="help-circle" 
@@ -214,15 +223,13 @@ const DrawerNavigator = () => {
       }}
     >
       <Drawer.Screen name="MainTabs" component={TabNavigator} />
-      <Drawer.Screen name="ServiceManagement" component={ServiceManagementScreen} />
-      <Drawer.Screen name="CustomerManagement" component={CustomerManagementScreen} />
-      <Drawer.Screen name="Appointments" component={AppointmentsScreen} />
       <Drawer.Screen name="Messages" component={MessagesScreen} />
-      <Drawer.Screen name="Wallet" component={WalletScreen} />
-      <Drawer.Screen name="Support" component={SupportScreen} />
-      <Drawer.Screen name="FinancialTracking" component={FinancialTrackingScreen} />
       <Drawer.Screen name="Calendar" component={CalendarScreen} />
+      <Drawer.Screen name="FaultReports" component={require('../screens/FaultReportsScreen').default} />
+      <Drawer.Screen name="Wallet" component={WalletScreen} />
+      <Drawer.Screen name="FinancialTracking" component={FinancialTrackingScreen} />
       <Drawer.Screen name="Profile" component={ProfileScreen} />
+      <Drawer.Screen name="Support" component={SupportScreen} />
       <Drawer.Screen name="Settings" component={SettingsScreen} />
     </Drawer.Navigator>
   );
@@ -241,7 +248,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
+    borderBottomColor: colors.border.primary,
     marginBottom: spacing.lg,
   },
   avatarContainer: {
@@ -291,7 +298,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    backgroundColor: colors.primary.ultraLight,
+    backgroundColor: colors.primary.light,
     borderRadius: borderRadius.sm,
   },
   roleText: {
@@ -322,7 +329,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   drawerItemActive: {
-    backgroundColor: colors.primary.ultraLight,
+    backgroundColor: colors.primary.light,
   },
   drawerItemContent: {
     flexDirection: 'row',

@@ -44,7 +44,7 @@ const ConversationSchema = new Schema<IConversation>({
   unreadCount: {
     type: Map,
     of: Number,
-    default: new Map()
+    default: {}
   }
 }, {
   timestamps: true

@@ -48,7 +48,7 @@ export class MessageController {
       const pageNum = parseInt(page as string) || 1;
       const limitNum = parseInt(limit as string) || 50;
 
-      const result = await MessageService.getMessages(conversationId, userId, pageNum, limitNum);
+      const result = await MessageService.getMessages(conversationId, pageNum, limitNum);
       
       // Pagination bilgilerini hesapla
       const totalMessages = await MessageService.getTotalMessageCount(conversationId, userId);
@@ -57,7 +57,7 @@ export class MessageController {
       res.json({
         success: true,
         data: { 
-          messages: result.messages,
+          messages: result,
           pagination: {
             page: pageNum,
             pages: totalPages,
@@ -92,7 +92,7 @@ export class MessageController {
       }
 
       const limitNum = parseInt(limit as string) || 10;
-      const messages = await MessageService.getMessagesAfter(conversationId, userId, messageId, limitNum);
+      const messages = await MessageService.getMessagesAfter(conversationId, messageId, limitNum);
       
       res.json({
         success: true,

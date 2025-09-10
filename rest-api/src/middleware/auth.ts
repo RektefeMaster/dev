@@ -1,28 +1,34 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
 import jwt from 'jsonwebtoken';
+import { JWT_SECRET } from '../config';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is required');
-}
-
-export const auth = async (req: Request, res: Response, next: NextFunction) => {
+export const auth: RequestHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
+    const authHeader = req.header('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    
+    console.log('🔐 Auth middleware - Request:', {
+      url: req.url,
+      method: req.method,
+      authHeader: authHeader ? 'Mevcut' : 'Yok',
+      token: token ? 'Mevcut' : 'Yok'
+    });
     
     if (!token) {
-      return res.status(401).json({ message: 'Yetkilendirme token\'ı bulunamadı' });
+      console.log('❌ Auth middleware - Token bulunamadı');
+      res.status(401).json({ message: 'Yetkilendirme token\'ı bulunamadı' });
+      return;
     }
 
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; userType: string };
-      // Sadece hata durumunda log
+      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; userType: 'driver' | 'mechanic' };
+      console.log('✅ Auth middleware - Token doğrulandı:', { userId: decoded.userId, userType: decoded.userType });
       req.user = decoded;
       next();
     } catch (jwtError) {
       console.error('🔐 Auth middleware - Token verification failed:', jwtError);
-      return res.status(401).json({ message: 'Geçersiz veya süresi dolmuş token' });
+      res.status(401).json({ message: 'Geçersiz veya süresi dolmuş token' });
+      return;
     }
   } catch (error) {
     console.error('🔐 Auth middleware - General error:', error);

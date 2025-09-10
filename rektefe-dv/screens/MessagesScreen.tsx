@@ -45,17 +45,21 @@ const MessagesScreen = ({ navigation }: any) => {
 
   const fetchConversations = useCallback(async () => {
     try {
+      console.log('🔄 fetchConversations: Sohbetler yükleniyor...');
       setLoading(true);
       const response = await apiService.getConversations();
 
+      console.log('📡 fetchConversations: API Response:', response);
+
       if (response.success) {
+        console.log('✅ fetchConversations: Sohbetler yüklendi, sayı:', response.data?.length || 0);
         setConversations(response.data || []);
       } else {
-        console.log('Conversations API Response:', response);
+        console.log('❌ fetchConversations: API success false:', response);
         setConversations([]);
       }
     } catch (error) {
-      console.error('Sohbetler yüklenirken hata:', error);
+      console.error('❌ fetchConversations: Hata:', error);
       setConversations([]);
     } finally {
       setLoading(false);
@@ -79,13 +83,30 @@ const MessagesScreen = ({ navigation }: any) => {
     }, []) // fetchConversations dependency'sini kaldır
   );
 
-  const filteredConversations = conversations.filter(conv =>
-    conv.otherParticipant && 
-    conv.otherParticipant.name && 
-    conv.otherParticipant.surname &&
-    (conv.otherParticipant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-     conv.otherParticipant.surname.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredConversations = conversations.filter(conv => {
+    console.log('🔍 Filtering conversation:', {
+      _id: conv._id,
+      otherParticipant: conv.otherParticipant,
+      hasName: !!conv.otherParticipant?.name,
+      hasSurname: !!conv.otherParticipant?.surname,
+      searchQuery: searchQuery
+    });
+    
+    const isValid = conv.otherParticipant && 
+      conv.otherParticipant.name && 
+      conv.otherParticipant.surname &&
+      (conv.otherParticipant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+       conv.otherParticipant.surname.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    console.log('🔍 Conversation filter result:', isValid);
+    return isValid;
+  });
+
+  console.log('📊 Conversations state:', {
+    total: conversations.length,
+    filtered: filteredConversations.length,
+    searchQuery: searchQuery
+  });
 
   const formatLastMessageTime = (dateString?: string) => {
     if (!dateString) return '';
@@ -111,54 +132,63 @@ const MessagesScreen = ({ navigation }: any) => {
     navigation.navigate('NewMessage');
   };
 
-  const renderConversation = ({ item }: { item: Conversation }) => (
-    <TouchableOpacity
-      style={styles.conversationCard}
-      onPress={() => handleConversationPress(item)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.avatarContainer}>
-        {item.otherParticipant.avatar ? (
-          <Image source={{ uri: item.otherParticipant.avatar }} style={styles.avatar} />
-        ) : (
-          <View style={styles.defaultAvatar}>
-            <Ionicons name="person" size={24} color={colors.text.tertiary} />
-          </View>
-        )}
-        {item.unreadCount > 0 && (
-          <View style={styles.unreadBadge}>
-            <Text style={styles.unreadBadgeText}>
-              {item.unreadCount > 99 ? '99+' : item.unreadCount}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.conversationContent}>
-        <View style={styles.conversationHeader}>
-          <Text style={styles.participantName}>
-            {item.otherParticipant.name} {item.otherParticipant.surname}
-          </Text>
-          <Text style={styles.lastMessageTime}>
-            {formatLastMessageTime(item.lastMessageAt)}
-          </Text>
+  const renderConversation = ({ item }: { item: Conversation }) => {
+    console.log('🎨 Rendering conversation:', {
+      _id: item._id,
+      otherParticipant: item.otherParticipant,
+      lastMessage: item.lastMessage,
+      unreadCount: item.unreadCount
+    });
+    
+    return (
+      <TouchableOpacity
+        style={styles.conversationCard}
+        onPress={() => handleConversationPress(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.avatarContainer}>
+          {item.otherParticipant.avatar ? (
+            <Image source={{ uri: item.otherParticipant.avatar }} style={styles.avatar} />
+          ) : (
+            <View style={styles.defaultAvatar}>
+              <Ionicons name="person" size={24} color={colors.text.tertiary} />
+            </View>
+          )}
+          {item.unreadCount > 0 && (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadBadgeText}>
+                {item.unreadCount > 99 ? '99+' : item.unreadCount}
+              </Text>
+            </View>
+          )}
         </View>
 
-        {item.lastMessage ? (
-          <View style={styles.lastMessageContainer}>
-            <Text style={styles.lastMessageText} numberOfLines={2}>
-              {item.lastMessage.content}
+        <View style={styles.conversationContent}>
+          <View style={styles.conversationHeader}>
+            <Text style={styles.participantName}>
+              {item.otherParticipant.name} {item.otherParticipant.surname}
             </Text>
-            {item.unreadCount > 0 && (
-              <View style={styles.unreadIndicator} />
-            )}
+            <Text style={styles.lastMessageTime}>
+              {formatLastMessageTime(item.lastMessageAt)}
+            </Text>
           </View>
-        ) : (
-          <Text style={styles.noMessageText}>Henüz mesaj yok</Text>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
+
+          {item.lastMessage ? (
+            <View style={styles.lastMessageContainer}>
+              <Text style={styles.lastMessageText} numberOfLines={2}>
+                {item.lastMessage.content}
+              </Text>
+              {item.unreadCount > 0 && (
+                <View style={styles.unreadIndicator} />
+              )}
+            </View>
+          ) : (
+            <Text style={styles.noMessageText}>Henüz mesaj yok</Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   if (loading) {
     return (
@@ -195,39 +225,48 @@ const MessagesScreen = ({ navigation }: any) => {
       </View>
 
       {/* Conversations List */}
-      {filteredConversations.length > 0 ? (
-        <FlatList
-          data={filteredConversations}
-          renderItem={renderConversation}
-          keyExtractor={(item) => item._id}
-          style={styles.conversationsList}
-          contentContainerStyle={styles.conversationsContainer}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        />
-      ) : (
-        <View style={styles.emptyContainer}>
-          {searchQuery ? (
-            <EmptyState
-              icon="search"
-              title="Sonuç Bulunamadı"
-              subtitle={`"${searchQuery}" için sohbet bulunamadı`}
-              actionText="Aramayı Temizle"
-              onActionPress={() => setSearchQuery('')}
-            />
-          ) : (
-            <EmptyState
-              icon="chatbubbles-outline"
-              title="Henüz Mesaj Yok"
-              subtitle="Müşterilerinizle sohbet etmeye başlayın"
-              actionText="Yeni Mesaj"
-              onActionPress={handleNewMessage}
-            />
-          )}
-        </View>
-      )}
+      {(() => {
+        console.log('🎯 FlatList render decision:', {
+          filteredConversationsLength: filteredConversations.length,
+          conversationsLength: conversations.length,
+          searchQuery: searchQuery,
+          willShowFlatList: filteredConversations.length > 0
+        });
+        
+        return filteredConversations.length > 0 ? (
+          <FlatList
+            data={filteredConversations}
+            renderItem={renderConversation}
+            keyExtractor={(item) => item._id}
+            style={styles.conversationsList}
+            contentContainerStyle={styles.conversationsContainer}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          />
+        ) : (
+          <View style={styles.emptyContainer}>
+            {searchQuery ? (
+              <EmptyState
+                icon="search"
+                title="Sonuç Bulunamadı"
+                subtitle={`"${searchQuery}" için sohbet bulunamadı`}
+                actionText="Aramayı Temizle"
+                onActionPress={() => setSearchQuery('')}
+              />
+            ) : (
+              <EmptyState
+                icon="chatbubbles-outline"
+                title="Henüz Mesaj Yok"
+                subtitle="Müşterilerinizle sohbet etmeye başlayın"
+                actionText="Yeni Mesaj"
+                onActionPress={handleNewMessage}
+              />
+            )}
+          </View>
+        );
+      })()}
     </SafeAreaView>
   );
 };
