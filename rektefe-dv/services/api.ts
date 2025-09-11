@@ -367,7 +367,19 @@ class ApiService {
 
   // ===== NOTIFICATION ENDPOINTS =====
   async getNotifications() {
+    console.log('🔍 ApiService: getNotifications çağrıldı');
     const response = await this.api.get('/notifications/driver');
+    console.log('📱 ApiService: getNotifications response:', JSON.stringify(response.data, null, 2));
+    return response.data;
+  }
+
+  async createNotification(notificationData: any) {
+    const response = await this.api.post('/notifications', notificationData);
+    return response.data;
+  }
+
+  async createTestNotification() {
+    const response = await this.api.post('/notifications/test');
     return response.data;
   }
 

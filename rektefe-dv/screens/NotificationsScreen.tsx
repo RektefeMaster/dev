@@ -199,7 +199,7 @@ const NotificationsScreen = ({ navigation }: any) => {
       setError(null);
       
       const response = await apiService.getNotifications();
-      console.log('API Response:', response);
+      console.log('API Response:', JSON.stringify(response, null, 2));
       
       // API response formatını kontrol et
       let notificationsData = [];
@@ -217,7 +217,7 @@ const NotificationsScreen = ({ navigation }: any) => {
       
       setNotifications(notificationsData);
       
-      const unread = notificationsData.filter((n: Notification) => !n.read && !n.isRead).length;
+      const unread = notificationsData.filter((n: Notification) => !n.isRead).length;
       setUnreadCount(unread);
     } catch (err: any) {
       console.error('Bildirimler yüklenirken hata:', err);
@@ -323,6 +323,27 @@ const NotificationsScreen = ({ navigation }: any) => {
     setShowDetailModal(true);
   };
 
+  const handleRatingPress = (notification: Notification) => {
+    console.log('⭐ Puan Ver butonuna tıklandı:', notification);
+    
+    // Bildirimi okundu olarak işaretle
+    if (!notification.read && !notification.isRead) {
+      markAsRead(notification._id);
+    }
+    
+    // Direkt Rating ekranına yönlendir
+    try {
+      navigation.navigate('Rating', {
+        appointmentId: notification.data?.appointmentId || 'real-appointment-123',
+        mechanicId: notification.data?.mechanicId || 'real-mechanic-123',
+        mechanicName: notification.data?.mechanicName || 'Test Usta'
+      });
+      console.log('✅ Puan Ver butonu: Rating ekranına yönlendirildi');
+    } catch (navError) {
+      console.error('❌ Puan Ver butonu navigation hatası:', navError);
+    }
+  };
+
   const handleDetailModalClose = () => {
     setShowDetailModal(false);
     setSelectedNotification(null);
@@ -425,6 +446,7 @@ const NotificationsScreen = ({ navigation }: any) => {
     const priority = getNotificationPriority(item.type);
     const priorityColor = getPriorityColor(priority);
     const category = getNotificationCategory(item.type);
+    const isRatingNotification = item.type === 'rating_reminder';
     
     return (
       <View style={[
@@ -433,7 +455,8 @@ const NotificationsScreen = ({ navigation }: any) => {
           backgroundColor: isDark ? themeColors.background.primary : '#FFFFFF',
           borderLeftColor: isUnread ? priorityColor : 'transparent',
         },
-        isUnread && styles.unreadNotification
+        isUnread && styles.unreadNotification,
+        isRatingNotification && styles.ratingNotification
       ]}>
         <TouchableOpacity
           style={styles.notificationContent}
@@ -445,7 +468,8 @@ const NotificationsScreen = ({ navigation }: any) => {
               styles.notificationIcon,
               { 
                 backgroundColor: isUnread ? priorityColor : (isDark ? themeColors.background.tertiary : '#F5F5F5')
-              }
+              },
+              isRatingNotification && styles.ratingIcon
             ]}>
               <MaterialCommunityIcons
                 name={getNotificationIcon(item.type) as any}
@@ -462,7 +486,8 @@ const NotificationsScreen = ({ navigation }: any) => {
                     { 
                       color: themeColors.text.primary,
                       fontWeight: isUnread ? '600' : '500'
-                    }
+                    },
+                    isRatingNotification && styles.ratingTitle
                   ]} numberOfLines={2}>
                     {item.title}
                   </Text>
@@ -490,6 +515,27 @@ const NotificationsScreen = ({ navigation }: any) => {
               ]} numberOfLines={2}>
                 {item.message}
               </Text>
+              
+              {/* Puanlama bildirimi için ek detaylar ve buton */}
+              {isRatingNotification && item.data && (
+                <View style={styles.ratingDetails}>
+                  <Text style={styles.ratingDetailText}>
+                    Deneyiminizi değerlendirin • {item.data.serviceType}
+                  </Text>
+                  <Text style={styles.ratingMechanicText}>
+                    {item.data.mechanicName}
+                  </Text>
+                  
+                  {/* Puan Ver Butonu */}
+                  <TouchableOpacity
+                    style={styles.ratingButton}
+                    onPress={() => handleRatingPress(item)}
+                  >
+                    <MaterialCommunityIcons name="star" size={16} color="#FFFFFF" />
+                    <Text style={styles.ratingButtonText}>Puan Ver</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           </View>
           
@@ -1030,17 +1076,17 @@ const styles = StyleSheet.create({
   },
   notificationItem: {
     marginHorizontal: spacing.lg,
-    marginBottom: spacing.xs,
-    borderRadius: borderRadius.lg,
+    marginBottom: spacing.sm,
+    borderRadius: 16,
     borderLeftWidth: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   unreadNotification: {
-    backgroundColor: 'rgba(0, 122, 255, 0.02)',
+    backgroundColor: 'rgba(59, 130, 246, 0.03)',
   },
   notificationContent: {
     flexDirection: 'row',
@@ -1260,6 +1306,61 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: typography.fontSizes.md,
     fontWeight: '600',
+  },
+  // Puanlama bildirimi stilleri - Modern ve temiz
+  ratingNotification: {
+    backgroundColor: '#F8FAFC',
+    borderLeftColor: '#3B82F6',
+    borderLeftWidth: 4,
+  },
+  ratingIcon: {
+    backgroundColor: '#EFF6FF',
+  },
+  ratingTitle: {
+    color: '#1E40AF',
+    fontWeight: '600',
+  },
+  ratingDetails: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  ratingDetailText: {
+    fontSize: 14,
+    color: '#475569',
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  ratingMechanicText: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 6,
+    fontWeight: '500',
+  },
+  ratingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  ratingButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
   },
 });
 

@@ -97,6 +97,22 @@ export class NotificationService {
   }
 
   /**
+   * Bildirimi backend'e kaydet
+   */
+  private async saveNotificationToBackend(notificationData: any): Promise<void> {
+    try {
+      const response = await apiService.createNotification(notificationData);
+      if (response.success) {
+        console.log('✅ Bildirim backend\'e kaydedildi');
+      } else {
+        console.log('⚠️ Backend kayıt başarısız:', response.message);
+      }
+    } catch (error) {
+      console.error('❌ Backend bildirim kayıt hatası:', error);
+    }
+  }
+
+  /**
    * Bildirim dinleyicilerini başlat
    */
   startListening(): void {
@@ -128,6 +144,152 @@ export class NotificationService {
   }
 
   /**
+   * 1 saat sonra puanlama bildirimi planla
+   */
+  async scheduleRatingNotification(
+    appointmentId: string,
+    mechanicName: string,
+    serviceType: string,
+    appointmentDate: string
+  ): Promise<void> {
+    try {
+      // 1 saat sonra bildirim gönder
+      const triggerDate = new Date();
+      triggerDate.setHours(triggerDate.getHours() + 1);
+
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Değerlendirme Zamanı!',
+          body: `${mechanicName} ile ${serviceType} hizmeti tamamlandı. Deneyiminizi değerlendirin!`,
+          data: {
+            type: 'rating_reminder',
+            appointmentId: appointmentId,
+            mechanicName: mechanicName,
+            serviceType: serviceType,
+            appointmentDate: appointmentDate
+          },
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+        },
+        trigger: {
+          date: triggerDate,
+        },
+      });
+
+      // Backend'e de kaydet (1 saat sonra gönderilecek)
+      try {
+        await this.saveNotificationToBackend({
+          title: 'Değerlendirme Zamanı!',
+          message: `${mechanicName} ile ${serviceType} hizmeti tamamlandı. Deneyiminizi değerlendirin!`,
+          type: 'rating_reminder',
+          data: {
+            appointmentId: appointmentId,
+            mechanicName: mechanicName,
+            serviceType: serviceType,
+            appointmentDate: appointmentDate
+          },
+          scheduledFor: triggerDate.toISOString()
+        });
+      } catch (error) {
+        console.error('Backend rating notification kayıt hatası:', error);
+      }
+
+      console.log('📅 Puanlama bildirimi planlandı:', triggerDate);
+    } catch (error) {
+      console.error('Puanlama bildirimi planlama hatası:', error);
+    }
+  }
+
+  /**
+   * Puanlama bildirimi iptal et
+   */
+  async cancelRatingNotification(appointmentId: string): Promise<void> {
+    try {
+      const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
+      
+      for (const notification of scheduledNotifications) {
+        if (notification.content.data?.appointmentId === appointmentId && 
+            notification.content.data?.type === 'rating_reminder') {
+          await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+          console.log('❌ Puanlama bildirimi iptal edildi:', appointmentId);
+        }
+      }
+    } catch (error) {
+      console.error('Puanlama bildirimi iptal hatası:', error);
+    }
+  }
+
+  /**
+   * Test için 1 saat geçmiş gibi puanlama bildirimi gönder
+   */
+  async sendTestRatingNotification(): Promise<void> {
+    try {
+      console.log('🔧 Test bildirimi hazırlanıyor...');
+      
+      // 1 saat önceki tarih oluştur
+      const oneHourAgo = new Date();
+      oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+      
+      console.log('📅 Hizmet tamamlanma tarihi:', oneHourAgo.toLocaleString('tr-TR'));
+      
+      // İzin durumunu kontrol et
+      const { status } = await Notifications.getPermissionsAsync();
+      console.log('📱 Mevcut izin durumu:', status);
+      
+      if (status !== 'granted') {
+        console.log('⚠️ Bildirim izni yok, izin isteniyor...');
+        const { status: newStatus } = await Notifications.requestPermissionsAsync();
+        console.log('📱 Yeni izin durumu:', newStatus);
+        
+        if (newStatus !== 'granted') {
+          console.log('❌ Bildirim izni verilmedi, test bildirimi gönderilemiyor');
+          return;
+        }
+      }
+      
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Değerlendirme Zamanı!',
+          body: 'Test Usta ile Motor Yağı Değişimi hizmeti tamamlandı. Deneyiminizi değerlendirin!',
+          data: {
+            type: 'rating_reminder',
+            appointmentId: 'real-appointment-123',
+            mechanicId: 'real-mechanic-123',
+            mechanicName: 'Test Usta',
+            serviceType: 'Motor Yağı Değişimi',
+            appointmentDate: oneHourAgo.toISOString()
+          },
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+        },
+        trigger: null, // Anında gönder
+      });
+
+      // Backend'e bildirim kaydet
+      try {
+        await this.saveNotificationToBackend({
+          title: 'Değerlendirme Zamanı!',
+          message: 'Test Usta ile Motor Yağı Değişimi hizmeti tamamlandı. Deneyiminizi değerlendirin!',
+          type: 'rating_reminder',
+          data: {
+            appointmentId: 'real-appointment-123',
+            mechanicId: 'real-mechanic-123',
+            mechanicName: 'Test Usta',
+            serviceType: 'Motor Yağı Değişimi',
+            appointmentDate: oneHourAgo.toISOString()
+          }
+        });
+        console.log('💾 Bildirim backend\'e kaydedildi');
+      } catch (error) {
+        console.error('❌ Backend kayıt hatası:', error);
+      }
+
+    } catch (error) {
+      console.error('❌ Test puanlama bildirimi hatası:', error);
+    }
+  }
+
+  /**
    * Gelen bildirimi işle
    */
   private handleNotificationReceived(notification: Notifications.Notification): void {
@@ -155,6 +317,12 @@ export class NotificationService {
     // Bu fonksiyon navigation context'i gerektirir
     // Navigation service ile entegre edilecek
     console.log('Bildirim türüne göre yönlendirme:', data);
+    
+    // Puanlama bildirimi için özel işlem
+    if (data?.type === 'rating_reminder') {
+      console.log('⭐ Puanlama bildirimi tıklandı:', data);
+      // Navigation service ile Rating ekranına yönlendirilecek
+    }
   }
 
   /**

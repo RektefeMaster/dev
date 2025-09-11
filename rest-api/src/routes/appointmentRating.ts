@@ -11,6 +11,7 @@ router.get('/', (req, res) => {
 });
 
 // Şoförün usta puanlaması (3 gün süre kontrolü ile)
+router.post('/', auth, checkRatingTimeLimit, AppointmentRatingController.createRating);
 router.post('/appointments/:appointmentId/rating', auth, checkRatingTimeLimit, AppointmentRatingController.createRating);
 
 // Ustanın ortalama puanını getir

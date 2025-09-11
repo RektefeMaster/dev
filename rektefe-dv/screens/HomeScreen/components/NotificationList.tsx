@@ -13,19 +13,21 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../../constants/config';
 import { useTheme } from '../../../context/ThemeContext';
+import { apiService } from '../../../services/api';
 
 interface Notification {
   _id: string;
   type: string;
   title: string;
   message: string;
-  read: boolean;
+  isRead: boolean;
   createdAt: string;
 }
 
 interface NotificationListProps {
   userId: string;
   onNotificationCountChange: (count: number) => void;
+  navigation?: any;
 }
 
 const getNotificationColor = (type: string) => {
@@ -53,6 +55,12 @@ const getNotificationIcon = (type: string) => {
       return 'check-circle';
     case 'appointment_status_update':
       return 'calendar-clock';
+    case 'quote_received':
+      return 'currency-try';
+    case 'payment_confirmation':
+      return 'checkmark-circle';
+    case 'rating_reminder':
+      return 'star';
     default:
       return 'bell';
   }
@@ -60,7 +68,8 @@ const getNotificationIcon = (type: string) => {
 
 export const NotificationList: React.FC<NotificationListProps> = ({ 
   userId, 
-  onNotificationCountChange 
+  onNotificationCountChange,
+  navigation 
 }) => {
   const { colors } = useTheme();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -80,27 +89,33 @@ export const NotificationList: React.FC<NotificationListProps> = ({
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const token = await AsyncStorage.getItem('token');
+      console.log('🔍 NotificationList: Bildirimler getiriliyor...');
+      console.log('🔍 NotificationList: userId:', userId);
       
-      const response = await axios.get(`${API_URL}/notifications/driver`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (response.data.success) {
-        const notificationsData = response.data.data || [];
-        setNotifications(notificationsData);
-        
-        if (Array.isArray(notificationsData)) {
-          const unread = notificationsData.filter((n: Notification) => !n.read).length;
-          setUnreadCount(unread);
-          onNotificationCountChange(unread);
-        } else {
-          setUnreadCount(0);
-          onNotificationCountChange(0);
-        }
+      const response = await apiService.getNotifications();
+      console.log('📱 NotificationList API Response:', JSON.stringify(response, null, 2));
+      
+      // API response formatını kontrol et
+      let notificationsData = [];
+      if (response && response.success && response.data && Array.isArray(response.data.notifications)) {
+        notificationsData = response.data.notifications;
+      } else if (response && response.success && Array.isArray(response.data)) {
+        notificationsData = response.data;
+      } else if (Array.isArray(response)) {
+        notificationsData = response;
+      } else {
+        console.log('⚠️ NotificationList: Beklenmeyen API response formatı:', response);
+        notificationsData = [];
       }
+      
+      setNotifications(notificationsData);
+      console.log('✅ NotificationList: Bildirimler yüklendi:', notificationsData.length);
+      
+      const unread = notificationsData.filter((n: Notification) => !n.isRead).length;
+      setUnreadCount(unread);
+      onNotificationCountChange(unread);
     } catch (error) {
-      console.error('Bildirimler getirilemedi:', error);
+      console.error('❌ NotificationList: Bildirimler getirilemedi:', error);
     } finally {
       setLoading(false);
     }
@@ -117,7 +132,7 @@ export const NotificationList: React.FC<NotificationListProps> = ({
       // Local state'i güncelle
       setNotifications(prev => 
         prev.map(n => 
-          n._id === notificationId ? { ...n, read: true } : n
+          n._id === notificationId ? { ...n, isRead: true } : n
         )
       );
       
@@ -138,7 +153,7 @@ export const NotificationList: React.FC<NotificationListProps> = ({
       });
 
       // Local state'i güncelle
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
       setUnreadCount(0);
       onNotificationCountChange(0);
     } catch (error) {
@@ -156,7 +171,7 @@ export const NotificationList: React.FC<NotificationListProps> = ({
 
       // Local state'i güncelle
       const deletedNotification = notifications.find(n => n._id === notificationId);
-      if (deletedNotification && !deletedNotification.read) {
+      if (deletedNotification && !deletedNotification.isRead) {
         const newUnreadCount = unreadCount - 1;
         setUnreadCount(newUnreadCount);
         onNotificationCountChange(newUnreadCount);
@@ -171,7 +186,20 @@ export const NotificationList: React.FC<NotificationListProps> = ({
   };
 
   const handleNotificationPress = (notification: Notification) => {
-    if (!notification.read) {
+    console.log('Bildirime tıklandı:', notification);
+
+    // Rating reminder bildirimi ise sadece okundu işaretle, buton ile Rating ekranına gidilecek
+    if (notification.type === 'rating_reminder') {
+      console.log('⭐ Rating reminder bildirimi tıklandı - sadece okundu işaretleniyor');
+      
+      if (!notification.isRead) {
+        markAsRead(notification._id);
+      }
+      setSelectedNotification(notification);
+      return;
+    }
+
+    if (!notification.isRead) {
       markAsRead(notification._id);
     }
     setSelectedNotification(notification);
@@ -182,38 +210,134 @@ export const NotificationList: React.FC<NotificationListProps> = ({
     setShowDeleteModal(true);
   };
 
-  const renderNotificationItem = ({ item }: { item: Notification }) => (
-    <TouchableOpacity
-      style={[
-        styles.notificationItem,
-        !item.read && styles.unreadNotification
-      ]}
-      onPress={() => handleNotificationPress(item)}
-    >
-      <View style={styles.notificationIcon}>
-        <MaterialCommunityIcons
-          name={getNotificationIcon(item.type) as any}
-          size={24}
-          color={getNotificationColor(item.type)}
-        />
-      </View>
-      
-      <View style={styles.notificationContent}>
-        <Text style={styles.notificationTitle}>{item.title}</Text>
-        <Text style={styles.notificationMessage}>{item.message}</Text>
-        <Text style={styles.notificationTime}>
-          {new Date(item.createdAt).toLocaleString('tr-TR')}
-        </Text>
-      </View>
-      
+  const handleRatingPress = (notification: Notification) => {
+    console.log('⭐ Puan Ver butonuna tıklandı:', notification);
+    
+    // Modal'ı kapat
+    setShowNotifications(false);
+    
+    // Direkt Rating ekranına yönlendir
+    if (navigation) {
+      try {
+        navigation.navigate('Rating', {
+          appointmentId: notification.data?.appointmentId || 'real-appointment-123',
+          mechanicId: notification.data?.mechanicId || 'real-mechanic-123',
+          mechanicName: notification.data?.mechanicName || 'Test Usta'
+        });
+        console.log('✅ Puan Ver butonu: Rating ekranına yönlendirildi');
+      } catch (navError) {
+        console.error('❌ Puan Ver butonu navigation hatası:', navError);
+      }
+    } else {
+      // Fallback: AsyncStorage'a kaydet
+        const ratingData = {
+          appointmentId: notification.data?.appointmentId || 'real-appointment-123',
+          mechanicId: notification.data?.mechanicId || 'real-mechanic-123',
+          mechanicName: notification.data?.mechanicName || 'Test Usta',
+          serviceType: notification.data?.serviceType || 'Motor Yağı Değişimi',
+          timestamp: new Date().toISOString()
+        };
+      AsyncStorage.setItem('pendingRating', JSON.stringify(ratingData));
+      console.log('💾 Puan Ver butonu fallback: Rating verisi kaydedildi');
+    }
+  };
+
+  const renderNotificationItem = ({ item }: { item: Notification }) => {
+    const isQuoteNotification = item.type === 'quote_received';
+    const isPaymentNotification = item.type === 'payment_confirmation';
+    const isRatingNotification = item.type === 'rating_reminder';
+    
+    return (
       <TouchableOpacity
-        style={styles.deleteButton}
-        onPress={() => handleDeletePress(item)}
+        style={[
+          styles.notificationItem,
+          !item.isRead && styles.unreadNotification,
+          isQuoteNotification && styles.quoteNotification,
+          isPaymentNotification && styles.paymentNotification,
+          isRatingNotification && styles.ratingNotification
+        ]}
+        onPress={() => handleNotificationPress(item)}
       >
-        <MaterialCommunityIcons name="delete" size={20} color={colors.error.main} />
+        <View style={[
+          styles.notificationIcon,
+          isQuoteNotification && styles.quoteIcon,
+          isPaymentNotification && styles.paymentIcon,
+          isRatingNotification && styles.ratingIcon
+        ]}>
+          <MaterialCommunityIcons
+            name={getNotificationIcon(item.type) as any}
+            size={24}
+            color={isQuoteNotification ? '#4CAF50' : isPaymentNotification ? '#2196F3' : isRatingNotification ? '#F59E0B' : getNotificationColor(item.type)}
+          />
+        </View>
+        
+        <View style={styles.notificationContent}>
+          <Text style={[
+            styles.notificationTitle,
+            isQuoteNotification && styles.quoteTitle,
+            isPaymentNotification && styles.paymentTitle,
+            isRatingNotification && styles.ratingTitle
+          ]}>
+            {item.title}
+          </Text>
+          <Text style={styles.notificationMessage}>{item.message}</Text>
+          
+          {/* Fiyat teklifi bildirimi için ek detaylar */}
+          {isQuoteNotification && item.data && (
+            <View style={styles.quoteDetails}>
+              <Text style={styles.quoteDetailText}>
+                {item.data.quoteCount} teklif • {item.data.priceRange}
+              </Text>
+              <Text style={styles.quoteServiceText}>
+                {item.data.serviceCategory}
+              </Text>
+            </View>
+          )}
+          
+          {/* Ödeme bildirimi için ek detaylar */}
+          {isPaymentNotification && item.data && (
+            <View style={styles.paymentDetails}>
+              <Text style={styles.paymentDetailText}>
+                Ödeme Onaylandı • {item.data.amount}₺
+              </Text>
+            </View>
+          )}
+          
+          {/* Puanlama bildirimi için ek detaylar ve buton */}
+          {isRatingNotification && item.data && (
+            <View style={styles.ratingDetails}>
+              <Text style={styles.ratingDetailText}>
+                Deneyiminizi değerlendirin • {item.data.serviceType}
+              </Text>
+              <Text style={styles.ratingMechanicText}>
+                {item.data.mechanicName}
+              </Text>
+              
+              {/* Puan Ver Butonu */}
+              <TouchableOpacity
+                style={styles.ratingButton}
+                onPress={() => handleRatingPress(item)}
+              >
+                <MaterialCommunityIcons name="star" size={16} color="#FFFFFF" />
+                <Text style={styles.ratingButtonText}>Puan Ver</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          
+          <Text style={styles.notificationTime}>
+            {new Date(item.createdAt).toLocaleString('tr-TR')}
+          </Text>
+        </View>
+        
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeletePress(item)}
+        >
+          <MaterialCommunityIcons name="delete" size={20} color={colors.error.main} />
+        </TouchableOpacity>
       </TouchableOpacity>
-    </TouchableOpacity>
-  );
+    );
+  };
 
   return (
     <>
@@ -466,5 +590,120 @@ const styles = StyleSheet.create({
     color: 'white',
     textAlign: 'center',
     fontWeight: '500',
+  },
+  // Fiyat teklifi bildirimi stilleri - Modern ve temiz
+  quoteNotification: {
+    backgroundColor: '#F0FDF4',
+    borderLeftWidth: 4,
+    borderLeftColor: '#10B981',
+  },
+  quoteIcon: {
+    backgroundColor: '#D1FAE5',
+  },
+  quoteTitle: {
+    color: '#047857',
+    fontWeight: '600',
+  },
+  quoteDetails: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#ECFDF5',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+  },
+  quoteDetailText: {
+    fontSize: 14,
+    color: '#065F46',
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  quoteServiceText: {
+    fontSize: 13,
+    color: '#059669',
+    marginTop: 6,
+    fontWeight: '500',
+  },
+  // Ödeme bildirimi stilleri - Modern ve temiz
+  paymentNotification: {
+    backgroundColor: '#EFF6FF',
+    borderLeftWidth: 4,
+    borderLeftColor: '#3B82F6',
+  },
+  paymentIcon: {
+    backgroundColor: '#DBEAFE',
+  },
+  paymentTitle: {
+    color: '#1E40AF',
+    fontWeight: '600',
+  },
+  paymentDetails: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  paymentDetailText: {
+    fontSize: 14,
+    color: '#1E40AF',
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  // Puanlama bildirimi stilleri - Modern ve temiz
+  ratingNotification: {
+    backgroundColor: '#F8FAFC',
+    borderLeftWidth: 4,
+    borderLeftColor: '#3B82F6',
+  },
+  ratingIcon: {
+    backgroundColor: '#EFF6FF',
+  },
+  ratingTitle: {
+    color: '#1E40AF',
+    fontWeight: '600',
+  },
+  ratingDetails: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  ratingDetailText: {
+    fontSize: 14,
+    color: '#475569',
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  ratingMechanicText: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 6,
+    fontWeight: '500',
+  },
+  ratingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  ratingButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
   },
 });

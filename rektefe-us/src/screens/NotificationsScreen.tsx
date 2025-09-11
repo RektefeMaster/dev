@@ -18,7 +18,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { colors, typography, spacing, borderRadius } from '../theme/theme';
-import { apiService } from '../services/api';
+import apiService from '../services/api';
 
 interface Notification {
   _id: string;
@@ -240,8 +240,27 @@ const getNotificationCategory = (type: string): string => {
 };
 
 const NotificationsScreen = ({ navigation }: any) => {
-  const { isDark, colors: themeColors } = useTheme();
+  const { isDark, themeColors } = useTheme();
   const { token, userId } = useAuth();
+  
+  // Güvenli renk erişimi için fallback
+  const safeColors = {
+    primary: themeColors?.primary?.main || '#4B6382',
+    text: {
+      primary: themeColors?.text?.primary || (isDark ? '#FFFFFF' : '#11181C'),
+      secondary: themeColors?.text?.secondary || (isDark ? '#A4B5C4' : '#687076'),
+      tertiary: themeColors?.text?.tertiary || (isDark ? '#848A92' : '#9BA1A6'),
+      quaternary: themeColors?.text?.quaternary || (isDark ? '#636970' : '#C7C7CC'),
+    },
+    background: {
+      primary: themeColors?.background?.primary || (isDark ? '#0E2235' : '#FFFFFF'),
+      secondary: themeColors?.background?.secondary || (isDark ? '#184567' : '#F2F2F7'),
+      tertiary: themeColors?.background?.tertiary || (isDark ? '#24252B' : '#E5E5EA'),
+    },
+    border: {
+      tertiary: themeColors?.border?.tertiary || (isDark ? '#A4B5C4' : '#8E8E93'),
+    }
+  };
   
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -265,8 +284,8 @@ const NotificationsScreen = ({ navigation }: any) => {
       console.log('Usta bildirimleri API Response:', response);
       
       let notificationsData = [];
-      if (response.data && response.data.notifications) {
-        notificationsData = response.data.notifications;
+      if (response.data && (response.data as any).notifications) {
+        notificationsData = (response.data as any).notifications;
       } else if (Array.isArray(response.data)) {
         notificationsData = response.data;
       } else if (Array.isArray(response)) {
@@ -498,7 +517,7 @@ const NotificationsScreen = ({ navigation }: any) => {
       <View style={[
         styles.notificationItem,
         { 
-          backgroundColor: isDark ? themeColors.background.primary : '#FFFFFF',
+          backgroundColor: isDark ? safeColors.background.primary : '#FFFFFF',
           borderLeftColor: isUnread ? priorityColor : 'transparent',
         },
         isUnread && styles.unreadNotification
@@ -506,18 +525,18 @@ const NotificationsScreen = ({ navigation }: any) => {
         <TouchableOpacity
           style={styles.notificationContent}
           onPress={() => handleNotificationPress(item)}
-          activeOpacity={0.6}
+          activeOpacity={0.7}
         >
           <View style={styles.notificationLeft}>
             <View style={[
               styles.notificationIcon,
               { 
-                backgroundColor: isUnread ? priorityColor : (isDark ? themeColors.background.tertiary : '#F5F5F5')
+                backgroundColor: isUnread ? priorityColor : (isDark ? safeColors.background.tertiary : '#F8FAFC')
               }
             ]}>
               <MaterialCommunityIcons
                 name={getNotificationIcon(item.type) as any}
-                size={20}
+                size={22}
                 color={isUnread ? 'white' : priorityColor}
               />
             </View>
@@ -528,22 +547,22 @@ const NotificationsScreen = ({ navigation }: any) => {
                   <Text style={[
                     styles.notificationTitle,
                     { 
-                      color: themeColors.text.primary,
-                      fontWeight: isUnread ? '600' : '500'
+                      color: safeColors.text.primary,
+                      fontWeight: isUnread ? '700' : '600'
                     }
                   ]} numberOfLines={2}>
                     {item.title}
                   </Text>
                   <Text style={[
                     styles.categoryText,
-                    { color: isDark ? themeColors.text.quaternary : themeColors.text.tertiary }
+                    { color: isDark ? safeColors.text.quaternary : safeColors.text.tertiary }
                   ]}>
                     {category}
                   </Text>
                 </View>
                 <Text style={[
                   styles.notificationTime,
-                  { color: isDark ? themeColors.text.quaternary : themeColors.text.tertiary }
+                  { color: isDark ? safeColors.text.quaternary : safeColors.text.tertiary }
                 ]}>
                   {formatNotificationTime(item.createdAt)}
                 </Text>
@@ -551,10 +570,10 @@ const NotificationsScreen = ({ navigation }: any) => {
               
               <Text style={[
                 styles.notificationMessage,
-                { 
-                  color: isDark ? themeColors.text.tertiary : themeColors.text.secondary,
-                  fontWeight: isUnread ? '500' : '400'
-                }
+                  { 
+                    color: isDark ? safeColors.text.tertiary : safeColors.text.secondary,
+                    fontWeight: isUnread ? '500' : '400'
+                  }
               ]} numberOfLines={2}>
                 {item.message}
               </Text>
@@ -569,8 +588,8 @@ const NotificationsScreen = ({ navigation }: any) => {
               <View style={styles.loadingIndicator}>
                 <MaterialCommunityIcons 
                   name="loading" 
-                  size={16} 
-                  color={themeColors.primary.main} 
+                  size={18} 
+                  color={safeColors.primary} 
                 />
               </View>
             )}
@@ -580,11 +599,12 @@ const NotificationsScreen = ({ navigation }: any) => {
         <TouchableOpacity
           style={styles.deleteButton}
           onPress={() => handleDeletePress(item)}
+          activeOpacity={0.7}
         >
           <MaterialCommunityIcons 
             name="delete-outline" 
-            size={18} 
-            color={isDark ? themeColors.text.quaternary : themeColors.text.tertiary} 
+            size={20} 
+              color={isDark ? safeColors.text.quaternary : safeColors.text.tertiary}
           />
         </TouchableOpacity>
       </View>
@@ -594,9 +614,9 @@ const NotificationsScreen = ({ navigation }: any) => {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={[styles.loadingContainer, { backgroundColor: isDark ? themeColors.background.primary : '#FFFFFF' }]}>
-          <MaterialCommunityIcons name="loading" size={32} color={themeColors.primary.main} />
-          <Text style={[styles.loadingText, { color: themeColors.text.primary }]}>
+        <View style={[styles.loadingContainer, { backgroundColor: isDark ? safeColors.background.primary : '#FFFFFF' }]}>
+          <MaterialCommunityIcons name="loading" size={32} color={safeColors.primary} />
+          <Text style={[styles.loadingText, { color: safeColors.text.primary }]}>
             Bildirimler yükleniyor...
           </Text>
         </View>
@@ -612,36 +632,43 @@ const NotificationsScreen = ({ navigation }: any) => {
         translucent 
       />
       <View style={styles.container}>
-        {/* Header */}
+        {/* Enhanced Header */}
         <View style={[
           styles.header,
           { 
-            backgroundColor: isDark ? themeColors.background.primary : '#FFFFFF',
-            borderBottomColor: isDark ? themeColors.border.tertiary : '#E5E5E5',
+            backgroundColor: isDark ? safeColors.background.primary : '#FFFFFF',
+            borderBottomColor: isDark ? safeColors.border.tertiary : '#E5E5E5',
           }
         ]}>
           <View style={styles.headerTop}>
             <TouchableOpacity 
               style={styles.backButton}
               onPress={() => navigation.goBack()}
+              activeOpacity={0.7}
             >
               <Ionicons 
                 name="arrow-back" 
                 size={24} 
-                color={themeColors.text.primary} 
+                color={safeColors.text.primary} 
               />
             </TouchableOpacity>
             
             <View style={styles.headerTitleContainer}>
               <Text style={[
                 styles.headerTitle,
-                { color: themeColors.text.primary }
+                { color: safeColors.text.primary }
               ]}>
                 Bildirimler
               </Text>
               {unreadCount > 0 && (
-                <View style={[styles.headerBadge, { backgroundColor: themeColors.primary.main }]}>
-                  <Text style={styles.headerBadgeText}>{unreadCount}</Text>
+                <View style={[
+                  styles.headerBadge, 
+                  { backgroundColor: safeColors.primary },
+                  unreadCount > 9 && styles.headerBadgeWide
+                ]}>
+                  <Text style={styles.headerBadgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
                 </View>
               )}
             </View>
@@ -650,59 +677,41 @@ const NotificationsScreen = ({ navigation }: any) => {
               <TouchableOpacity 
                 style={styles.filterButton}
                 onPress={() => setShowFilters(!showFilters)}
+                activeOpacity={0.7}
               >
                 <MaterialCommunityIcons 
                   name="filter-variant" 
-                  size={20} 
-                  color={themeColors.text.primary} 
+                  size={22} 
+                  color={safeColors.text.primary} 
                 />
               </TouchableOpacity>
-              
-              {unreadCount > 0 && (
-                <TouchableOpacity 
-                  style={styles.markAllButton}
-                  onPress={markAllAsRead}
-                >
-                  <MaterialCommunityIcons 
-                    name="check-all" 
-                    size={16} 
-                    color={themeColors.primary.main} 
-                  />
-                  <Text style={[
-                    styles.markAllButtonText,
-                    { color: themeColors.primary.main }
-                  ]}>
-                    Tümünü Okundu İşaretle
-                  </Text>
-                </TouchableOpacity>
-              )}
             </View>
           </View>
           
           <Text style={[
             styles.headerSubtitle,
-            { color: isDark ? themeColors.text.tertiary : themeColors.text.secondary }
+            { color: isDark ? safeColors.text.tertiary : safeColors.text.secondary }
           ]}>
             {unreadCount > 0 ? `${unreadCount} okunmamış bildirim` : 'Tüm bildirimler okundu'}
           </Text>
 
-          {/* Search Bar */}
+          {/* Enhanced Search Bar */}
           <View style={[
             styles.searchContainer,
-            { backgroundColor: isDark ? themeColors.background.tertiary : '#F8F9FA' }
+            { backgroundColor: isDark ? safeColors.background.tertiary : '#F8F9FA' }
           ]}>
             <MaterialCommunityIcons 
               name="magnify" 
-              size={20} 
-              color={isDark ? themeColors.text.quaternary : themeColors.text.tertiary} 
+              size={22} 
+              color={isDark ? safeColors.text.quaternary : safeColors.text.tertiary} 
             />
             <TextInput
               style={[
                 styles.searchInput,
-                { color: themeColors.text.primary }
+                { color: safeColors.text.primary }
               ]}
               placeholder="Bildirimlerde ara..."
-              placeholderTextColor={isDark ? themeColors.text.quaternary : themeColors.text.tertiary}
+              placeholderTextColor={isDark ? safeColors.text.quaternary : safeColors.text.tertiary}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
@@ -710,15 +719,39 @@ const NotificationsScreen = ({ navigation }: any) => {
               <TouchableOpacity
                 onPress={() => setSearchQuery('')}
                 style={styles.clearSearchButton}
+                activeOpacity={0.7}
               >
                 <MaterialCommunityIcons 
                   name="close-circle" 
-                  size={20} 
-                  color={isDark ? themeColors.text.quaternary : themeColors.text.tertiary} 
+                  size={22} 
+                  color={isDark ? safeColors.text.quaternary : safeColors.text.tertiary} 
                 />
               </TouchableOpacity>
             )}
           </View>
+
+          {/* Mark All as Read Button */}
+          {unreadCount > 0 && (
+            <View style={styles.markAllContainer}>
+              <TouchableOpacity 
+                style={styles.markAllButton}
+                onPress={markAllAsRead}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons 
+                  name="check-all" 
+                  size={18} 
+                  color={safeColors.primary} 
+                />
+                <Text style={[
+                  styles.markAllButtonText,
+                  { color: safeColors.primary }
+                ]}>
+                  Tümünü Okundu İşaretle ({unreadCount})
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Filter Tabs */}
           {showFilters && (
@@ -727,13 +760,13 @@ const NotificationsScreen = ({ navigation }: any) => {
                 style={[
                   styles.filterTab,
                   selectedFilter === 'all' && styles.activeFilterTab,
-                  { backgroundColor: selectedFilter === 'all' ? themeColors.primary.main : 'transparent' }
+                  { backgroundColor: selectedFilter === 'all' ? safeColors.primary : 'transparent' }
                 ]}
                 onPress={() => setSelectedFilter('all')}
               >
                 <Text style={[
                   styles.filterTabText,
-                  { color: selectedFilter === 'all' ? 'white' : themeColors.text.primary }
+                  { color: selectedFilter === 'all' ? 'white' : safeColors.text.primary }
                 ]}>
                   Tümü ({getNotificationStats().total})
                 </Text>
@@ -748,7 +781,7 @@ const NotificationsScreen = ({ navigation }: any) => {
               >
                 <Text style={[
                   styles.filterTabText,
-                  { color: selectedFilter === 'unread' ? 'white' : themeColors.text.primary }
+                  { color: selectedFilter === 'unread' ? 'white' : safeColors.text.primary }
                 ]}>
                   Okunmamış ({getNotificationStats().unread})
                 </Text>
@@ -763,7 +796,7 @@ const NotificationsScreen = ({ navigation }: any) => {
               >
                 <Text style={[
                   styles.filterTabText,
-                  { color: selectedFilter === 'read' ? 'white' : themeColors.text.primary }
+                  { color: selectedFilter === 'read' ? 'white' : safeColors.text.primary }
                 ]}>
                   Okundu ({getNotificationStats().read})
                 </Text>
@@ -785,8 +818,8 @@ const NotificationsScreen = ({ navigation }: any) => {
               <RefreshControl 
                 refreshing={refreshing} 
                 onRefresh={onRefresh}
-                colors={[themeColors.primary.main]}
-                tintColor={themeColors.primary.main}
+                colors={[safeColors.primary]}
+                tintColor={safeColors.primary}
               />
             }
           />
@@ -795,17 +828,17 @@ const NotificationsScreen = ({ navigation }: any) => {
             <MaterialCommunityIcons 
               name="bell-off" 
               size={64} 
-              color={isDark ? themeColors.text.quaternary : themeColors.text.tertiary} 
+              color={isDark ? safeColors.text.quaternary : safeColors.text.tertiary} 
             />
             <Text style={[
               styles.emptyTitle,
-              { color: themeColors.text.primary }
+              { color: safeColors.text.primary }
             ]}>
               {searchQuery ? 'Arama sonucu bulunamadı' : 'Henüz bildirim yok'}
             </Text>
             <Text style={[
               styles.emptySubtitle,
-              { color: isDark ? themeColors.text.tertiary : themeColors.text.secondary }
+              { color: isDark ? safeColors.text.tertiary : safeColors.text.secondary }
             ]}>
               {searchQuery 
                 ? 'Farklı anahtar kelimeler deneyin' 
@@ -814,7 +847,7 @@ const NotificationsScreen = ({ navigation }: any) => {
             </Text>
             {!searchQuery && (
               <TouchableOpacity 
-                style={[styles.refreshButton, { backgroundColor: themeColors.primary.main }]}
+                style={[styles.refreshButton, { backgroundColor: safeColors.primary }]}
                 onPress={fetchNotifications}
               >
                 <MaterialCommunityIcons name="refresh" size={20} color="white" />
@@ -835,7 +868,7 @@ const NotificationsScreen = ({ navigation }: any) => {
             <View style={[
               styles.modalContainer,
               { 
-                backgroundColor: isDark ? themeColors.background.primary : '#FFFFFF',
+                backgroundColor: isDark ? safeColors.background.primary : '#FFFFFF',
               }
             ]}>
               {selectedNotification && (
@@ -856,13 +889,13 @@ const NotificationsScreen = ({ navigation }: any) => {
                       <View style={styles.modalHeaderText}>
                         <Text style={[
                           styles.modalTitle,
-                          { color: themeColors.text.primary }
+                          { color: safeColors.text.primary }
                         ]}>
                           {selectedNotification.title}
                         </Text>
                         <Text style={[
                           styles.modalTime,
-                          { color: isDark ? themeColors.text.tertiary : themeColors.text.secondary }
+                          { color: isDark ? safeColors.text.tertiary : safeColors.text.secondary }
                         ]}>
                           {formatNotificationTime(selectedNotification.createdAt)}
                         </Text>
@@ -875,7 +908,7 @@ const NotificationsScreen = ({ navigation }: any) => {
                       <Ionicons 
                         name="close" 
                         size={24} 
-                        color={themeColors.text.primary} 
+                        color={safeColors.text.primary} 
                       />
                     </TouchableOpacity>
                   </View>
@@ -884,7 +917,7 @@ const NotificationsScreen = ({ navigation }: any) => {
                   <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
                     <Text style={[
                       styles.modalMessage,
-                      { color: themeColors.text.primary }
+                      { color: safeColors.text.primary }
                     ]}>
                       {selectedNotification.message}
                     </Text>
@@ -893,7 +926,7 @@ const NotificationsScreen = ({ navigation }: any) => {
                     <View style={styles.modalTypeContainer}>
                       <Text style={[
                         styles.modalTypeLabel,
-                        { color: isDark ? themeColors.text.tertiary : themeColors.text.secondary }
+                        { color: isDark ? safeColors.text.tertiary : safeColors.text.secondary }
                       ]}>
                         Bildirim Türü
                       </Text>
@@ -914,13 +947,13 @@ const NotificationsScreen = ({ navigation }: any) => {
                     <View style={styles.modalDateContainer}>
                       <Text style={[
                         styles.modalDateLabel,
-                        { color: isDark ? themeColors.text.tertiary : themeColors.text.secondary }
+                        { color: isDark ? safeColors.text.tertiary : safeColors.text.secondary }
                       ]}>
                         Tarih
                       </Text>
                       <Text style={[
                         styles.modalDateText,
-                        { color: themeColors.text.primary }
+                        { color: safeColors.text.primary }
                       ]}>
                         {new Date(selectedNotification.createdAt).toLocaleString('tr-TR', {
                           day: '2-digit',
@@ -939,13 +972,13 @@ const NotificationsScreen = ({ navigation }: any) => {
                       style={[
                         styles.modalActionButton,
                         styles.modalSecondaryButton,
-                        { borderColor: isDark ? themeColors.border.tertiary : '#E5E5E5' }
+                        { borderColor: isDark ? safeColors.border.tertiary : '#E5E5E5' }
                       ]}
                       onPress={handleDetailModalClose}
                     >
                       <Text style={[
                         styles.modalSecondaryButtonText,
-                        { color: themeColors.text.primary }
+                        { color: safeColors.text.primary }
                       ]}>
                         Kapat
                       </Text>
@@ -956,7 +989,7 @@ const NotificationsScreen = ({ navigation }: any) => {
                         style={[
                           styles.modalActionButton,
                           styles.modalPrimaryButton,
-                          { backgroundColor: themeColors.primary.main }
+                          { backgroundColor: safeColors.primary }
                         ]}
                         onPress={() => handleDetailAction(selectedNotification)}
                       >
@@ -994,29 +1027,38 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: spacing.md,
   },
-  // Header Styles
+  // Enhanced Header Styles
   header: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
     borderBottomWidth: 1,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
   backButton: {
     padding: spacing.sm,
     marginRight: spacing.md,
+    borderRadius: borderRadius.sm,
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
   },
   headerTitleContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    minWidth: 0, // Flexbox overflow için
   },
   headerTitle: {
     fontSize: typography.fontSizes.xl,
     fontWeight: '700',
+    flexShrink: 1, // Uzun metinlerde küçül
   },
   headerBadge: {
     minWidth: 20,
@@ -1027,6 +1069,10 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
     paddingHorizontal: spacing.xs,
   },
+  headerBadgeWide: {
+    minWidth: 24,
+    paddingHorizontal: spacing.sm,
+  },
   headerBadgeText: {
     color: 'white',
     fontSize: typography.fontSizes.xs,
@@ -1035,21 +1081,34 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: typography.fontSizes.sm,
     fontWeight: '500',
+    marginBottom: spacing.sm,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    flexShrink: 0, // Sabit boyut
   },
   filterButton: {
     padding: spacing.sm,
+    borderRadius: borderRadius.sm,
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+  },
+  markAllContainer: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
   },
   markAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.xs,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+    borderRadius: borderRadius.lg,
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
   },
   markAllButtonText: {
     fontSize: typography.fontSizes.sm,
@@ -1064,6 +1123,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.lg,
     gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
   },
   searchInput: {
     flex: 1,
@@ -1071,7 +1132,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   clearSearchButton: {
-    padding: spacing.xs,
+    padding: spacing.sm,
+    borderRadius: borderRadius.sm,
   },
   filterTabs: {
     flexDirection: 'row',
@@ -1095,30 +1157,33 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.sm,
     fontWeight: '600',
   },
-  // Notification List Styles
+  // Enhanced Notification List Styles
   notificationsList: {
     flex: 1,
   },
   notificationsContainer: {
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.xl,
   },
   notificationItem: {
     marginHorizontal: spacing.lg,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
     borderRadius: borderRadius.lg,
     borderLeftWidth: 4,
-    shadowColor: '#000',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
   },
   unreadNotification: {
-    backgroundColor: 'rgba(0, 122, 255, 0.02)',
+    backgroundColor: 'rgba(0, 122, 255, 0.03)',
+    borderColor: 'rgba(0, 122, 255, 0.1)',
   },
   notificationContent: {
     flexDirection: 'row',
-    padding: spacing.lg,
+    padding: spacing.md,
     alignItems: 'flex-start',
   },
   notificationLeft: {
@@ -1149,6 +1214,7 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.md,
     flex: 1,
     marginRight: spacing.sm,
+    lineHeight: 20,
   },
   categoryText: {
     fontSize: typography.fontSizes.xs,
@@ -1166,7 +1232,7 @@ const styles = StyleSheet.create({
   notificationRight: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: spacing.sm,
+    marginLeft: spacing.md,
   },
   unreadDot: {
     width: 8,
@@ -1182,8 +1248,9 @@ const styles = StyleSheet.create({
   deleteButton: {
     padding: spacing.sm,
     marginLeft: spacing.sm,
+    borderRadius: borderRadius.sm,
   },
-  // Empty State Styles
+  // Enhanced Empty State Styles
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1199,7 +1266,7 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     fontSize: typography.fontSizes.md,
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 22,
     marginBottom: spacing.xl,
   },
   refreshButton: {
@@ -1215,17 +1282,17 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.md,
     fontWeight: '600',
   },
-  // Modal Styles
+  // Enhanced Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   modalContainer: {
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
     maxHeight: '85%',
-    shadowColor: '#000',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,

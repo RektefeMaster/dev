@@ -319,4 +319,120 @@ export class NotificationController {
       });
     }
   }
+
+  /**
+   * Yeni bildirim oluştur
+   */
+  static async createNotification(req: Request, res: Response) {
+    try {
+      const userId = req.user?.userId;
+      const userType = req.user?.userType || 'driver'; // Default driver
+      const { title, message, type, data, scheduledFor } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Kullanıcı doğrulanamadı'
+        });
+      }
+
+      if (!title || !message || !type) {
+        return res.status(400).json({
+          success: false,
+          message: 'Başlık, mesaj ve tür alanları zorunludur'
+        });
+      }
+
+      const notification = new Notification({
+        recipientId: userId,
+        recipientType: userType === 'mechanic' ? 'mechanic' : 'driver',
+        title,
+        message,
+        type,
+        data: data || {},
+        isRead: false,
+        scheduledFor: scheduledFor ? new Date(scheduledFor) : undefined
+      });
+
+      await notification.save();
+
+      console.log('✅ Bildirim oluşturuldu:', {
+        recipientId: userId,
+        recipientType: userType === 'mechanic' ? 'mechanic' : 'driver',
+        title,
+        type
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Bildirim başarıyla oluşturuldu',
+        data: {
+          notification
+        }
+      });
+    } catch (error) {
+      console.error('❌ Bildirim oluşturulurken hata:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Bildirim oluşturulurken bir hata oluştu'
+      });
+    }
+  }
+
+  /**
+   * Test bildirimi oluştur
+   */
+  static async createTestNotification(req: Request, res: Response) {
+    try {
+      const userId = req.user?.userId;
+      const userType = req.user?.userType || 'driver';
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Kullanıcı doğrulanamadı'
+        });
+      }
+
+      // Test rating reminder bildirimi oluştur
+      const notification = new Notification({
+        recipientId: userId,
+        recipientType: userType === 'mechanic' ? 'mechanic' : 'driver',
+        title: 'Test - Değerlendirme Zamanı!',
+        message: 'Test Usta ile Motor Yağı Değişimi hizmeti tamamlandı. Deneyiminizi değerlendirin!',
+        type: 'rating_reminder',
+        data: {
+          appointmentId: 'real-appointment-123',
+          mechanicId: 'real-mechanic-123',
+          mechanicName: 'Test Usta',
+          serviceType: 'Motor Yağı Değişimi',
+          appointmentDate: new Date(Date.now() - 3600000).toISOString() // 1 saat önce
+        },
+        isRead: false
+      });
+
+      await notification.save();
+
+      console.log('🧪 Test bildirimi oluşturuldu:', {
+        recipientId: userId,
+        recipientType: userType === 'mechanic' ? 'mechanic' : 'driver',
+        title: notification.title,
+        type: notification.type
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Test bildirimi başarıyla oluşturuldu',
+        data: {
+          notification
+        }
+      });
+    } catch (error) {
+      console.error('❌ Test bildirimi oluşturulurken hata:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Test bildirimi oluşturulurken bir hata oluştu'
+      });
+    }
+  }
 }

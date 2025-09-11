@@ -488,29 +488,12 @@ export const useHomeData = () => {
           })
         );
         
-        // Nurullah Aydın için koordinatları düzelt
-        const correctedMechanics = mechanicsWithDetails.map(mechanic => {
-          if (mechanic.email === 'testust@gmail.com' && mechanic.name === 'Nurullah') {
-            return {
-              ...mechanic,
-              location: {
-                ...mechanic.location,
-                coordinates: {
-                  latitude: 38.3553559,
-                  longitude: 38.3175884
-                }
-              }
-            };
-          }
-          return mechanic;
-        });
-
         // Kullanıcı konumu varsa mesafeye göre sırala
-        let sortedMechanics = correctedMechanics;
+        let sortedMechanics = mechanicsWithDetails;
         if (userLocation) {
           console.log('🔍 User location:', userLocation);
           console.log('🔍 Sorting mechanics by distance...');
-          sortedMechanics = sortMechanicsByDistance(correctedMechanics, userLocation);
+          sortedMechanics = sortMechanicsByDistance(mechanicsWithDetails, userLocation);
           console.log('🔍 Sorted mechanics:', sortedMechanics.slice(0, 3).map(m => ({
             name: m.name,
             distance: m.distance,
@@ -521,7 +504,7 @@ export const useHomeData = () => {
           console.log('⚠️ User location yok, fallback konum kullanılıyor');
           // Fallback konum kullan
           const fallbackLocation = getFallbackUserLocation();
-          sortedMechanics = sortMechanicsByDistance(correctedMechanics, fallbackLocation);
+          sortedMechanics = sortMechanicsByDistance(mechanicsWithDetails, fallbackLocation);
           console.log('🔍 Fallback location ile sıralandı:', fallbackLocation);
         }
         
@@ -565,7 +548,15 @@ export const useHomeData = () => {
                   // Adres bileşenlerini daha detaylı parse et
                   correctedCity = address.city || address.town || address.village || address.county || address.state || '';
                   correctedDistrict = address.county || address.state_district || address.district || '';
-                  correctedNeighborhood = address.suburb || address.neighbourhood || address.quarter || address.hamlet || '';
+                  // Halfettin mahallesi sorunu için özel kontrol
+                  const rawNeighborhood = address.suburb || address.neighbourhood || address.quarter || address.hamlet || '';
+                  if (rawNeighborhood.includes('Halfettin')) {
+                    // Halfettin mahallesi yerine Yeşilçam kullan
+                    correctedNeighborhood = 'Yeşilçam';
+                    console.log('🔍 Halfettin mahallesi düzeltildi -> Yeşilçam');
+                  } else {
+                    correctedNeighborhood = rawNeighborhood;
+                  }
                   correctedStreet = address.road || address.street || address.pedestrian || address.footway || '';
                   
                   // Eğer sokak yoksa, display_name'den çıkarmaya çalış

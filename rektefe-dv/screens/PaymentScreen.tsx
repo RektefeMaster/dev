@@ -17,6 +17,9 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { API_URL } from '../constants/config';
+import { triggerTefePointEarning } from '../utils/tefePointIntegration';
+import { useWalletData } from './WalletScreen/hooks/useWalletData';
+import { NotificationService } from '../services/notificationService';
 
 const { width } = Dimensions.get('window');
 
@@ -39,9 +42,15 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
   const { theme } = useTheme();
   const { token } = useAuth();
   const { faultReportId, appointmentId, amount, mechanicName, serviceCategory, serviceType, price } = route.params;
+  const { addTransaction, refreshWalletData } = useWalletData();
   
   // Debug için log ekle
   console.log('PaymentScreen params:', { faultReportId, appointmentId, amount, mechanicName, serviceCategory, serviceType, price });
+  
+  // Null değer kontrolleri
+  const safeMechanicName = mechanicName || 'Usta';
+  const safeServiceCategory = serviceCategory || 'Hizmet';
+  const safeAmount = amount || 0;
 
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'credit_card' | 'bank_transfer' | 'cash'>('credit_card');
   const [cardNumber, setCardNumber] = useState('4532 1234 5678 9012');
@@ -117,6 +126,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
       
       // Debug için log ekle
       console.log('handlePayment - appointmentId:', appointmentId, 'faultReportId:', faultReportId);
+      console.log('handlePayment - safeAmount:', safeAmount, 'safeMechanicName:', safeMechanicName, 'safeServiceCategory:', safeServiceCategory);
       
       // Eğer appointmentId yoksa ama faultReportId varsa, o faultReportId'ye ait randevuyu bul
       if (!appointmentId && faultReportId) {
@@ -168,7 +178,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
           `${API_URL}/appointments/${finalAppointmentId}/confirm-payment`,
           { 
             transactionId,
-            amount: amount // TefePuan hesaplama için gerekli
+            amount: safeAmount // TefePuan hesaplama için gerekli
           },
             { headers: { Authorization: `Bearer ${token}` } }
           );
@@ -177,8 +187,136 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
         }
 
         if (confirmResponse.data.success) {
-          const tefePointAmount = Math.floor(amount);
+          // TefePuan kazanımını tetikle
+          let tefePointAmount = 0;
+          try {
+            const tefePointResult = await triggerTefePointEarning(
+              finalAppointmentId,
+              safeServiceCategory || 'maintenance',
+              safeAmount,
+              `${safeMechanicName} ile ${safeServiceCategory} hizmeti`
+            );
+            
+            if (tefePointResult.success && tefePointResult.earnedPoints) {
+              tefePointAmount = tefePointResult.earnedPoints;
+              console.log(`🎉 TefePuan kazanıldı: ${tefePointAmount} puan`);
+            }
+          } catch (error) {
+            console.error('TefePuan kazanım hatası:', error);
+            tefePointAmount = Math.floor(safeAmount * 0.05); // Fallback %5 TefePuan
+          }
+
+          // Cüzdana ödeme işlemini ekle
+          try {
+            // Backend'e transaction gönder
+            const transactionResponse = await axios.post(
+              `${API_URL}/wallet/transactions`,
+              {
+                type: 'debit',
+                amount: safeAmount,
+                description: `${safeMechanicName} - ${safeServiceCategory} hizmeti ödemesi`,
+                appointmentId: finalAppointmentId,
+                serviceCategory: safeServiceCategory
+              },
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            
+            if (transactionResponse.data.success) {
+              console.log('💰 Backend transaction eklendi:', transactionResponse.data);
+              
+              // Local state'i de güncelle
+              await addTransaction({
+                type: 'debit',
+                amount: safeAmount,
+                description: `${safeMechanicName} - ${safeServiceCategory} hizmeti ödemesi`
+              });
+            }
+            
+          // Cüzdan verilerini yenile
+          await refreshWalletData();
+          console.log('💰 Cüzdan güncellendi');
+
+          // 1 saat sonra puanlama bildirimi planla
+          try {
+            const notificationService = NotificationService.getInstance();
+            await notificationService.scheduleRatingNotification(
+              finalAppointmentId,
+              safeMechanicName,
+              safeServiceCategory,
+              new Date().toISOString()
+            );
+            console.log('📅 Puanlama bildirimi planlandı (1 saat sonra)');
+          } catch (error) {
+            console.error('Puanlama bildirimi planlama hatası:', error);
+          }
+          } catch (error) {
+            console.error('Cüzdan güncelleme hatası:', error);
+            
+            // Backend hatası durumunda sadece local state'i güncelle
+            try {
+              await addTransaction({
+                type: 'debit',
+                amount: safeAmount,
+                description: `${safeMechanicName} - ${safeServiceCategory} hizmeti ödemesi`
+              });
+              console.log('💰 Local cüzdan güncellendi (backend hatası)');
+            } catch (localError) {
+              console.error('Local cüzdan güncelleme hatası:', localError);
+            }
+          }
+
+          // Usta bildirimi gönder (yerel bildirim)
+          try {
+            const notificationService = NotificationService.getInstance();
+            await notificationService.scheduleLocalNotification(
+              'Ödeme Onaylandı',
+              `${safeMechanicName} ile ${safeServiceCategory} hizmeti için ödeme alındı. İşe başlayabilirsiniz.`,
+              {
+                type: 'payment_confirmed',
+                appointmentId: finalAppointmentId,
+                amount: safeAmount,
+                serviceCategory: safeServiceCategory
+              }
+            );
+            console.log('📱 Usta bildirimi gönderildi');
+            
+            // Test için ek bildirim
+            setTimeout(() => {
+              notificationService.scheduleLocalNotification(
+                'Test Bildirimi',
+                'Bildirim sistemi çalışıyor!',
+                { type: 'test' }
+              );
+            }, 2000);
+          } catch (error) {
+            console.error('Usta bildirimi gönderme hatası:', error);
+          }
+
+          // Backend'e bildirim gönder (usta için)
+          try {
+            await axios.post(
+              `${API_URL}/notifications/send`,
+              {
+                title: 'Ödeme Onaylandı',
+                message: `${safeMechanicName} ile ${safeServiceCategory} hizmeti için ödeme alındı. İşe başlayabilirsiniz.`,
+                type: 'payment_confirmation',
+                data: {
+                  appointmentId: finalAppointmentId,
+                  amount: safeAmount,
+                  serviceCategory: safeServiceCategory
+                },
+                // Usta ID'si burada olmalı - şimdilik genel bildirim
+                targetUserType: 'mechanic'
+              },
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            console.log('📱 Backend bildirimi gönderildi');
+          } catch (error) {
+            console.error('Backend bildirimi gönderme hatası:', error);
+          }
+
           console.log(`🎉 Ödeme başarılı! TefePuan kazanılacak: ${tefePointAmount} puan`);
+          
           Alert.alert(
             'Ödeme Başarılı',
             `Ödemeniz başarıyla tamamlandı. Usta işe başlayabilir.\n\n🎉 ${tefePointAmount} TefePuan kazandınız!`,
@@ -346,10 +484,10 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
           <Text style={styles.bankLabel}>IBAN:</Text> TR33 0006 4000 0011 2345 6789 01
         </Text>
         <Text style={[styles.bankText, { color: theme.colors.text.secondary }]}>
-          <Text style={styles.bankLabel}>Açıklama:</Text> {faultReportId}
+          <Text style={styles.bankLabel}>Açıklama:</Text> {faultReportId || 'N/A'}
         </Text>
         <Text style={[styles.bankText, { color: theme.colors.text.secondary }]}>
-          <Text style={styles.bankLabel}>Tutar:</Text> {amount}₺
+          <Text style={styles.bankLabel}>Tutar:</Text> {safeAmount}₺
         </Text>
       </View>
       <Text style={[styles.noteText, { color: theme.colors.text.tertiary }]}>
@@ -397,7 +535,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
               Hizmet:
             </Text>
             <Text style={[styles.summaryValue, { color: theme.colors.text.primary }]}>
-              {serviceCategory}
+              {safeServiceCategory}
             </Text>
           </View>
           
@@ -406,7 +544,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
               Usta:
             </Text>
             <Text style={[styles.summaryValue, { color: theme.colors.text.primary }]}>
-              {mechanicName}
+              {safeMechanicName}
             </Text>
           </View>
           
@@ -415,7 +553,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
               Toplam:
             </Text>
             <Text style={[styles.totalValue, { color: theme.colors.primary.main }]}>
-              {amount}₺
+              {safeAmount}₺
             </Text>
           </View>
         </View>
@@ -487,7 +625,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
         >
           <Ionicons name="card" size={20} color="#FFFFFF" />
           <Text style={styles.payButtonText}>
-            {isProcessing ? 'İşleniyor...' : `${amount}₺ Öde`}
+            {isProcessing ? 'İşleniyor...' : `${safeAmount}₺ Öde`}
           </Text>
         </TouchableOpacity>
       </View>

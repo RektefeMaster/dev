@@ -10,11 +10,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 
 import { typography, spacing, borderRadius, shadows, dimensions } from '../theme/theme';
 import { Button, Input, Card } from '../components';
@@ -45,9 +47,58 @@ export default function AuthScreen() {
 
   // Service categories state
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  
+  // Location state
+  const [userLocation, setUserLocation] = useState<{
+    latitude: number;
+    longitude: number;
+    city?: string;
+    district?: string;
+  } | null>(null);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Otomatik konum alma fonksiyonu
+  const getCurrentLocation = async () => {
+    try {
+      // Konum izni iste
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Konum izni verilmedi, varsayılan konum kullanılacak');
+        return null;
+      }
+
+      // Mevcut konumu al
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      // Reverse geocoding ile adres bilgilerini al
+      const addressResponse = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+
+      if (addressResponse.length > 0) {
+        const address = addressResponse[0];
+        const locationData = {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          city: address.city || '',
+          district: address.district || '',
+        };
+        
+        setUserLocation(locationData);
+        return locationData;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Konum alma hatası:', error);
+      return null;
+    }
   };
 
   // Service categories data
@@ -135,6 +186,9 @@ export default function AuthScreen() {
           Alert.alert('Hata', response.message || 'Giriş başarısız');
         }
       } else {
+        // Register işleminde otomatik konum al
+        const locationData = await getCurrentLocation();
+        
         const response = await register({
           email: formData.email,
           password: formData.password,
@@ -143,6 +197,14 @@ export default function AuthScreen() {
           phone: formData.phone,
           userType: 'mechanic',
           serviceCategories: selectedCategories,
+          location: locationData ? {
+            city: locationData.city || '',
+            district: locationData.district || '',
+            coordinates: {
+              latitude: locationData.latitude,
+              longitude: locationData.longitude,
+            }
+          } : undefined,
         });
         
         if (response.success) {
@@ -157,6 +219,7 @@ export default function AuthScreen() {
             phone: '',
           });
           setSelectedCategories([]);
+          setUserLocation(null);
         } else {
           Alert.alert('Hata', response.message || 'Kayıt başarısız');
         }

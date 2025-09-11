@@ -5,15 +5,19 @@ import { Platform } from 'react-native';
 import apiService from './api';
 
 // Bildirim davranışını yapılandır
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+} catch (error) {
+  console.warn('Notification handler ayarlanamadı:', error);
+}
 
 export interface NotificationSettings {
   pushNotifications: boolean;

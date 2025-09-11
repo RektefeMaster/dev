@@ -26,6 +26,69 @@ router.get('/driver', auth, NotificationController.getDriverNotifications);
 
 /**
  * @swagger
+ * /api/notifications:
+ *   post:
+ *     summary: Yeni bildirim oluştur
+ *     description: Kullanıcı için yeni bildirim oluşturur
+ *     tags:
+ *       - Notifications
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - message
+ *               - type
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 description: Bildirim başlığı
+ *               message:
+ *                 type: string
+ *                 description: Bildirim mesajı
+ *               type:
+ *                 type: string
+ *                 description: Bildirim türü
+ *               data:
+ *                 type: object
+ *                 description: Ek veriler
+ *     responses:
+ *       201:
+ *         description: Bildirim başarıyla oluşturuldu
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.post('/', auth, NotificationController.createNotification);
+
+/**
+ * @swagger
+ * /api/notifications/test:
+ *   post:
+ *     summary: Test bildirimi oluştur
+ *     description: Test için rating reminder bildirimi oluşturur
+ *     tags:
+ *       - Notifications
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       201:
+ *         description: Test bildirimi başarıyla oluşturuldu
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.post('/test', auth, NotificationController.createTestNotification);
+
+/**
+ * @swagger
  * /api/notifications/driver/unread-count:
  *   get:
  *     summary: Şoförün okunmamış bildirim sayısını getir

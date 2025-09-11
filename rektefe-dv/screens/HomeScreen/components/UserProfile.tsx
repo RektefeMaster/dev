@@ -15,6 +15,7 @@ interface UserProfileProps {
   onCarPress: () => void;
   onNotificationPress: () => void;
   unreadCount?: number;
+  navigation?: any;
 }
 
 const getGreeting = (userName: string) => {
@@ -37,10 +38,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({
   onProfilePress,
   onCarPress,
   onNotificationPress,
-  unreadCount = 0
+  unreadCount = 0,
+  navigation
 }) => {
   const { theme } = useTheme();
-  const navigation = useNavigation<any>();
   
 
   return (

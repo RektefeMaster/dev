@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl, Alert, SafeAreaView, TouchableOpacity, Text, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Background from '../../components/Background';
 import { useHomeData } from './hooks/useHomeData';
 import { GreetingHeader } from './components/GreetingHeader';
@@ -24,6 +25,34 @@ const HomeScreen = () => {
   const { theme } = useTheme();
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
 
+  // Pending rating kontrolü
+  useEffect(() => {
+    const checkPendingRating = async () => {
+      try {
+        const pendingRating = await AsyncStorage.getItem('pendingRating');
+        if (pendingRating) {
+          const ratingData = JSON.parse(pendingRating);
+          console.log('🔍 Pending rating bulundu:', ratingData);
+          
+          // Rating ekranına yönlendir
+          navigation.navigate('Rating', {
+            appointmentId: ratingData.appointmentId,
+            mechanicId: ratingData.mechanicId,
+            mechanicName: ratingData.mechanicName
+          });
+          
+          // Pending rating'i temizle
+          await AsyncStorage.removeItem('pendingRating');
+          console.log('✅ Pending rating temizlendi');
+        }
+      } catch (error) {
+        console.error('❌ Pending rating kontrol hatası:', error);
+      }
+    };
+
+    checkPendingRating();
+  }, [navigation]);
+
   const {
     userName,
     favoriteCar,
@@ -40,6 +69,7 @@ const HomeScreen = () => {
     tireStatus,
     nearestMechanic,
     userLocation,
+    userId,
   } = useHomeData();
 
   // CardNav için menü öğeleri - sürücü odaklı
@@ -299,7 +329,7 @@ const HomeScreen = () => {
         >
           {/* Header Section */}
           <View style={[styles.section, styles.headerSection]}>
-            <GreetingHeader userName={userName} favoriteCar={favoriteCar} />
+            <GreetingHeader userName={userName} favoriteCar={favoriteCar} userId={userId} />
           </View>
 
           {/* Hızlı İşlemler - Kampanyaların üstüne taşındı */}

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { auth } from '../middleware/auth';
 import { Wallet } from '../models/Wallet';
+import { WalletController } from '../controllers/wallet.controller';
 
 const router = Router();
 
@@ -66,5 +67,8 @@ router.get('/transactions', auth, async (req: Request, res: Response) => {
     });
   }
 });
+
+// Para ekleme endpoint'i
+router.post('/add-money', auth, WalletController.addMoney);
 
 export default router;

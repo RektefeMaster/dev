@@ -18,6 +18,7 @@ import { API_URL } from '../constants/config';
 import { useAuth } from '../context/AuthContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import { NotificationService } from '../services/notificationService';
 
 type RootStackParamList = {
   FaultReportDetail: { faultReportId: string };
@@ -113,6 +114,63 @@ const FaultReportDetailScreen = () => {
     }
   };
 
+  const sendQuoteNotification = async (faultReportData: any) => {
+    try {
+      const notificationService = NotificationService.getInstance();
+      
+      // En düşük fiyatı bul
+      const minPrice = Math.min(...faultReportData.quotes.map((q: any) => q.quoteAmount));
+      const maxPrice = Math.max(...faultReportData.quotes.map((q: any) => q.quoteAmount));
+      
+      const priceRange = minPrice === maxPrice 
+        ? `${minPrice}₺` 
+        : `${minPrice}₺ - ${maxPrice}₺`;
+      
+      const title = '🎉 Fiyat Teklifi Geldi!';
+      const message = `${faultReportData.quotes.length} usta ${faultReportData.serviceCategory} hizmeti için teklif verdi. Fiyat aralığı: ${priceRange}`;
+      
+      // Yerel bildirim gönder
+      await notificationService.scheduleLocalNotification(
+        title,
+        message,
+        {
+          type: 'quote_received',
+          faultReportId: faultReportData._id,
+          quoteCount: faultReportData.quotes.length,
+          priceRange: priceRange,
+          serviceCategory: faultReportData.serviceCategory
+        }
+      );
+      
+      // Backend'e bildirim gönder
+      await axios.post(
+        `${API_URL}/notifications/send`,
+        {
+          title: title,
+          message: message,
+          type: 'quote_received',
+          data: {
+            faultReportId: faultReportData._id,
+            quoteCount: faultReportData.quotes.length,
+            priceRange: priceRange,
+            serviceCategory: faultReportData.serviceCategory,
+            quotes: faultReportData.quotes.map((q: any) => ({
+              mechanicName: q.mechanicName,
+              quoteAmount: q.quoteAmount,
+              description: q.description
+            }))
+          },
+          targetUserType: 'driver'
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      console.log('📱 Fiyat teklifi bildirimi gönderildi');
+    } catch (error) {
+      console.error('Fiyat teklifi bildirimi gönderme hatası:', error);
+    }
+  };
+
   const fetchFaultReportDetail = async () => {
     try {
       setLoading(true);
@@ -121,7 +179,21 @@ const FaultReportDetailScreen = () => {
       });
 
       if (response.data && response.data.success) {
-        setFaultReport(response.data.data);
+        const newFaultReport = response.data.data;
+        
+        // Eğer önceki durumda teklif yoktu ama şimdi var ise bildirim gönder
+        if (faultReport && 
+            (!faultReport.quotes || faultReport.quotes.length === 0) && 
+            newFaultReport.quotes && 
+            newFaultReport.quotes.length > 0) {
+          
+          console.log('🎉 Yeni fiyat teklifi geldi!', newFaultReport.quotes.length, 'teklif');
+          
+          // Bildirim gönder
+          await sendQuoteNotification(newFaultReport);
+        }
+        
+        setFaultReport(newFaultReport);
       }
     } catch (error) {
       console.error('Arıza bildirimi detay getirme hatası:', error);
@@ -145,7 +217,7 @@ const FaultReportDetailScreen = () => {
         // Teklif seçildi, randevu oluşturma ekranına yönlendir
         const selectedQuote = faultReport.quotes[quoteIndex];
         navigation.navigate('BookAppointment', {
-          mechanicId: selectedQuote.mechanicId,
+          mechanicId: selectedQuote.mechanicId._id || selectedQuote.mechanicId,
           mechanicName: selectedQuote.mechanicName,
           mechanicSurname: '',
           vehicleId: faultReport.vehicleId._id || faultReport.vehicleId,
@@ -165,12 +237,25 @@ const FaultReportDetailScreen = () => {
   // Ödeme ekranına yönlendir
   const goToPayment = () => {
     if (faultReport.selectedQuote) {
+      // Güvenli değer çıkarma
+      const mechanicId = faultReport.selectedQuote.mechanicId;
+      const mechanicName = typeof mechanicId === 'object' && mechanicId?.name 
+        ? mechanicId.name 
+        : typeof mechanicId === 'string' 
+          ? 'Usta' 
+          : 'Usta';
+      
+      const serviceCategory = faultReport.serviceCategory || 'Hizmet';
+      const amount = faultReport.selectedQuote.quoteAmount || 0;
+      
+      console.log('goToPayment - mechanicId:', mechanicId, 'mechanicName:', mechanicName, 'serviceCategory:', serviceCategory, 'amount:', amount);
+      
       navigation.navigate('Payment', {
         faultReportId: faultReport._id,
         appointmentId: appointmentId,
-        amount: faultReport.selectedQuote.quoteAmount,
-        mechanicName: faultReport.selectedQuote.mechanicId.name || 'Usta',
-        serviceCategory: faultReport.serviceCategory
+        amount: amount,
+        mechanicName: mechanicName,
+        serviceCategory: serviceCategory
       });
     }
   };

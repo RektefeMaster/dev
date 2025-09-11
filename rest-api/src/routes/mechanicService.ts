@@ -2,7 +2,7 @@ console.log('mechanicService.ts yüklendi');
 import express, { Request, Response } from 'express';
 import { auth } from '../middleware/auth';
 import { ServiceCategory } from '../models/ServiceCategory';
-import { Mechanic } from '../models/Mechanic';
+import { User } from '../models/User';
 
 /**
  * @swagger
@@ -400,7 +400,7 @@ router.get('/mechanic/:id', auth, async (req: Request, res: Response) => {
     if (!req.user) {
       return res.status(401).json({ message: 'Kullanıcı doğrulanamadı.' });
     }
-    const mechanic = await Mechanic.findById(id);
+    const mechanic = await User.findOne({ _id: id, userType: 'mechanic' });
     if (!mechanic) {
       return res.status(404).json({ message: 'Usta bulunamadı' });
     }
@@ -545,8 +545,8 @@ router.put('/mechanic/:id', auth, async (req: Request, res: Response) => {
 
     console.log('Güncellenecek alanlar:', JSON.stringify(validatedFields, null, 2));
 
-    const mechanic = await Mechanic.findByIdAndUpdate(
-      id, 
+    const mechanic = await User.findOneAndUpdate(
+      { _id: id, userType: 'mechanic' }, 
       validatedFields, 
       { 
         new: true, 
@@ -691,7 +691,7 @@ router.get('/mechanics', async (req: Request, res: Response) => {
       filter.$or = orConditions;
     }
     
-    const mechanics = await Mechanic.find(filter).select(
+    const mechanics = await User.find({ ...filter, userType: 'mechanic' }).select(
       'name surname shopName avatar cover bio serviceCategories vehicleBrands rating totalServices isAvailable location.city workingHours phone experience ratingCount'
     );
     

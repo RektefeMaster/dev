@@ -47,9 +47,9 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
     }
   }, [faultReportId]);
 
-  // mechanicId yoksa usta seçim ekranına yönlendir
+  // mechanicId yoksa usta seçim ekranına yönlendir (sadece FaultReport'dan gelmiyorsa)
   useEffect(() => {
-    if (!mechanicId) {
+    if (!mechanicId && !isFromFaultReport) {
       Alert.alert(
         'Usta Seçimi Gerekli',
         'Randevu almak için önce bir usta seçmelisiniz.',
@@ -65,7 +65,7 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
         ]
       );
     }
-  }, [mechanicId, navigation]);
+  }, [mechanicId, navigation, isFromFaultReport]);
 
   const fetchFaultReportData = async () => {
     if (!faultReportId || !token) return;
@@ -202,6 +202,16 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
       return;
     }
 
+    // mechanicId kontrolü
+    const processedMechanicId = typeof mechanicId === 'string' 
+      ? mechanicId 
+      : mechanicId?._id || mechanicId;
+
+    if (!processedMechanicId) {
+      Alert.alert('Hata', 'Usta bilgisi bulunamadı. Lütfen tekrar deneyin.');
+      return;
+    }
+
     try {
       setLoading(true);
       
@@ -212,7 +222,7 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
       // Debug: Gönderilecek veriyi logla
       const requestBody = {
         userId: userId,
-        mechanicId: typeof mechanicId === 'string' ? mechanicId : mechanicId?._id || mechanicId,
+        mechanicId: processedMechanicId,
         vehicleId: selectedVehicle,
         serviceType: serviceType.toLowerCase().replace(/\s+/g, '-'),
         appointmentDate: appointmentDateObj.toISOString(),

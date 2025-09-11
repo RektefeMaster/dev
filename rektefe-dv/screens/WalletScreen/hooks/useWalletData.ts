@@ -34,13 +34,17 @@ export const useWalletData = () => {
     try {
       setWalletData(prev => ({ ...prev, isLoading: true, error: null }));
       
+      console.log('💰 Wallet verileri yükleniyor...');
+      
       // Wallet balance'ı getir
       const balanceResponse = await apiService.getWalletBalance();
       const balance = balanceResponse.success ? balanceResponse.data.balance : 0;
+      console.log('💰 Balance response:', balanceResponse, 'Balance:', balance);
       
       // Wallet transactions'ları getir
       const transactionsResponse = await apiService.getWalletTransactions();
       const transactions = transactionsResponse.success ? transactionsResponse.data : [];
+      console.log('💰 Transactions response:', transactionsResponse, 'Transactions count:', transactions.length);
       
       // İstatistikleri hesapla
       const now = new Date();
@@ -108,6 +112,7 @@ export const useWalletData = () => {
           : prev.balance - transactionData.amount,
       }));
       
+      console.log('💰 Local transaction eklendi:', newTransaction);
       return { success: true, data: newTransaction };
     } catch (error: any) {
       console.error('Transaction ekleme hatası:', error);

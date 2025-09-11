@@ -35,6 +35,7 @@ import MessagesScreen from '../screens/MessagesScreen';
 import ChatScreen from '../screens/ChatScreen';
 import NewMessageScreen from '../screens/NewMessageScreen';
 import { MyRatingsScreen } from '../screens/MyRatingsScreen';
+import RatingScreen from '../screens/RatingScreen';
 import TowingRequestScreen from '../screens/TowingRequestScreen';
 import WashBookingScreen from '../screens/WashBookingScreen';
 import TirePartsScreen from '../screens/TirePartsScreen';
@@ -116,6 +117,11 @@ export type RootStackParamList = {
     };
   };
   MyRatings: undefined;
+  Rating: {
+    appointmentId: string;
+    mechanicId: string;
+    mechanicName: string;
+  };
   // Yeni hizmet kategorileri ekranları
   TowingRequest: undefined;
   WashBooking: undefined;
@@ -252,6 +258,17 @@ const AppNavigator = () => {
         <Stack.Screen name="NewMessage" component={NewMessageScreen} />
         <Stack.Screen name="ChatScreen" component={ChatScreen} />
         <Stack.Screen name="MyRatings" component={MyRatingsScreen} />
+        <Stack.Screen 
+          name="Rating" 
+          component={RatingScreen}
+          options={{
+            title: 'Değerlendirme',
+            headerStyle: {
+              backgroundColor: '#F59E0B',
+            },
+            headerTintColor: '#fff',
+          }}
+        />
         
         {/* Yeni hizmet kategorileri ekranları */}
         <Stack.Screen 

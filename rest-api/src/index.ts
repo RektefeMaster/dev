@@ -37,6 +37,7 @@ import tefePointRoutes from './routes/tefePoint';
 import activityRoutes from './routes/activity';
 import faultReportRoutes from './routes/faultReport';
 import serviceRequestRoutes from './routes/serviceRequests';
+import paymentRoutes from './routes/payment';
 
 
 
@@ -244,6 +245,7 @@ app.use('/api/tefe-points', tefePointRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/fault-reports', faultReportRoutes);
 app.use('/api/service-requests', serviceRequestRoutes);
+app.use('/api/payment', paymentRoutes);
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 

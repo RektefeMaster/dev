@@ -128,8 +128,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUserId(null);
         setIsAuthenticated(false);
       } finally {
-        console.log('🏁 AuthContext: Loading tamamlandı, isAuthenticated:', isAuthenticated);
         setIsLoading(false);
+        console.log('🏁 AuthContext: Loading tamamlandı, isAuthenticated:', isAuthenticated);
       }
     };
 

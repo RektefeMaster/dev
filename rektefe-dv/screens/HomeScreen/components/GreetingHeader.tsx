@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../../constants/config';
 import { UserProfile } from './UserProfile';
 import { QuickActions } from './QuickActions';
+import { NotificationList } from './NotificationList';
 
 interface GreetingHeaderProps {
   userName: string;
@@ -14,33 +15,45 @@ interface GreetingHeaderProps {
     model: string;
     plateNumber: string;
   } | null;
+  userId?: string;
 }
 
-export const GreetingHeader: React.FC<GreetingHeaderProps> = ({ userName, favoriteCar }) => {
+export const GreetingHeader: React.FC<GreetingHeaderProps> = ({ userName, favoriteCar, userId: propUserId }) => {
   const navigation = useNavigation<DrawerNavigationProp<any>>();
   const [userId, setUserId] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    getUserId();
+    if (propUserId) {
+      setUserId(propUserId);
+      console.log('🔍 GreetingHeader: propUserId alındı:', propUserId);
+    } else {
+      getUserId();
+    }
     fetchUnreadCount();
-  }, []);
+  }, [propUserId]);
 
   const fetchUnreadCount = async () => {
     try {
+      console.log('🔍 GreetingHeader: Bildirim sayısı getiriliyor...');
       const token = await AsyncStorage.getItem('token');
       if (token) {
         const response = await fetch(`${API_URL}/notifications/driver`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
+        console.log('📱 GreetingHeader API Response:', data);
+        
         if (data.success && data.data && Array.isArray(data.data)) {
-          const unread = data.data.filter((n: any) => !n.read).length;
+          const unread = data.data.filter((n: any) => !n.isRead).length;
           setUnreadCount(unread);
+          console.log('✅ GreetingHeader: Okunmamış bildirim sayısı:', unread);
+        } else {
+          setUnreadCount(0);
         }
       }
     } catch (error) {
-      console.error('Bildirim sayısı alınamadı:', error);
+      console.error('❌ GreetingHeader: Bildirim sayısı alınamadı:', error);
     }
   };
 
@@ -110,10 +123,23 @@ export const GreetingHeader: React.FC<GreetingHeaderProps> = ({ userName, favori
         onCarPress={handleCarPress}
         onNotificationPress={() => navigation.navigate('Notifications')}
         unreadCount={unreadCount}
+        navigation={navigation}
       />
 
       {/* Quick Actions Section */}
       <QuickActions actions={quickActions} />
+
+      {/* Notification List */}
+      {userId && (
+        <>
+          {console.log('🔍 GreetingHeader: NotificationList render ediliyor, userId:', userId)}
+          <NotificationList
+            userId={userId}
+            onNotificationCountChange={handleNotificationCountChange}
+            navigation={navigation}
+          />
+        </>
+      )}
     </View>
   );
 };

@@ -212,7 +212,11 @@ const userSchema = new Schema<IUser>({
   // Usta/Şöför özel alanları
   username: {
     type: String,
-    default: null
+    required: function() {
+      return this.userType === 'mechanic';
+    },
+    unique: true,
+    sparse: true
   },
   serviceCategories: [{
     type: String,

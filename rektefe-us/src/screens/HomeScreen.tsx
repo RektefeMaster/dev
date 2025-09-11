@@ -626,85 +626,104 @@ const mechanicCapabilities = [
         maxItems={3}
       />
 
-      {/* Modern Header with Clean Design */}
-      <View style={styles.modernHeader}>
-        <View style={styles.headerTop}>
-          <View style={styles.headerContent}>
-            <Text style={styles.headerGreeting}>
-              {getGreeting()}, {getPersonalGreeting(user?.name)}
-            </Text>
-            <Text style={styles.headerSubtitle}>
-              Bugün {stats.activeJobs} aktif işin var
-            </Text>
-          </View>
-          
-          {/* Notification Button */}
-          <TouchableOpacity 
-            style={styles.notificationButton}
-            onPress={() => navigation.navigate('Notifications')}
-          >
-            <Ionicons name="notifications-outline" size={24} color="#1E293B" />
-            {unreadNotificationCount > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>
-                  {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Modern Stats Row */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <View style={styles.statIconContainer}>
-                <Ionicons name="briefcase" size={22} color="#3B82F6" />
-              </View>
-              <Text style={styles.statNumber}>{stats.activeJobs}</Text>
-              <Text style={styles.statLabel}>Aktif İş</Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <View style={styles.statIconContainer}>
-                <Ionicons name="cash" size={22} color="#10B981" />
-              </View>
-              <Text style={[
-                styles.statNumber,
-                stats.todayEarnings > 9999 && styles.statNumberSmall
-              ]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
-                ₺{stats.todayEarnings > 999999 ? 
-                  (stats.todayEarnings / 1000000).toFixed(1) + 'M' : 
-                  stats.todayEarnings > 9999 ? 
-                  (stats.todayEarnings / 1000).toFixed(1) + 'K' : 
-                  stats.todayEarnings.toLocaleString('tr-TR')
-                }
-              </Text>
-              <Text style={styles.statLabel}>Bugün Kazanç</Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <View style={styles.statIconContainer}>
-                <Ionicons name="star" size={22} color="#F59E0B" />
-              </View>
-              <Text style={styles.statNumber}>{stats.averageRating.toFixed(1)}</Text>
-              <Text style={styles.statLabel}>Ortalama Puan</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-
       <ScrollView
-        style={styles.content}
+        style={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Quick Actions - Sadece kullanıcının hizmet kategorilerine göre */}
+        {/* Enhanced Modern Header */}
+        <View style={styles.modernHeader}>
+          <View style={styles.headerTop}>
+            <View style={styles.headerContent}>
+              <View style={styles.greetingContainer}>
+                <Text style={styles.headerGreeting}>
+                  {getGreeting()}
+                </Text>
+                <Text style={styles.headerName}>
+                  {getPersonalGreeting(user?.name)}
+                </Text>
+              </View>
+              <Text style={styles.headerSubtitle}>
+                Bugün {stats.activeJobs} aktif işin var
+              </Text>
+            </View>
+            
+            {/* Enhanced Notification Button */}
+            <TouchableOpacity 
+              style={styles.notificationButton}
+              onPress={() => navigation.navigate('Notifications')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.notificationIconContainer}>
+                <Ionicons 
+                  name="notifications-outline" 
+                  size={24} 
+                  color="#1E293B" 
+                />
+                {unreadNotificationCount > 0 && (
+                  <View style={[
+                    styles.notificationBadge,
+                    unreadNotificationCount > 9 && styles.notificationBadgeWide,
+                    unreadNotificationCount > 99 && styles.notificationBadgeExtraWide
+                  ]}>
+                    <Text style={[
+                      styles.notificationBadgeText,
+                      unreadNotificationCount > 9 && styles.notificationBadgeTextSmall
+                    ]}>
+                      {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* Enhanced Stats Row */}
+          <View style={styles.statsContainer}>
+            <View style={styles.statsRow}>
+              <View style={styles.statCard}>
+                <View style={styles.statIconContainer}>
+                  <Ionicons name="briefcase" size={24} color="#3B82F6" />
+                </View>
+                <Text style={styles.statNumber}>{stats.activeJobs}</Text>
+                <Text style={styles.statLabel}>Aktif İş</Text>
+              </View>
+
+              <View style={styles.statCard}>
+                <View style={styles.statIconContainer}>
+                  <Ionicons name="cash" size={24} color="#10B981" />
+                </View>
+                <Text style={[
+                  styles.statNumber,
+                  stats.todayEarnings > 9999 && styles.statNumberSmall
+                ]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                  ₺{stats.todayEarnings > 999999 ? 
+                    (stats.todayEarnings / 1000000).toFixed(1) + 'M' : 
+                    stats.todayEarnings > 9999 ? 
+                    (stats.todayEarnings / 1000).toFixed(1) + 'K' : 
+                    stats.todayEarnings.toLocaleString('tr-TR')
+                  }
+                </Text>
+                <Text style={styles.statLabel}>Bugün Kazanç</Text>
+              </View>
+
+              <View style={styles.statCard}>
+                <View style={styles.statIconContainer}>
+                  <Ionicons name="star" size={24} color="#F59E0B" />
+                </View>
+                <Text style={styles.statNumber}>{stats.averageRating.toFixed(1)}</Text>
+                <Text style={styles.statLabel}>Ortalama Puan</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+        {/* Enhanced Quick Actions */}
         <View style={styles.quickActionsSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Hızlı Erişim</Text>
+            <Text style={styles.sectionSubtitle}>En sık kullanılan işlemler</Text>
           </View>
           
           <View style={styles.quickActions}>
@@ -712,11 +731,13 @@ const mechanicCapabilities = [
               <TouchableOpacity
                 style={styles.quickActionCard}
                 onPress={() => navigation.navigate('TowingService')}
+                activeOpacity={0.8}
               >
                 <View style={[styles.quickActionGradient, { backgroundColor: '#FEF2F2' }]}>
                   <Ionicons name="car" size={28} color="#EF4444" />
                 </View>
                 <Text style={styles.quickActionText}>Çekici İşleri</Text>
+                <Text style={styles.quickActionSubtext}>Aktif çekici işleri</Text>
               </TouchableOpacity>
             )}
 
@@ -724,11 +745,13 @@ const mechanicCapabilities = [
               <TouchableOpacity
                 style={styles.quickActionCard}
                 onPress={() => navigation.navigate('RepairService')}
+                activeOpacity={0.8}
               >
                 <View style={[styles.quickActionGradient, { backgroundColor: '#EFF6FF' }]}>
                   <Ionicons name="construct" size={28} color="#3B82F6" />
                 </View>
                 <Text style={styles.quickActionText}>Tamir İşleri</Text>
+                <Text style={styles.quickActionSubtext}>Arıza tespit ve onarım</Text>
               </TouchableOpacity>
             )}
 
@@ -736,11 +759,13 @@ const mechanicCapabilities = [
               <TouchableOpacity
                 style={styles.quickActionCard}
                 onPress={() => navigation.navigate('WashService')}
+                activeOpacity={0.8}
               >
                 <View style={[styles.quickActionGradient, { backgroundColor: '#ECFDF5' }]}>
                   <Ionicons name="water" size={28} color="#10B981" />
                 </View>
                 <Text style={styles.quickActionText}>Yıkama İşleri</Text>
+                <Text style={styles.quickActionSubtext}>Araç temizlik hizmetleri</Text>
               </TouchableOpacity>
             )}
 
@@ -748,11 +773,13 @@ const mechanicCapabilities = [
               <TouchableOpacity
                 style={styles.quickActionCard}
                 onPress={() => navigation.navigate('TireService')}
+                activeOpacity={0.8}
               >
                 <View style={[styles.quickActionGradient, { backgroundColor: '#FFFBEB' }]}>
                   <Ionicons name="car" size={28} color="#F59E0B" />
                 </View>
                 <Text style={styles.quickActionText}>Lastik İşleri</Text>
+                <Text style={styles.quickActionSubtext}>Lastik ve yedek parça</Text>
               </TouchableOpacity>
             )}
 
@@ -760,6 +787,7 @@ const mechanicCapabilities = [
             <TouchableOpacity
               style={styles.quickActionCard}
               onPress={() => navigation.navigate('FaultReports')}
+              activeOpacity={0.8}
             >
               <View style={[styles.quickActionGradient, { backgroundColor: '#FEF2F2' }]}>
                 <Ionicons name="warning" size={28} color="#EF4444" />
@@ -770,30 +798,35 @@ const mechanicCapabilities = [
                 )}
               </View>
               <Text style={styles.quickActionText}>Arıza Bildirimleri</Text>
-              {faultReportsCount > 0 && (
+              {faultReportsCount > 0 ? (
                 <Text style={styles.quickActionSubtext}>{faultReportsCount} yeni bildirim</Text>
+              ) : (
+                <Text style={styles.quickActionSubtext}>Bekleyen bildirimler</Text>
               )}
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.quickActionCard}
               onPress={() => navigation.navigate('Wallet')}
+              activeOpacity={0.8}
             >
               <View style={[styles.quickActionGradient, { backgroundColor: '#F3F4F6' }]}>
                 <Ionicons name="wallet" size={28} color="#6B7280" />
               </View>
               <Text style={styles.quickActionText}>Cüzdan</Text>
+              <Text style={styles.quickActionSubtext}>Gelir ve ödemeler</Text>
             </TouchableOpacity>
           </View>
         </View>
 
 
 
-        {/* Recent Ratings */}
+        {/* Enhanced Recent Ratings */}
         {recentRatings.length > 0 && (
           <View style={styles.recentSection}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Son Değerlendirmeler</Text>
+              <Text style={styles.sectionSubtitle}>Müşteri geri bildirimleri</Text>
               <TouchableOpacity onPress={() => navigation.navigate('Support')}>
                 <Text style={styles.seeAllText}>Tümünü Gör</Text>
               </TouchableOpacity>
@@ -801,30 +834,30 @@ const mechanicCapabilities = [
             
             <View style={styles.ratingsContainer}>
               {recentRatings.slice(0, 3).map((rating, index) => (
-                                  <View key={rating._id || index} style={styles.ratingCard}>
-                    <View style={styles.ratingHeader}>
-                      <View style={styles.customerInfo}>
-                        <Text style={styles.customerName}>
-                          {rating.customer ? `${rating.customer.name} ${rating.customer.surname}` : `Müşteri ${rating.driverId?.slice(-4) || 'XXXX'}`}
-                        </Text>
-                        <Text style={styles.serviceInfo}>
-                          {rating.appointment?.serviceType || rating.appointmentId || 'Servis'}
-                        </Text>
-                      </View>
-                      <View style={styles.ratingStars}>
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Ionicons
-                            key={star}
-                            name={star <= rating.rating ? 'star' : 'star-outline'}
-                            size={16}
-                            color={star <= rating.rating ? '#F59E0B' : '#D1D5DB'}
-                          />
-                        ))}
-                        <Text style={styles.ratingNumber}>({rating.rating})</Text>
-                      </View>
+                <View key={rating._id || index} style={styles.ratingCard}>
+                  <View style={styles.ratingHeader}>
+                    <View style={styles.customerInfo}>
+                      <Text style={styles.customerName}>
+                        {rating.customer ? `${rating.customer.name} ${rating.customer.surname}` : `Müşteri ${rating.driverId?.slice(-4) || 'XXXX'}`}
+                      </Text>
+                      <Text style={styles.serviceInfo}>
+                        {rating.appointment?.serviceType || rating.appointmentId || 'Servis'}
+                      </Text>
                     </View>
-                    {rating.comment && (
-                      <Text style={styles.ratingComment}>"{rating.comment}"</Text>
+                    <View style={styles.ratingStars}>
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Ionicons
+                          key={star}
+                          name={star <= rating.rating ? 'star' : 'star-outline'}
+                          size={18}
+                          color={star <= rating.rating ? '#F59E0B' : '#D1D5DB'}
+                        />
+                      ))}
+                      <Text style={styles.ratingNumber}>({rating.rating})</Text>
+                    </View>
+                  </View>
+                  {rating.comment && (
+                    <Text style={styles.ratingComment}>"{rating.comment}"</Text>
                   )}
                   <Text style={styles.ratingTime}>
                     {new Date(rating.createdAt).toLocaleDateString('tr-TR')}
@@ -834,6 +867,9 @@ const mechanicCapabilities = [
             </View>
           </View>
         )}
+
+        {/* Bottom Spacing */}
+        <View style={styles.bottomSpacing} />
 
       </ScrollView>
     </SafeAreaView>
@@ -937,6 +973,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
+  scrollContainer: {
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -954,11 +993,12 @@ const styles = StyleSheet.create({
   modernHeader: {
     backgroundColor: '#FFFFFF',
     paddingBottom: 32,
+    marginBottom: 8,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 8,
   },
   headerTop: {
     flexDirection: 'row',
@@ -971,53 +1011,95 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
-  notificationButton: {
-    position: 'relative',
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-    marginLeft: 12,
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: '#EF4444',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
+  greetingContainer: {
     alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  notificationBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
+    marginBottom: 8,
   },
   headerGreeting: {
-    fontSize: 30,
-    fontWeight: '800',
+    fontSize: 28,
+    fontWeight: '700',
     color: '#1E293B',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 4,
+  },
+  headerName: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#3B82F6',
+    textAlign: 'center',
   },
   headerSubtitle: {
-    fontSize: 17,
+    fontSize: 16,
     color: '#64748B',
     textAlign: 'center',
     fontWeight: '500',
   },
+  notificationButton: {
+    position: 'relative',
+    padding: 12,
+    borderRadius: 24,
+    backgroundColor: '#F8FAFC',
+    marginLeft: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  notificationIconContainer: {
+    position: 'relative',
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    // İkonu kapatmaması için daha küçük ve üstte
+  },
+  notificationBadgeWide: {
+    minWidth: 22,
+    height: 20,
+    paddingHorizontal: 5,
+    top: -7,
+    right: -7,
+  },
+  notificationBadgeExtraWide: {
+    minWidth: 26,
+    height: 20,
+    paddingHorizontal: 6,
+    top: -8,
+    right: -8,
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 12,
+  },
+  notificationBadgeTextSmall: {
+    fontSize: 9,
+    lineHeight: 11,
+  },
 
   statsContainer: {
     paddingHorizontal: 16,
-    marginTop: 20,
-    marginBottom: 6,
+    marginTop: 24,
+    marginBottom: 8,
     width: '100%',
   },
   statsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
     justifyContent: 'space-between',
     alignItems: 'stretch',
     width: '100%',
@@ -1025,64 +1107,70 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 20,
     alignItems: 'center',
-    borderWidth: 0,
-    minWidth: 0, // Taşmayı önle
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    minWidth: 0,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
   },
   statIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#F8FAFC',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   statNumber: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
     color: '#1E293B',
-    marginBottom: 4,
+    marginBottom: 6,
     textAlign: 'center',
-    minHeight: 26,
+    minHeight: 28,
   },
   statNumberSmall: {
-    fontSize: 18,
-    minHeight: 26,
+    fontSize: 20,
+    minHeight: 28,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#64748B',
     fontWeight: '600',
     textAlign: 'center',
   },
 
-  content: {
-    flex: 1,
+  quickActionsSection: {
+    marginTop: 24,
     paddingHorizontal: 20,
   },
-  quickActionsSection: {
-    marginTop: 20,
-  },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 22,
+    marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '800',
     color: '#1E293B',
+    marginBottom: 6,
+  },
+  sectionSubtitle: {
+    fontSize: 16,
+    color: '#64748B',
+    fontWeight: '500',
   },
   seeAllText: {
     fontSize: 15,
@@ -1092,58 +1180,71 @@ const styles = StyleSheet.create({
   quickActions: {
     flexDirection: 'row',
     gap: 16,
+    flexWrap: 'wrap',
   },
   quickActionCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: 20,
+    padding: 20,
     alignItems: 'center',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-    minWidth: 110,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 6,
+    minWidth: 120,
     flex: 1,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   quickActionGradient: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   quickActionText: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
     color: '#1E293B',
     textAlign: 'center',
+    marginBottom: 4,
   },
   quickActionSubtext: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
-    color: '#EF4444',
+    color: '#64748B',
     textAlign: 'center',
-    marginTop: 4,
   },
   badge: {
     position: 'absolute',
     top: -8,
     right: -8,
     backgroundColor: '#EF4444',
-    borderRadius: 12,
-    minWidth: 24,
-    height: 24,
+    borderRadius: 14,
+    minWidth: 28,
+    height: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: '#FFFFFF',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   badgeText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   appointmentsSection: {
     marginTop: 30,
@@ -1249,6 +1350,7 @@ const styles = StyleSheet.create({
   },
   recentSection: {
     marginTop: 32,
+    paddingHorizontal: 20,
   },
   activityList: {
     gap: 16,
@@ -1257,21 +1359,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: 20,
+    padding: 20,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   activityIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 18,
+    marginRight: 20,
   },
   activityContent: {
     flex: 1,
@@ -1294,41 +1398,48 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   ratingsContainer: {
-    gap: 16,
+    gap: 20,
   },
   ratingCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 22,
+    borderRadius: 20,
+    padding: 24,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   ratingHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 14,
+    marginBottom: 16,
   },
   customerInfo: {
     flex: 1,
   },
+  customerName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 4,
+  },
   serviceInfo: {
     fontSize: 15,
     color: '#64748B',
-    marginTop: 6,
     fontWeight: '500',
   },
   ratingStars: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   ratingNumber: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     color: '#F59E0B',
     marginLeft: 8,
   },
@@ -1336,12 +1447,16 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: '#374151',
     fontStyle: 'italic',
-    marginBottom: 14,
+    marginBottom: 16,
     fontWeight: '500',
+    lineHeight: 24,
   },
   ratingTime: {
     fontSize: 15,
     color: '#9CA3AF',
     fontWeight: '500',
+  },
+  bottomSpacing: {
+    height: 100,
   },
 });

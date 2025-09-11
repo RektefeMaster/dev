@@ -117,14 +117,14 @@ export const updateMechanicProfileSchema = Joi.object({
     'array.base': 'Uzmanlık alanları array olmalıdır'
   }),
   location: Joi.object({
-    city: Joi.string().min(2).max(50).optional(),
-    district: Joi.string().min(2).max(50).optional(),
-    neighborhood: Joi.string().min(2).max(50).optional(),
-    street: Joi.string().min(2).max(100).optional(),
-    building: Joi.string().min(1).max(50).optional(),
-    floor: Joi.string().min(1).max(10).optional(),
-    apartment: Joi.string().min(1).max(10).optional(),
-    description: Joi.string().max(500).optional(),
+    city: Joi.string().min(2).max(50).allow('').optional(),
+    district: Joi.string().min(2).max(50).allow('').optional(),
+    neighborhood: Joi.string().min(2).max(50).allow('').optional(),
+    street: Joi.string().min(2).max(100).allow('').optional(),
+    building: Joi.string().min(1).max(50).allow('').optional(),
+    floor: Joi.string().min(1).max(10).allow('').optional(),
+    apartment: Joi.string().min(1).max(10).allow('').optional(),
+    description: Joi.string().max(500).allow('').optional(),
     coordinates: Joi.object({
       latitude: Joi.number().min(-90).max(90).required(),
       longitude: Joi.number().min(-180).max(180).required()

@@ -16,6 +16,7 @@ export class AuthService {
     password: string;
     userType?: 'driver' | 'mechanic';
     phone?: string;
+    username?: string;
     experience?: number;
     specialties?: string[];
     serviceCategories?: string[];
@@ -29,9 +30,13 @@ export class AuthService {
       building?: string;
       floor?: string;
       apartment?: string;
+      coordinates?: {
+        latitude: number;
+        longitude: number;
+      };
     };
   }) {
-    const { name, surname, email, password, userType, phone, experience, specialties, serviceCategories, selectedServices, location } = userData;
+    const { name, surname, email, password, userType, phone, username, experience, specialties, serviceCategories, selectedServices, location } = userData;
     
     // Email'i normalize et
     const normalizedEmail = email.trim().toLowerCase();
@@ -56,6 +61,7 @@ export class AuthService {
       password: hashedPassword, 
       userType: finalUserType,
       phone: phone || '',
+      username: finalUserType === 'mechanic' ? (username || `${normalizedEmail.split('@')[0]}_${Date.now()}`) : undefined,
       selectedServices: selectedServices || []
     });
 
@@ -64,17 +70,21 @@ export class AuthService {
     // Mechanic için ek bilgileri User modelinde sakla
     if (finalUserType === 'mechanic') {
       // Mechanic özelliklerini User modelinde güncelle
-      user.username = `${normalizedEmail.split('@')[0]}_${Date.now()}`;
+      user.username = username || `${normalizedEmail.split('@')[0]}_${Date.now()}`;
       user.serviceCategories = serviceCategories || specialties || ['Genel Bakım'];
       user.experience = experience || 0;
       user.rating = 0;
       user.ratingCount = 0;
       user.totalServices = 0;
       user.isAvailable = true;
-      user.currentLocation = {
-        type: 'Point',
-        coordinates: [0, 0]
-      };
+      // currentLocation'ı kullanıcının konum bilgisi ile doldur
+      if (location?.coordinates) {
+        user.currentLocation = {
+          type: 'Point',
+          coordinates: [location.coordinates.longitude, location.coordinates.latitude]
+        };
+      }
+      // Konum bilgisi yoksa currentLocation alanını hiç set etme
       user.documents = { insurance: 'Sigorta bilgisi eklenecek' };
       user.shopName = '';
       user.location = {
@@ -84,7 +94,11 @@ export class AuthService {
         street: location?.street || '',
         building: location?.building || '',
         floor: location?.floor || '',
-        apartment: location?.apartment || ''
+        apartment: location?.apartment || '',
+        coordinates: location?.coordinates ? {
+          latitude: location.coordinates.latitude,
+          longitude: location.coordinates.longitude
+        } : undefined
       };
       user.workingHours = '';
       user.carBrands = ['Genel'];
