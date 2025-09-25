@@ -10,25 +10,16 @@ export class VehicleService {
    */
   static async createVehicle(vehicleData: Partial<IVehicle>, userId: string): Promise<IVehicle> {
     try {
-      console.log('🚗 VehicleService: Araç oluşturuluyor...', {
-        vehicleData,
-        userId
-      });
-
       // ObjectId validation
       if (!mongoose.Types.ObjectId.isValid(userId)) {
-        console.log('❌ VehicleService: Geçersiz kullanıcı ID:', userId);
         throw new CustomError('Geçersiz kullanıcı ID', 400);
       }
 
       // Kullanıcının var olduğunu kontrol et
       const user = await User.findById(userId);
       if (!user) {
-        console.log('❌ VehicleService: Kullanıcı bulunamadı:', userId);
         throw new CustomError('Kullanıcı bulunamadı', 404);
       }
-
-      console.log('✅ VehicleService: Kullanıcı bulundu:', user.email);
 
       // Araç verilerini hazırla
       const vehicle = new Vehicle({
@@ -36,13 +27,9 @@ export class VehicleService {
         userId: new mongoose.Types.ObjectId(userId)
       });
 
-      console.log('🔧 VehicleService: Araç objesi oluşturuldu:', vehicle);
-
       const savedVehicle = await vehicle.save();
-      console.log('✅ VehicleService: Araç kaydedildi:', savedVehicle._id);
       return savedVehicle;
     } catch (error) {
-      console.error('❌ VehicleService: Hata:', error);
       if (error instanceof CustomError) throw error;
       throw new CustomError('Araç oluşturulurken hata oluştu', 500);
     }
@@ -93,7 +80,6 @@ export class VehicleService {
       return vehicle;
     } catch (error) {
       if (error instanceof CustomError) throw error;
-      console.error('VehicleService.getVehicleById error:', error);
       throw new CustomError('Araç getirilirken hata oluştu', 500);
     }
   }
@@ -212,7 +198,6 @@ export class VehicleService {
 
       return vehicles;
     } catch (error) {
-      console.error('VehicleService.getServicedVehicles error:', error);
       throw new CustomError('Servis edilmiş araçlar getirilirken hata oluştu', 500);
     }
   }
@@ -271,7 +256,6 @@ export class VehicleService {
       return vehicle;
     } catch (error) {
       if (error instanceof CustomError) throw error;
-      console.error('VehicleService.toggleFavorite error:', error);
       throw new CustomError('Favori durumu güncellenirken hata oluştu', 500);
     }
   }

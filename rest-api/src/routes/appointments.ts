@@ -71,12 +71,9 @@ router.get('/mechanic', auth, async (req: Request, res: Response) => {
   try {
     const mechanicId = (req.user as any)?.userId;
     const statusFilter = req.query.status as string;
-    console.log('🔍 /appointments/mechanic - mechanicId:', mechanicId, 'statusFilter:', statusFilter);
     const appointments = await AppointmentService.getMechanicAppointments(mechanicId, statusFilter, req.query);
-    console.log('🔍 /appointments/mechanic - appointments count:', appointments.length);
     res.json({ success: true, data: appointments });
   } catch (error: any) {
-    console.error('❌ /appointments/mechanic error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -402,7 +399,6 @@ router.put('/:id/servise-al', auth, async (req: Request, res: Response) => {
       data: appointment
     });
   } catch (error: any) {
-    console.error('Servise alma hatası:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -483,7 +479,6 @@ router.put('/:id/price-increase', auth, async (req: Request, res: Response) => {
       }
     });
   } catch (error: any) {
-    console.error('Fiyat artırma hatası:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -538,7 +533,6 @@ router.put('/:id/odeme-bekliyor', auth, async (req: Request, res: Response) => {
       }
     });
   } catch (error: any) {
-    console.error('Ödeme bekliyor hatası:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -575,7 +569,6 @@ router.put('/:id/odeme-tamamlandi', auth, async (req: Request, res: Response) =>
       data: appointment
     });
   } catch (error: any) {
-    console.error('Ödeme tamamlama hatası:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -598,7 +591,6 @@ router.put('/:id/no-show', auth, async (req: Request, res: Response) => {
       data: appointment
     });
   } catch (error: any) {
-    console.error('No-show hatası:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -630,7 +622,6 @@ router.put('/:id/parca-bekleniyor', auth, async (req: Request, res: Response) =>
       data: appointment
     });
   } catch (error: any) {
-    console.error('Parça bekleniyor hatası:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -658,7 +649,6 @@ router.put('/:id/complete', auth, async (req: Request, res: Response) => {
       data: appointment
     });
   } catch (error: any) {
-    console.error('Randevu tamamlama hatası:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -700,7 +690,6 @@ router.put('/migrate-status', auth, async (req: Request, res: Response) => {
       data: { updatedCount }
     });
   } catch (error: any) {
-    console.error('Status migration hatası:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

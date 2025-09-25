@@ -74,17 +74,15 @@ router.post('/simulate-payment', auth, async (req: Request, res: Response) => {
         const tefePointResult = await TefePointService.processPaymentTefePoints({
           userId,
           amount,
-          paymentType: 'service_payment',
+          paymentType: 'other',
           serviceCategory: serviceType || 'maintenance',
           description: description || `${serviceType} hizmet ödemesi`,
           serviceId: paymentId,
           appointmentId: appointmentId
         });
 
-        console.log(`✅ Ödeme sonrası TEFE puan eklendi: ${tefePointResult.earnedPoints || 0} puan`);
-      } catch (tefeError) {
-        console.error('❌ TEFE puan ekleme hatası:', tefeError);
-      }
+        } catch (tefeError) {
+        }
 
       res.json({
         success: true,
@@ -113,7 +111,6 @@ router.post('/simulate-payment', auth, async (req: Request, res: Response) => {
     }
 
   } catch (error: any) {
-    console.error('Ödeme simülasyonu hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Ödeme işlemi sırasında hata oluştu',
@@ -156,7 +153,6 @@ router.get('/history', auth, async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('Ödeme geçmişi hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Ödeme geçmişi getirilirken hata oluştu',

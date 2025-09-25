@@ -22,7 +22,6 @@ router.get('/unread-count', auth, async (req: Request, res: Response) => {
       message: 'Unread message count başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Unread count hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Unread count getirilirken hata oluştu',
@@ -46,7 +45,6 @@ router.get('/conversations', auth, async (req: Request, res: Response) => {
       message: 'Conversations başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Conversations hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Conversations getirilirken hata oluştu',
@@ -77,7 +75,6 @@ router.get('/conversations/:conversationId/messages', auth, async (req: Request,
       message: 'Messages başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Messages hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Messages getirilirken hata oluştu',
@@ -114,7 +111,6 @@ router.post('/send', auth, async (req: Request, res: Response) => {
       message: 'Mesaj başarıyla gönderildi'
     });
   } catch (error: any) {
-    console.error('Send message hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Mesaj gönderilirken hata oluştu',
@@ -150,7 +146,6 @@ router.put('/mark-read', auth, async (req: Request, res: Response) => {
       message: 'Mesajlar okundu olarak işaretlendi'
     });
   } catch (error: any) {
-    console.error('Mark as read hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Mesajlar işaretlenirken hata oluştu',
@@ -179,7 +174,6 @@ router.delete('/conversations/:conversationId', auth, async (req: Request, res: 
       message: 'Sohbet başarıyla silindi'
     });
   } catch (error: any) {
-    console.error('Delete conversation hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Sohbet silinirken hata oluştu',
@@ -210,7 +204,6 @@ router.get('/conversations/:conversationId/messages/after/:messageId', auth, asy
       message: 'Messages after başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Messages after hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Messages after getirilirken hata oluştu',
@@ -268,7 +261,6 @@ router.get('/conversation/find/:otherUserId', auth, async (req: Request, res: Re
       message: 'Konuşma bulundu'
     });
   } catch (error: any) {
-    console.error('Conversation find hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Konuşma bulunurken hata oluştu',
@@ -377,8 +369,6 @@ router.get('/poll-messages', auth, async (req: Request, res: Response) => {
           }
         }
       } catch (error) {
-        console.error('🔍 Backend: Long polling hatası:', error);
-        
         if (pollInterval) {
           clearInterval(pollInterval);
         }
@@ -392,10 +382,9 @@ router.get('/poll-messages', auth, async (req: Request, res: Response) => {
           });
         }
       }
-    }, 2000); // Her 2 saniyede bir kontrol et (1 saniye yerine)
+    }, 5000); // Her 5 saniyede bir kontrol et (daha az sıklıkta)
     
   } catch (error: any) {
-    console.error('Poll messages hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Mesajlar kontrol edilirken hata oluştu',
@@ -405,12 +394,15 @@ router.get('/poll-messages', auth, async (req: Request, res: Response) => {
 });
 
 // ===== DELETE MESSAGE ENDPOINT =====
-router.delete('/message/:messageId', auth, async (req: Request, res: Response) => {
+router.delete('/:messageId', auth, async (req: Request, res: Response) => {
   try {
     const { messageId } = req.params;
     const userId = req.user?.userId;
     
+    console.log(`[MessageRoute] DELETE /message/${messageId} - User: ${userId}`);
+    
     if (!userId) {
+      console.log(`[MessageRoute] No userId found in request`);
       return res.status(401).json({
         success: false,
         message: 'Kullanıcı ID bulunamadı'
@@ -420,18 +412,20 @@ router.delete('/message/:messageId', auth, async (req: Request, res: Response) =
     const deleted = await MessageService.deleteMessage(messageId, userId);
     
     if (deleted) {
+      console.log(`[MessageRoute] Message ${messageId} deleted successfully`);
       res.json({
         success: true,
         message: 'Mesaj başarıyla silindi'
       });
     } else {
+      console.log(`[MessageRoute] Message ${messageId} could not be deleted`);
       res.status(404).json({
         success: false,
-        message: 'Mesaj bulunamadı'
+        message: 'Mesaj bulunamadı veya silme yetkiniz yok'
       });
     }
   } catch (error: any) {
-    console.error('Delete message hatası:', error);
+    console.error(`[MessageRoute] Error deleting message:`, error);
     res.status(500).json({
       success: false,
       message: 'Mesaj silinirken hata oluştu',

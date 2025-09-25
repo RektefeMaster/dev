@@ -4,9 +4,15 @@
 
 // API Konfigürasyonu - Env/Expo fallback + Localhost
 export const API_CONFIG = {
-  BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000/api',
+  BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || process.env.API_BASE_URL || 'http://192.168.1.36:3000/api',
   TIMEOUT: 60000,
 };
+
+// Debug log for API configuration
+console.log('🔍 Rektefe-US API Config Debug:');
+console.log('EXPO_PUBLIC_API_BASE_URL:', process.env.EXPO_PUBLIC_API_BASE_URL);
+console.log('API_BASE_URL:', process.env.API_BASE_URL);
+console.log('Final BASE_URL:', API_CONFIG.BASE_URL);
 
 // Doğrudan export edilen API URL'leri
 export const API_URL = API_CONFIG.BASE_URL;
@@ -33,6 +39,7 @@ export const STORAGE_KEYS = {
   USER_DATA: 'user_data',
   THEME: 'app_theme',
   ONBOARDING_COMPLETED: 'onboardingCompleted',
+  ERROR_LOGS: 'error_logs',
 };
 
 // Hata Mesajları

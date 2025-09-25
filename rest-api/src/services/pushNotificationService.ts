@@ -47,9 +47,7 @@ export async function sendPushNotification(
       },
     });
 
-    console.log('Push notification gönderildi:', response.data);
-  } catch (error) {
-    console.error('Push notification gönderme hatası:', error);
+    } catch (error) {
     throw error;
   }
 }
@@ -81,9 +79,7 @@ export async function sendBulkPushNotifications(
       },
     });
 
-    console.log('Toplu push notification gönderildi:', response.data);
-  } catch (error) {
-    console.error('Toplu push notification gönderme hatası:', error);
+    } catch (error) {
     throw error;
   }
 }

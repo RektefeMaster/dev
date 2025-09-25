@@ -71,7 +71,10 @@ export class TefePointService {
 
       await tefePoint.save();
 
-      console.log(`✅ TefePuan eklendi: ${earnedPoints} puan (${(multiplier * 100).toFixed(1)}%), Kullanıcı: ${userId}, Ödeme Türü: ${paymentType}`);
+      // TefePuan earned successfully
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`TefePuan eklendi: ${earnedPoints} puan (${(earnedPoints / amount * 100).toFixed(1)}%), Kullanıcı: ${userId}, Ödeme Türü: ${paymentType}`);
+      }
 
       return {
         success: true,
@@ -79,7 +82,6 @@ export class TefePointService {
       };
 
     } catch (error: any) {
-      console.error('❌ TefePuan işleme hatası:', error);
       return {
         success: false,
         error: error.message || 'TefePuan işlenirken hata oluştu'
@@ -164,12 +166,9 @@ export class TefePointService {
 
       await tefePoint.save();
 
-      console.log(`🎁 Bonus TefePuan eklendi: ${points} puan, Kullanıcı: ${userId}`);
-
       return { success: true };
 
     } catch (error: any) {
-      console.error('❌ Bonus TefePuan ekleme hatası:', error);
       return {
         success: false,
         error: error.message || 'Bonus TefePuan eklenirken hata oluştu'
@@ -216,12 +215,9 @@ export class TefePointService {
 
       await tefePoint.save();
 
-      console.log(`👥 Referans TefePuan eklendi: ${points} puan, Kullanıcı: ${userId}`);
-
       return { success: true };
 
     } catch (error: any) {
-      console.error('❌ Referans TefePuan ekleme hatası:', error);
       return {
         success: false,
         error: error.message || 'Referans TefePuan eklenirken hata oluştu'

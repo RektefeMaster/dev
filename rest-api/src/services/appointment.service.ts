@@ -123,8 +123,7 @@ export class AppointmentService {
             }
           }
         } catch (error) {
-          console.log('Arıza bildirimi fiyat bilgisi alınamadı:', error);
-        }
+          }
       }
 
       // Randevu oluştur
@@ -157,7 +156,6 @@ export class AppointmentService {
       await appointment.save();
       return appointment;
     } catch (error) {
-      console.error('Randevu oluşturma hatası:', error);
       throw error;
     }
   }
@@ -180,11 +178,8 @@ export class AppointmentService {
         .populate('vehicleId', 'brand modelName year plateNumber fuelType engineType transmission package color mileage lastMaintenanceDate nextMaintenanceDate')
         .sort({ appointmentDate: -1 });
 
-
-
       return appointments;
     } catch (error) {
-      console.error('❌ AppointmentService: Kullanıcı randevuları getirme hatası:', error);
       throw error;
     }
   }
@@ -209,7 +204,6 @@ export class AppointmentService {
 
       return appointment;
     } catch (error) {
-      console.error('❌ AppointmentService: FaultReportId ile randevu getirme hatası:', error);
       throw error;
     }
   }
@@ -241,12 +235,6 @@ export class AppointmentService {
 
       const query: any = { mechanicId: mechanicId };
       
-      console.log('🔍 getMechanicAppointments: Filtreleme başlıyor...', {
-        mechanicId,
-        statusFilter,
-        filters
-      });
-      
       if (statusFilter) {
         // İngilizce status'ları Türkçe'ye çevir
         const turkishStatus = mapENtoTR[statusFilter] || statusFilter;
@@ -264,13 +252,7 @@ export class AppointmentService {
         
         query.status = { $in: statusValues };
         
-        console.log('🔍 getMechanicAppointments: Status filtresi uygulandı:', {
-          statusFilter,
-          turkishStatus,
-          statusValues,
-          query: query.status
-        });
-      }
+        }
 
       // Tarih filtreleri
       const now = new Date();
@@ -323,7 +305,6 @@ export class AppointmentService {
 
       const formattedAppointments = appointments.map(obj => {
         if (!obj.userId) {
-          console.warn('⚠️ AppointmentService: userId populate failed for appointment:', obj._id, '- User document not found or deleted');
           return null;
         }
 
@@ -384,7 +365,6 @@ export class AppointmentService {
 
       return formattedAppointments;
     } catch (error) {
-      console.error('getMechanicAppointments error:', error);
       throw error;
     }
   }
@@ -394,8 +374,6 @@ export class AppointmentService {
    */
   static async getShopAppointments(mechanicId: string, status?: string) {
     try {
-      console.log('🔍 getShopAppointments called:', { mechanicId, status });
-
       // Status filtreleme
       let statusFilter: any = {};
       if (status) {
@@ -423,8 +401,6 @@ export class AppointmentService {
         .populate('userId', 'name surname phone email')
         .populate('vehicleId', 'brand modelName year plateNumber fuelType engineType transmission package color mileage lastMaintenanceDate nextMaintenanceDate')
         .sort({ appointmentDate: -1, createdAt: -1 });
-
-      console.log('📋 Found shop appointments:', appointments.length);
 
       // Frontend formatına çevir
       const formattedAppointments = appointments.map(appointment => {
@@ -465,7 +441,6 @@ export class AppointmentService {
 
       return formattedAppointments;
     } catch (error) {
-      console.error('getShopAppointments error:', error);
       throw error;
     }
   }
@@ -485,70 +460,124 @@ export class AppointmentService {
         throw new CustomError('Geçersiz randevu ID formatı', 400);
       }
       
-      const appointment = await Appointment.findById(appointmentId)
-        .populate('userId', 'name surname phone email')
-        .populate('mechanicId', 'name surname phone email rating experience city shopType')
-        .populate('vehicleId', 'brand modelName year plateNumber fuelType engineType transmission package color mileage lastMaintenanceDate nextMaintenanceDate')
+      // Optimized query with aggregation to avoid N+1 problem
+      const [appointment] = await Appointment.aggregate([
+        { $match: { _id: new mongoose.Types.ObjectId(appointmentId) } },
+        
+        // Join user data
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'userId',
+            foreignField: '_id',
+            as: 'customer',
+            pipeline: [
+              { $project: { name: 1, surname: 1, phone: 1, email: 1 } }
+            ]
+          }
+        },
+        
+        // Join mechanic data
+        {
+          $lookup: {
+            from: 'mechanics',
+            localField: 'mechanicId',
+            foreignField: '_id',
+            as: 'mechanic',
+            pipeline: [
+              { $project: { name: 1, surname: 1, phone: 1, email: 1, rating: 1, experience: 1, city: 1, shopType: 1 } }
+            ]
+          }
+        },
+        
+        // Join vehicle data
+        {
+          $lookup: {
+            from: 'vehicles',
+            localField: 'vehicleId',
+            foreignField: '_id',
+            as: 'vehicle',
+            pipeline: [
+              { $project: { brand: 1, modelName: 1, year: 1, plateNumber: 1, fuelType: 1, engineType: 1, transmission: 1, package: 1, color: 1, mileage: 1, lastMaintenanceDate: 1, nextMaintenanceDate: 1 } }
+            ]
+          }
+        },
+        
+        // Format output
+        {
+          $project: {
+            _id: 1,
+            serviceType: 1,
+            appointmentDate: 1,
+            timeSlot: 1,
+            status: 1,
+            description: 1,
+            mechanicNotes: 1,
+            rejectionReason: 1,
+            estimatedDuration: 1,
+            actualDuration: 1,
+            price: 1,
+            quotedPrice: 1,
+            finalPrice: 1,
+            priceSource: 1,
+            paymentStatus: 1,
+            paymentDate: 1,
+            transactionId: 1,
+            completionDate: 1,
+            notificationSettings: 1,
+            shareContactInfo: 1,
+            isShopAppointment: 1,
+            faultReportId: 1,
+            location: 1,
+            requestType: 1,
+            vehicleType: 1,
+            reason: 1,
+            pickupLocation: 1,
+            dropoffLocation: 1,
+            packageType: 1,
+            options: 1,
+            partType: 1,
+            vehicleInfo: 1,
+            tireSize: 1,
+            createdAt: 1,
+            updatedAt: 1,
+            customer: { $arrayElemAt: ['$customer', 0] },
+            mechanic: { $arrayElemAt: ['$mechanic', 0] },
+            vehicle: { $arrayElemAt: ['$vehicle', 0] },
+            // Keep original field names for backward compatibility
+            userId: '$customer',
+            mechanicId: '$mechanic',
+            vehicleId: '$vehicle'
+          }
+        }
+      ])
 
       if (!appointment) {
         throw new CustomError('Randevu bulunamadı', 404);
       }
       
-      // Kullanıcının bu randevuyu görme yetkisi var mı kontrol et
-      const appointmentUserId = appointment.userId._id ? appointment.userId._id.toString() : appointment.userId.toString();
-      const appointmentMechanicId = appointment.mechanicId ? (appointment.mechanicId._id ? appointment.mechanicId._id.toString() : appointment.mechanicId.toString()) : null;
+      // Kullanıcının bu randevuyu görme yetkisi var mı kontrol et - Updated for aggregate result
+      const appointmentUserId = appointment.customer?._id?.toString();
+      const appointmentMechanicId = appointment.mechanic?._id?.toString();
       
       if (appointmentUserId !== userId && appointmentMechanicId !== userId) {
         throw new CustomError('Bu randevuyu görme yetkiniz yok', 403);
       }
 
-      // Frontend formatına çevir
-      const obj = appointment.toObject();
-      
-      // customer field'ını ekle (userId'den)
-      if (obj.userId) {
-        (obj as any).customer = {
-          _id: (obj.userId as any)._id,
-          name: (obj.userId as any).name,
-          surname: (obj.userId as any).surname,
-          email: (obj.userId as any).email,
-          phone: (obj.userId as any).phone
-        };
-        delete (obj as any).userId;
-      }
-      
-      // vehicle field'ını ekle (vehicleId'den)
-      if (obj.vehicleId) {
-        (obj as any).vehicle = {
-          _id: (obj.vehicleId as any)._id,
-          brand: (obj.vehicleId as any).brand,
-          modelName: (obj.vehicleId as any).modelName,
-          year: (obj.vehicleId as any).year,
-          plateNumber: (obj.vehicleId as any).plateNumber,
-          fuelType: (obj.vehicleId as any).fuelType,
-          engineType: (obj.vehicleId as any).engineType,
-          transmission: (obj.vehicleId as any).transmission,
-          package: (obj.vehicleId as any).package,
-          color: (obj.vehicleId as any).color,
-          mileage: (obj.vehicleId as any).mileage,
-          lastMaintenanceDate: (obj.vehicleId as any).lastMaintenanceDate,
-          nextMaintenanceDate: (obj.vehicleId as any).nextMaintenanceDate
-        };
-        delete (obj as any).vehicleId;
-      }
+      // Aggregate result is already in the correct format - no need for toObject() conversion
+      // Customer, mechanic, and vehicle data are already joined and formatted
       
       // İptal edilen randevularda hassas bilgileri gizle
-      if (obj.status === 'IPTAL') {
-        if ((obj as any).customer) {
-          delete (obj as any).customer.phone;
-          delete (obj as any).customer.email;
+      if (appointment.status === 'IPTAL') {
+        if (appointment.customer) {
+          delete appointment.customer.phone;
+          delete appointment.customer.email;
         }
-        (obj as any).vehicle = undefined;
+        appointment.vehicle = undefined;
       }
 
-      return obj;
+      return appointment;
     } catch (error) {
-      console.error('Randevu detayı getirme hatası:', error);
       throw error;
     }
   }
@@ -581,7 +610,6 @@ export class AppointmentService {
 
       return appointment;
     } catch (error) {
-      console.error('Fiyat belirleme hatası:', error);
       throw error;
     }
   }
@@ -629,7 +657,6 @@ export class AppointmentService {
 
       return appointment;
     } catch (error) {
-      console.error('Ek fiyat ekleme hatası:', error);
       throw error;
     }
   }
@@ -712,7 +739,6 @@ export class AppointmentService {
       await appointment.save();
       return appointment;
     } catch (error) {
-      console.error('Randevu durumu güncelleme hatası:', error);
       throw error;
     }
   }
@@ -722,7 +748,6 @@ export class AppointmentService {
    */
   static async completeAppointment(appointmentId: string, completionNotes: string, price: number, estimatedDuration?: number) {
     try {
-
 
       const appointment = await Appointment.findById(appointmentId);
       if (!appointment) {
@@ -751,7 +776,6 @@ export class AppointmentService {
       await appointment.save();
       return appointment;
     } catch (error) {
-      console.error('Randevu tamamlama hatası:', error);
       throw error;
     }
   }
@@ -777,7 +801,6 @@ export class AppointmentService {
 
       return appointment;
     } catch (error) {
-      console.error('Ödeme durumu güncelleme hatası:', error);
       throw error;
     }
   }
@@ -799,7 +822,6 @@ export class AppointmentService {
 
       return appointment;
     } catch (error) {
-      console.error('Randevu iptal etme hatası:', error);
       throw error;
     }
   }
@@ -824,7 +846,6 @@ export class AppointmentService {
 
       return appointment;
     } catch (error) {
-      console.error('Bildirim ayarları güncelleme hatası:', error);
       throw error;
     }
   }
@@ -871,7 +892,6 @@ export class AppointmentService {
 
       return contactInfo;
     } catch (error) {
-      console.error('İletişim bilgileri paylaşma hatası:', error);
       throw error;
     }
   }
@@ -916,7 +936,6 @@ export class AppointmentService {
         rating: Math.round(averageRating * 10) / 10
       };
     } catch (error) {
-      console.error('İstatistik getirme hatası:', error);
       throw error;
     }
   }
@@ -941,7 +960,6 @@ export class AppointmentService {
 
       return appointments;
     } catch (error) {
-      console.error('Bugünkü randevuları getirme hatası:', error);
       return [];
     }
   }
@@ -964,7 +982,6 @@ export class AppointmentService {
 
       return appointments;
     } catch (error) {
-      console.error('Randevu arama hatası:', error);
       throw error;
     }
   }
@@ -987,7 +1004,6 @@ export class AppointmentService {
 
       return appointments;
     } catch (error) {
-      console.error('Tarih aralığında randevu getirme hatası:', error);
       throw error;
     }
   }
@@ -1010,7 +1026,6 @@ export class AppointmentService {
 
       return appointments;
     } catch (error) {
-      console.error('Müsaitlik durumu getirme hatası:', error);
       return [];
     }
   }
@@ -1028,7 +1043,6 @@ export class AppointmentService {
 
       return appointments;
     } catch (error) {
-      console.error('Tüm randevuları getirme hatası:', error);
       return [];
     }
   }

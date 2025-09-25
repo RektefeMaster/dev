@@ -11,6 +11,8 @@ module.exports = function (api) {
           root: ['./src'],
           alias: {
             '@': './src',
+            '@shared': './src/shared',
+            '@features': './src/features',
           },
         },
       ],

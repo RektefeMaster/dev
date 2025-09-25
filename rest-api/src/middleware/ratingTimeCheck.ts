@@ -38,7 +38,6 @@ export const checkRatingTimeLimit = async (req: Request, res: Response, next: Ne
 
     next();
   } catch (error) {
-    console.error('Değerlendirme süresi kontrolü hatası:', error);
     return res.status(500).json({
       success: false,
       message: 'Sunucu hatası'

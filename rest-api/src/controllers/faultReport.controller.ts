@@ -42,33 +42,47 @@ export const createFaultReport = async (req: Request, res: Response) => {
       'elektrik-elektronik': 'Elektrik-Elektronik',
       'yedek-parca': 'Yedek Parça',
       'egzoz-emisyon': 'Egzoz & Emisyon',
-      'ekspertiz': 'Ekspertiz',
-      'sigorta-kasko': 'Sigorta & Kasko',
       'arac-yikama': 'Araç Yıkama',
       'lastik': 'Lastik',
       'wash': 'Araç Yıkama',
       'towing': 'Çekici',
       'repair': 'Genel Bakım',
-      'tire': 'Lastik'
+      'tire': 'Lastik',
+      // Frontend'teki static kategoriler
+      'Genel Bakım': 'Genel Bakım',
+      'Ağır Bakım': 'Ağır Bakım',
+      'Üst Takım': 'Üst Takım',
+      'Alt Takım': 'Alt Takım',
+      'Kaporta/Boya': 'Kaporta/Boya',
+      'Elektrik-Elektronik': 'Elektrik-Elektronik',
+      'Yedek Parça': 'Yedek Parça',
+      'Lastik': 'Lastik',
+      'Egzoz & Emisyon': 'Egzoz & Emisyon',
+      'Araç Yıkama': 'Araç Yıkama'
     };
 
     const normalizedServiceCategory = categoryNameMapping[serviceCategory] || serviceCategory;
 
-    // Kategori mapping - frontend'den gelen kategorileri backend kategorilerine çevir
+    // 4 ana hizmet türü - tüm hizmetler bu 4 kategoriye bölünür
     const categoryMapping: { [key: string]: string[] } = {
-      'Genel Bakım': ['repair'],
-      'Ağır Bakım': ['repair'],
-      'Alt Takım': ['repair'],
-      'Üst Takım': ['repair'],
-      'Kaporta/Boya': ['repair'],
-      'Elektrik-Elektronik': ['repair'],
-      'Yedek Parça': ['repair'],
-      'Egzoz & Emisyon': ['repair'],
-      'Ekspertiz': ['repair'],
-      'Sigorta & Kasko': ['repair'],
-      'Araç Yıkama': ['wash'],
-      'Lastik': ['tire'],
-      'Çekici': ['towing']
+      // Tamir ve Bakım - tüm mekanik hizmetler
+      'Genel Bakım': ['Tamir ve Bakım'],
+      'Ağır Bakım': ['Tamir ve Bakım'],
+      'Alt Takım': ['Tamir ve Bakım'],
+      'Üst Takım': ['Tamir ve Bakım'],
+      'Kaporta/Boya': ['Tamir ve Bakım'],
+      'Elektrik-Elektronik': ['Tamir ve Bakım'],
+      'Yedek Parça': ['Tamir ve Bakım'],
+      'Egzoz & Emisyon': ['Tamir ve Bakım'],
+      
+      // Araç Yıkama
+      'Araç Yıkama': ['Araç Yıkama'],
+      
+      // Lastik
+      'Lastik': ['Lastik'],
+      
+      // Çekici
+      'Çekici': ['Çekici']
     };
 
     const userId = req.user?.userId;
@@ -83,7 +97,24 @@ export const createFaultReport = async (req: Request, res: Response) => {
     }
 
     // Konum bilgisini kontrol et ve düzelt
-    const locationData = location && location.coordinates ? location : null;
+    let locationData = null;
+    
+    // Çekici hizmeti için konum zorunlu
+    const isLocationRequired = normalizedServiceCategory === 'Çekici';
+    
+    if (location && location.coordinates && Array.isArray(location.coordinates) && location.coordinates.length === 2) {
+      locationData = {
+        type: 'Point',
+        coordinates: location.coordinates, // [longitude, latitude]
+        address: location.address || '',
+        city: location.city || ''
+      };
+    } else if (isLocationRequired) {
+      return res.status(400).json({
+        success: false,
+        message: 'Çekici hizmeti için konum bilgisi gereklidir'
+      });
+    }
     
     const faultReport = new FaultReport({
       userId,
@@ -110,10 +141,10 @@ export const createFaultReport = async (req: Request, res: Response) => {
 
     // Çevredeki uygun ustaları bul
     const nearbyMechanics = await findNearbyMechanics(
-      location?.coordinates,
+      locationData?.coordinates,
       normalizedServiceCategory,
       vehicle.brand,
-      location?.city
+      locationData?.city
     );
 
     // Her ustaya bildirim gönder
@@ -170,13 +201,10 @@ export const createFaultReport = async (req: Request, res: Response) => {
             notification.data
           );
 
-          console.log(`✅ ${mechanic.name} ${mechanic.surname} ustasına bildirim gönderildi`);
-        } else {
-          console.log(`❌ ${mechanic.name} ${mechanic.surname} ustası bulunamadı`);
-        }
+          } else {
+          }
       } catch (error) {
-        console.error(`❌ ${mechanic.name} ${mechanic.surname} ustasına bildirim gönderilirken hata:`, error);
-      }
+        }
     }
 
     res.status(201).json({
@@ -190,7 +218,6 @@ export const createFaultReport = async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('Arıza bildirimi oluşturma hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Arıza bildirimi oluşturulurken bir hata oluştu'
@@ -230,7 +257,6 @@ export const getUserFaultReports = async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('Arıza bildirimleri getirme hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Arıza bildirimleri getirilirken bir hata oluştu'
@@ -263,7 +289,6 @@ export const getFaultReportById = async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('Arıza bildirimi detay getirme hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Arıza bildirimi detayı getirilirken bir hata oluştu'
@@ -311,7 +336,6 @@ export const getMechanicFaultReportById = async (req: Request, res: Response) =>
     });
 
   } catch (error) {
-    console.error('Usta arıza bildirimi detay getirme hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Arıza bildirimi detayı getirilirken bir hata oluştu'
@@ -470,7 +494,6 @@ export const submitMechanicResponse = async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('Usta yanıtı gönderme hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Yanıt gönderilirken bir hata oluştu'
@@ -579,7 +602,6 @@ export const handleTomorrowResponse = async (req: Request, res: Response) => {
     }
 
   } catch (error) {
-    console.error('Yarın yanıtı işleme hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Yanıt işlenirken bir hata oluştu'
@@ -671,7 +693,6 @@ export const initiateContact = async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('İletişim başlatma hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Mesaj gönderilirken bir hata oluştu'
@@ -766,7 +787,6 @@ export const submitQuote = async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('Fiyat teklifi gönderme hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Fiyat teklifi gönderilirken bir hata oluştu'
@@ -777,36 +797,25 @@ export const submitQuote = async (req: Request, res: Response) => {
 // Teklif seç ve randevu oluştur
 export const selectQuote = async (req: Request, res: Response) => {
   try {
-    console.log('selectQuote çağrıldı:', req.params, req.body);
-    
     const { id } = req.params; // URL'den faultReportId al
     const { quoteIndex } = req.body;
     const userId = req.user?.userId;
 
-    console.log('Parametreler:', { id, quoteIndex, userId });
-
     const faultReport = await FaultReport.findOne({ _id: id, userId });
     if (!faultReport) {
-      console.log('Arıza bildirimi bulunamadı:', id, userId);
       return res.status(404).json({
         success: false,
         message: 'Arıza bildirimi bulunamadı'
       });
     }
 
-    console.log('Arıza bildirimi bulundu:', faultReport._id);
-    console.log('Teklifler:', faultReport.quotes);
-
     const selectedQuote = faultReport.quotes[quoteIndex];
     if (!selectedQuote) {
-      console.log('Seçilen teklif bulunamadı:', quoteIndex);
       return res.status(404).json({
         success: false,
         message: 'Seçilen teklif bulunamadı'
       });
     }
-
-    console.log('Seçilen teklif:', selectedQuote);
 
     // Seçilen teklifi işaretle
     faultReport.selectedQuote = {
@@ -825,11 +834,9 @@ export const selectQuote = async (req: Request, res: Response) => {
       }
     });
 
-    console.log('Arıza bildirimi güncelleniyor...');
     await faultReport.save();
 
     // Randevu oluştur
-    console.log('Randevu oluşturuluyor...');
     const appointment = new Appointment({
       userId: new mongoose.Types.ObjectId(userId),
       mechanicId: new mongoose.Types.ObjectId(selectedQuote.mechanicId),
@@ -853,9 +860,6 @@ export const selectQuote = async (req: Request, res: Response) => {
     });
 
     await appointment.save();
-    console.log('Randevu oluşturuldu:', appointment._id);
-
-    console.log('Başarılı yanıt gönderiliyor...');
     res.json({
       success: true,
       message: 'Teklif seçildi ve randevu oluşturuldu',
@@ -874,7 +878,6 @@ export const selectQuote = async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('Teklif seçme hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Teklif seçilirken bir hata oluştu'
@@ -1024,7 +1027,6 @@ export const getMechanicFaultReports = async (req: Request, res: Response) => {
       }
     }
 
-
     // Arıza bildirimlerini getir
     const faultReports = await FaultReport.find(query)
       .populate('userId', 'name surname phone')
@@ -1034,7 +1036,6 @@ export const getMechanicFaultReports = async (req: Request, res: Response) => {
       .skip((Number(page) - 1) * Number(limit));
 
     const total = await FaultReport.countDocuments(query);
-
 
     res.json({
       success: true,
@@ -1047,7 +1048,6 @@ export const getMechanicFaultReports = async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('❌ getMechanicFaultReports: Hata:', error);
     res.status(500).json({
       success: false,
       message: 'Arıza bildirimleri getirilirken bir hata oluştu'
@@ -1063,21 +1063,26 @@ async function findNearbyMechanics(
   userCity?: string
 ) {
   try {
-    // Kategori mapping - tüm detaylı kategoriler "Tamir & Bakım" (repair) altında
+    // 4 ana hizmet türü - tüm hizmetler bu 4 kategoriye bölünür
     const categoryMapping: { [key: string]: string[] } = {
-      'Genel Bakım': ['repair', 'Tamir & Bakım'],
-      'Ağır Bakım': ['repair', 'Tamir & Bakım'],
-      'Alt Takım': ['repair', 'Tamir & Bakım'],
-      'Üst Takım': ['repair', 'Tamir & Bakım'],
-      'Kaporta/Boya': ['repair', 'Tamir & Bakım'],
-      'Elektrik-Elektronik': ['repair', 'Tamir & Bakım'],
-      'Yedek Parça': ['repair', 'Tamir & Bakım'],
-      'Egzoz & Emisyon': ['repair', 'Tamir & Bakım'],
-      'Ekspertiz': ['repair', 'Tamir & Bakım'],
-      'Sigorta & Kasko': ['repair', 'Tamir & Bakım'],
-      'Araç Yıkama': ['wash', 'Araç Yıkama'],
-      'Lastik': ['tire', 'Lastik & Parça'],
-      'Çekici': ['towing', 'Çekici Hizmeti']
+      // Tamir ve Bakım - tüm mekanik hizmetler
+      'Genel Bakım': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
+      'Ağır Bakım': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
+      'Alt Takım': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
+      'Üst Takım': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
+      'Kaporta/Boya': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
+      'Elektrik-Elektronik': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
+      'Yedek Parça': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
+      'Egzoz & Emisyon': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
+      
+      // Araç Yıkama
+      'Araç Yıkama': ['Araç Yıkama', 'wash'],
+      
+      // Lastik
+      'Lastik': ['Lastik', 'tire', 'Lastik & Parça'],
+      
+      // Çekici
+      'Çekici': ['Çekici', 'towing', 'Çekici Hizmeti']
     };
 
     const matchingCategories = categoryMapping[serviceCategory] || [serviceCategory];
@@ -1128,11 +1133,21 @@ async function findNearbyMechanics(
       const mechanicsWithDistance = allMechanics
         .map(mechanic => {
           if (mechanic.location && 'coordinates' in mechanic.location && mechanic.location.coordinates) {
-            const distance = calculateDistance(
-              coordinates,
-              [mechanic.location.coordinates.longitude, mechanic.location.coordinates.latitude]
-            );
-            return { ...mechanic, distance };
+            // Backend'te coordinates [longitude, latitude] formatında
+            const mechanicCoords = mechanic.location.coordinates;
+            if (Array.isArray(mechanicCoords) && mechanicCoords.length === 2) {
+              const distance = calculateDistance(
+                coordinates,
+                [mechanicCoords[0], mechanicCoords[1]]
+              );
+              return { ...mechanic, distance };
+            } else if (mechanicCoords.longitude && mechanicCoords.latitude) {
+              const distance = calculateDistance(
+                coordinates,
+                [mechanicCoords.longitude, mechanicCoords.latitude]
+              );
+              return { ...mechanic, distance };
+            }
           }
           return { ...mechanic, distance: Infinity };
         })
@@ -1153,7 +1168,6 @@ async function findNearbyMechanics(
     return allMechanics.slice(0, 15);
 
   } catch (error) {
-    console.error('Yakın usta bulma hatası:', error);
     return [];
   }
 }
@@ -1271,7 +1285,6 @@ export const createPayment = async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('Ödeme oluşturma hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Ödeme oluşturulurken bir hata oluştu'
@@ -1345,10 +1358,8 @@ export const confirmPayment = async (req: Request, res: Response) => {
       });
 
       if (tefePointResult.success && tefePointResult.earnedPoints) {
-        console.log(`✅ Arıza bildirimi TefePuan eklendi: ${tefePointResult.earnedPoints} puan, Kullanıcı: ${faultReport.userId._id}`);
-      }
+        }
     } catch (tefeError) {
-      console.error('❌ Arıza bildirimi TefePuan ekleme hatası:', tefeError);
       // TefePuan hatası ödeme işlemini durdurmaz
     }
 
@@ -1379,7 +1390,6 @@ export const confirmPayment = async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('Ödeme onaylama hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Ödeme onaylanırken bir hata oluştu'
@@ -1464,7 +1474,6 @@ export const finalizeWork = async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('İş finalize etme hatası:', error);
     res.status(500).json({
       success: false,
       message: 'İş finalize edilirken bir hata oluştu'

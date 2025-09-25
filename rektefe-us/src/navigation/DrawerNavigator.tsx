@@ -4,17 +4,15 @@ import { View, Text, StyleSheet, TouchableOpacity, Switch, StatusBar } from 'rea
 import { useNavigation } from '@react-navigation/native';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../context/AuthContext';
-import { DrawerParamList } from '../types/common';
-import { colors, typography, spacing, borderRadius, shadows } from '../theme/theme';
+import { useAuth } from '@/shared/context';
+import { DrawerParamList } from '@/shared/types';
+import { colors, typography, spacing, borderRadius, shadows } from '@/shared/theme';
 import TabNavigator from './TabNavigator';
-import MessagesScreen from '../screens/MessagesScreen';
-import WalletScreen from '../screens/WalletScreen';
-import SupportScreen from '../screens/SupportScreen';
-import FinancialTrackingScreen from '../screens/FinancialTrackingScreen';
-import CalendarScreen from '../screens/CalendarScreen';
-import ProfileScreen from '../screens/ProfileScreen';
-import SettingsScreen from '../screens/SettingsScreen';
+import { MessagesScreen } from '@/features/messages/screens';
+import { WalletScreen, FinancialTrackingScreen } from '@/features/wallet/screens';
+import { SupportScreen } from '@/features/support/screens';
+import { CalendarScreen } from '@/features/appointments/screens';
+import { ProfileScreen, SettingsScreen } from '@/features/profile/screens';
 
 const Drawer = createDrawerNavigator<DrawerParamList>();
 
@@ -83,8 +81,7 @@ const CustomDrawerContent = (props: any) => {
       props.navigation.closeDrawer();
       await logout();
     } catch (error) {
-      console.error('Logout hatası:', error);
-    }
+      }
   };
 
   const toggleTheme = () => {
@@ -225,7 +222,7 @@ const DrawerNavigator = () => {
       <Drawer.Screen name="MainTabs" component={TabNavigator} />
       <Drawer.Screen name="Messages" component={MessagesScreen} />
       <Drawer.Screen name="Calendar" component={CalendarScreen} />
-      <Drawer.Screen name="FaultReports" component={require('../screens/FaultReportsScreen').default} />
+      <Drawer.Screen name="FaultReports" component={require('../features/fault-reports/screens/FaultReportsScreen').default} />
       <Drawer.Screen name="Wallet" component={WalletScreen} />
       <Drawer.Screen name="FinancialTracking" component={FinancialTrackingScreen} />
       <Drawer.Screen name="Profile" component={ProfileScreen} />

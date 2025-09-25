@@ -19,11 +19,22 @@
 | **Appointments** | `/api/appointments/search` | GET | Randevu ara | ✅ | ✅ |
 | **Vehicles** | `/api/vehicles` | GET | Araç listesi | ✅ | ❌ |
 | **Vehicles** | `/api/vehicles` | POST | Araç ekle | ✅ | ❌ |
-| **Mechanics** | `/api/mechanics` | GET | Usta listesi | ✅ | ✅ |
+| **Mechanics** | `/api/mechanic/list` | GET | Usta listesi | ✅ | ✅ |
 | **Mechanics** | `/api/mechanic/me` | GET | Usta profili | ❌ | ✅ |
-| **Messages** | `/api/messages/conversations` | GET | Sohbet listesi | ✅ | ✅ |
-| **Messages** | `/api/messages/send` | POST | Mesaj gönder | ✅ | ✅ |
-| **Notifications** | `/api/notifications` | GET | Bildirimler | ✅ | ✅ |
+| **Mechanics** | `/api/mechanic/details/:id` | GET | Usta detayları | ✅ | ✅ |
+| **Mechanics** | `/api/mechanic/search` | GET | Usta arama | ✅ | ✅ |
+| **Mechanics** | `/api/mechanic/nearby` | GET | En yakın ustalar | ✅ | ❌ |
+| **Mechanics** | `/api/mechanic/stats` | GET | Usta istatistikleri | ❌ | ✅ |
+| **Mechanics** | `/api/mechanic/availability` | PUT | Müsaitlik durumu | ❌ | ✅ |
+| **Mechanics** | `/api/mechanic/rating` | PUT | Puan güncelleme | ❌ | ✅ |
+| **Messages** | `/api/message/conversations` | GET | Sohbet listesi | ✅ | ✅ |
+| **Messages** | `/api/message/send` | POST | Mesaj gönder | ✅ | ✅ |
+| **Messages** | `/api/message/conversation/find/:otherUserId` | GET | Konuşma bul | ✅ | ✅ |
+| **Notifications** | `/api/users/notifications` | GET | Bildirimler | ✅ | ✅ |
+| **Wallet** | `/api/wallet/balance` | GET | Cüzdan bakiyesi | ❌ | ✅ |
+| **Wallet** | `/api/wallet/transactions` | GET | İşlem geçmişi | ❌ | ✅ |
+| **Ads** | `/api/ads` | GET | Reklamlar | ✅ | ✅ |
+| **Upload** | `/api/upload` | POST | Dosya yükleme | ✅ | ✅ |
 
 ## 🚨 **TESPİT EDİLEN SORUNLAR:**
 
@@ -41,6 +52,10 @@
 - Bazı endpoint'ler farklı response format'ları döndürüyor
 - ✅ **ÇÖZÜM**: Tüm endpoint'ler standart format kullanacak
 
+### 4. **URL Uyumsuzlukları:**
+- Messages endpoint'lerinde `/api/messages/` vs `/api/message/` karışıklığı
+- ✅ **ÇÖZÜM**: Backend'deki gerçek URL'ler kullanılacak
+
 ## 🎯 **AKSİYON PLANI:**
 
 1. ✅ Backend'de ortak endpoint'leri tamamla
@@ -50,8 +65,14 @@
 5. ✅ Test ve doğrula
 
 ## 📊 **MEVCUT DURUM:**
-- Backend: %95 ortak endpoint'ler hazır
-- rektefe-dv: %80 ortak endpoint'ler kullanıyor
-- rektefe-us: %70 ortak endpoint'ler kullanıyor
+- Backend: %100 ortak endpoint'ler hazır
+- rektefe-dv: %75 ortak endpoint'ler kullanıyor
+- rektefe-us: %85 ortak endpoint'ler kullanıyor
 
 **HEDEF**: %100 ortak endpoint kullanımı! 🎯
+
+## 📈 **GÜNCELLENEN ENDPOINT'LER:**
+- ✅ Mechanic endpoint'leri tamamlandı
+- ✅ Messages URL'leri düzeltildi
+- ✅ Wallet endpoint'leri eklendi
+- ✅ Ads ve Upload endpoint'leri backend'de mevcut

@@ -64,7 +64,6 @@ export const requireOwnership = (resourceModel: any, resourceIdParam: string = '
       (req as any).resource = resource;
       next();
     } catch (error) {
-      console.error('Ownership check error:', error);
       ResponseHandler.error(res, 'Yetki kontrolü sırasında hata oluştu');
     }
   };
@@ -84,7 +83,6 @@ export const requireMechanicAvailable = async (req: AuthenticatedRequest, res: R
     
     next();
   } catch (error) {
-    console.error('Mechanic availability check error:', error);
     ResponseHandler.error(res, 'Müsaitlik kontrolü sırasında hata oluştu');
   }
 };

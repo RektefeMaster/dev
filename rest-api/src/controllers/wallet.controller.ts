@@ -34,7 +34,6 @@ export class WalletController {
         data: { balance: wallet.balance }
       });
     } catch (error: any) {
-      console.error('Wallet balance getirme hatası:', error);
       res.status(500).json({
         success: false,
         message: 'Cüzdan bakiyesi getirilirken hata oluştu',
@@ -76,7 +75,6 @@ export class WalletController {
         data: { transactions }
       });
     } catch (error: any) {
-      console.error('Wallet transactions getirme hatası:', error);
       res.status(500).json({
         success: false,
         message: 'İşlemler getirilirken hata oluştu',
@@ -140,10 +138,8 @@ export class WalletController {
         });
 
         if (tefePointResult.success && tefePointResult.earnedPoints) {
-          console.log(`✅ Wallet bakiye yükleme TefePuan eklendi: ${tefePointResult.earnedPoints} puan, Kullanıcı: ${userId}`);
-        }
+          }
       } catch (tefeError) {
-        console.error('❌ Wallet bakiye yükleme TefePuan ekleme hatası:', tefeError);
         // TefePuan hatası ödeme işlemini durdurmaz
       }
 
@@ -158,7 +154,6 @@ export class WalletController {
       });
 
     } catch (error: any) {
-      console.error('Wallet bakiye yükleme hatası:', error);
       res.status(500).json({
         success: false,
         message: 'Bakiye yüklenirken hata oluştu',

@@ -30,7 +30,6 @@ export class NotificationController {
         }
       });
     } catch (error) {
-      console.error('Bildirimler getirilirken hata:', error);
       res.status(500).json({
         success: false,
         message: 'Bildirimler getirilirken hata oluştu'
@@ -65,7 +64,6 @@ export class NotificationController {
         }
       });
     } catch (error) {
-      console.error('Okunmamış bildirim sayısı alınırken hata:', error);
       res.status(500).json({
         success: false,
         message: 'Okunmamış bildirim sayısı alınırken hata oluştu'
@@ -101,7 +99,6 @@ export class NotificationController {
         }
       });
     } catch (error) {
-      console.error('Bildirimler getirilirken hata:', error);
       res.status(500).json({
         success: false,
         message: 'Bildirimler getirilirken hata oluştu'
@@ -136,7 +133,6 @@ export class NotificationController {
         }
       });
     } catch (error) {
-      console.error('Okunmamış bildirim sayısı alınırken hata:', error);
       res.status(500).json({
         success: false,
         message: 'Okunmamış bildirim sayısı alınırken hata oluştu'
@@ -151,8 +147,6 @@ export class NotificationController {
     try {
       const { notificationId } = req.params;
       const userId = req.user?.userId;
-
-      console.log('Mark as read request:', { notificationId, userId });
 
       if (!userId) {
         return res.status(401).json({
@@ -170,8 +164,6 @@ export class NotificationController {
         { new: true }
       );
 
-      console.log('Notification found and updated:', notification);
-
       if (!notification) {
         return res.status(404).json({
           success: false,
@@ -186,7 +178,6 @@ export class NotificationController {
         }
       });
     } catch (error) {
-      console.error('Bildirim okundu işaretlenirken hata:', error);
       res.status(500).json({
         success: false,
         message: 'Bildirim okundu işaretlenirken hata oluştu'
@@ -202,8 +193,6 @@ export class NotificationController {
       const { notificationId } = req.params;
       const userId = req.user?.userId;
 
-      console.log('Delete notification request:', { notificationId, userId });
-
       if (!userId) {
         return res.status(401).json({
           success: false,
@@ -215,8 +204,6 @@ export class NotificationController {
         _id: notificationId,
         recipientId: userId
       });
-
-      console.log('Notification deleted:', notification);
 
       if (!notification) {
         return res.status(404).json({
@@ -230,7 +217,6 @@ export class NotificationController {
         message: 'Bildirim başarıyla silindi'
       });
     } catch (error) {
-      console.error('Bildirim silinirken hata:', error);
       res.status(500).json({
         success: false,
         message: 'Bildirim silinirken bir hata oluştu'
@@ -269,7 +255,6 @@ export class NotificationController {
         }
       });
     } catch (error) {
-      console.error('Tüm bildirimler okundu işaretlenirken hata:', error);
       res.status(500).json({
         success: false,
         message: 'Tüm bildirimler okundu işaretlenirken bir hata oluştu'
@@ -283,8 +268,6 @@ export class NotificationController {
   static async markAllAsReadDriver(req: Request, res: Response) {
     try {
       const userId = req.user?.userId;
-
-      console.log('Mark all as read driver request:', { userId });
 
       if (!userId) {
         return res.status(401).json({
@@ -302,8 +285,6 @@ export class NotificationController {
         { isRead: true }
       );
 
-      console.log('Mark all as read result:', result);
-
       res.json({
         success: true,
         message: 'Tüm bildirimler okundu olarak işaretlendi',
@@ -312,7 +293,6 @@ export class NotificationController {
         }
       });
     } catch (error) {
-      console.error('Tüm bildirimler okundu işaretlenirken hata:', error);
       res.status(500).json({
         success: false,
         message: 'Tüm bildirimler okundu işaretlenirken bir hata oluştu'
@@ -356,13 +336,6 @@ export class NotificationController {
 
       await notification.save();
 
-      console.log('✅ Bildirim oluşturuldu:', {
-        recipientId: userId,
-        recipientType: userType === 'mechanic' ? 'mechanic' : 'driver',
-        title,
-        type
-      });
-
       res.status(201).json({
         success: true,
         message: 'Bildirim başarıyla oluşturuldu',
@@ -371,7 +344,6 @@ export class NotificationController {
         }
       });
     } catch (error) {
-      console.error('❌ Bildirim oluşturulurken hata:', error);
       res.status(500).json({
         success: false,
         message: 'Bildirim oluşturulurken bir hata oluştu'
@@ -413,13 +385,6 @@ export class NotificationController {
 
       await notification.save();
 
-      console.log('🧪 Test bildirimi oluşturuldu:', {
-        recipientId: userId,
-        recipientType: userType === 'mechanic' ? 'mechanic' : 'driver',
-        title: notification.title,
-        type: notification.type
-      });
-
       res.status(201).json({
         success: true,
         message: 'Test bildirimi başarıyla oluşturuldu',
@@ -428,7 +393,6 @@ export class NotificationController {
         }
       });
     } catch (error) {
-      console.error('❌ Test bildirimi oluşturulurken hata:', error);
       res.status(500).json({
         success: false,
         message: 'Test bildirimi oluşturulurken bir hata oluştu'

@@ -1,10 +1,9 @@
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AuthProvider } from './src/context/AuthContext';
-import { ThemeProvider } from './src/context/ThemeContext';
+import { AuthProvider, ThemeProvider } from './src/shared/context';
 import AppNavigator from './src/navigation/AppNavigator';
-import notificationService from './src/services/notificationService';
+import { notificationService } from './src/features/notifications/services';
 
 export default function App() {
   useEffect(() => {
@@ -17,10 +16,8 @@ export default function App() {
         // Bildirim dinleyicilerini başlat
         notificationService.startListening();
         
-        console.log('Bildirim servisi başlatıldı');
-      } catch (error) {
-        console.error('Bildirim servisi başlatma hatası:', error);
-      }
+        } catch (error) {
+        }
     };
 
     initializeNotifications();

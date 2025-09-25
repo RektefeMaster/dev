@@ -20,14 +20,12 @@ export class NotificationTriggerService {
       // Kullanıcıyı bul
       const user = await User.findById(notificationData.recipientId);
       if (!user) {
-        console.error('Kullanıcı bulunamadı:', notificationData.recipientId);
         return;
       }
 
       // Bildirim ayarlarını kontrol et
       const settings = user.notificationSettings;
       if (!this.shouldSendNotification(notificationData.type, settings)) {
-        console.log('Bildirim ayarları nedeniyle gönderilmedi:', notificationData.type);
         return;
       }
 
@@ -43,8 +41,6 @@ export class NotificationTriggerService {
       });
 
       await notification.save();
-      console.log('Bildirim veritabanına kaydedildi:', notification._id);
-
       // Push notification gönder
       if (user.pushToken && settings?.push) {
         try {
@@ -57,15 +53,12 @@ export class NotificationTriggerService {
               ...notificationData.data
             }
           });
-          console.log('Push notification gönderildi:', user.pushToken);
-        } catch (pushError) {
-          console.error('Push notification gönderme hatası:', pushError);
+          } catch (pushError) {
           // Push hatası bildirimi engellemez
         }
       }
 
     } catch (error) {
-      console.error('Bildirim oluşturma hatası:', error);
       throw error;
     }
   }

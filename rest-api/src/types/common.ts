@@ -19,3 +19,71 @@ export interface IConversation {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export enum FaultReportStatus {
+  PENDING = 'pending',
+  IN_PROGRESS = 'in_progress',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled'
+}
+
+export enum Priority {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  URGENT = 'urgent'
+}
+
+export interface FaultQuote {
+  _id: string;
+  faultReportId: string;
+  mechanicId: string;
+  mechanicName: string;
+  mechanicPhone: string;
+  quoteAmount: number;
+  price: number;
+  description: string;
+  estimatedDuration: number;
+  notes: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: Date;
+}
+
+export interface MechanicResponse {
+  _id: string;
+  mechanicId: string;
+  faultReportId: string;
+  responseType: string;
+  message: string;
+  price?: number;
+  estimatedDuration?: number;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: Date;
+}
+
+export interface LocationDetails {
+  address: string;
+  city: string;
+  district: string;
+  coordinates: {
+    latitude: number;
+    longitude: number;
+  };
+}
+
+export interface NotificationData {
+  title: string;
+  body: string;
+  data?: any;
+  userId: string;
+  faultReportId?: string;
+  type: 'fault_report' | 'appointment' | 'message' | 'payment';
+}
+
+export enum ServiceType {
+  MAINTENANCE = 'maintenance',
+  REPAIR = 'repair',
+  TOWING = 'towing',
+  WASH = 'wash',
+  TIRE = 'tire'
+}

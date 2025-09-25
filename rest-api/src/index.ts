@@ -37,14 +37,11 @@ import tefePointRoutes from './routes/tefePoint';
 import activityRoutes from './routes/activity';
 import faultReportRoutes from './routes/faultReport';
 import serviceRequestRoutes from './routes/serviceRequests';
+import emergencyTowingRoutes from './routes/emergencyTowing';
 import paymentRoutes from './routes/payment';
-
-
 
 // .env dosyasını yükle
 dotenv.config();
-
-
 
 const app = express();
 
@@ -56,17 +53,36 @@ app.use(compression());
 import { MONGODB_URI } from './config';
 import { PORT as CONFIG_PORT, CORS_ORIGIN, JWT_SECRET } from './config';
 
-const allowCredentials = CORS_ORIGIN !== '*';
+// Secure CORS configuration - no wildcards
+const allowedOrigins = CORS_ORIGIN.split(',').map(origin => origin.trim());
+
 app.use(cors({
-  origin: CORS_ORIGIN === '*' ? true : CORS_ORIGIN,
-  credentials: allowCredentials,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or Postman)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true, // Always allow credentials for security
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
 }));
 app.use(express.json());
 
 // Sadece önemli istekleri logla (development modunda)
 if (process.env.NODE_ENV === 'development') {
   app.use((req, res, next) => {
-
+    // Mesaj polling isteklerini loglamadan geç
+    const isMessagePolling = req.path.includes('/messages/after/') || 
+                            req.path.includes('/poll-messages');
+    
+    if (!isMessagePolling) {
+      console.log(`${req.method} ${req.path} - ${new Date().toISOString()}`);
+    }
     next();
   });
 }
@@ -89,17 +105,18 @@ import './models/FaultReport';
 import './models/TefePoint';
 
 mongoose.connect(MONGODB_URI)
+  .then(() => console.log('MongoDB bağlantısı başarılı'))
   .catch(err => console.error('MongoDB bağlantı hatası:', err));
 
 // HTTP sunucusu oluştur
 const httpServer = createServer(app);
 
-// Socket.io sunucusu oluştur - TÜM ORIGIN'LER İÇİN AÇIK
+// Socket.io sunucusu oluştur - SECURE CORS
 export const io = new Server(httpServer, {
   cors: {
-    origin: CORS_ORIGIN === '*' ? true : CORS_ORIGIN,
+    origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    credentials: allowCredentials,
+    credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     preflightContinue: false,
     optionsSuccessStatus: 204
@@ -142,15 +159,13 @@ io.use((socket, next) => {
 
 // Socket.IO hata yönetimi (sadece gerçek hatalarda)
 io.engine.on('connection_error', (err) => {
-  console.error('Socket.IO Engine bağlantı hatası:', err);
-});
+  });
 
 // Kullanıcı bağlantısı ve oda mantığı
 io.on('connection', (socket: Socket) => {
   // Bağlantı hatası
   socket.on('error', (error: any) => {
-    console.error('Socket.IO: Bağlantı hatası:', error);
-  });
+    });
   
   // Bağlanırken kendi odasına otomatik katıl
   try {
@@ -168,8 +183,7 @@ io.on('connection', (socket: Socket) => {
         socket.join(userId);
       }
     } catch (error) {
-      console.error('Socket.IO: Odaya katılma hatası:', error);
-    }
+      }
   });
   
   // Bağlantı kesildi
@@ -245,6 +259,7 @@ app.use('/api/tefe-points', tefePointRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/fault-reports', faultReportRoutes);
 app.use('/api/service-requests', serviceRequestRoutes);
+app.use('/api/emergency', emergencyTowingRoutes);
 app.use('/api/payment', paymentRoutes);
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -254,5 +269,5 @@ app.use(notFound);
 app.use(errorHandler);
 
 httpServer.listen(PORT, '0.0.0.0', () => {
-  console.log(`Rektefe API listening on http://0.0.0.0:${PORT}`);
+  console.log(`Server ${PORT} portunda çalışıyor`);
 });

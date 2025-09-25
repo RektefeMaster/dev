@@ -47,14 +47,10 @@ export class AppointmentRatingController {
       // İlgili randevuyu doğrula ve mekanik bilgisini randevudan al
       const appointment = await Appointment.findById(appointmentId).populate('mechanicId', '_id');
       if (!appointment) {
-        console.error(`❌ Appointment ${appointmentId} bulunamadı!`);
         return res.status(404).json({ success: false, message: 'Randevu bulunamadı' });
       }
-      
 
-      
       if (appointment.userId.toString() !== userId) {
-        console.error(`❌ User ${userId} bu appointment ${appointmentId} için yetkisiz!`);
         return res.status(403).json({ success: false, message: 'Bu randevu için puan veremezsiniz' });
       }
       
@@ -96,8 +92,6 @@ export class AppointmentRatingController {
         appointment.status = 'TAMAMLANDI'; // Tamamlandı olarak işaretle
         await appointment.save();
 
-  
-
         // Ustaya bildirim gönder
         sendNotificationToUser(mechanicId.toString(), {
           type: 'appointment_status_update',
@@ -110,18 +104,14 @@ export class AppointmentRatingController {
           _id: Date.now().toString()
         });
 
-  
       } catch (notifyErr) {
-        console.error('Ödeme işaretleme/bildirim hatası:', notifyErr);
-      }
-
+        }
 
       sendResponse(res, 201, 'Puanlama başarıyla kaydedildi', { 
         rating: newRating,
         message: 'Değerlendirmeniz kaydedildi ve ustanın puanı güncellendi'
       });
     } catch (error) {
-      console.error('Puanlama oluşturulurken hata:', error);
       res.status(500).json({
         success: false,
         message: 'Puanlama oluşturulurken hata oluştu',
@@ -173,7 +163,6 @@ export class AppointmentRatingController {
         ratingDistribution: distribution
       });
     } catch (error) {
-      console.error('Usta puanı getirilirken hata:', error);
       res.status(500).json({
         success: false,
         message: 'Usta puanı getirilirken hata oluştu'
@@ -199,18 +188,13 @@ export class AppointmentRatingController {
         .skip(skip)
         .limit(limit);
 
-
-
       // Null userId'li rating'leri filtrele
       const validRatings = ratings.filter(rating => {
         if (!rating.userId) {
-          console.warn('Rating userId null:', rating._id);
           return false;
         }
         return true;
       });
-
-
 
       const total = await AppointmentRating.countDocuments({ mechanicId: new mongoose.Types.ObjectId(mechanicId) });
 
@@ -224,7 +208,6 @@ export class AppointmentRatingController {
         }
       });
     } catch (error) {
-      console.error('Usta puanları getirilirken hata:', error);
       res.status(500).json({
         success: false,
         message: 'Usta puanları getirilirken hata oluştu'
@@ -245,14 +228,10 @@ export class AppointmentRatingController {
         });
       }
 
-
-
       // Önce populate olmadan deneyelim
       const ratings = await AppointmentRating.find({ userId: new mongoose.Types.ObjectId(userId) })
         .select('_id appointmentId mechanicId rating comment createdAt')
         .sort({ createdAt: -1 });
-
-
 
       if (ratings.length > 0) {
   
@@ -290,19 +269,15 @@ export class AppointmentRatingController {
           
           populatedRatings.push(populatedRating);
         } catch (populateError) {
-          console.error(`❌ Rating ${rating._id} populate hatası:`, populateError);
           // Populate hatası olsa bile rating'i ekle
           populatedRatings.push(rating);
         }
       }
 
-
-
       sendResponse(res, 200, 'Puanlarınız başarıyla getirildi', {
         ratings: populatedRatings
       });
     } catch (error) {
-      console.error('Şoför puanları getirilirken hata:', error);
       res.status(500).json({
         success: false,
         message: 'Puanlarınız getirilirken hata oluştu'
@@ -316,11 +291,8 @@ export class AppointmentRatingController {
   static async updateMechanicAverageRating(mechanicId: string) {
     try {
       if (!mechanicId || typeof mechanicId !== 'string') {
-        console.error('Geçersiz mechanicId:', mechanicId);
         return;
       }
-
-
 
       const result = await AppointmentRating.aggregate([
         { $match: { mechanicId: new mongoose.Types.ObjectId(mechanicId) } },
@@ -333,12 +305,9 @@ export class AppointmentRatingController {
         }
       ]);
 
-
-
       if (result.length > 0) {
         const { averageRating, totalRatings } = result[0] as { averageRating: number; totalRatings: number };
-  
-        
+
         const updatedRating = Math.round(averageRating * 10) / 10;
         await Mechanic.updateOne({ _id: mechanicId }, {
           $set: { rating: updatedRating, ratingCount: totalRatings }
@@ -350,8 +319,7 @@ export class AppointmentRatingController {
   
       }
     } catch (error) {
-      console.error('Ortalama puan güncellenirken hata:', error);
-    }
+      }
   }
 
   /**
@@ -420,7 +388,6 @@ export class AppointmentRatingController {
         }
       });
     } catch (error) {
-      console.error('Usta istatistikleri getirme hatası:', error);
       res.status(500).json({
         success: false,
         message: 'İstatistikler getirilirken hata oluştu'
@@ -485,7 +452,6 @@ export class AppointmentRatingController {
         data: formattedRatings
       });
     } catch (error) {
-      console.error('Son puanları getirme hatası:', error);
       res.status(500).json({
         success: false,
         message: 'Son puanlar getirilirken hata oluştu'

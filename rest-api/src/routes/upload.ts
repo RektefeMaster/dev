@@ -61,16 +61,12 @@ router.post('/upload', auth, upload.single('image'), async (req, res) => {
     const normalizedPath = req.file.path.replace(/\\/g, '/');
     const fileUrl = `${baseUrl}/${normalizedPath}`;
     
-    console.log('Dosya başarıyla yüklendi:', req.file.path);
-    console.log('URL:', fileUrl);
-    
     res.json({ 
       url: fileUrl,
       path: req.file.path,
       filename: req.file.filename
     });
   } catch (err) {
-    console.error('Upload hatası:', err);
     res.status(500).json({ error: (err as Error).message });
   }
 });
@@ -123,7 +119,6 @@ router.get('/ads', async (req: Request, res: Response) => {
       message: 'Reklamlar başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Ads getirme hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Reklamlar getirilirken hata oluştu',
@@ -344,7 +339,6 @@ router.get('/campaigns', async (req: Request, res: Response) => {
       message: 'Kampanyalar başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Kampanyalar getirme hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Kampanyalar getirilirken hata oluştu',

@@ -27,7 +27,6 @@ router.get('/balance', auth, async (req: Request, res: Response) => {
       message: 'Wallet balance başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Wallet balance hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Wallet balance getirilirken hata oluştu',
@@ -59,7 +58,6 @@ router.get('/transactions', auth, async (req: Request, res: Response) => {
       message: 'Wallet transactions başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Wallet transactions hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Wallet transactions getirilirken hata oluştu',

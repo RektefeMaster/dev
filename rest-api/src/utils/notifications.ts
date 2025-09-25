@@ -44,7 +44,6 @@ export const sendNotification = async (
     
     return notification;
   } catch (error) {
-    console.error('❌ Bildirim gönderilirken hata oluştu:', error);
     return null;
   }
 };
@@ -65,8 +64,7 @@ const sendRealTimeNotification = async (userId: mongoose.Types.ObjectId, notific
     });
 
   } catch (error) {
-    console.error('❌ Real-time bildirim gönderilirken hata:', error);
-  }
+    }
 };
 
 // Randevu talebi bildirimi
@@ -175,7 +173,6 @@ export const sendPushNotification = async (
     const pushToken = mechanic.pushToken;
 
     if (!Expo.isExpoPushToken(pushToken)) {
-      console.error(`❌ Push token ${pushToken} geçerli bir Expo Push Token değil`);
       return;
     }
 
@@ -194,11 +191,9 @@ export const sendPushNotification = async (
       try {
         await expo.sendPushNotificationsAsync(chunk);
       } catch (error) {
-        console.error('❌ Push bildirimi gönderilirken hata:', error);
-      }
+        }
     }
 
   } catch (error) {
-    console.error('❌ Push bildirimi gönderilirken hata oluştu:', error);
-  }
+    }
 }; 

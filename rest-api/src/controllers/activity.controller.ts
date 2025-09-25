@@ -23,7 +23,6 @@ export class ActivityController {
         data: { activities }
       });
     } catch (error) {
-      console.error('Aktivite çekme hatası:', error);
       res.status(500).json({
         success: false,
         message: 'Aktiviteler getirilirken hata oluştu'
@@ -134,8 +133,6 @@ export class ActivityController {
         .slice(0, 8);
 
     } catch (error) {
-      console.error('Aktivite verileri çekme hatası:', error);
-      
       // Hata durumunda basit mock data döndür
       return [
         {

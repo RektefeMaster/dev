@@ -80,7 +80,6 @@ router.get('/profile', auth, async (req: Request, res: Response) => {
 
     return ResponseHandler.success(res, user, 'Profil başarıyla getirildi');
   } catch (error) {
-    console.error('Profil getirme hatası:', error);
     return ResponseHandler.error(res, 'Profil getirilirken hata oluştu');
   }
 });
@@ -160,7 +159,6 @@ router.put('/profile', auth, async (req: Request, res: Response) => {
 
     return ResponseHandler.updated(res, updatedUser, 'Profil başarıyla güncellendi');
   } catch (error) {
-    console.error('Profil güncelleme hatası:', error);
     return ResponseHandler.error(res, 'Profil güncellenirken hata oluştu');
   }
 });
@@ -199,7 +197,6 @@ router.put('/capabilities', auth, async (req: Request, res: Response) => {
 
     return ResponseHandler.updated(res, updatedUser, 'Yetenekler başarıyla güncellendi');
   } catch (error) {
-    console.error('Yetenek güncelleme hatası:', error);
     return ResponseHandler.error(res, 'Yetenekler güncellenirken hata oluştu');
   }
 });
@@ -253,7 +250,6 @@ router.post('/profile-photo', auth, async (req: Request, res: Response) => {
     }, 'Profil fotoğrafı endpoint\'i');
     
   } catch (error) {
-    console.error('Profile photo update hatası:', error);
     return ResponseHandler.error(res, 'Profil fotoğrafı güncellenirken hata oluştu');
   }
 });
@@ -307,7 +303,6 @@ router.post('/cover-photo', auth, async (req: Request, res: Response) => {
     }, 'Kapak fotoğrafı endpoint\'i');
     
   } catch (error) {
-    console.error('Cover photo update hatası:', error);
     return ResponseHandler.error(res, 'Kapak fotoğrafı güncellenirken hata oluştu');
   }
 });
@@ -383,7 +378,6 @@ router.get('/notifications', auth, async (req: Request, res: Response) => {
     }, 'Bildirimler başarıyla getirildi');
     
   } catch (error) {
-    console.error('Notifications getirme hatası:', error);
     return ResponseHandler.error(res, 'Bildirimler getirilirken hata oluştu');
   }
 });
@@ -452,7 +446,6 @@ router.put('/notifications/read', auth, async (req: Request, res: Response) => {
       return ResponseHandler.notFound(res, 'Bildirim bulunamadı.');
     }
   } catch (error) {
-    console.error('Bildirim okundu işaretleme hatası:', error);
     return ResponseHandler.error(res, 'Bildirim güncellenirken hata oluştu');
   }
 });
@@ -501,7 +494,6 @@ router.put('/notifications/read-all', auth, async (req: Request, res: Response) 
     await user.save();
     return ResponseHandler.success(res, { message: 'Tüm bildirimler okundu olarak işaretlendi' }, 'Bildirimler başarıyla güncellendi');
   } catch (error) {
-    console.error('Tüm bildirimleri okundu işaretleme hatası:', error);
     return ResponseHandler.error(res, 'Bildirimler güncellenirken hata oluştu');
   }
 });
@@ -557,7 +549,6 @@ router.get('/:userId', auth, async (req: Request, res: Response) => {
 
     return ResponseHandler.success(res, user, 'Kullanıcı bilgileri başarıyla getirildi');
   } catch (error) {
-    console.error('Kullanıcı bilgileri getirme hatası:', error);
     return ResponseHandler.error(res, 'Kullanıcı bilgileri getirilirken hata oluştu');
   }
 });
@@ -603,7 +594,6 @@ router.get('/me', auth, async (req: Request, res: Response) => {
 
     return ResponseHandler.success(res, user, 'Kullanıcı bilgileri başarıyla getirildi');
   } catch (error) {
-    console.error('Kullanıcı bilgileri getirme hatası:', error);
     return ResponseHandler.error(res, 'Kullanıcı bilgileri getirilirken hata oluştu');
   }
 });
@@ -676,7 +666,6 @@ router.get('/search', auth, async (req: Request, res: Response) => {
 
     return ResponseHandler.success(res, users, 'Arama sonuçları başarıyla getirildi');
   } catch (error) {
-    console.error('Kullanıcı arama hatası:', error);
     return ResponseHandler.error(res, 'Kullanıcı arama yapılırken hata oluştu');
   }
 });
@@ -710,7 +699,6 @@ router.get('/search', auth, async (req: Request, res: Response) => {
  *       500:
  *         description: Sunucu hatası
  */
-
 
 /**
  * @swagger
@@ -768,9 +756,7 @@ router.post('/push-token', async (req: Request, res: Response) => {
     user.lastTokenUpdate = new Date();
     
     await user.save();
-    
 
-    
     return ResponseHandler.success(res, { 
       message: 'Push token başarıyla kaydedildi',
       user: {
@@ -786,12 +772,9 @@ router.post('/push-token', async (req: Request, res: Response) => {
     }, 'Push token kaydedildi');
     
   } catch (error) {
-    console.error('Push token kaydetme hatası:', error);
     return ResponseHandler.error(res, 'Push token kaydedilirken hata oluştu');
   }
 });
-
-
 
 /**
  * @swagger
@@ -869,7 +852,6 @@ router.post('/become-customer/:mechanicId', auth, async (req: Request, res: Resp
     }, 'Müşteri olundu');
     
   } catch (error) {
-    console.error('Müşteri olma hatası:', error);
     return ResponseHandler.error(res, 'Müşteri olurken hata oluştu');
   }
 });
@@ -939,7 +921,6 @@ router.delete('/remove-customer/:mechanicId', auth, async (req: Request, res: Re
     }, 'Müşterilik bırakıldı');
     
   } catch (error) {
-    console.error('Müşterilik bırakma hatası:', error);
     return ResponseHandler.error(res, 'Müşterilik bırakılırken hata oluştu');
   }
 });
@@ -987,7 +968,6 @@ router.get('/my-mechanics', auth, async (req: Request, res: Response) => {
 
     return ResponseHandler.success(res, mechanics, 'Müşterisi olunan ustalar başarıyla getirildi');
   } catch (error) {
-    console.error('Müşteri ustaları getirme hatası:', error);
     return ResponseHandler.error(res, 'Müşteri ustaları getirilirken hata oluştu');
   }
 });

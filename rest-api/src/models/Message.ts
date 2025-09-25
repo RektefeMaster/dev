@@ -56,9 +56,11 @@ const MessageSchema = new Schema<IMessage>({
   timestamps: true
 });
 
-// Index'ler
-MessageSchema.index({ senderId: 1, receiverId: 1 });
-MessageSchema.index({ conversationId: 1 });
-MessageSchema.index({ receiverId: 1, read: 1 });
+// Performance optimization: Add indexes for common queries
+MessageSchema.index({ conversationId: 1, createdAt: -1 }); // Messages in conversation by date
+MessageSchema.index({ senderId: 1, receiverId: 1 }); // Direct messages between users
+MessageSchema.index({ receiverId: 1, read: 1 }); // Unread messages for user
+MessageSchema.index({ createdAt: -1 }); // Recent messages
+MessageSchema.index({ messageType: 1 }); // Messages by type
 
 export const Message = mongoose.model<IMessage>('Message', MessageSchema);

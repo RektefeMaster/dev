@@ -574,6 +574,134 @@ const stats = response.data;
 
 ---
 
+### **3.8 GET /api/mechanic/nearby - En Yakın Ustalar**
+
+**🎯 Ne İşe Yarar:**
+- Verilen konuma en yakın ustaları getirir
+- Mesafeye göre sıralı liste döndürür
+- Konum bazlı usta arama
+
+**📱 Frontend'de Nerede Kullanılır:**
+- `rektefe-dv/screens/HomeScreen.tsx` - Yakındaki ustalar
+- `rektefe-dv/screens/MechanicSearchScreen.tsx` - Konum bazlı arama
+
+**🔧 Nasıl Kullanılır:**
+```typescript
+const response = await fetch(`${API_URL}/mechanic/nearby?lat=41.0082&lng=28.9784&limit=20`);
+const nearbyMechanics = response.data;
+// En yakın ustaları göster
+```
+
+**📊 Query Parameters:**
+```
+?lat=number (zorunlu, enlem)
+?lng=number (zorunlu, boylam)
+?limit=number (opsiyonel, maksimum usta sayısı)
+```
+
+---
+
+### **3.9 GET /api/mechanic/city/:city - Şehir Bazında Ustalar**
+
+**🎯 Ne İşe Yarar:**
+- Belirli bir şehirdeki ustaları listeler
+- Şehir bazlı filtreleme
+- Sayfalama desteği
+
+**📱 Frontend'de Nerede Kullanılır:**
+- `rektefe-dv/screens/MechanicSearchScreen.tsx` - Şehir filtresi
+- `rektefe-dv/screens/HomeScreen.tsx` - Şehir seçimi
+
+**🔧 Nasıl Kullanılır:**
+```typescript
+const response = await fetch(`${API_URL}/mechanic/city/İstanbul?page=1&limit=10`);
+const cityMechanics = response.data;
+// Şehirdeki ustaları göster
+```
+
+---
+
+### **3.10 GET /api/mechanic/specialization/:specialization - Uzmanlık Bazında Ustalar**
+
+**🎯 Ne İşe Yarar:**
+- Belirli uzmanlık alanındaki ustaları listeler
+- Uzmanlık bazlı filtreleme
+- Sayfalama desteği
+
+**📱 Frontend'de Nerede Kullanılır:**
+- `rektefe-dv/screens/MechanicSearchScreen.tsx` - Uzmanlık filtresi
+- `rektefe-dv/screens/ServiceCategoryScreen.tsx` - Hizmet kategorisi
+
+**🔧 Nasıl Kullanılır:**
+```typescript
+const response = await fetch(`${API_URL}/mechanic/specialization/Motor?page=1&limit=10`);
+const specializedMechanics = response.data;
+// Uzmanlık alanındaki ustaları göster
+```
+
+---
+
+### **3.11 PUT /api/mechanic/availability - Müsaitlik Durumu Güncelleme**
+
+**🎯 Ne İşe Yarar:**
+- Ustanın müsaitlik durumunu günceller
+- Çalışma saatleri ve notlar
+- Randevu alma durumu
+
+**📱 Frontend'de Nerede Kullanılır:**
+- `rektefe-us/screens/ProfileScreen.tsx` - Müsaitlik ayarları
+- `rektefe-us/screens/CalendarScreen.tsx` - Takvim ayarları
+
+**🔧 Nasıl Kullanılır:**
+```typescript
+const response = await apiService.updateAvailability({
+  isAvailable: true,
+  availableHours: {
+    monday: ["09:00-17:00"],
+    tuesday: ["09:00-17:00"]
+  },
+  notes: "Hafta sonu kapalıyım"
+});
+```
+
+**📊 Request Body:**
+```json
+{
+  "isAvailable": "boolean (zorunlu, müsaitlik durumu)",
+  "availableHours": "object (opsiyonel, çalışma saatleri)",
+  "notes": "string (opsiyonel, müsaitlik notları)"
+}
+```
+
+---
+
+### **3.12 PUT /api/mechanic/rating - Puan Güncelleme**
+
+**🎯 Ne İşe Yarar:**
+- Ustanın genel puanını günceller
+- Performans takibi
+- Kalite değerlendirmesi
+
+**📱 Frontend'de Nerede Kullanılır:**
+- `rektefe-us/screens/ProfileScreen.tsx` - Puan yönetimi
+- `rektefe-us/screens/DashboardScreen.tsx` - Performans takibi
+
+**🔧 Nasıl Kullanılır:**
+```typescript
+const response = await apiService.updateRating({
+  rating: 4.5
+});
+```
+
+**📊 Request Body:**
+```json
+{
+  "rating": "number (zorunlu, 0-5 arası puan)"
+}
+```
+
+---
+
 ## 📅 **4. APPOINTMENTS ENDPOINT'LERİ**
 
 ### **4.1 POST /api/appointments - Yeni Randevu**
@@ -770,20 +898,21 @@ const response = await apiService.sendMessage({
 
 ---
 
-### **5.4 GET /api/messages/conversation/find/:mechanicId - Konuşma Bulma**
+### **5.4 GET /api/message/conversation/find/:otherUserId - Konuşma Bulma**
 
 **🎯 Ne İşe Yarar:**
-- Belirli bir usta ile konuşma bulur
+- Belirli bir kullanıcı ile konuşma bulur
 - Konuşma yoksa yeni oluşturur
 - Hızlı mesajlaşma başlatma
 
 **📱 Frontend'de Nerede Kullanılır:**
 - `rektefe-dv/screens/MechanicDetailScreen.tsx` - Mesaj gönderme
 - `rektefe-dv/screens/NewMessageScreen.tsx` - Yeni konuşma
+- `rektefe-us/screens/CustomerDetailScreen.tsx` - Müşteri ile konuşma
 
 **🔧 Nasıl Kullanılır:**
 ```typescript
-const response = await fetch(`${API_URL}/messages/conversation/find/${mechanicId}`);
+const response = await fetch(`${API_URL}/message/conversation/find/${otherUserId}`);
 const conversation = await response.json();
 // Konuşmayı başlat
 ```
@@ -978,9 +1107,52 @@ const ads = await response.json();
 
 ---
 
-## 🔧 **9. TECHNICAL ENDPOINT'LERİ**
+## 📢 **9. ADS ENDPOINT'LERİ**
 
-### **9.1 POST /api/upload - Dosya Yükleme**
+### **9.1 GET /api/ads - Reklamları Getir**
+
+**🎯 Ne İşe Yarar:**
+- Sistemdeki tüm reklamları getirir
+- Kampanya ve promosyon bilgileri
+- Kullanıcı deneyimini artırma
+
+**📱 Frontend'de Nerede Kullanılır:**
+- `rektefe-dv/components/AdCarousel.tsx` - Reklam carousel'i
+- `rektefe-dv/screens/HomeScreen.tsx` - Ana sayfa reklamları
+- `rektefe-us/screens/HomeScreen.tsx` - Usta uygulaması reklamları
+
+**🔧 Nasıl Kullanılır:**
+```typescript
+const response = await fetch(`${API_URL}/ads`);
+const ads = await response.json();
+// Reklamları göster
+```
+
+**📤 Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "title": "Özel Bakım Kampanyası",
+      "description": "Tüm araçlar için %20 indirim",
+      "imageUrl": "https://example.com/ad1.jpg",
+      "link": "https://example.com/campaign1",
+      "active": true,
+      "startDate": "2025-01-01",
+      "endDate": "2025-12-31"
+    }
+  ],
+  "message": "Reklamlar başarıyla getirildi"
+}
+```
+
+---
+
+## 🔧 **10. TECHNICAL ENDPOINT'LERİ**
+
+### **10.1 POST /api/upload - Dosya Yükleme**
 
 **🎯 Ne İşe Yarar:**
 - Profil fotoğrafı, kapak fotoğrafı yükleme
@@ -990,6 +1162,7 @@ const ads = await response.json();
 **📱 Frontend'de Nerede Kullanılır:**
 - `rektefe-dv/screens/RegisterScreen.tsx` - Profil fotoğrafı
 - `rektefe-dv/screens/ProfileScreen.tsx` - Fotoğraf güncelleme
+- `rektefe-us/screens/ProfileScreen.tsx` - Usta profil fotoğrafı
 
 **🔧 Nasıl Kullanılır:**
 ```typescript
@@ -1005,11 +1178,30 @@ const response = await api.post('/upload', formData, {
 });
 ```
 
+**📊 Request Body:**
+```
+Content-Type: multipart/form-data
+image: File (zorunlu, yüklenecek dosya)
+```
+
+**📤 Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "url": "https://cloudinary.com/image/upload/v1234567890/photo.jpg",
+    "publicId": "photo_1234567890",
+    "secureUrl": "https://res.cloudinary.com/image/upload/v1234567890/photo.jpg"
+  },
+  "message": "Dosya başarıyla yüklendi"
+}
+```
+
 ---
 
-## 🔧 **9. MÜŞTERİ SİSTEMİ ENDPOINT'LERİ**
+## 👥 **11. MÜŞTERİ SİSTEMİ ENDPOINT'LERİ**
 
-### **9.1 POST /api/users/become-customer/:mechanicId - Ustanın Müşterisi Ol**
+### **11.1 POST /api/users/become-customer/:mechanicId - Ustanın Müşterisi Ol**
 
 **🎯 Ne İşe Yarar:**
 - Şöför, belirtilen ustanın müşterisi olur
@@ -1058,7 +1250,7 @@ const becomeCustomer = async (mechanicId: string) => {
 
 ---
 
-### **9.2 DELETE /api/users/remove-customer/:mechanicId - Müşteriliği Bırak**
+### **11.2 DELETE /api/users/remove-customer/:mechanicId - Müşteriliği Bırak**
 
 **🎯 Ne İşe Yarar:**
 - Şöför, belirtilen ustanın müşterisi olmaktan çıkar
@@ -1105,7 +1297,7 @@ const removeCustomer = async (mechanicId: string) => {
 
 ---
 
-### **9.3 GET /api/users/my-mechanics - Müşterisi Olunan Ustalar**
+### **11.3 GET /api/users/my-mechanics - Müşterisi Olunan Ustalar**
 
 **🎯 Ne İşe Yarar:**
 - Şöförün müşterisi olduğu ustaları listeler
@@ -1167,7 +1359,7 @@ useEffect(() => {
 
 ---
 
-### **9.4 GET /api/users/my-customers - Ustanın Müşterileri**
+### **11.4 GET /api/users/my-customers - Ustanın Müşterileri**
 
 **🎯 Ne İşe Yarar:**
 - Ustanın müşterisi olan şöförleri listeler
@@ -1226,7 +1418,7 @@ useEffect(() => {
 
 ---
 
-## 📊 **10. ENDPOINT KULLANIM ÖZETİ**
+## 📊 **12. ENDPOINT KULLANIM ÖZETİ**
 
 ### **🔄 Frontend-Backend Entegrasyonu:**
 
@@ -1281,7 +1473,7 @@ try {
 
 ---
 
-## 🚀 **11. SONRAKI ADIMLAR**
+## 🚀 **13. SONRAKI ADIMLAR**
 
 ### **1. Frontend Tutarlılığı:**
 - `rektefe-dv`'de tüm API call'ları `apiService` üzerinden yap
@@ -1300,7 +1492,7 @@ try {
 
 ---
 
-## 📞 **12. DESTEK VE İLETİŞİM**
+## 📞 **14. DESTEK VE İLETİŞİM**
 
 - **API Desteği**: Backend geliştirici ekibi
 - **Frontend Desteği**: React Native geliştirici ekibi

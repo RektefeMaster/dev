@@ -101,7 +101,6 @@ router.get('/appointments/counts', auth, async (req: Request, res: Response) => 
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Counts hatası:', error);
     res.status(500).json({ success: false, message: 'Sunucu hatası' });
   }
 });
@@ -143,7 +142,6 @@ router.get('/wallet', auth, async (req: Request, res: Response) => {
 
     res.json({ success: true, data: wallet });
   } catch (error: any) {
-    console.error('Wallet getirme hatası:', error);
     res.status(500).json({ success: false, message: 'Cüzdan bilgileri alınamadı' });
   }
 });
@@ -182,7 +180,6 @@ router.get('/wallet/transactions', auth, async (req: Request, res: Response) => 
 
     res.json({ success: true, data: wallet.transactions });
   } catch (error: any) {
-    console.error('Transactions getirme hatası:', error);
     res.status(500).json({ success: false, message: 'İşlemler alınamadı' });
   }
 });
@@ -267,7 +264,6 @@ router.get('/services/packages', async (req: Request, res: Response) => {
       message: 'Servis paketleri başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Servis paketleri hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Servis paketleri getirilirken hata oluştu',
@@ -345,7 +341,6 @@ router.put('/availability', auth, MechanicController.updateAvailability);
  *         description: Sunucu hatası
  */
 router.put('/rating', auth, MechanicController.updateRating);
-
 
 /**
  * @swagger
@@ -508,7 +503,6 @@ router.get('/dashboard/stats', auth, async (req: Request, res: Response) => {
       message: 'Dashboard istatistikleri başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Dashboard stats hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Dashboard istatistikleri getirilirken hata oluştu',
@@ -551,7 +545,6 @@ router.get('/dashboard/today-schedule', auth, async (req: Request, res: Response
       message: 'Bugünkü program başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Today schedule hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Bugünkü program getirilirken hata oluştu',
@@ -598,7 +591,6 @@ router.get('/dashboard/recent-activity', auth, async (req: Request, res: Respons
       message: 'Son aktiviteler başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Recent activity hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Son aktiviteler getirilirken hata oluştu',
@@ -636,7 +628,6 @@ router.get('/ratings/stats', auth, async (req: Request, res: Response) => {
       message: 'Rating istatistikleri başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Rating stats hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Rating istatistikleri getirilirken hata oluştu',
@@ -697,7 +688,6 @@ router.get('/ratings/recent', auth, async (req: Request, res: Response) => {
       message: 'Son rating\'ler başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Recent ratings hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Son rating\'ler getirilirken hata oluştu',
@@ -705,7 +695,6 @@ router.get('/ratings/recent', auth, async (req: Request, res: Response) => {
     });
   }
 });
-
 
 router.get('/serviced-vehicles', auth, async (req: Request, res: Response) => {
   try {
@@ -732,7 +721,6 @@ router.get('/serviced-vehicles', auth, async (req: Request, res: Response) => {
       message: 'Servis verilen araçlar başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Serviced vehicles hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Servis verilen araçlar getirilirken hata oluştu',
@@ -740,7 +728,6 @@ router.get('/serviced-vehicles', auth, async (req: Request, res: Response) => {
     });
   }
 });
-
 
 // ===== SERVICE PACKAGES ENDPOINT =====
 
@@ -815,7 +802,6 @@ router.put('/availability', auth, async (req: Request, res: Response) => {
       message: 'Müsaitlik durumu güncellendi'
     });
   } catch (error: any) {
-    console.error('Availability update hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Müsaitlik durumu güncellenirken hata oluştu',
@@ -890,7 +876,6 @@ router.put('/rating', auth, async (req: Request, res: Response) => {
       message: 'Puan güncellendi'
     });
   } catch (error: any) {
-    console.error('Rating update hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Puan güncellenirken hata oluştu',
@@ -967,7 +952,6 @@ router.get('/stats', auth, async (req: Request, res: Response) => {
       message: 'İstatistikler başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Stats hatası:', error);
     res.status(500).json({
       success: false,
       message: 'İstatistikler getirilirken hata oluştu',
@@ -1050,7 +1034,6 @@ router.get('/all', async (req: Request, res: Response) => {
       message: 'Tüm mekanikler başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('All mechanics hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Mekanikler getirilirken hata oluştu',
@@ -1131,7 +1114,6 @@ router.get('/search', async (req: Request, res: Response) => {
       message: 'Arama sonuçları başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Mechanic search hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Arama yapılırken hata oluştu',
@@ -1212,7 +1194,6 @@ router.get('/city/:city', async (req: Request, res: Response) => {
       message: `${city} şehrindeki mekanikler başarıyla getirildi`
     });
   } catch (error: any) {
-    console.error('City mechanics hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Şehirdeki mekanikler getirilirken hata oluştu',
@@ -1293,7 +1274,6 @@ router.get('/specialization/:specialization', async (req: Request, res: Response
       message: `${specialization} uzmanlık alanındaki mekanikler başarıyla getirildi`
     });
   } catch (error: any) {
-    console.error('Specialization mechanics hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Uzmanlık alanındaki mekanikler getirilirken hata oluştu',
@@ -1372,7 +1352,6 @@ router.get('/list', async (req: Request, res: Response) => {
       message: 'Mekanikler başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Mechanic list hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Mekanikler getirilirken hata oluştu',
@@ -1458,7 +1437,6 @@ router.get('/nearby', async (req: Request, res: Response) => {
 
     return res.json({ success: true, data: withDistance, message: 'En yakın ustalar getirildi' });
   } catch (error) {
-    console.error('Nearby mechanics hatası:', error);
     return res.status(500).json({ success: false, message: 'Sunucu hatası' });
   }
 });
@@ -1539,7 +1517,6 @@ router.get('/details/:id', async (req: Request, res: Response) => {
       message: 'Mekanik detayları başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Mechanic details hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Mekanik detayları getirilirken hata oluştu',
@@ -1577,7 +1554,6 @@ router.get('/:mechanicId/wash-packages', async (req: Request, res: Response) => 
 
     return ResponseHandler.success(res, washData, 'Yıkama paketleri başarıyla getirildi.');
   } catch (error) {
-    console.error('Yıkama paketleri getirme hatası:', error);
     return ResponseHandler.error(res, 'Yıkama paketleri getirilirken bir hata oluştu.');
   }
 });

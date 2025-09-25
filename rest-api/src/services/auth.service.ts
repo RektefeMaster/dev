@@ -112,7 +112,8 @@ export class AuthService {
     // Token'ları oluştur
     const token = jwt.sign(
       { userId: (user._id as mongoose.Types.ObjectId).toString(), userType: finalUserType },
-      JWT_SECRET
+      JWT_SECRET,
+      { expiresIn: '15m' } // Security fix: Add expiration
     );
     
     const refreshToken = jwt.sign(
@@ -164,14 +165,14 @@ export class AuthService {
           fullUserData = { ...fullUserData, ...(mechanic.toObject() as any) };
         }
       } catch (error) {
-        console.error('⚠️ AuthService: Mechanic data çekilemedi:', error);
-      }
+        }
     }
 
     // Token'ları oluştur
     const token = jwt.sign(
       { userId: (user._id as mongoose.Types.ObjectId).toString(), userType: user.userType },
-      JWT_SECRET
+      JWT_SECRET,
+      { expiresIn: '15m' } // Security fix: Add expiration
     );
     
     const refreshToken = jwt.sign(
@@ -179,8 +180,6 @@ export class AuthService {
       JWT_SECRET,
       { expiresIn: '60d' }
     );
-
-
 
     return {
       userId: user._id,

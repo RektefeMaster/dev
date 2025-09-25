@@ -39,7 +39,6 @@ router.get('/recent', auth, async (req: Request, res: Response) => {
       message: 'Recent activities başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Activity hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Activities getirilirken hata oluştu',
@@ -84,7 +83,6 @@ router.get('/', auth, async (req: Request, res: Response) => {
       message: 'Recent activities başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Activity hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Activities getirilirken hata oluştu',

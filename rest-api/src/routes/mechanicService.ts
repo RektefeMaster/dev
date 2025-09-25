@@ -1,8 +1,8 @@
-console.log('mechanicService.ts yüklendi');
 import express, { Request, Response } from 'express';
 import { auth } from '../middleware/auth';
 import { ServiceCategory } from '../models/ServiceCategory';
 import { User } from '../models/User';
+import { MechanicService } from '../services/mechanic.service';
 
 /**
  * @swagger
@@ -394,7 +394,6 @@ router.get('/type/:type', async (req: Request, res: Response) => {
  */
 // Usta profilini getir
 router.get('/mechanic/:id', auth, async (req: Request, res: Response) => {
-  console.log('GET /mechanic/:id çalıştı', req.params, req.user);
   try {
     const { id } = req.params;
     if (!req.user) {
@@ -517,7 +516,6 @@ router.get('/mechanic/:id', auth, async (req: Request, res: Response) => {
  */
 // Usta profilini güncelle
 router.put('/mechanic/:id', auth, async (req: Request, res: Response) => {
-  console.log('PUT /mechanic/:id çalıştı', req.params, req.user);
   try {
     const { id } = req.params;
     if (!req.user) {
@@ -543,8 +541,6 @@ router.put('/mechanic/:id', auth, async (req: Request, res: Response) => {
       }
     };
 
-    console.log('Güncellenecek alanlar:', JSON.stringify(validatedFields, null, 2));
-
     const mechanic = await User.findOneAndUpdate(
       { _id: id, userType: 'mechanic' }, 
       validatedFields, 
@@ -558,10 +554,8 @@ router.put('/mechanic/:id', auth, async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Usta bulunamadı' });
     }
 
-    console.log('Mechanic güncellendi:', mechanic._id);
     res.json(mechanic);
   } catch (error) {
-    console.error('Profil güncelleme hatası:', error);
     res.status(500).json({ 
       message: 'Profil güncellenirken hata oluştu',
       error: error instanceof Error ? error.message : 'Bilinmeyen hata'
@@ -691,18 +685,46 @@ router.get('/mechanics', async (req: Request, res: Response) => {
       filter.$or = orConditions;
     }
     
-    const mechanics = await User.find({ ...filter, userType: 'mechanic' }).select(
-      'name surname shopName avatar cover bio serviceCategories vehicleBrands rating totalServices isAvailable location.city workingHours phone experience ratingCount'
-    );
+    // MechanicService.getAllMechanics() kullanarak koordinat bilgilerini ekle
+    const allMechanics = await MechanicService.getAllMechanics();
+    
+    // Filtreleri uygula
+    let filteredMechanics = allMechanics;
+    
+    if (serviceCategory) {
+      filteredMechanics = filteredMechanics.filter(mechanic => 
+        mechanic.serviceCategories?.includes(serviceCategory as string) || 
+        mechanic.serviceCategories?.includes('Tümü')
+      );
+    }
+    
+    if (vehicleBrand) {
+      filteredMechanics = filteredMechanics.filter(mechanic => 
+        mechanic.vehicleBrands?.includes(vehicleBrand as string) || 
+        mechanic.vehicleBrands?.includes('Genel') ||
+        mechanic.vehicleBrands?.includes('Tüm Markalar')
+      );
+    }
+    
+    if (city) {
+      filteredMechanics = filteredMechanics.filter(mechanic => 
+        mechanic.location?.city === city
+      );
+    }
+    
+    if (isAvailable !== undefined) {
+      filteredMechanics = filteredMechanics.filter(mechanic => 
+        mechanic.isAvailable === (isAvailable === 'true')
+      );
+    }
     
     // API response formatını düzenle
     res.json({
       success: true,
-      data: mechanics,
-      message: `${mechanics.length} adet usta bulundu`
+      data: filteredMechanics,
+      message: `${filteredMechanics.length} adet usta bulundu`
     });
   } catch (error) {
-    console.error('Mechanic listesi hatası:', error);
     res.status(500).json({ 
       success: false,
       message: 'Usta listesi getirilirken hata oluştu', 
@@ -760,7 +782,6 @@ router.get('/categories', async (req: Request, res: Response) => {
       message: 'Kategoriler başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Kategori listesi hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Kategoriler getirilirken hata oluştu',
@@ -794,7 +815,6 @@ router.get('/services', async (req: Request, res: Response) => {
       message: 'Servisler başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Servis listesi hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Servisler getirilirken hata oluştu',
@@ -838,7 +858,6 @@ router.get('/mechanic-availability', async (req: Request, res: Response) => {
       message: 'Müsait saatler başarıyla getirildi'
     });
   } catch (error) {
-    console.error('Mechanic availability hatası:', error);
     res.status(500).json({ 
       success: false,
       message: 'Müsaitlik durumu getirilirken hata oluştu', 

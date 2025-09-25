@@ -333,7 +333,6 @@ router.post('/google-login', async (req: Request, res: Response) => {
       data: result
     });
   } catch (error: any) {
-    console.error('Google login hatası:', error);
     res.status(400).json({
       success: false,
       message: error.message || 'Google girişi yapılırken hata oluştu'
@@ -404,7 +403,6 @@ router.post('/google-register', async (req: Request, res: Response) => {
       data: result
     });
   } catch (error: any) {
-    console.error('Google register hatası:', error);
     res.status(400).json({
       success: false,
       message: error.message || 'Google kayıt yapılırken hata oluştu'
@@ -459,7 +457,6 @@ router.get('/forgot-password', async (req: Request, res: Response) => {
       }
     });
   } catch (error: any) {
-    console.error('Forgot password hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Şifre sıfırlama email\'i gönderilirken hata oluştu',
@@ -521,7 +518,6 @@ router.post('/reset-password', async (req: Request, res: Response) => {
       message: 'Şifre başarıyla sıfırlandı'
     });
   } catch (error: any) {
-    console.error('Reset password hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Şifre sıfırlanırken hata oluştu',
@@ -593,7 +589,6 @@ router.post('/change-password', auth, async (req: Request, res: Response) => {
       message: 'Şifre başarıyla değiştirildi'
     });
   } catch (error: any) {
-    console.error('Change password hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Şifre değiştirilirken hata oluştu',

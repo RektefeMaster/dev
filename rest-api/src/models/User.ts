@@ -327,4 +327,12 @@ const userSchema = new Schema<IUser>({
   }
 });
 
+// Performance optimization: Add indexes for common queries
+userSchema.index({ userType: 1, isAvailable: 1 }); // Available mechanics/drivers
+userSchema.index({ userType: 1, city: 1 }); // Users by type and location
+userSchema.index({ currentLocation: '2dsphere' }); // Geospatial queries
+userSchema.index({ createdAt: -1 }); // Recent users
+userSchema.index({ rating: -1 }); // Top rated users
+userSchema.index({ phone: 1 }); // Phone lookups
+
 export const User = mongoose.model<IUser>('User', userSchema); 

@@ -20,15 +20,12 @@ export class MessageController {
         message: 'Sohbetler başarıyla getirildi'
       });
     } catch (error) {
-      console.error('getConversations error:', error);
       res.status(500).json({
         success: false,
         message: 'Sohbetler getirilirken hata oluştu'
       });
     }
   }
-
-
 
   // Sohbet mesajları
   static async getMessages(req: Request, res: Response) {
@@ -69,7 +66,6 @@ export class MessageController {
         message: 'Mesajlar başarıyla getirildi'
       });
     } catch (error) {
-      console.error('getMessages error:', error);
       res.status(500).json({
         success: false,
         message: 'Mesajlar getirilirken hata oluştu'
@@ -100,14 +96,12 @@ export class MessageController {
         message: 'Yeni mesajlar başarıyla getirildi'
       });
     } catch (error) {
-      console.error('getMessagesAfter error:', error);
       res.status(500).json({
         success: false,
         message: 'Yeni mesajlar getirilirken hata oluştu'
       });
     }
   }
-
 
   // İki kullanıcı arasında sohbet bul
   static async findConversationBetweenUsers(req: Request, res: Response) {
@@ -129,7 +123,6 @@ export class MessageController {
         message: 'Sohbet başarıyla bulundu'
       });
     } catch (error) {
-      console.error('findConversationBetweenUsers error:', error);
       res.status(500).json({
         success: false,
         message: 'Sohbet bulunurken hata oluştu'
@@ -164,11 +157,11 @@ export class MessageController {
         data: message,
         message: 'Mesaj başarıyla gönderildi'
       });
-    } catch (error) {
-      console.error('sendMessage error:', error);
+    } catch (error: any) {
+      console.error('Send message error:', error);
       res.status(500).json({
         success: false,
-        message: 'Mesaj gönderilirken hata oluştu'
+        message: error.message || 'Mesaj gönderilirken hata oluştu'
       });
     }
   }
@@ -192,7 +185,6 @@ export class MessageController {
         message: 'Mesajlar okundu olarak işaretlendi'
       });
     } catch (error) {
-      console.error('markMessagesAsRead error:', error);
       res.status(500).json({
         success: false,
         message: 'Mesajlar işaretlenirken hata oluştu'
@@ -219,15 +211,12 @@ export class MessageController {
         message: 'Okunmamış mesaj sayısı getirildi'
       });
     } catch (error) {
-      console.error('getUnreadCount error:', error);
       res.status(500).json({
         success: false,
         message: 'Okunmamış mesaj sayısı getirilirken hata oluştu'
       });
     }
   }
-
-
 
   // Sohbeti sil
   static async deleteConversation(req: Request, res: Response) {
@@ -248,7 +237,6 @@ export class MessageController {
         message: 'Sohbet başarıyla silindi'
       });
     } catch (error) {
-      console.error('deleteConversation error:', error);
       res.status(500).json({
         success: false,
         message: 'Sohbet silinirken hata oluştu'
@@ -274,11 +262,11 @@ export class MessageController {
         success: true,
         message: 'Mesaj başarıyla silindi'
       });
-    } catch (error) {
-      console.error('deleteMessage error:', error);
+    } catch (error: any) {
+      console.error('Delete message error:', error);
       res.status(500).json({
         success: false,
-        message: 'Mesaj silinirken hata oluştu'
+        message: error.message || 'Mesaj silinirken hata oluştu'
       });
     }
   }

@@ -39,7 +39,6 @@ export class GoogleAuthService {
         emailVerified: payload.email_verified
       };
     } catch (error) {
-      console.error('Google token doğrulama hatası:', error);
       throw new Error('Geçersiz Google token');
     }
   }
@@ -65,7 +64,8 @@ export class GoogleAuthService {
       // Token'ları oluştur
       const token = jwt.sign(
         { userId: (user._id as any).toString(), userType: user.userType },
-        JWT_SECRET
+        JWT_SECRET,
+        { expiresIn: '15m' } // Security fix: Add expiration
       );
       
       const refreshToken = jwt.sign(
@@ -82,7 +82,6 @@ export class GoogleAuthService {
         user: user.toObject()
       };
     } catch (error) {
-      console.error('Google login hatası:', error);
       throw error;
     }
   }
@@ -109,7 +108,8 @@ export class GoogleAuthService {
       // Token'ları oluştur
       const token = jwt.sign(
         { userId: (user._id as any).toString(), userType: user.userType },
-        JWT_SECRET
+        JWT_SECRET,
+        { expiresIn: '15m' } // Security fix: Add expiration
       );
       
       const refreshToken = jwt.sign(
@@ -126,7 +126,6 @@ export class GoogleAuthService {
         user: user.toObject()
       };
     } catch (error) {
-      console.error('Google register hatası:', error);
       throw error;
     }
   }
@@ -188,7 +187,6 @@ export class GoogleAuthService {
       
       return user;
     } catch (error) {
-      console.error('Google user oluşturma hatası:', error);
       throw error;
     }
   }

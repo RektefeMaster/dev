@@ -2,16 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Modal, ScrollView, Switch, Alert } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing, borderRadius, shadows } from '../theme/theme';
-import { TabParamList } from '../types/common';
-import { useAuth } from '../context/AuthContext';
-import apiService from '../services/api';
+import { colors, typography, spacing, borderRadius, shadows } from '@/shared/theme';
+import { TabParamList } from '@/shared/types';
+import { useAuth } from '@/shared/context';
+import apiService from '@/shared/services';
 
 // Screens
-import HomeScreen from '../screens/HomeScreen';
-import MessagesScreen from '../screens/MessagesScreen';
-import WalletScreen from '../screens/WalletScreen';
-import ProfileScreen from '../screens/ProfileScreen';
+import { HomeScreen } from '@/features/home/screens';
+import { MessagesScreen } from '@/features/messages/screens';
+import { WalletScreen } from '@/features/wallet/screens';
+import { ProfileScreen } from '@/features/profile/screens';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 const { width } = Dimensions.get('window');
@@ -37,8 +37,7 @@ const HamburgerMenu = ({ visible, onClose, navigation }: HamburgerMenuProps) => 
       onClose();
       await logout();
     } catch (error) {
-      console.error('Logout hatası:', error);
-    }
+      }
   };
 
   const toggleTheme = () => {
@@ -152,7 +151,7 @@ const HamburgerMenu = ({ visible, onClose, navigation }: HamburgerMenuProps) => 
                 <Switch
                   value={isDarkMode}
                   onValueChange={toggleTheme}
-                  trackColor={{ false: colors.border.secondary, true: colors.primary.light }}
+                  trackColor={{ false: colors.border.secondary, true: colors.primary.main }}
                   thumbColor={isDarkMode ? colors.primary.main : colors.background.secondary}
                 />
               </View>
@@ -164,7 +163,7 @@ const HamburgerMenu = ({ visible, onClose, navigation }: HamburgerMenuProps) => 
               onPress={handleLogout}
               activeOpacity={0.7}
             >
-              <Ionicons name="log-out-outline" size={18} color={colors.error.main} />
+                <Ionicons name="log-out-outline" size={18} color={colors.error.main} />
               <Text style={styles.logoutText}>Çıkış Yap</Text>
             </TouchableOpacity>
           </ScrollView>
@@ -184,9 +183,6 @@ const CustomTabBar = ({ state, descriptors, navigation }: TabBarProps) => {
   const currentRoute = state.routes[state.index]?.name;
   const [unreadCount, setUnreadCount] = useState(0);
   
-  // Debug için log ekle
-  console.log('🔄 CustomTabBar render - routes:', state.routes.map(r => r.name));
-  
   // Gerçek okunmamış mesaj sayısını al
   useEffect(() => {
     const fetchUnreadCount = async () => {
@@ -198,7 +194,6 @@ const CustomTabBar = ({ state, descriptors, navigation }: TabBarProps) => {
           setUnreadCount(0);
         }
       } catch (error) {
-        console.error('Okunmamış mesaj sayısı alınamadı:', error);
         setUnreadCount(0);
       }
     };
@@ -308,7 +303,7 @@ const TabButton = ({ isFocused, icon, label, badge, onPress }: TabButtonProps) =
         <Ionicons 
           name={icon as any} 
           size={22} 
-          color={isFocused ? colors.primary.main : colors.text.tertiary} 
+            color={isFocused ? colors.primary.main : colors.text.tertiary}
         />
         {badge > 0 && (
           <View style={styles.badge}>
@@ -379,7 +374,7 @@ const TabNavigator = () => {
       {userCapabilities.includes('towing') && (
         <Tab.Screen 
           name="TowingService" 
-          component={require('../screens/TowingServiceScreen').default}
+          component={require('../features/services/screens/TowingServiceScreen').default}
           options={{
             title: 'Çekici',
           }}
@@ -391,7 +386,7 @@ const TabNavigator = () => {
       {userCapabilities.includes('wash') && (
         <Tab.Screen 
           name="WashService" 
-          component={require('../screens/WashServiceScreen').default}
+          component={require('../features/services/screens/WashServiceScreen').default}
           options={{
             title: 'Yıkama',
           }}
@@ -401,7 +396,7 @@ const TabNavigator = () => {
       {userCapabilities.includes('tire') && (
         <Tab.Screen 
           name="TireService" 
-          component={require('../screens/TireServiceScreen').default}
+          component={require('../features/services/screens/TireServiceScreen').default}
           options={{
             title: 'Lastik',
           }}
@@ -416,7 +411,6 @@ const TabNavigator = () => {
           title: 'Mesajlar',
         }}
       />
-
 
       {/* Cüzdan - herkes için */}
       <Tab.Screen 
@@ -443,8 +437,7 @@ const TabNavigator = () => {
         onClose={() => setHamburgerVisible(false)}
         navigation={{ navigate: (screen: string) => {
           // Navigation logic will be handled by the parent navigator
-          console.log('Navigate to:', screen);
-        }}}
+          }}}
       />
     </>
   );
@@ -471,7 +464,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     marginHorizontal: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border.light,
+    borderColor: colors.border.secondary,
     elevation: 8,
   },
   tabButton: {
@@ -519,10 +512,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: spacing.xs,
   },
-  activeTabLabel: {
-    color: colors.primary.main,
-    fontWeight: '600',
-  },
+    activeTabLabel: {
+      color: colors.primary.main,
+      fontWeight: '600',
+    },
   activeIndicator: {
     position: 'absolute',
     bottom: -spacing.xs,
@@ -552,7 +545,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.xl,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
+    borderBottomColor: colors.border.secondary,
     marginBottom: spacing.lg,
   },
   avatarContainer: {
@@ -668,7 +661,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     backgroundColor: colors.error.ultraLight,
     borderWidth: 1,
-    borderColor: colors.error.light,
+    borderColor: colors.error.main,
     gap: spacing.sm,
     marginTop: spacing.lg,
   },

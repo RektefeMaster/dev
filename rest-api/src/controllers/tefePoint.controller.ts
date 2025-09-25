@@ -16,18 +16,10 @@ export class TefePointController {
     }
 
     try {
-      console.log(`🔍 TefePuan balance sorgusu - userId: ${userId}`);
       let tefePoint = await TefePoint.findOne({ userId });
-      
-      console.log(`🔍 TefePuan bulundu:`, tefePoint ? {
-        totalPoints: tefePoint.totalPoints,
-        availablePoints: tefePoint.availablePoints,
-        transactions: tefePoint.transactions.length
-      } : 'null');
       
       // Eğer kullanıcının TefePuan kaydı yoksa oluştur
       if (!tefePoint) {
-        console.log(`🔍 Yeni TefePuan kaydı oluşturuluyor - userId: ${userId}`);
         tefePoint = new TefePoint({
           userId,
           totalPoints: 0,
@@ -37,18 +29,10 @@ export class TefePointController {
           transactions: []
         });
         await tefePoint.save();
-        console.log(`✅ Yeni TefePuan kaydı oluşturuldu - userId: ${userId}`);
-      }
+        }
 
       // Süresi dolan puanları kontrol et ve güncelle
       await TefePointController.updateExpiredPoints(tefePoint);
-
-      console.log(`🔍 TefePuan balance yanıtı:`, {
-        totalPoints: tefePoint.totalPoints,
-        availablePoints: tefePoint.availablePoints,
-        usedPoints: tefePoint.usedPoints,
-        expiredPoints: tefePoint.expiredPoints
-      });
 
       res.json({
         success: true,
@@ -61,7 +45,6 @@ export class TefePointController {
         }
       });
     } catch (error: any) {
-      console.error('TefePuan bakiyesi getirme hatası:', error);
       res.status(500).json({
         success: false,
         message: 'TefePuan bakiyesi getirilirken hata oluştu',
@@ -83,17 +66,9 @@ export class TefePointController {
     }
 
     try {
-      console.log(`🔍 TefePuan history sorgusu - userId: ${userId}`);
       const tefePoint = await TefePoint.findOne({ userId });
       
-      console.log(`🔍 TefePuan history bulundu:`, tefePoint ? {
-        totalPoints: tefePoint.totalPoints,
-        transactions: tefePoint.transactions.length,
-        transactionTypes: tefePoint.transactions.map(t => t.type)
-      } : 'null');
-      
       if (!tefePoint) {
-        console.log(`🔍 TefePuan history bulunamadı - userId: ${userId}`);
         return res.json({
           success: true,
           message: 'TefePuan geçmişi bulunamadı',
@@ -137,7 +112,6 @@ export class TefePointController {
         }
       });
     } catch (error: any) {
-      console.error('TefePuan geçmişi getirme hatası:', error);
       res.status(500).json({
         success: false,
         message: 'TefePuan geçmişi getirilirken hata oluştu',
@@ -229,7 +203,6 @@ export class TefePointController {
         }
       });
     } catch (error: any) {
-      console.error('TefePuan kazanma hatası:', error);
       res.status(500).json({
         success: false,
         message: 'TefePuan kazanılırken hata oluştu',
@@ -302,7 +275,6 @@ export class TefePointController {
         }
       });
     } catch (error: any) {
-      console.error('TefePuan kullanma hatası:', error);
       res.status(500).json({
         success: false,
         message: 'TefePuan kullanılırken hata oluştu',
@@ -438,7 +410,6 @@ export class TefePointController {
         }
       });
     } catch (error: any) {
-      console.error('TefePuan istatistikleri getirme hatası:', error);
       res.status(500).json({
         success: false,
         message: 'TefePuan istatistikleri getirilirken hata oluştu',

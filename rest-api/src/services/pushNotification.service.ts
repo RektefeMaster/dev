@@ -24,7 +24,6 @@ export class PushNotificationService {
       
       return success;
     } catch (error) {
-      console.error('Push notification gönderme hatası:', error);
       return false;
     }
   }
@@ -46,11 +45,9 @@ export class PushNotificationService {
       });
 
       await Promise.all(promises);
-      
 
       return successCount;
     } catch (error) {
-      console.error('Çoklu push notification gönderme hatası:', error);
       return 0;
     }
   }
@@ -75,11 +72,9 @@ export class PushNotificationService {
       });
 
       await Promise.all(promises);
-      
 
       return successCount;
     } catch (error) {
-      console.error('Mekaniklere push notification gönderme hatası:', error);
       return 0;
     }
   }
@@ -114,7 +109,6 @@ export class PushNotificationService {
       
       return false;
     } catch (error) {
-      console.error('Expo push notification hatası:', error);
       return false;
     }
   }
@@ -157,7 +151,6 @@ export class PushNotificationService {
 
       return await this.sendToUser(mechanicId, title, body, data);
     } catch (error) {
-      console.error('Randevu bildirimi gönderme hatası:', error);
       return false;
     }
   }

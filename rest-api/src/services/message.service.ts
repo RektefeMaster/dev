@@ -30,7 +30,6 @@ export class MessageService {
       // Mongoose document olarak döndür (save() için gerekli)
       return conversation;
     } catch (error) {
-      console.error('findOrCreateConversation error:', error);
       throw error;
     }
   }
@@ -45,7 +44,7 @@ export class MessageService {
       const otherParticipantId = conversation.participants.find(p => p.toString() !== userId1)?.toString();
       
       if (otherParticipantId) {
-        const otherUser = await User.findById(otherParticipantId).select('name surname profileImage avatar');
+         const otherUser = await User.findById(otherParticipantId).select('name surname profileImage avatar');
         if (otherUser) {
           conversationObj.otherParticipant = {
             _id: otherUser._id,
@@ -58,7 +57,6 @@ export class MessageService {
       
       return conversationObj;
     } catch (error) {
-      console.error('findOrCreateConversationWithOtherParticipant error:', error);
       throw error;
     }
   }
@@ -88,7 +86,6 @@ export class MessageService {
       
       return message;
     } catch (error) {
-      console.error('sendMessage error:', error);
       throw error;
     }
   }
@@ -96,8 +93,6 @@ export class MessageService {
   // Kullanıcının sohbetlerini getir
   static async getConversations(userId: string): Promise<any[]> {
     try {
-      console.log('🔍 getConversations: userId:', userId);
-      
       const conversations = await Conversation.find({
         participants: userId
       })
@@ -105,64 +100,39 @@ export class MessageService {
       .populate('lastMessage')
       .sort({ lastMessageAt: -1 });
 
-      console.log('🔍 getConversations: Raw conversations after populate:', conversations.map(c => ({
-        _id: c._id,
-        participants: c.participants.map((p: any) => ({ 
-          _id: p._id, 
-          name: p.name, 
-          surname: p.surname, 
-          profileImage: p.profileImage,
-          avatar: p.avatar 
-        })),
-        lastMessage: c.lastMessage,
-        lastMessageAt: c.lastMessageAt
-      })));
-
-      console.log('🔍 getConversations: Raw conversations count:', conversations.length);
-      console.log('🔍 getConversations: Raw conversations:', conversations.map(c => ({
-        _id: c._id,
-        participants: c.participants.map((p: any) => ({ _id: p._id, name: p.name, surname: p.surname })),
-        lastMessage: c.lastMessage,
-        lastMessageAt: c.lastMessageAt
-      })));
-
       const result = await Promise.all(conversations.map(async (conv) => {
-        console.log('🔍 getConversations: Processing conversation:', conv._id);
-        console.log('🔍 getConversations: Participants:', conv.participants);
-        console.log('🔍 getConversations: Participants length:', conv.participants?.length);
-        
         // Eğer participants array'inde sadece 1 kişi varsa, düzelt
         if (conv.participants?.length === 1) {
-          console.log('⚠️ getConversations: Conversation has only 1 participant, fixing...');
-          
           // Conversation'ı yeniden oluştur
           const otherParticipantId = conv.participants[0]._id.toString() === userId ? 
             '68bf07ffea20171f7866de46' : // Hardcoded for now, should be dynamic
             userId;
           
           conv.participants = [conv.participants[0]._id, otherParticipantId as any];
-          conv.save();
+          try {
+            await conv.save();
+          } catch (error: any) {
+            if (error.name === 'VersionError') {
+              const freshConv = await Conversation.findById(conv._id);
+              if (freshConv) {
+                freshConv.participants = [freshConv.participants[0]._id, otherParticipantId as any];
+                await freshConv.save();
+              }
+            } else {
+              throw error;
+            }
+          }
           
-          console.log('✅ getConversations: Fixed conversation participants:', conv.participants);
-        }
+          }
         
         // Diğer katılımcıyı bul (userId'den farklı olan)
         const otherParticipant = conv.participants?.find((p: any) => {
           const participantId = p._id ? p._id.toString() : p.toString();
           const isDifferent = participantId !== userId;
-          console.log('🔍 getConversations: Checking participant:', {
-            participantId,
-            userId,
-            isDifferent
-          });
           return isDifferent;
         });
         
-        console.log('🔍 getConversations: otherParticipant found:', !!otherParticipant);
-        console.log('🔍 getConversations: otherParticipant:', otherParticipant);
-        
         if (!otherParticipant) {
-          console.log('❌ getConversations: No other participant found for conversation:', conv._id);
           return null; // Geçersiz sohbet
         }
 
@@ -176,9 +146,8 @@ export class MessageService {
 
         // Eğer name veya surname eksikse, User modelinden çek
         if (!participantInfo.name || !participantInfo.surname) {
-          console.log('⚠️ getConversations: Participant bilgileri eksik, User modelinden çekiliyor...');
           try {
-            const userInfo = await User.findById(participantInfo._id, 'name surname profileImage avatar');
+             const userInfo = await User.findById(participantInfo._id, 'name surname profileImage avatar');
             if (userInfo) {
               participantInfo = {
                 _id: participantInfo._id,
@@ -186,10 +155,8 @@ export class MessageService {
                 surname: userInfo.surname || 'Kullanıcı',
                 avatar: userInfo.avatar || userInfo.profileImage
               };
-              console.log('✅ getConversations: User bilgileri çekildi:', participantInfo);
-            }
+              }
           } catch (error) {
-            console.log('❌ getConversations: User bilgileri çekilemedi:', error);
             participantInfo = {
               _id: participantInfo._id,
               name: 'Bilinmeyen',
@@ -208,19 +175,14 @@ export class MessageService {
           unreadCount: conv.unreadCount ? conv.unreadCount.get(userId) || 0 : 0
         };
         
-        console.log('✅ getConversations: Processed conversation:', conversationData);
         return conversationData;
       })); // null değerleri filtrele
       
       // null değerleri filtrele
       const filteredResult = result.filter(Boolean);
       
-      console.log('🔍 getConversations: Final result count:', filteredResult.length);
-      console.log('🔍 getConversations: Final result:', filteredResult);
-      
       return filteredResult;
     } catch (error) {
-      console.error('getConversations error:', error);
       throw error;
     }
   }
@@ -238,7 +200,6 @@ export class MessageService {
       
       return messages.reverse(); // En eski mesajlar önce gelsin
     } catch (error) {
-      console.error('getMessages error:', error);
       throw error;
     }
   }
@@ -261,7 +222,6 @@ export class MessageService {
       
       return messages;
     } catch (error) {
-      console.error('getMessagesAfter error:', error);
       throw error;
     }
   }
@@ -287,7 +247,6 @@ export class MessageService {
         }
       }
     } catch (error) {
-      console.error('markAsRead error:', error);
       throw error;
     }
   }
@@ -314,7 +273,6 @@ export class MessageService {
         await conversation.save();
       }
     } catch (error) {
-      console.error('markAllAsRead error:', error);
       throw error;
     }
   }
@@ -322,15 +280,26 @@ export class MessageService {
   // Mesaj sil
   static async deleteMessage(messageId: string, userId: string): Promise<boolean> {
     try {
+      console.log(`[MessageService] Deleting message ${messageId} for user ${userId}`);
+      
       const message = await Message.findById(messageId);
-      if (!message || message.senderId.toString() !== userId) {
+      if (!message) {
+        console.log(`[MessageService] Message ${messageId} not found`);
+        return false;
+      }
+      
+      console.log(`[MessageService] Message found - senderId: ${message.senderId}, userId: ${userId}`);
+      
+      if (message.senderId.toString() !== userId) {
+        console.log(`[MessageService] User ${userId} is not the sender of message ${messageId}`);
         return false;
       }
       
       await Message.findByIdAndDelete(messageId);
+      console.log(`[MessageService] Message ${messageId} deleted successfully`);
       return true;
     } catch (error) {
-      console.error('deleteMessage error:', error);
+      console.error(`[MessageService] Error deleting message ${messageId}:`, error);
       throw error;
     }
   }
@@ -350,7 +319,6 @@ export class MessageService {
       await Conversation.findByIdAndDelete(conversationId);
       return true;
     } catch (error) {
-      console.error('deleteConversation error:', error);
       throw error;
     }
   }
@@ -360,7 +328,6 @@ export class MessageService {
     try {
       return await this.findOrCreateConversationWithOtherParticipant(userId1, userId2);
     } catch (error) {
-      console.error('findConversationBetweenUsers error:', error);
       throw error;
     }
   }
@@ -370,7 +337,6 @@ export class MessageService {
     try {
       await this.markAllAsRead(conversationId, userId);
     } catch (error) {
-      console.error('markMessagesAsRead error:', error);
       throw error;
     }
   }
@@ -391,7 +357,6 @@ export class MessageService {
 
       return totalUnread;
     } catch (error) {
-      console.error('getUnreadCount error:', error);
       throw error;
     }
   }
@@ -401,7 +366,6 @@ export class MessageService {
     try {
       return await Message.countDocuments({ conversationId });
     } catch (error) {
-      console.error('getTotalMessageCount error:', error);
       throw error;
     }
   }
@@ -412,8 +376,7 @@ export class MessageService {
       // Kullanıcının tüm konuşmalarını bul
       const conversations = await Conversation.find({
         participants: userId
-      }).select('_id');
-
+       }).select('_id');
       const conversationIds = conversations.map(conv => conv._id);
 
       let query: any = {
@@ -437,7 +400,6 @@ export class MessageService {
 
       return messages;
     } catch (error) {
-      console.error('getNewMessages error:', error);
       throw error;
     }
   }

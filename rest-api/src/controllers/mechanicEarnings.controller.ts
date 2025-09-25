@@ -10,7 +10,6 @@ export class MechanicEarningsController {
   static async getEarnings(req: Request, res: Response) {
     try {
 
-
       const { period = 'month', startDate, endDate } = req.query;
       const mechanicId = req.params.mechanicId || req.user?.userId;
 
@@ -47,8 +46,6 @@ export class MechanicEarningsController {
         status: { $in: ['PLANLANDI', 'TAMAMLANDI', 'SERVISTE'] }
       }).populate('userId', 'name surname').populate('vehicleId', 'brand modelName plateNumber');
 
-
-
       // Kazançları hesapla
       const earnings = appointments.map(apt => ({
         date: apt.appointmentDate,
@@ -60,16 +57,16 @@ export class MechanicEarningsController {
         vehicleInfo: apt.vehicleId ? `${(apt.vehicleId as any)?.brand} ${(apt.vehicleId as any)?.modelName} (${(apt.vehicleId as any)?.plateNumber})` : 'Araç bilgisi yok'
       }));
 
-
-
       return sendResponse(res, 200, 'Kazanç bilgileri başarıyla getirildi', earnings);
     } catch (error) {
-      console.error('❌ getEarnings error:', error);
-      console.error('❌ Error details:', {
-        message: (error as any).message,
-        stack: (error as any).stack,
-        name: (error as any).name
-      });
+      // Error handling - log in development only
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Earnings error:', {
+          message: (error as any).message,
+          stack: (error as any).stack,
+          name: (error as any).name
+        });
+      }
       return sendResponse(res, 500, 'Sunucu hatası');
     }
   }
@@ -106,55 +103,93 @@ export class MechanicEarningsController {
       // Tüm zamanlar
       const allTimeStart = new Date(0);
 
-      // Paralel olarak tüm sorguları çalıştır
-      const [todayEarnings, weekEarnings, monthEarnings, yearEarnings, allTimeEarnings, totalJobs] = await Promise.all([
-        Appointment.aggregate([
-          { $match: { mechanicId: new Types.ObjectId(mechanicId as string), status: { $in: ['TAMAMLANDI'] } } },
-          { $match: { appointmentDate: { $gte: todayStart, $lte: todayEnd } } },
-          { $group: { _id: null, total: { $sum: '$price' } } }
-        ]),
-        Appointment.aggregate([
-          { $match: { mechanicId: new Types.ObjectId(mechanicId as string), status: { $in: ['TAMAMLANDI'] } } },
-          { $match: { appointmentDate: { $gte: weekStart, $lte: weekEnd } } },
-          { $group: { _id: null, total: { $sum: '$price' } } }
-        ]),
-        Appointment.aggregate([
-          { $match: { mechanicId: new Types.ObjectId(mechanicId as string), status: { $in: ['TAMAMLANDI'] } } },
-          { $match: { appointmentDate: { $gte: monthStart, $lte: monthEnd } } },
-          { $group: { _id: null, total: { $sum: '$price' } } }
-        ]),
-        Appointment.aggregate([
-          { $match: { mechanicId: new Types.ObjectId(mechanicId as string), status: { $in: ['TAMAMLANDI'] } } },
-          { $match: { appointmentDate: { $gte: yearStart, $lte: yearEnd } } },
-          { $group: { _id: null, total: { $sum: '$price' } } }
-        ]),
-        Appointment.aggregate([
-          { $match: { mechanicId: new Types.ObjectId(mechanicId as string), status: { $in: ['TAMAMLANDI'] } } },
-          { $match: { appointmentDate: { $gte: allTimeStart } } },
-          { $group: { _id: null, total: { $sum: '$price' } } }
-        ]),
-        Appointment.countDocuments({ mechanicId: new Types.ObjectId(mechanicId as string), status: { $in: ['TAMAMLANDI'] } })
+      // Single optimized aggregate query - Performance fix
+      const [earningsSummary] = await Appointment.aggregate([
+        {
+          $match: {
+            mechanicId: new Types.ObjectId(mechanicId as string),
+            status: 'TAMAMLANDI',
+            price: { $exists: true, $gt: 0 }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalJobs: { $sum: 1 },
+            allTimeEarnings: { $sum: '$price' },
+            todayEarnings: {
+              $sum: {
+                $cond: [
+                  { $and: [
+                    { $gte: ['$appointmentDate', todayStart] },
+                    { $lte: ['$appointmentDate', todayEnd] }
+                  ]},
+                  '$price',
+                  0
+                ]
+              }
+            },
+            weekEarnings: {
+              $sum: {
+                $cond: [
+                  { $and: [
+                    { $gte: ['$appointmentDate', weekStart] },
+                    { $lte: ['$appointmentDate', weekEnd] }
+                  ]},
+                  '$price',
+                  0
+                ]
+              }
+            },
+            monthEarnings: {
+              $sum: {
+                $cond: [
+                  { $and: [
+                    { $gte: ['$appointmentDate', monthStart] },
+                    { $lte: ['$appointmentDate', monthEnd] }
+                  ]},
+                  '$price',
+                  0
+                ]
+              }
+            },
+            yearEarnings: {
+              $sum: {
+                $cond: [
+                  { $and: [
+                    { $gte: ['$appointmentDate', yearStart] },
+                    { $lte: ['$appointmentDate', yearEnd] }
+                  ]},
+                  '$price',
+                  0
+                ]
+              }
+            }
+          }
+        }
       ]);
 
       const summary = {
-        today: todayEarnings[0]?.total || 0,
-        week: weekEarnings[0]?.total || 0,
-        month: monthEarnings[0]?.total || 0,
-        year: yearEarnings[0]?.total || 0,
-        totalJobs,
-        averagePerJob: totalJobs > 0 ? Math.round((allTimeEarnings[0]?.total || 0) / totalJobs) : 0
+        today: earningsSummary?.todayEarnings || 0,
+        week: earningsSummary?.weekEarnings || 0,
+        month: earningsSummary?.monthEarnings || 0,
+        year: earningsSummary?.yearEarnings || 0,
+        totalJobs: earningsSummary?.totalJobs || 0,
+        averagePerJob: earningsSummary?.totalJobs > 0 
+          ? Math.round((earningsSummary?.allTimeEarnings || 0) / earningsSummary.totalJobs) 
+          : 0
       };
-
-
 
       return sendResponse(res, 200, 'Kazanç özeti başarıyla getirildi', summary);
     } catch (error) {
-      console.error('❌ getEarningsSummary error:', error);
-      console.error('❌ Error details:', {
-        message: (error as any).message,
-        stack: (error as any).stack,
-        name: (error as any).name
-      });
+      // Error handled silently in production
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Earnings summary error:', {
+          message: (error as any).message,
+          stack: (error as any).stack,
+          name: (error as any).name
+        });
+      }
       return sendResponse(res, 500, 'Sunucu hatası');
     }
   }
@@ -191,7 +226,6 @@ export class MechanicEarningsController {
 
       return sendResponse(res, 200, 'Kazanç detayı başarıyla getirildi', mockBreakdown);
     } catch (error) {
-      console.error('getEarningsBreakdown error:', error);
       return sendResponse(res, 500, 'Sunucu hatası');
     }
   }
@@ -201,7 +235,6 @@ export class MechanicEarningsController {
    */
   static async getTransactions(req: Request, res: Response) {
     try {
-
 
       const { page = 1, limit = 10, type } = req.query;
       const mechanicId = req.params.mechanicId || req.user?.userId;
@@ -236,8 +269,6 @@ export class MechanicEarningsController {
         vehicleInfo: apt.vehicleId ? `${(apt.vehicleId as any)?.brand} ${(apt.vehicleId as any)?.modelName} (${(apt.vehicleId as any)?.plateNumber})` : 'Araç bilgisi yok'
       }));
 
-
-
       return sendResponse(res, 200, 'İşlemler başarıyla getirildi', {
         transactions,
         pagination: {
@@ -247,12 +278,14 @@ export class MechanicEarningsController {
         }
       });
     } catch (error) {
-      console.error('❌ getTransactions error:', error);
-      console.error('❌ Error details:', {
-        message: (error as any).message,
-        stack: (error as any).stack,
-        name: (error as any).name
-      });
+      // Error handled silently in production
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Earnings breakdown error:', {
+          message: (error as any).message,
+          stack: (error as any).stack,
+          name: (error as any).name
+        });
+      }
       return sendResponse(res, 500, 'Sunucu hatası');
     }
   }
@@ -266,7 +299,6 @@ export class MechanicEarningsController {
 
       // TODO: Implement withdrawal request logic
 
-
       const mockWithdrawal = {
         id: Date.now().toString(),
         amount,
@@ -278,7 +310,6 @@ export class MechanicEarningsController {
 
       return sendResponse(res, 200, 'Para çekme talebi başarıyla oluşturuldu', mockWithdrawal);
     } catch (error) {
-      console.error('requestWithdrawal error:', error);
       return sendResponse(res, 500, 'Sunucu hatası');
     }
   }
@@ -318,7 +349,6 @@ export class MechanicEarningsController {
 
       return sendResponse(res, 200, 'Para çekme talepleri başarıyla getirildi', mockWithdrawals);
     } catch (error) {
-      console.error('getWithdrawals error:', error);
       return sendResponse(res, 500, 'Sunucu hatası');
     }
   }

@@ -302,7 +302,15 @@ const AppointmentSchema: Schema = new Schema({
   timestamps: true
 });
 
-// Index'ler
+// Performance optimization: Add indexes for common queries
+AppointmentSchema.index({ userId: 1, appointmentDate: -1 }); // User's appointments by date
+AppointmentSchema.index({ mechanicId: 1, status: 1, appointmentDate: -1 }); // Mechanic's appointments by status and date
+AppointmentSchema.index({ status: 1, appointmentDate: 1 }); // Appointments by status and date
+AppointmentSchema.index({ faultReportId: 1 }, { sparse: true }); // Fault report appointments
+AppointmentSchema.index({ createdAt: -1 }); // Recent appointments
+AppointmentSchema.index({ serviceType: 1, status: 1 }); // Service type queries
+
+// Additional composite index for appointment scheduling
 AppointmentSchema.index({ 
   mechanicId: 1, 
   appointmentDate: 1, 
@@ -310,12 +318,13 @@ AppointmentSchema.index({
   status: 1 
 });
 
-AppointmentSchema.index({ userId: 1, appointmentDate: -1 });
-AppointmentSchema.index({ mechanicId: 1, appointmentDate: -1 });
-AppointmentSchema.index({ 
-  appointmentDate: 1, 
-  status: 1, 
-  'notificationSettings.oneHourBefore': 1 
-});
+// Duplicate indexes removed - already added above
+// Legacy indexes (commented out to avoid duplicates)
+// AppointmentSchema.index({ userId: 1, appointmentDate: -1 });
+// AppointmentSchema.index({ mechanicId: 1, appointmentDate: -1 });
+//   appointmentDate: 1, 
+//   status: 1, 
+//   'notificationSettings.oneHourBefore': 1 
+// });
 
 export const Appointment = mongoose.model<IAppointment>('Appointment', AppointmentSchema);

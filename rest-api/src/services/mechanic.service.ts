@@ -56,6 +56,13 @@ export class MechanicService {
         if (profileData.location.coordinates) updateData['location.coordinates'] = profileData.location.coordinates;
       }
       
+      // Şehir bilgisini ekle (koordinatlar kullanıcı tarafından girilmeli)
+      if (profileData.location?.city || profileData.city) {
+        const city = profileData.location?.city || profileData.city;
+        updateData['location.city'] = city;
+        // Koordinatlar kullanıcı tarafından girilmeli, hardcoded konumlar kaldırıldı
+      }
+      
       const updatedUser = await User.findByIdAndUpdate(
         userId,
         { $set: updateData },
@@ -68,8 +75,7 @@ export class MechanicService {
       
       return updatedUser;
     } catch (error) {
-      console.error('createOrUpdateProfile hatası:', error);
-      console.error('Hata detayı:', JSON.stringify(error, null, 2));
+      // Error handled silently in production
       if (error instanceof CustomError) throw error;
       throw new CustomError(`Mekanik profili oluşturulurken hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`, 500);
     }
@@ -92,6 +98,34 @@ export class MechanicService {
         throw new CustomError('Bu kullanıcı mekanik değil', 403);
       }
 
+      // Koordinat bilgilerini düzelt
+      let fixedLocation: any = user.location || {};
+      const coords = fixedLocation.coordinates;
+      
+      // Şehir koordinatları
+      const cityCoordinates: Record<string, { latitude: number; longitude: number }> = {
+        'İstanbul': { latitude: 41.0082, longitude: 28.9784 },
+        'Ankara': { latitude: 39.9334, longitude: 32.8597 },
+        'İzmir': { latitude: 38.4192, longitude: 27.1287 },
+        'Malatya': { latitude: 38.3552, longitude: 38.3095 }
+      };
+      
+      // Koordinatları geçersizse düzelt
+      if (!coords || coords.latitude === 0 || coords.longitude === 0) {
+        const city: string = fixedLocation.city || user.city || 'İstanbul';
+        const newCoords = cityCoordinates[city] || cityCoordinates['İstanbul'];
+        fixedLocation = {
+          ...fixedLocation,
+          coordinates: newCoords,
+          city: city
+        };
+      } else {
+        // Koordinatlar varsa ama city yoksa ekle
+        if (!fixedLocation.city) {
+          fixedLocation.city = user.city || 'İstanbul';
+        }
+      }
+
       // User'dan mekanik profili oluştur
       const mechanicProfile = {
         _id: user._id,
@@ -105,7 +139,11 @@ export class MechanicService {
         ratingCount: user.ratingCount || 0,
         totalServices: user.totalServices || 0,
         isAvailable: user.isAvailable || true,
-        location: user.location || {},
+        location: {
+          city: fixedLocation.city || user.city || '',
+          coordinates: fixedLocation.coordinates,
+          ...fixedLocation
+        },
         workingHours: user.workingHours || '',
         shopName: user.shopName || '',
         bio: user.bio || '',
@@ -143,23 +181,19 @@ export class MechanicService {
         let fixedLocation: any = user.location || {};
         const coords = fixedLocation.coordinates;
         
-        // Şehir koordinatları
-        const cityCoordinates: Record<string, { latitude: number; longitude: number }> = {
-          'İstanbul': { latitude: 41.0082, longitude: 28.9784 },
-          'Ankara': { latitude: 39.9334, longitude: 32.8597 },
-          'İzmir': { latitude: 38.4192, longitude: 27.1287 },
-          'Malatya': { latitude: 38.3552, longitude: 38.3095 }
-        };
-        
-        // Koordinatları geçersizse düzelt
+        // Koordinatları kontrol et - hardcoded konumlar kaldırıldı
         if (!coords || coords.latitude === 0 || coords.longitude === 0) {
-          const city: string = fixedLocation.city || user.city || 'İstanbul';
-          const newCoords = cityCoordinates[city] || cityCoordinates['İstanbul'];
+          // Koordinat yoksa null olarak bırak, kullanıcı kendi konumunu girmeli
           fixedLocation = {
             ...fixedLocation,
-            coordinates: newCoords,
-            city: city
+            coordinates: null,
+            city: fixedLocation.city || user.city || ''
           };
+        } else {
+          // Koordinatlar varsa ama city yoksa ekle
+          if (!fixedLocation.city) {
+            fixedLocation.city = user.city || '';
+          }
         }
         
         return {
@@ -177,7 +211,11 @@ export class MechanicService {
           isAvailable: user.isAvailable || true,
           serviceCategories: user.serviceCategories || ['Genel Bakım'],
           specialties: user.serviceCategories || ['Genel Bakım'],
-          location: fixedLocation,
+          location: {
+            city: fixedLocation.city || user.city || '',
+            coordinates: fixedLocation.coordinates,
+            ...fixedLocation
+          },
           workingHours: user.workingHours || '',
           shopName: user.shopName || '',
           avatar: user.avatar,
@@ -194,7 +232,6 @@ export class MechanicService {
       
       return convertedUserMechanics;
     } catch (error) {
-      console.error('getAllMechanics error:', error);
       throw new CustomError('Mekanikler getirilirken hata oluştu', 500);
     }
   }
@@ -222,7 +259,37 @@ export class MechanicService {
         .select('-password')
         .sort({ rating: -1, createdAt: -1 });
 
-      return mechanics;
+      // Koordinat bilgilerini ekle
+      const mechanicsWithCoordinates = mechanics.map((user: any) => {
+        let fixedLocation: any = user.location || {};
+        const coords = fixedLocation.coordinates;
+        
+        // Koordinatları kontrol et - hardcoded konumlar kaldırıldı
+        if (!coords || coords.latitude === 0 || coords.longitude === 0) {
+          // Koordinat yoksa null olarak bırak, kullanıcı kendi konumunu girmeli
+          fixedLocation = {
+            ...fixedLocation,
+            coordinates: null,
+            city: fixedLocation.city || user.city || ''
+          };
+        } else {
+          // Koordinatlar varsa ama city yoksa ekle
+          if (!fixedLocation.city) {
+            fixedLocation.city = user.city || '';
+          }
+        }
+        
+        return {
+          ...user.toObject(),
+          location: {
+            city: fixedLocation.city || user.city || '',
+            coordinates: fixedLocation.coordinates,
+            ...fixedLocation
+          }
+        };
+      });
+
+      return mechanicsWithCoordinates;
     } catch (error) {
       throw new CustomError('Mekanik arama yapılırken hata oluştu', 500);
     }
@@ -464,11 +531,8 @@ export class MechanicService {
         recentReviews: recentReviews
       };
 
-
-      
       return mechanicDetails;
     } catch (error) {
-      console.error('getMechanicDetails error:', error);
       if (error instanceof CustomError) throw error;
       throw new CustomError('Mekanik detayları getirilirken hata oluştu', 500);
     }

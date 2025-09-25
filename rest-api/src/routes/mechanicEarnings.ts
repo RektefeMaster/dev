@@ -78,7 +78,6 @@ router.get('/', auth, async (req: Request, res: Response) => {
       message: 'Earnings başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Earnings hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Earnings getirilirken hata oluştu',
@@ -122,7 +121,6 @@ router.get('/summary', auth, async (req: Request, res: Response) => {
       message: 'Earnings başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Earnings hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Earnings getirilirken hata oluştu',
@@ -199,7 +197,6 @@ router.get('/breakdown', auth, async (req: Request, res: Response) => {
       message: 'Kazanç detayı başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Kazanç detayı hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Kazanç detayı getirilirken hata oluştu',
@@ -274,7 +271,6 @@ router.get('/transactions', auth, async (req: Request, res: Response) => {
       message: 'İşlemler başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('İşlem hatası:', error);
     res.status(500).json({
       success: false,
       message: 'İşlem getirilirken hata oluştu',
@@ -364,7 +360,6 @@ router.post('/withdraw', auth, async (req: Request, res: Response) => {
       message: 'Para çekme talebi başarıyla oluşturuldu'
     });
   } catch (error: any) {
-    console.error('Para çekme talebi hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Para çekme talebi oluşturulurken hata oluştu',
@@ -412,7 +407,6 @@ router.get('/withdrawals', auth, async (req: Request, res: Response) => {
       message: 'Para çekme talepleri başarıyla getirildi'
     });
   } catch (error: any) {
-    console.error('Para çekme talepleri hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Para çekme talepleri getirilirken hata oluştu',

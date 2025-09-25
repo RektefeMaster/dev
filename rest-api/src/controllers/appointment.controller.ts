@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import { AppointmentService } from '../services/appointment.service';
 import { Appointment } from '../models/Appointment';
 import { User } from '../models/User';
@@ -62,7 +63,6 @@ export class AppointmentController {
         );
         
       } catch (notificationError) {
-        console.error('❌ Bildirim gönderilirken hata:', notificationError);
         // Bildirim hatası randevu oluşturmayı engellemesin
       }
 
@@ -72,7 +72,6 @@ export class AppointmentController {
         data: { appointment }
       });
     } catch (error) {
-      console.error('Randevu oluşturma hatası:', error);
       if (error instanceof CustomError) {
         res.status(error.statusCode).json({
           success: false,
@@ -110,7 +109,6 @@ export class AppointmentController {
         data: { appointments: allAppointments }
       });
     } catch (error) {
-      console.error('Driver randevuları getirme hatası:', error);
       if (error instanceof CustomError) {
         res.status(error.statusCode).json({
           success: false,
@@ -142,7 +140,6 @@ export class AppointmentController {
         data: { appointments }
       });
     } catch (error) {
-      console.error('Usta randevuları getirme hatası:', error);
       if (error instanceof CustomError) {
         res.status(error.statusCode).json({
           success: false,
@@ -165,22 +162,17 @@ export class AppointmentController {
       const { id } = req.params;
       const userId = req.user?.userId;
 
-
-
       if (!userId) {
         throw new CustomError('Kullanıcı bilgisi bulunamadı', 401);
       }
 
       const appointment = await AppointmentService.getAppointmentById(id, userId);
-      
 
-      
       res.status(200).json({
         success: true,
         data: { appointment }
       });
     } catch (error) {
-      console.error('Randevu detayı getirme hatası:', error);
       if (error instanceof CustomError) {
         res.status(error.statusCode).json({
           success: false,
@@ -225,7 +217,6 @@ export class AppointmentController {
         data: appointment
       });
     } catch (error: any) {
-      console.error('Fiyat belirleme hatası:', error);
       res.status(error.statusCode || 500).json({
         success: false,
         message: error.message || 'Fiyat belirlenirken bir hata oluştu'
@@ -267,7 +258,6 @@ export class AppointmentController {
         data: appointment
       });
     } catch (error: any) {
-      console.error('Ek fiyat ekleme hatası:', error);
       res.status(error.statusCode || 500).json({
         success: false,
         message: error.message || 'Ek fiyat eklenirken bir hata oluştu'
@@ -334,7 +324,6 @@ export class AppointmentController {
           });
         }
       } catch (notificationError) {
-        console.error('Bildirim gönderme hatası:', notificationError);
         // Bildirim hatası ana işlemi engellemez
       }
 
@@ -344,7 +333,6 @@ export class AppointmentController {
         data: { appointment }
       });
     } catch (error) {
-      console.error('Randevu durumu güncelleme hatası:', error);
       if (error instanceof CustomError) {
         res.status(error.statusCode).json({
           success: false,
@@ -379,7 +367,6 @@ export class AppointmentController {
         data: { contactInfo }
       });
     } catch (error) {
-      console.error('İletişim bilgileri paylaşma hatası:', error);
       if (error instanceof CustomError) {
         res.status(error.statusCode).json({
           success: false,
@@ -412,7 +399,6 @@ export class AppointmentController {
         data: stats
       });
     } catch (error) {
-      console.error('İstatistik getirme hatası:', error);
       if (error instanceof CustomError) {
         res.status(error.statusCode).json({
           success: false,
@@ -451,7 +437,6 @@ export class AppointmentController {
         data: { appointments: allAppointments }
       });
     } catch (error) {
-      console.error('Bugünkü randevuları getirme hatası:', error);
       if (error instanceof CustomError) {
         res.status(error.statusCode).json({
           success: false,
@@ -496,7 +481,6 @@ export class AppointmentController {
         data: { appointments: allAppointments }
       });
     } catch (error) {
-      console.error('Randevu arama hatası:', error);
       if (error instanceof CustomError) {
         res.status(error.statusCode).json({
           success: false,
@@ -541,7 +525,6 @@ export class AppointmentController {
         data: { appointments: allAppointments }
       });
     } catch (error) {
-      console.error('Tarih aralığında randevu getirme hatası:', error);
       if (error instanceof CustomError) {
         res.status(error.statusCode).json({
           success: false,
@@ -584,7 +567,6 @@ export class AppointmentController {
         data: availability
       });
     } catch (error) {
-      console.error('Müsaitlik bilgisi getirme hatası:', error);
       if (error instanceof CustomError) {
         res.status(error.statusCode).json({
           success: false,
@@ -624,7 +606,6 @@ export class AppointmentController {
         message: 'Randevu başarıyla iptal edildi'
       });
     } catch (error) {
-      console.error('Randevu iptal etme hatası:', error);
       if (error instanceof CustomError) {
         res.status(error.statusCode).json({
           success: false,
@@ -659,7 +640,6 @@ export class AppointmentController {
         message: 'Bildirim ayarları başarıyla güncellendi'
       });
     } catch (error) {
-      console.error('Bildirim ayarları güncelleme hatası:', error);
       if (error instanceof CustomError) {
         res.status(error.statusCode).json({
           success: false,
@@ -694,7 +674,6 @@ export class AppointmentController {
         message: 'Ödeme durumu başarıyla güncellendi'
       });
     } catch (error) {
-      console.error('Ödeme durumu güncelleme hatası:', error);
       if (error instanceof CustomError) {
         res.status(error.statusCode).json({
           success: false,
@@ -726,7 +705,6 @@ export class AppointmentController {
         }
       });
     } catch (error) {
-      console.error('Debug endpoint hatası:', error);
       res.status(500).json({
         success: false,
         message: 'Debug endpoint hatası'
@@ -754,7 +732,6 @@ export class AppointmentController {
         }
       });
     } catch (error) {
-      console.error('Debug endpoint hatası:', error);
       res.status(500).json({
         success: false,
         message: 'Debug endpoint hatası'
@@ -838,7 +815,6 @@ export class AppointmentController {
       });
 
     } catch (error) {
-      console.error('Ödeme oluşturma hatası:', error);
       res.status(500).json({
         success: false,
         message: 'Ödeme oluşturulurken bir hata oluştu'
@@ -852,8 +828,6 @@ export class AppointmentController {
       const { appointmentId } = req.params;
       const { transactionId, amount } = req.body;
       const userId = req.user?.userId;
-
-      console.log(`🔍 confirmPayment çağrıldı - appointmentId: ${appointmentId}, amount: ${amount}, userId: ${userId}`);
 
       if (!userId) {
         return res.status(401).json({
@@ -904,11 +878,9 @@ export class AppointmentController {
       // Eğer hala price yoksa, frontend'den gelen amount'u kullan
       if (!appointment.price) {
         const { amount } = req.body;
-        console.log(`🔍 Frontend'den gelen amount: ${amount}`);
         if (amount) {
           appointment.price = amount;
-          console.log(`🔍 Appointment.price set edildi: ${appointment.price}`);
-        }
+          }
       }
 
       await appointment.save();
@@ -916,15 +888,6 @@ export class AppointmentController {
       // TefePuan kazanma işlemi
       try {
         const baseAmount = appointment.finalPrice || appointment.price || 0;
-        
-        console.log(`🔍 TefePuan hesaplama: baseAmount=${baseAmount}`);
-        console.log(`🔍 Appointment detayları:`, {
-          _id: appointment._id,
-          price: appointment.price,
-          finalPrice: appointment.finalPrice,
-          quotedPrice: appointment.quotedPrice,
-          serviceType: appointment.serviceType
-        });
         
         // TefePuan kazandır
         const tefePointResult = await TefePointService.processPaymentTefePoints({
@@ -938,46 +901,53 @@ export class AppointmentController {
         });
 
         if (tefePointResult.success && tefePointResult.earnedPoints) {
-          console.log(`✅ Randevu TefePuan eklendi: ${tefePointResult.earnedPoints} puan, Kullanıcı: ${userId}`);
-        }
+          }
       } catch (tefeError) {
-        console.error('❌ TefePuan ekleme hatası:', tefeError);
         // TefePuan hatası ödeme işlemini durdurmaz
       }
 
-      // Wallet'a transaction ekle
+      // Wallet'a transaction ekle - RACE CONDITION FIX
       try {
         const walletAmount = appointment.finalPrice || appointment.price || 0;
-        console.log(`🔍 Wallet transaction ekleniyor - amount: ${walletAmount}`);
+        // MongoDB transaction kullanarak race condition'ı önle
+        const session = await mongoose.startSession();
         
-        // Wallet'ı bul veya oluştur
-        let wallet = await Wallet.findOne({ userId });
-        
-        if (!wallet) {
-          wallet = new Wallet({
-            userId,
-            balance: 0,
-            transactions: []
-          });
+        try {
+          session.startTransaction();
+          
+          // Yeni transaction object'i
+          const walletTransaction = {
+            type: 'debit' as const,
+            amount: walletAmount,
+            description: `Randevu ödemesi - ${appointment.serviceType || 'genel-bakım'}`,
+            date: new Date(),
+            status: 'completed' as const
+          };
+          
+          // Atomic upsert operation - race condition safe
+          const wallet = await Wallet.findOneAndUpdate(
+            { userId },
+            {
+              $inc: { balance: -walletAmount }, // Balance'ı atomik olarak azalt
+              $push: { transactions: walletTransaction }, // Transaction'ı atomik olarak ekle
+              $setOnInsert: { userId, createdAt: new Date() } // Eğer yeni wallet ise initial values
+            },
+            { 
+              new: true, 
+              upsert: true, // Yoksa oluştur
+              session // Transaction session
+            }
+          );
+          
+          await session.commitTransaction();
+          } catch (transactionError) {
+          await session.abortTransaction();
+          throw transactionError;
+        } finally {
+          session.endSession();
         }
         
-        // Yeni transaction ekle
-        const walletTransaction = {
-          type: 'debit' as const,
-          amount: walletAmount,
-          description: `Randevu ödemesi - ${appointment.serviceType || 'genel-bakım'}`,
-          date: new Date(),
-          status: 'completed' as const
-        };
-        
-        wallet.transactions.push(walletTransaction);
-        wallet.balance -= walletAmount; // Ödeme yapıldığı için balance azalır
-        
-        await wallet.save();
-        
-        console.log(`✅ Wallet transaction eklendi: ${walletAmount} TL, Kullanıcı: ${userId}`);
       } catch (walletError) {
-        console.error('❌ Wallet transaction ekleme hatası:', walletError);
         // Wallet hatası ödeme işlemini durdurmaz
       }
 
@@ -1008,7 +978,6 @@ export class AppointmentController {
       });
 
     } catch (error) {
-      console.error('Ödeme onaylama hatası:', error);
       res.status(500).json({
         success: false,
         message: 'Ödeme onaylanırken bir hata oluştu'

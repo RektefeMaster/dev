@@ -28,17 +28,6 @@ export const errorHandler = (
   error.message = err.message;
 
   // Log error
-  console.error('❌ Error:', {
-    message: err.message,
-    stack: err.stack,
-    url: req.url,
-    method: req.method,
-    body: req.body,
-    params: req.params,
-    query: req.query,
-    user: req.user
-  });
-
   // Mongoose bad ObjectId
   if (err.name === 'CastError') {
     const message = 'Geçersiz ID formatı';

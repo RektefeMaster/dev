@@ -45,7 +45,6 @@ export class PushNotificationController {
         data: { pushToken: user.pushToken }
       });
     } catch (error) {
-      console.error('Push token güncelleme hatası:', error);
       res.status(500).json({
         success: false,
         message: 'Push token güncellenirken hata oluştu'
@@ -90,7 +89,6 @@ export class PushNotificationController {
         }
       });
     } catch (error) {
-      console.error('Bildirim ayarları alma hatası:', error);
       res.status(500).json({
         success: false,
         message: 'Bildirim ayarları alınırken hata oluştu'
@@ -132,7 +130,6 @@ export class PushNotificationController {
         data: user.notificationSettings
       });
     } catch (error) {
-      console.error('Bildirim ayarları güncelleme hatası:', error);
       res.status(500).json({
         success: false,
         message: 'Bildirim ayarları güncellenirken hata oluştu'
@@ -203,7 +200,6 @@ export class PushNotificationController {
         data: { notificationId: notification._id }
       });
     } catch (error) {
-      console.error('Test bildirimi gönderme hatası:', error);
       res.status(500).json({
         success: false,
         message: 'Test bildirimi gönderilirken hata oluştu'

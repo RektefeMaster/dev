@@ -48,6 +48,8 @@ router.post('/towing', auth, async (req: AuthRequest, res: Response) => {
       description,
       emergencyLevel,
       towingType,
+      vehicleInfo: req.body.vehicleInfo,
+      userInfo: req.body.userInfo,
       status: 'TALEP_EDILDI',
       requestType: 'immediate',
       appointmentDate: new Date(),
@@ -62,7 +64,6 @@ router.post('/towing', auth, async (req: AuthRequest, res: Response) => {
       data: towingRequest
     });
   } catch (error) {
-    console.error('Çekici talebi oluşturma hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Çekici talebi oluşturulurken hata oluştu'
@@ -130,7 +131,6 @@ router.post('/wash', auth, async (req: AuthRequest, res: Response) => {
       data: washBooking
     });
   } catch (error) {
-    console.error('Yıkama randevusu oluşturma hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Yıkama randevusu oluşturulurken hata oluştu'
@@ -196,7 +196,6 @@ router.post('/tire-parts', auth, async (req: AuthRequest, res: Response) => {
       data: tirePartsRequest
     });
   } catch (error) {
-    console.error('Lastik & Parça talebi oluşturma hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Lastik & Parça talebi oluşturulurken hata oluştu'
@@ -239,7 +238,6 @@ router.get('/mechanic-requests', auth, async (req: AuthRequest, res: Response) =
       data: requests
     });
   } catch (error) {
-    console.error('Usta talepleri getirme hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Usta talepleri getirilirken hata oluştu'
@@ -320,10 +318,47 @@ router.get('/mechanics-by-service/:serviceType', async (req: Request, res: Respo
       data: formattedMechanics
     });
   } catch (error) {
-    console.error('Usta getirme hatası:', error);
     res.status(500).json({
       success: false,
       message: 'Ustalar getirilirken hata oluştu'
+    });
+  }
+});
+
+// Çekici talebi detayını getir
+router.get('/towing/:requestId', auth, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const { requestId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Kullanıcı doğrulanamadı.' 
+      });
+    }
+
+    const towingRequest = await Appointment.findOne({
+      _id: requestId,
+      userId,
+      serviceType: 'towing'
+    });
+
+    if (!towingRequest) {
+      return res.status(404).json({
+        success: false,
+        message: 'Talep bulunamadı'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: towingRequest
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Talep bilgileri alınırken hata oluştu'
     });
   }
 });

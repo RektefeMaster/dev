@@ -1,36 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { useAuth } from '../context/AuthContext';
-import { RootStackParamList } from '../types/common';
+import { useAuth } from '@/shared/context';
+import { RootStackParamList } from '@/shared/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { STORAGE_KEYS } from '../constants/config';
+import { STORAGE_KEYS } from '@/constants/config';
 
 // Screens
-import SplashScreen from '../screens/SplashScreen';
-import OnboardingScreen from '../screens/OnboardingScreen';
-import AuthScreen from '../screens/AuthScreen';
+import { SplashScreen, OnboardingScreen, AuthScreen } from '@/features/auth/screens';
 import TabNavigator from './TabNavigator';
-import ChatScreen from '../screens/ChatScreen';
-import NewMessageScreen from '../screens/NewMessageScreen';
-import AppointmentDetailScreen from '../screens/AppointmentDetailScreen';
-import MessagesScreen from '../screens/MessagesScreen';
-import WalletScreen from '../screens/WalletScreen';
-import SupportScreen from '../screens/SupportScreen';
-import FinancialTrackingScreen from '../screens/FinancialTrackingScreen';
-import CalendarScreen from '../screens/CalendarScreen';
-import ProfileScreen from '../screens/ProfileScreen';
-import EditProfileScreen from '../screens/EditProfileScreen';
-import SettingsScreen from '../screens/SettingsScreen';
-import FaultReportsScreen from '../screens/FaultReportsScreen';
-import FaultReportDetailScreen from '../screens/FaultReportDetailScreen';
-import TowingServiceScreen from '../screens/TowingServiceScreen';
-import RepairServiceScreen from '../screens/RepairServiceScreen';
-import WashServiceScreen from '../screens/WashServiceScreen';
-import TireServiceScreen from '../screens/TireServiceScreen';
-import AppointmentsScreen from '../screens/AppointmentsScreen';
-import NotificationsScreen from '../screens/NotificationsScreen';
-import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
+import { ChatScreen, NewMessageScreen, MessagesScreen } from '@/features/messages/screens';
+import { AppointmentDetailScreen, CalendarScreen } from '@/features/appointments/screens';
+import { WalletScreen, FinancialTrackingScreen } from '@/features/wallet/screens';
+import { SupportScreen } from '@/features/support/screens';
+import { ProfileScreen, EditProfileScreen, SettingsScreen } from '@/features/profile/screens';
+import { FaultReportsScreen, FaultReportDetailScreen } from '@/features/fault-reports/screens';
+import { TowingServiceScreen, RepairServiceScreen, WashServiceScreen, TireServiceScreen } from '@/features/services/screens';
+import { AppointmentsScreen } from '@/features/appointments/screens';
+import { NotificationsScreen, NotificationSettingsScreen } from '@/features/notifications/screens';
+import EmergencyNotificationScreen from '@/features/emergency/screens/EmergencyNotificationScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -56,8 +44,7 @@ const AppNavigator = () => {
     try {
       const onboardingCompleted = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETED);
       const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-      
-      
+
       if (onboardingCompleted === 'true') {
         if (token) {
           setInitialRoute('Main');
@@ -68,7 +55,6 @@ const AppNavigator = () => {
         setInitialRoute('Onboarding');
       }
     } catch (error) {
-      console.error('Initial route check error:', error);
       setInitialRoute('Onboarding');
     } finally {
       setIsCheckingRoute(false);
@@ -184,6 +170,13 @@ const AppNavigator = () => {
               backgroundColor: '#F59E0B',
             },
             headerTintColor: '#fff',
+          }}
+        />
+        <Stack.Screen 
+          name="EmergencyNotification" 
+          component={EmergencyNotificationScreen}
+          options={{
+            headerShown: false,
           }}
         />
       </Stack.Navigator>
