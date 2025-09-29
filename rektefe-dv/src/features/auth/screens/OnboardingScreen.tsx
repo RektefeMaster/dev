@@ -145,7 +145,8 @@ const OnboardingScreen = ({ navigation }: any) => {
                   setShowModal(false);
                   // Onboarding tamamlandı olarak işaretle
                   await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'true');
-                  navigation.navigate('Auth');
+                  // Auth ekranına git
+                  navigation.navigate('AuthScreen');
                 }}
               >
                 <Text style={styles.buttonText}>Giriş Yap</Text>
@@ -157,7 +158,8 @@ const OnboardingScreen = ({ navigation }: any) => {
                   setShowModal(false);
                   // Onboarding tamamlandı olarak işaretle
                   await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'true');
-                  navigation.navigate('Auth');
+                  // Auth ekranına git
+                  navigation.navigate('AuthScreen');
                 }}
               >
                 <Text style={styles.buttonText}>Kayıt Ol</Text>

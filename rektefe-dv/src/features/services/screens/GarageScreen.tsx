@@ -439,150 +439,233 @@ const GarageScreen = () => {
             transparent={true}
             onRequestClose={() => setShowAddModal(false)}
           >
-            <View style={styles.modalContainer}>
-              <KeyboardAvoidingView 
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.modalKeyboardView}
-              >
-                <ScrollView 
-                  style={styles.modalScrollView}
-                  contentContainerStyle={styles.modalScrollContent}
-                  showsVerticalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                  nestedScrollEnabled={true}
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContainer}>
+                <KeyboardAvoidingView 
+                  behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                  style={styles.modalKeyboardView}
                 >
-                  <View style={styles.modalContent}>
-                    <Text style={styles.modalTitle}>Yeni Araç Ekle</Text>
-
-                <Text style={styles.inputLabel}>Marka</Text>
-                <DropDownPicker
-                  open={brandOpen}
-                  value={brandValue}
-                  items={brandItems}
-                  setOpen={setBrandOpen}
-                  setValue={setBrandValue}
-                  setItems={setBrandItems}
-                  placeholder="Marka Seç"
-                  style={styles.input}
-                  zIndex={5000}
-                  searchable={true}
-                  searchPlaceholder="Ara..."
-                />
-                
-                <Text style={styles.inputLabel}>Model</Text>
-                <DropDownPicker
-                  open={modelOpen}
-                  value={modelNameValue}
-                  items={modelItems}
-                  setOpen={setModelOpen}
-                  setValue={setModelNameValue}
-                  setItems={setModelItems}
-                  placeholder="Model Seç"
-                  style={styles.input}
-                  zIndex={4000}
-                  disabled={!brandValue}
-                  searchable={true}
-                  searchPlaceholder="Ara..."
-                />
-                
-                <Text style={styles.inputLabel}>Paket</Text>
-                <DropDownPicker
-                  open={packageOpen}
-                  value={packageValue}
-                  items={packageItems}
-                  setOpen={setPackageOpen}
-                  setValue={setPackageValue}
-                  setItems={setPackageItems}
-                  placeholder="Paket Seç"
-                  style={styles.input}
-                  zIndex={3500}
-                  disabled={!modelNameValue}
-                  searchable={true}
-                  searchPlaceholder="Ara..."
-                />
-                
-                <Text style={styles.inputLabel}>Yıl</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Yıl"
-                  value={newVehicle.year ? String(newVehicle.year) : ''}
-                  onChangeText={(text) => setNewVehicle({ ...newVehicle, year: Number(text) })}
-                  keyboardType="numeric"
-                  placeholderTextColor="#8E8E93"
-                  maxLength={4}
-                />
-                
-                <Text style={styles.inputLabel}>Yakıt Türü</Text>
-                <DropDownPicker
-                  open={fuelOpen}
-                  value={fuelValue}
-                  items={fuelItems}
-                  setOpen={setFuelOpen}
-                  setValue={setFuelValue}
-                  setItems={setFuelItems}
-                  placeholder="Yakıt Türü Seç"
-                  style={styles.input}
-                  zIndex={3000}
-                  disabled={!modelNameValue}
-                  searchable={true}
-                  searchPlaceholder="Ara..."
-                />
-                
-                <Text style={styles.inputLabel}>Vites Türü</Text>
-                <DropDownPicker
-                  open={transmissionOpen}
-                  value={transmissionValue}
-                  items={transmissionItems}
-                  setOpen={setTransmissionOpen}
-                  setValue={setTransmissionValue}
-                  setItems={setTransmissionItems}
-                  placeholder="Vites Türü Seç"
-                  style={styles.input}
-                  zIndex={2500}
-                  disabled={!modelNameValue}
-                  searchable={true}
-                  searchPlaceholder="Ara..."
-                />
-                
-                <Text style={styles.inputLabel}>Kilometre</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Kilometre"
-                  value={newVehicle.mileage ? String(newVehicle.mileage) : ''}
-                  onChangeText={(text) => setNewVehicle({ ...newVehicle, mileage: Number(text) })}
-                  keyboardType="numeric"
-                  placeholderTextColor="#8E8E93"
-                />
-                
-                <Text style={styles.inputLabel}>Plaka</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Plaka"
-                  value={newVehicle.plateNumber}
-                  onChangeText={(text) => setNewVehicle({ ...newVehicle, plateNumber: text.toUpperCase() })}
-                  autoCapitalize="characters"
-                  keyboardType="default"
-                  maxLength={9}
-                  placeholderTextColor="#8E8E93"
-                />
-
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.cancelButton]}
-                    onPress={() => setShowAddModal(false)}
-                  >
-                    <Text style={[styles.modalButtonText, styles.cancelButtonText]}>İptal</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.saveButton]}
-                    onPress={handleAddVehicle}
-                  >
-                    <Text style={[styles.modalButtonText, styles.saveButtonText]}>Kaydet</Text>
-                  </TouchableOpacity>
-                </View>
+                  <View style={styles.modalHeader}>
+                    <View style={styles.modalHeaderContent}>
+                      <MaterialCommunityIcons name="car-plus" size={28} color="#007AFF" />
+                      <Text style={styles.modalTitle}>Yeni Araç Ekle</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.closeButton}
+                      onPress={() => setShowAddModal(false)}
+                    >
+                      <MaterialCommunityIcons name="close" size={24} color="#666" />
+                    </TouchableOpacity>
                   </View>
-                </ScrollView>
-              </KeyboardAvoidingView>
+                  
+                  <ScrollView 
+                    style={styles.modalScrollView}
+                    contentContainerStyle={styles.modalScrollContent}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled={true}
+                  >
+                    <View style={styles.formContainer}>
+                      <Text style={styles.formDescription}>
+                        Aracınızın bilgilerini eksiksiz doldurun
+                      </Text>
+
+                      {/* Marka Seçimi */}
+                      <View style={styles.inputGroup}>
+                        <View style={styles.inputHeader}>
+                          <MaterialCommunityIcons name="car-sport" size={20} color="#007AFF" />
+                          <Text style={styles.inputLabel}>Marka</Text>
+                        </View>
+                        <DropDownPicker
+                          open={brandOpen}
+                          value={brandValue}
+                          items={brandItems}
+                          setOpen={setBrandOpen}
+                          setValue={setBrandValue}
+                          setItems={setBrandItems}
+                          placeholder="Marka seçin"
+                          style={styles.modernInput}
+                          dropDownContainerStyle={styles.dropdownContainer}
+                          zIndex={5000}
+                          searchable={true}
+                          searchPlaceholder="Marka ara..."
+                          placeholderStyle={styles.placeholderText}
+                          textStyle={styles.dropdownText}
+                        />
+                      </View>
+                
+                      {/* Model Seçimi */}
+                      <View style={styles.inputGroup}>
+                        <View style={styles.inputHeader}>
+                          <MaterialCommunityIcons name="car-info" size={20} color="#007AFF" />
+                          <Text style={styles.inputLabel}>Model</Text>
+                        </View>
+                        <DropDownPicker
+                          open={modelOpen}
+                          value={modelNameValue}
+                          items={modelItems}
+                          setOpen={setModelOpen}
+                          setValue={setModelNameValue}
+                          setItems={setModelItems}
+                          placeholder="Model seçin"
+                          style={[styles.modernInput, !brandValue && styles.disabledInput]}
+                          dropDownContainerStyle={styles.dropdownContainer}
+                          zIndex={4000}
+                          disabled={!brandValue}
+                          searchable={true}
+                          searchPlaceholder="Model ara..."
+                          placeholderStyle={styles.placeholderText}
+                          textStyle={styles.dropdownText}
+                        />
+                      </View>
+                
+                      {/* Paket Seçimi */}
+                      <View style={styles.inputGroup}>
+                        <View style={styles.inputHeader}>
+                          <MaterialCommunityIcons name="package-variant" size={20} color="#007AFF" />
+                          <Text style={styles.inputLabel}>Paket</Text>
+                        </View>
+                        <DropDownPicker
+                          open={packageOpen}
+                          value={packageValue}
+                          items={packageItems}
+                          setOpen={setPackageOpen}
+                          setValue={setPackageValue}
+                          setItems={setPackageItems}
+                          placeholder="Paket seçin"
+                          style={[styles.modernInput, !modelNameValue && styles.disabledInput]}
+                          dropDownContainerStyle={styles.dropdownContainer}
+                          zIndex={3500}
+                          disabled={!modelNameValue}
+                          searchable={true}
+                          searchPlaceholder="Paket ara..."
+                          placeholderStyle={styles.placeholderText}
+                          textStyle={styles.dropdownText}
+                        />
+                      </View>
+                
+                      {/* Yıl Girişi */}
+                      <View style={styles.inputGroup}>
+                        <View style={styles.inputHeader}>
+                          <MaterialCommunityIcons name="calendar" size={20} color="#007AFF" />
+                          <Text style={styles.inputLabel}>Yıl</Text>
+                        </View>
+                        <TextInput
+                          style={styles.modernTextInput}
+                          placeholder="2024"
+                          value={newVehicle.year ? String(newVehicle.year) : ''}
+                          onChangeText={(text) => setNewVehicle({ ...newVehicle, year: Number(text) })}
+                          keyboardType="numeric"
+                          placeholderTextColor="#8E8E93"
+                          maxLength={4}
+                        />
+                      </View>
+                
+                      {/* Yakıt Türü Seçimi */}
+                      <View style={styles.inputGroup}>
+                        <View style={styles.inputHeader}>
+                          <MaterialCommunityIcons name="fuel" size={20} color="#007AFF" />
+                          <Text style={styles.inputLabel}>Yakıt Türü</Text>
+                        </View>
+                        <DropDownPicker
+                          open={fuelOpen}
+                          value={fuelValue}
+                          items={fuelItems}
+                          setOpen={setFuelOpen}
+                          setValue={setFuelValue}
+                          setItems={setFuelItems}
+                          placeholder="Yakıt türü seçin"
+                          style={[styles.modernInput, !modelNameValue && styles.disabledInput]}
+                          dropDownContainerStyle={styles.dropdownContainer}
+                          zIndex={3000}
+                          disabled={!modelNameValue}
+                          searchable={true}
+                          searchPlaceholder="Yakıt türü ara..."
+                          placeholderStyle={styles.placeholderText}
+                          textStyle={styles.dropdownText}
+                        />
+                      </View>
+                
+                      {/* Vites Türü Seçimi */}
+                      <View style={styles.inputGroup}>
+                        <View style={styles.inputHeader}>
+                          <MaterialCommunityIcons name="cog" size={20} color="#007AFF" />
+                          <Text style={styles.inputLabel}>Vites Türü</Text>
+                        </View>
+                        <DropDownPicker
+                          open={transmissionOpen}
+                          value={transmissionValue}
+                          items={transmissionItems}
+                          setOpen={setTransmissionOpen}
+                          setValue={setTransmissionValue}
+                          setItems={setTransmissionItems}
+                          placeholder="Vites türü seçin"
+                          style={[styles.modernInput, !modelNameValue && styles.disabledInput]}
+                          dropDownContainerStyle={styles.dropdownContainer}
+                          zIndex={2500}
+                          disabled={!modelNameValue}
+                          searchable={true}
+                          searchPlaceholder="Vites türü ara..."
+                          placeholderStyle={styles.placeholderText}
+                          textStyle={styles.dropdownText}
+                        />
+                      </View>
+                
+                      {/* Kilometre Girişi */}
+                      <View style={styles.inputGroup}>
+                        <View style={styles.inputHeader}>
+                          <MaterialCommunityIcons name="speedometer" size={20} color="#007AFF" />
+                          <Text style={styles.inputLabel}>Kilometre</Text>
+                        </View>
+                        <TextInput
+                          style={styles.modernTextInput}
+                          placeholder="150000"
+                          value={newVehicle.mileage ? String(newVehicle.mileage) : ''}
+                          onChangeText={(text) => setNewVehicle({ ...newVehicle, mileage: Number(text) })}
+                          keyboardType="numeric"
+                          placeholderTextColor="#8E8E93"
+                        />
+                      </View>
+                
+                      {/* Plaka Girişi */}
+                      <View style={styles.inputGroup}>
+                        <View style={styles.inputHeader}>
+                          <MaterialCommunityIcons name="car-tag" size={20} color="#007AFF" />
+                          <Text style={styles.inputLabel}>Plaka Numarası</Text>
+                        </View>
+                        <TextInput
+                          style={styles.modernTextInput}
+                          placeholder="34ABC123"
+                          value={newVehicle.plateNumber}
+                          onChangeText={(text) => setNewVehicle({ ...newVehicle, plateNumber: text.toUpperCase() })}
+                          autoCapitalize="characters"
+                          keyboardType="default"
+                          maxLength={9}
+                          placeholderTextColor="#8E8E93"
+                        />
+                      </View>
+                    </View>
+                  </ScrollView>
+                  
+                  {/* Modern Butonlar */}
+                  <View style={styles.modalFooter}>
+                    <TouchableOpacity
+                      style={styles.cancelButtonModern}
+                      onPress={() => setShowAddModal(false)}
+                    >
+                      <MaterialCommunityIcons name="close" size={20} color="#666" />
+                      <Text style={styles.cancelButtonTextModern}>İptal</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.saveButtonModern}
+                      onPress={handleAddVehicle}
+                    >
+                      <MaterialCommunityIcons name="check" size={20} color="#fff" />
+                      <Text style={styles.saveButtonTextModern}>Araç Ekle</Text>
+                    </TouchableOpacity>
+                  </View>
+                </KeyboardAvoidingView>
+              </View>
             </View>
           </Modal>
         </ScrollView>
@@ -717,47 +800,158 @@ const styles = StyleSheet.create({
     color: '#222',
     fontWeight: '500',
   },
-  modalContainer: {
+  // Modern Modal Styles
+  modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(44,44,46,0.18)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
+    minHeight: '70%',
   },
   modalKeyboardView: {
     flex: 1,
-    width: '100%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
+    marginLeft: 12,
+  },
+  closeButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f5',
   },
   modalScrollView: {
     flex: 1,
-    width: '100%',
   },
   modalScrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 20,
+    paddingBottom: 20,
   },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 28,
-    padding: 32,
-    width: '94%',
-    maxWidth: 420,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.10,
-    shadowRadius: 24,
-    elevation: 18,
-    borderWidth: 0.5,
-    borderColor: '#ececec',
+  formContainer: {
+    padding: 20,
   },
-  modalTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#1c1c1e',
-    marginBottom: 32,
+  formDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 24,
     textAlign: 'center',
-    letterSpacing: 0.2,
+    lineHeight: 20,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginLeft: 8,
+  },
+  modernInput: {
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    minHeight: 48,
+  },
+  modernTextInput: {
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    fontSize: 16,
+    color: '#333',
+    minHeight: 48,
+  },
+  disabledInput: {
+    backgroundColor: '#f5f5f5',
+    borderColor: '#e0e0e0',
+  },
+  dropdownContainer: {
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    backgroundColor: '#fff',
+  },
+  placeholderText: {
+    color: '#8E8E93',
+    fontSize: 16,
+  },
+  dropdownText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    gap: 12,
+  },
+  cancelButtonModern: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    backgroundColor: '#fff',
+    gap: 8,
+  },
+  cancelButtonTextModern: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  saveButtonModern: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#007AFF',
+    gap: 8,
+    shadowColor: '#007AFF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  saveButtonTextModern: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
   },
   input: {
     backgroundColor: '#f2f2f7',

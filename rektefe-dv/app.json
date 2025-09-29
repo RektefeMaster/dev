@@ -18,7 +18,14 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Uygulama yakındaki ustaları gösterebilmek için konumunuza erişim istiyor.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Uygulama yakındaki ustaları gösterebilmek için konumunuza erişim istiyor.",
-        "LSApplicationQueriesSchemes": ["tel", "telprompt", "mailto", "http", "https", "maps"]
+        "LSApplicationQueriesSchemes": [
+          "tel",
+          "telprompt",
+          "mailto",
+          "http",
+          "https",
+          "maps"
+        ]
       }
     },
     "android": {
@@ -39,9 +46,16 @@
         {
           "icon": "./assets/icon.png",
           "color": "#ffffff",
-          "sounds": ["./assets/notification.wav"]
+          "sounds": [
+            "./assets/notification.wav"
+          ]
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "f841b1a6-a487-47d0-a23c-2820f7f54c95"
+      }
+    }
   }
 }

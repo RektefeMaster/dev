@@ -4,7 +4,7 @@ import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AppNavigator from '@/navigation/AppNavigator';
 import { AuthProvider } from '@/context/AuthContext';
-import { ThemeProvider, useTheme } from '@/context/ThemeContext';
+import { ThemeProvider, useTheme } from '@/shared/context/ThemeContext';
 import ErrorBoundary from '@/shared/components/ErrorBoundary';
 import notificationService from '@/features/notifications/services/notificationService';
 import { apiService } from '@/shared/services/api';
@@ -23,7 +23,7 @@ function App() {
 }
 
 function AppContent() {
-  const { isDark, colors } = useTheme();
+  const { isDark, themeColors } = useTheme();
   
   useEffect(() => {
     // Uygulama başladığında bildirim servisini başlat
@@ -82,7 +82,7 @@ function AppContent() {
     <>
       <StatusBar 
         barStyle={isDark ? "light-content" : "dark-content"} 
-        backgroundColor={isDark ? colors.background.quaternary : colors.background.primary} 
+        backgroundColor={isDark ? themeColors.background.quaternary : themeColors.background.primary} 
       />
       <AppNavigator />
     </>

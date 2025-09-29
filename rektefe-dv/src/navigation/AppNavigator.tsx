@@ -145,7 +145,7 @@ const AppNavigator = () => {
   
   useEffect(() => {
     let mounted = true;
-    (async () => {
+    const checkOnboardingStatus = async () => {
       try {
         const v = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETED);
         if (mounted) {
@@ -156,8 +156,17 @@ const AppNavigator = () => {
           setOnboardingDone(false);
         }
       }
-    })();
-    return () => { mounted = false; };
+    };
+    
+    checkOnboardingStatus();
+    
+    // Onboarding durumunu periyodik olarak kontrol et (sadece onboarding tamamlanmadıysa)
+    const interval = onboardingDone === false ? setInterval(checkOnboardingStatus, 500) : null;
+    
+    return () => { 
+      mounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   // Loading aşamasında Splash göster

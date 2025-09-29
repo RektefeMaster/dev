@@ -88,17 +88,39 @@ const ProfileScreen = () => {
 
   const handleLogout = async () => {
     Alert.alert(
-      'Çıkış Yap',
-      'Çıkış yapmak istediğinize emin misiniz?',
+      'Güvenli Çıkış',
+      'Hesabınızdan çıkış yapmak istediğinize emin misiniz? Bu işlem sonrasında tekrar giriş yapmanız gerekecek.',
       [
-        { text: 'Vazgeç', style: 'cancel' },
-        { text: 'Evet', onPress: async () => {
-            await logout();
-            // Logout sonrası manuel olarak Auth ekranına yönlendir
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Auth' }],
-            });
+        { 
+          text: 'İptal', 
+          style: 'cancel',
+          onPress: () => {
+            // İptal edildi, hiçbir şey yapma
+          }
+        },
+        { 
+          text: 'Çıkış Yap', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Loading göstergesi için kısa bir gecikme
+              await new Promise(resolve => setTimeout(resolve, 500));
+              
+              await logout();
+              
+              // Logout sonrası Auth ekranına yönlendir
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Auth' }],
+              });
+            } catch (error) {
+              // Hata durumunda kullanıcıyı bilgilendir
+              Alert.alert(
+                'Çıkış Hatası',
+                'Çıkış işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.',
+                [{ text: 'Tamam' }]
+              );
+            }
           }
         },
       ]
@@ -204,6 +226,19 @@ const ProfileScreen = () => {
           <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#34C759' }]} onPress={() => navigation.navigate('ChangeEmail' as never)}>
             <Feather name="mail" size={18} color="#fff" />
             <Text style={styles.actionBtnText}>E-posta Değiştir</Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Çıkış Butonu */}
+        <View style={styles.logoutSection}>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <View style={styles.logoutButtonContent}>
+              <Feather name="log-out" size={20} color="#fff" />
+              <Text style={styles.logoutButtonText}>Güvenli Çıkış</Text>
+            </View>
+            <View style={styles.logoutSubtext}>
+              <Text style={styles.logoutSubtextText}>Hesabınızdan güvenli bir şekilde çıkış yapın</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -531,6 +566,43 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
     marginLeft: 8,
+  },
+  logoutSection: {
+    marginHorizontal: 18,
+    marginBottom: 24,
+  },
+  logoutButton: {
+    backgroundColor: '#FF3B30',
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    shadowColor: '#FF3B30',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#FF453A',
+  },
+  logoutButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  logoutButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 18,
+    marginLeft: 8,
+  },
+  logoutSubtext: {
+    alignItems: 'center',
+  },
+  logoutSubtextText: {
+    color: '#fff',
+    fontSize: 13,
+    opacity: 0.9,
+    textAlign: 'center',
   },
   modalContainer: {
     flex: 1,

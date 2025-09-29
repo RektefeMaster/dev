@@ -51,6 +51,12 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
 
   // mechanicId yoksa usta seçim ekranına yönlendir (sadece FaultReport'dan gelmiyorsa)
   useEffect(() => {
+    console.log('🔍 BookAppointmentScreen - useEffect:', {
+      mechanicId,
+      isFromFaultReport,
+      routeParams: route.params
+    });
+    
     if (!mechanicId && !isFromFaultReport) {
       Alert.alert(
         'Usta Seçimi Gerekli',

@@ -1,0 +1,48 @@
+services:
+  - type: web
+    name: rektefe-api
+    env: node
+    plan: starter
+    buildCommand: cd rest-api && npm install && npm run build
+    startCommand: cd rest-api && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: MONGODB_URI
+        fromDatabase:
+          name: rektefe-mongodb
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: rektefe-redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: PAYTR_MERCHANT_ID
+        sync: false
+      - key: PAYTR_MERCHANT_KEY
+        sync: false
+      - key: PAYTR_MERCHANT_SALT
+        sync: false
+
+databases:
+  - name: rektefe-mongodb
+    plan: starter
+    databaseName: rektefe
+    user: rektefe_user
+
+  - name: rektefe-redis
+    plan: starter

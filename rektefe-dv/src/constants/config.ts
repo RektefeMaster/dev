@@ -2,10 +2,10 @@
  * Rektefe DV uygulaması için temel konfigürasyon
  */
 
-// API Konfigürasyonu - Env/Expo fallback + Localhost
+// API Konfigürasyonu - Render URL ile güncellendi (Hardcoded)
 export const API_CONFIG = {
-  BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || process.env.API_BASE_URL || 'http://192.168.1.36:3000/api',
-  SOCKET_URL: process.env.EXPO_PUBLIC_SOCKET_BASE_URL || process.env.SOCKET_BASE_URL || 'http://192.168.1.36:3000',
+  BASE_URL: 'https://dev-uycm.onrender.com/api',
+  SOCKET_URL: 'https://dev-uycm.onrender.com',
   TIMEOUT: 15000, // 15 saniye timeout - network gecikmeleri için
 };
 

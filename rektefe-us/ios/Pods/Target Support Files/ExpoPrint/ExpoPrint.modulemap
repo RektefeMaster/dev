@@ -1,6 +1,0 @@
-module ExpoPrint {
-  umbrella header "ExpoPrint-umbrella.h"
-
-  export *
-  module * { export * }
-}

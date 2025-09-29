@@ -282,6 +282,11 @@ class ApiService {
     return response.data;
   }
 
+  async getMechanicDetails(mechanicId: string) {
+    const response = await this.api.get(`/mechanic/details/${mechanicId}`);
+    return response.data;
+  }
+
   async getMechanicProfile() {
     const response = await this.api.get('/mechanic/me');
     return response.data;

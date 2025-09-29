@@ -16,8 +16,9 @@ export default function App() {
         // Bildirim dinleyicilerini başlat
         notificationService.startListening();
         
-        } catch (error) {
-        }
+      } catch (error) {
+        console.log('Notification service initialization failed:', error);
+      }
     };
 
     initializeNotifications();

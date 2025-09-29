@@ -2,19 +2,20 @@
  * Modern theme color hook using the new theme system
  */
 
-import { useColorScheme } from 'react-native';
-import theme from '@/theme/theme';
+import { useTheme } from '@/shared/context/ThemeContext';
 
 export function useThemeColor(
   props: { light?: string; dark?: string },
-  colorName: keyof typeof theme.colors.primary
+  colorName: string
 ) {
-  const colorScheme = useColorScheme() ?? 'light';
+  const { isDark, themeColors } = useTheme();
+  const colorScheme = isDark ? 'dark' : 'light';
   const colorFromProps = props[colorScheme];
 
   if (colorFromProps) {
     return colorFromProps;
   } else {
-    return theme.colors.primary[colorName];
+    // Fallback to theme colors
+    return themeColors[colorName] || themeColors.primary?.main || '#4B6382';
   }
 } 

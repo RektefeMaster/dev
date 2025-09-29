@@ -14,11 +14,45 @@
     "scheme": "rektefeus",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.rektefe.us"
+      "bundleIdentifier": "com.rektefe.us",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Uygulama yakındaki müşterileri gösterebilmek için konumunuza erişim istiyor.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Uygulama yakındaki müşterileri gösterebilmek için konumunuza erişim istiyor.",
+        "LSApplicationQueriesSchemes": [
+          "tel",
+          "telprompt",
+          "mailto",
+          "http",
+          "https",
+          "maps"
+        ]
+      }
     },
     "android": {
-      "package": "com.rektefe.us"
+      "package": "com.rektefe.us",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CALL_PHONE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
     },
-    "newArchEnabled": true
+    "newArchEnabled": true,
+    "plugins": [
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#ffffff"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "8451555e-207b-43fe-8008-7db8e2f1c213"
+      }
+    }
   }
 }

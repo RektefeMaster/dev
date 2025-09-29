@@ -11,9 +11,11 @@ platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
 install! 'cocoapods',
   :deterministic_uuids => false
 
+project 'RektefeUS.xcodeproj'
+
 prepare_react_native_project!
 
-target 'RektefeUsta' do
+target 'RektefeUS' do
   use_expo_modules!
 
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'

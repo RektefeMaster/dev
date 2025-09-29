@@ -97,7 +97,7 @@ class ApiService {
       }
       
       // Base64 decode edilebilir mi kontrol et
-      const payload = JSON.parse(atob(parts[1]));
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
       
       // Expiration time kontrolü
       if (payload.exp) {
