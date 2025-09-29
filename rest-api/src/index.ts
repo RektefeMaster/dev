@@ -50,8 +50,7 @@ app.use(helmet());
 app.use(compression());
 
 // CORS configuration
-import { MONGODB_URI } from './config';
-import { PORT as CONFIG_PORT, CORS_ORIGIN, JWT_SECRET } from './config';
+import { MONGODB_URI, PORT as CONFIG_PORT, CORS_ORIGIN, JWT_SECRET } from './config';
 
 // Secure CORS configuration - no wildcards
 const allowedOrigins = CORS_ORIGIN.split(',').map(origin => origin.trim());
@@ -142,7 +141,7 @@ io.use((socket, next) => {
     const tokenFromHeader = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
       ? authHeader.replace('Bearer ', '')
       : undefined;
-    const token = (socket.handshake.auth && (socket.handshake.auth as any).token) || tokenFromHeader;
+    const token = (socket.handshake.auth && socket.handshake.auth.token) || tokenFromHeader;
 
     if (!token) {
       return next(new Error('Unauthorized'));
@@ -174,7 +173,7 @@ io.on('connection', (socket: Socket) => {
       socket.join(authedUserId);
     }
   } catch {}
-
+  
   // Eski istemciler için 'join' desteği: sadece kendi odasına izin ver
   socket.on('join', (userId: string) => {
     try {
