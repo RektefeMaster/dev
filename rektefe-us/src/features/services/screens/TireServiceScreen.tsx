@@ -178,75 +178,13 @@ export default function TireServiceScreen() {
   const fetchTireJobs = async () => {
     try {
       setLoading(true);
-      // API çağrısı - şimdilik mock data
-      const mockJobs: TireJob[] = [
-        {
-          id: '1',
-          customerName: 'Ali Veli',
-          customerPhone: '+90 555 111 2233',
-          vehicleInfo: '2020 Toyota Corolla - 34 ABC 123',
-          vehicleType: 'car',
-          vehicleYear: 2020,
-          vehicleBrand: 'Toyota',
-          vehicleModel: 'Corolla',
-          vehiclePlate: '34 ABC 123',
-          location: {
-            address: 'Kadıköy, İstanbul',
-            coordinates: { lat: 40.9923, lng: 29.0234 }
-          },
-          serviceType: 'tire_change',
-          tireSize: '205/55 R16',
-          tireBrand: 'Michelin',
-          tireModel: 'Primacy 4',
-          tireCondition: 'new',
-          status: 'pending',
-          requestedAt: '2024-01-15T14:00:00Z',
-          estimatedTime: '45 dakika',
-          estimatedDuration: 45,
-          price: 800,
-          notes: '4 adet lastik değişimi, balans dahil',
-          parts: [
-            { name: 'Michelin Primacy 4 205/55 R16', quantity: 4, price: 600, status: 'needed', brand: 'Michelin', model: 'Primacy 4' },
-            { name: 'Balans Ağırlıkları', quantity: 1, price: 50, status: 'needed' },
-            { name: 'Lastik Montajı', quantity: 4, price: 150, status: 'needed' }
-          ],
-          specialRequests: ['Sadece premium marka lastik', 'Balans kontrolü yapın'],
-          warrantyInfo: {
-            duration: 24,
-            conditions: ['Normal kullanım', 'Düzenli rotasyon']
-          }
-        },
-        {
-          id: '2',
-          customerName: 'Ayşe Demir',
-          customerPhone: '+90 555 444 5566',
-          vehicleInfo: '2018 Honda Civic - 06 DEF 456',
-          vehicleType: 'car',
-          vehicleYear: 2018,
-          vehicleBrand: 'Honda',
-          vehicleModel: 'Civic',
-          vehiclePlate: '06 DEF 456',
-          location: {
-            address: 'Beşiktaş, İstanbul',
-            coordinates: { lat: 41.0428, lng: 29.0077 }
-          },
-          serviceType: 'tire_repair',
-          tireSize: '215/60 R16',
-          tireCondition: 'damaged',
-          status: 'in_progress',
-          requestedAt: '2024-01-15T11:30:00Z',
-          estimatedTime: '30 dakika',
-          estimatedDuration: 30,
-          price: 120,
-          notes: 'Lastikte delik var, yama yapılacak',
-          parts: [
-            { name: 'Lastik Yaması', quantity: 1, price: 50, status: 'installed', brand: 'Generic', model: 'Standard' },
-            { name: 'İç Lastik Kontrolü', quantity: 1, price: 30, status: 'installed' },
-            { name: 'Balans Kontrolü', quantity: 1, price: 40, status: 'received' }
-          ]
-        }
-      ];
-      setJobs(mockJobs);
+      // Gerçek API çağrısı - lastik işleri
+      const response = await apiService.getTireJobs();
+      if (response.success) {
+        setJobs(response.data || []);
+      } else {
+        setJobs([]);
+      }
     } catch (error) {
       Alert.alert('Hata', 'Lastik işleri yüklenirken bir hata oluştu');
     } finally {

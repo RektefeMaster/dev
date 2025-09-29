@@ -2,10 +2,10 @@
  * Rektefe DV uygulaması için temel konfigürasyon
  */
 
-// API Konfigürasyonu - Render URL ile güncellendi (Hardcoded)
+// API Konfigürasyonu - Railway URL ile güncellendi (Hardcoded)
 export const API_CONFIG = {
-  BASE_URL: 'https://dev-uycm.onrender.com/api',
-  SOCKET_URL: 'https://dev-uycm.onrender.com',
+  BASE_URL: 'https://rektefe-api-production.up.railway.app/api',
+  SOCKET_URL: 'https://rektefe-api-production.up.railway.app',
   TIMEOUT: 15000, // 15 saniye timeout - network gecikmeleri için
 };
 

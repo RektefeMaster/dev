@@ -83,7 +83,7 @@ const Button: React.FC<ButtonProps> = ({
       case 'secondary':
         return {
           ...baseStyle,
-          backgroundColor: colors.secondary,
+          backgroundColor: colors.secondary.main,
         };
       case 'success':
         return {

@@ -96,8 +96,8 @@ class ApiService {
         return false;
       }
       
-      // Base64 decode edilebilir mi kontrol et
-      const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+      // Base64 decode edilebilir mi kontrol et (React Native için)
+      const payload = JSON.parse(atob(parts[1]));
       
       // Expiration time kontrolü
       if (payload.exp) {
@@ -825,6 +825,34 @@ class ApiService {
       // Gerçek API endpoint'ini kullan
       const response = await this.api.get(`/message/conversations/${conversationId}/messages?page=${page}&limit=${limit}`);
       return response.data as ApiResponse<Message[]>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  // ===== SERVICE JOB ENDPOINTS =====
+  async getWashJobs(): Promise<ApiResponse<any[]>> {
+    try {
+      const response = await this.api.get('/mechanic-jobs/wash');
+      return response.data as ApiResponse<any[]>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getTireJobs(): Promise<ApiResponse<any[]>> {
+    try {
+      const response = await this.api.get('/mechanic-jobs/tire');
+      return response.data as ApiResponse<any[]>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getTowingJobs(): Promise<ApiResponse<any[]>> {
+    try {
+      const response = await this.api.get('/mechanic-jobs/towing');
+      return response.data as ApiResponse<any[]>;
     } catch (error) {
       return this.handleError(error);
     }

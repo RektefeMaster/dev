@@ -53,6 +53,20 @@ export interface IUser extends Document {
   shopName?: string;
   // location: Sadece mechanic (usta) için kullanılır
   // Driver (şöför) için bu alan kullanılmaz
+  location?: {
+    city?: string;
+    district?: string;
+    neighborhood?: string;
+    street?: string;
+    building?: string;
+    floor?: string;
+    apartment?: string;
+    description?: string;
+    coordinates?: {
+      latitude: number;
+      longitude: number;
+    };
+  };
   workingHours?: string;
   carBrands?: string[];
   engineTypes?: string[];
@@ -238,6 +252,50 @@ const userSchema = new Schema<IUser>({
   },
   // location: Sadece mechanic (usta) için kullanılır
   // Driver (şöför) için bu alan kullanılmaz
+  location: {
+    city: {
+      type: String,
+      default: ''
+    },
+    district: {
+      type: String,
+      default: ''
+    },
+    neighborhood: {
+      type: String,
+      default: ''
+    },
+    street: {
+      type: String,
+      default: ''
+    },
+    building: {
+      type: String,
+      default: ''
+    },
+    floor: {
+      type: String,
+      default: ''
+    },
+    apartment: {
+      type: String,
+      default: ''
+    },
+    description: {
+      type: String,
+      default: ''
+    },
+    coordinates: {
+      latitude: {
+        type: Number,
+        default: 0
+      },
+      longitude: {
+        type: Number,
+        default: 0
+      }
+    }
+  },
   workingHours: {
     type: String,
     default: ''

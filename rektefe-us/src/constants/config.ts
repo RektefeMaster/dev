@@ -2,9 +2,10 @@
  * Rektefe US uygulaması için temel konfigürasyon
  */
 
-// API Konfigürasyonu - Render URL ile güncellendi (Hardcoded)
+// API Konfigürasyonu - Railway URL ile güncellendi (Hardcoded)
 export const API_CONFIG = {
-  BASE_URL: 'https://dev-uycm.onrender.com/api',
+  BASE_URL: 'https://rektefe-api-production.up.railway.app/api',
+  SOCKET_URL: 'https://rektefe-api-production.up.railway.app',
   TIMEOUT: 60000,
 };
 
@@ -13,9 +14,11 @@ console.log('🔍 Rektefe-US API Config Debug:');
 console.log('EXPO_PUBLIC_API_BASE_URL:', process.env.EXPO_PUBLIC_API_BASE_URL);
 console.log('API_BASE_URL:', process.env.API_BASE_URL);
 console.log('Final BASE_URL:', API_CONFIG.BASE_URL);
+console.log('Final SOCKET_URL:', API_CONFIG.SOCKET_URL);
 
 // Doğrudan export edilen API URL'leri
 export const API_URL = API_CONFIG.BASE_URL;
+export const SOCKET_URL = API_CONFIG.SOCKET_URL;
 
 // Uygulama Konfigürasyonu
 export const APP_CONFIG = {

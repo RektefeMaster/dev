@@ -447,8 +447,21 @@ const styles = StyleSheet.create({
   buttonContainer: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.xl,
+    backgroundColor: colors.background.primary,
   },
   saveButton: {
     backgroundColor: colors.primary,
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    minHeight: 50,
+    shadowColor: colors.primary,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
 });

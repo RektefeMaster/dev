@@ -45,22 +45,38 @@ export class MechanicService {
       
       // Konum bilgileri
       if (profileData.location) {
-        if (profileData.location.city) updateData['location.city'] = profileData.location.city;
-        if (profileData.location.district) updateData['location.district'] = profileData.location.district;
-        if (profileData.location.neighborhood) updateData['location.neighborhood'] = profileData.location.neighborhood;
-        if (profileData.location.street) updateData['location.street'] = profileData.location.street;
-        if (profileData.location.building) updateData['location.building'] = profileData.location.building;
-        if (profileData.location.floor) updateData['location.floor'] = profileData.location.floor;
-        if (profileData.location.apartment) updateData['location.apartment'] = profileData.location.apartment;
-        if ((profileData.location as any).description) updateData['location.description'] = (profileData.location as any).description;
-        if (profileData.location.coordinates) updateData['location.coordinates'] = profileData.location.coordinates;
+        updateData.location = {
+          city: profileData.location.city || '',
+          district: profileData.location.district || '',
+          neighborhood: profileData.location.neighborhood || '',
+          street: profileData.location.street || '',
+          building: profileData.location.building || '',
+          floor: profileData.location.floor || '',
+          apartment: profileData.location.apartment || '',
+          description: profileData.location.description || '',
+          coordinates: profileData.location.coordinates || {
+            latitude: 0,
+            longitude: 0
+          }
+        };
       }
       
       // Şehir bilgisini ekle (koordinatlar kullanıcı tarafından girilmeli)
-      if (profileData.location?.city || profileData.city) {
-        const city = profileData.location?.city || profileData.city;
-        updateData['location.city'] = city;
-        // Koordinatlar kullanıcı tarafından girilmeli, hardcoded konumlar kaldırıldı
+      if (profileData.city && !profileData.location) {
+        updateData.location = {
+          city: profileData.city,
+          district: '',
+          neighborhood: '',
+          street: '',
+          building: '',
+          floor: '',
+          apartment: '',
+          description: '',
+          coordinates: {
+            latitude: 0,
+            longitude: 0
+          }
+        };
       }
       
       const updatedUser = await User.findByIdAndUpdate(

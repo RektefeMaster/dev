@@ -149,66 +149,13 @@ export default function WashServiceScreen() {
   const fetchWashJobs = async () => {
     try {
       setLoading(true);
-      // API çağrısı - şimdilik mock data
-      const mockJobs: WashJob[] = [
-        {
-          id: '1',
-          customerName: 'Zeynep Arslan',
-          customerPhone: '+90 555 777 8899',
-          vehicleInfo: '2021 BMW 3 Series - 34 JKL 012',
-          vehicleType: 'car',
-          vehicleYear: 2021,
-          vehicleBrand: 'BMW',
-          vehicleModel: '3 Series',
-          vehiclePlate: '34 JKL 012',
-          location: {
-            address: 'Kadıköy, İstanbul',
-            coordinates: { lat: 40.9923, lng: 29.0234 }
-          },
-          washType: 'detailing',
-          washLevel: 'heavy',
-          status: 'pending',
-          requestedAt: '2024-01-15T16:00:00Z',
-          estimatedTime: '1 saat',
-          estimatedDuration: 60,
-          price: 150,
-          notes: 'Araç çok kirli, detaylı temizlik gerekli',
-          services: [
-            { name: 'Dış Yıkama', price: 50, duration: 25, completed: false },
-            { name: 'İç Temizlik', price: 40, duration: 20, completed: false },
-            { name: 'Cila', price: 60, duration: 15, completed: false }
-          ],
-          specialRequests: ['Özel şampuan kullanın', 'Koltukları detaylı temizleyin']
-        },
-        {
-          id: '2',
-          customerName: 'Can Yıldız',
-          customerPhone: '+90 555 333 4455',
-          vehicleInfo: '2019 Mercedes C-Class - 06 MNO 345',
-          vehicleType: 'car',
-          vehicleYear: 2019,
-          vehicleBrand: 'Mercedes',
-          vehicleModel: 'C-Class',
-          vehiclePlate: '06 MNO 345',
-          location: {
-            address: 'Beşiktaş, İstanbul',
-            coordinates: { lat: 41.0428, lng: 29.0077 }
-          },
-          washType: 'basic',
-          washLevel: 'light',
-          status: 'in_progress',
-          requestedAt: '2024-01-15T13:30:00Z',
-          estimatedTime: '30 dakika',
-          estimatedDuration: 30,
-          price: 80,
-          notes: 'Sadece dış yıkama',
-          services: [
-            { name: 'Dış Yıkama', price: 50, duration: 20, completed: true },
-            { name: 'Kurulama', price: 30, duration: 10, completed: false }
-          ]
-        }
-      ];
-      setJobs(mockJobs);
+      // Gerçek API çağrısı - yıkama işleri
+      const response = await apiService.getWashJobs();
+      if (response.success) {
+        setJobs(response.data || []);
+      } else {
+        setJobs([]);
+      }
     } catch (error) {
       Alert.alert('Hata', 'Yıkama işleri yüklenirken bir hata oluştu');
     } finally {
