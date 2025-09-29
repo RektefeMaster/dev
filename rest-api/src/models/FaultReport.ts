@@ -9,13 +9,8 @@ export interface IFaultReport extends Document {
   videos: string[]; // Cloudinary URL'leri
   status: 'pending' | 'quoted' | 'accepted' | 'payment_pending' | 'paid' | 'in_progress' | 'completed' | 'cancelled';
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  location?: {
-    coordinates: [number, number]; // [longitude, latitude]
-    address: string;
-    city: string;
-    district: string;
-    neighborhood: string;
-  };
+  // location: Sadece çekici hizmeti için kullanılır
+  // Diğer hizmetler için bu alan kullanılmaz
   quotes: Array<{
     mechanicId: mongoose.Types.ObjectId;
     mechanicName: string;
@@ -70,13 +65,8 @@ const FaultReportSchema: Schema = new Schema({
     enum: ['low', 'medium', 'high', 'urgent'],
     default: 'medium'
   },
-  location: {
-    coordinates: { type: [Number] },
-    address: String,
-    city: String,
-    district: String,
-    neighborhood: String
-  },
+  // location: Sadece çekici hizmeti için kullanılır
+  // Diğer hizmetler için bu alan kullanılmaz
   quotes: [{
     mechanicId: { type: Schema.Types.ObjectId, ref: 'Mechanic', required: true },
     mechanicName: { type: String, required: true },

@@ -99,22 +99,23 @@ export const createFaultReport = async (req: Request, res: Response) => {
     // Konum bilgisini kontrol et ve düzelt
     let locationData = null;
     
-    // Çekici hizmeti için konum zorunlu
-    const isLocationRequired = normalizedServiceCategory === 'Çekici';
+    // Çekici hizmeti için konum zorunlu değil (kaldırıldı)
+    // const isLocationRequired = normalizedServiceCategory === 'Çekici';
     
-    if (location && location.coordinates && Array.isArray(location.coordinates) && location.coordinates.length === 2) {
-      locationData = {
-        type: 'Point',
-        coordinates: location.coordinates, // [longitude, latitude]
-        address: location.address || '',
-        city: location.city || ''
-      };
-    } else if (isLocationRequired) {
-      return res.status(400).json({
-        success: false,
-        message: 'Çekici hizmeti için konum bilgisi gereklidir'
-      });
-    }
+    // Location alanı kaldırıldı - artık kullanılmıyor
+    // if (location && location.coordinates && Array.isArray(location.coordinates) && location.coordinates.length === 2) {
+    //   locationData = {
+    //     type: 'Point',
+    //     coordinates: location.coordinates, // [longitude, latitude]
+    //     address: location.address || '',
+    //     city: location.city || ''
+    //   };
+    // } else if (isLocationRequired) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: 'Çekici hizmeti için konum bilgisi gereklidir'
+    //   });
+    // }
     
     const faultReport = new FaultReport({
       userId,
@@ -124,7 +125,7 @@ export const createFaultReport = async (req: Request, res: Response) => {
       photos,
       videos,
       priority,
-      location: locationData,
+      // location: locationData, // Kaldırıldı
       status: 'pending'
     });
 
@@ -141,10 +142,10 @@ export const createFaultReport = async (req: Request, res: Response) => {
 
     // Çevredeki uygun ustaları bul
     const nearbyMechanics = await findNearbyMechanics(
-      locationData?.coordinates,
+      null, // coordinates kaldırıldı
       normalizedServiceCategory,
       vehicle.brand,
-      locationData?.city
+      null // userCity kaldırıldı
     );
 
     // Her ustaya bildirim gönder
@@ -1126,12 +1127,7 @@ async function findNearbyMechanics(
       surname: user.surname,
       email: user.email,
       phone: user.phone || '',
-      location: user.location ? {
-        coordinates: {
-          latitude: user.location.coordinates?.latitude || 0,
-          longitude: user.location.coordinates?.longitude || 0
-        }
-      } : { coordinates: { latitude: 0, longitude: 0 } },
+      // location kaldırıldı
       serviceCategories: user.serviceCategories || ['Genel Bakım'],
       supportedBrands: (user as any).supportedBrands || user.vehicleBrands || ['Genel'],
       isAvailable: user.isAvailable || true
@@ -1140,65 +1136,15 @@ async function findNearbyMechanics(
     // Tüm ustaları birleştir
     const allMechanics = [...mechanics, ...formattedUserMechanics];
 
-    // Konum varsa yakınlık sıralaması yap
-    if (coordinates && coordinates[0] !== 0 && coordinates[1] !== 0) {
-      const mechanicsWithDistance = allMechanics
-        .map(mechanic => {
-          if (mechanic.location && 'coordinates' in mechanic.location && mechanic.location.coordinates) {
-            // Backend'te coordinates [longitude, latitude] formatında
-            const mechanicCoords = mechanic.location.coordinates;
-            if (Array.isArray(mechanicCoords) && mechanicCoords.length === 2) {
-              const distance = calculateDistance(
-                coordinates,
-                [mechanicCoords[0], mechanicCoords[1]]
-              );
-              return { ...mechanic, distance };
-            } else if (mechanicCoords.longitude && mechanicCoords.latitude) {
-              const distance = calculateDistance(
-                coordinates,
-                [mechanicCoords.longitude, mechanicCoords.latitude]
-              );
-              return { ...mechanic, distance };
-            }
-          }
-          return { ...mechanic, distance: Infinity };
-        })
-        .filter(mechanic => {
-          // Aynı şehir kontrolü
-          if (userCity && mechanic.location && 'city' in mechanic.location && mechanic.location.city) {
-            return mechanic.location.city.toLowerCase() === userCity.toLowerCase();
-          }
-          return true; // Şehir bilgisi yoksa tüm ustaları dahil et
-        })
-        .sort((a, b) => a.distance - b.distance)
-        .slice(0, 15); // En yakın 15 usta
-
-      return mechanicsWithDistance;
-    }
-
-    // Konum yoksa tüm uygun ustaları getir
-    return allMechanics.slice(0, 15);
+    // Konum sıralaması kaldırıldı - sadece hizmet kategorisine göre döndür
+    return allMechanics.slice(0, 20); // En fazla 20 usta
 
   } catch (error) {
     return [];
   }
 }
 
-// Mesafe hesaplama fonksiyonu (Haversine formülü)
-function calculateDistance(
-  coord1: [number, number],
-  coord2: [number, number]
-): number {
-  const R = 6371; // Dünya yarıçapı (km)
-  const dLat = (coord2[1] - coord1[1]) * Math.PI / 180;
-  const dLon = (coord2[0] - coord1[0]) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(coord1[1] * Math.PI / 180) * Math.cos(coord2[1] * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-}
+// Mesafe hesaplama fonksiyonu kaldırıldı - artık kullanılmıyor
 
 // Ödeme oluşturma
 export const createPayment = async (req: Request, res: Response) => {
