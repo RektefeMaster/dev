@@ -29,26 +29,34 @@ export class TefePointController {
           transactions: []
         });
         await tefePoint.save();
-        }
+      }
 
       // Süresi dolan puanları kontrol et ve güncelle
-      await TefePointController.updateExpiredPoints(tefePoint);
+      try {
+        await TefePointController.updateExpiredPoints(tefePoint);
+        // Güncellenmiş veriyi tekrar al
+        tefePoint = await TefePoint.findOne({ userId });
+      } catch (updateError) {
+        console.error('updateExpiredPoints error in getBalance:', updateError);
+        // Hata durumunda mevcut veriyi kullan
+      }
 
       res.json({
         success: true,
         message: 'TefePuan bakiyesi getirildi',
         data: {
-          totalPoints: tefePoint.totalPoints,
-          availablePoints: tefePoint.availablePoints,
-          usedPoints: tefePoint.usedPoints,
-          expiredPoints: tefePoint.expiredPoints
+          totalPoints: tefePoint?.totalPoints || 0,
+          availablePoints: tefePoint?.availablePoints || 0,
+          usedPoints: tefePoint?.usedPoints || 0,
+          expiredPoints: tefePoint?.expiredPoints || 0
         }
       });
     } catch (error: any) {
+      console.error('getBalance error:', error);
       res.status(500).json({
         success: false,
         message: 'TefePuan bakiyesi getirilirken hata oluştu',
-        error: error.message
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Sunucu hatası'
       });
     }
   });
@@ -85,7 +93,7 @@ export class TefePointController {
       }
 
       // Filtreleme
-      let transactions = tefePoint.transactions;
+      let transactions = tefePoint.transactions || [];
       if (type) {
         transactions = transactions.filter(t => t.type === type);
       }
@@ -112,10 +120,11 @@ export class TefePointController {
         }
       });
     } catch (error: any) {
+      console.error('getHistory error:', error);
       res.status(500).json({
         success: false,
         message: 'TefePuan geçmişi getirilirken hata oluştu',
-        error: error.message
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Sunucu hatası'
       });
     }
   });
@@ -296,26 +305,35 @@ export class TefePointController {
 
   // Süresi dolan puanları güncelle (internal method)
   static updateExpiredPoints = async (tefePoint: any): Promise<void> => {
-    const now = new Date();
-    let expiredCount = 0;
+    try {
+      const now = new Date();
+      let expiredCount = 0;
+      let hasChanges = false;
 
-    // Süresi dolan işlemleri bul
-    const expiredTransactions = tefePoint.transactions.filter((transaction: any) => {
-      return transaction.status === 'earned' && 
-             transaction.expiresAt && 
-             new Date(transaction.expiresAt) < now;
-    });
+      // Süresi dolan işlemleri bul
+      const expiredTransactions = tefePoint.transactions.filter((transaction: any) => {
+        return transaction.status === 'earned' && 
+               transaction.expiresAt && 
+               new Date(transaction.expiresAt) < now;
+      });
 
-    // Süresi dolan puanları güncelle
-    for (const transaction of expiredTransactions) {
-      transaction.status = 'expired';
-      expiredCount += transaction.amount;
-    }
+      // Süresi dolan puanları güncelle
+      for (const transaction of expiredTransactions) {
+        if (transaction.status === 'earned') {
+          transaction.status = 'expired';
+          expiredCount += transaction.amount;
+          hasChanges = true;
+        }
+      }
 
-    if (expiredCount > 0) {
-      tefePoint.availablePoints = Math.max(0, tefePoint.availablePoints - expiredCount);
-      tefePoint.expiredPoints += expiredCount;
-      await tefePoint.save();
+      if (hasChanges) {
+        tefePoint.availablePoints = Math.max(0, tefePoint.availablePoints - expiredCount);
+        tefePoint.expiredPoints += expiredCount;
+        await tefePoint.save();
+      }
+    } catch (error) {
+      console.error('updateExpiredPoints error:', error);
+      // Hata durumunda sessizce devam et
     }
   };
 
