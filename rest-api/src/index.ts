@@ -110,20 +110,24 @@ import './models/ServiceCategory';
 import './models/FaultReport';
 import './models/TefePoint';
 
-mongoose.connect(MONGODB_URI, {
-  serverSelectionTimeoutMS: 30000, // 30 saniye timeout
-  connectTimeoutMS: 30000,
-  socketTimeoutMS: 30000,
-  maxPoolSize: 10,
-  bufferCommands: false,
-  retryWrites: true,
-  w: 'majority'
-})
-  .then(() => console.log('MongoDB bağlantısı başarılı'))
-  .catch(err => {
+// MongoDB bağlantısını async olarak başlat
+(async () => {
+  try {
+    await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 30000, // 30 saniye timeout
+      connectTimeoutMS: 30000,
+      socketTimeoutMS: 30000,
+      maxPoolSize: 10,
+      bufferCommands: false,
+      retryWrites: true,
+      w: 'majority'
+    });
+    console.log('MongoDB bağlantısı başarılı');
+  } catch (err) {
     console.error('MongoDB bağlantı hatası:', err);
     console.error('MongoDB URI:', MONGODB_URI);
-  });
+  }
+})();
 
 // HTTP sunucusu oluştur
 const httpServer = createServer(app);
