@@ -50,8 +50,8 @@ app.use(helmet());
 app.use(compression());
 
 // CORS configuration
-import { MONGODB_URI } from './config';
-import { PORT as CONFIG_PORT, CORS_ORIGIN, JWT_SECRET } from './config';
+const { MONGODB_URI } = require('./config');
+const { PORT: CONFIG_PORT, CORS_ORIGIN, JWT_SECRET } = require('./config');
 
 // Secure CORS configuration - no wildcards
 const allowedOrigins = CORS_ORIGIN.split(',').map(origin => origin.trim());
@@ -142,15 +142,15 @@ io.use((socket, next) => {
     const tokenFromHeader = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
       ? authHeader.replace('Bearer ', '')
       : undefined;
-    const token = (socket.handshake.auth && (socket.handshake.auth as any).token) || tokenFromHeader;
+    const token = (socket.handshake.auth && socket.handshake.auth.token) || tokenFromHeader;
 
     if (!token) {
       return next(new Error('Unauthorized'));
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET!) as { userId: string; userType: 'driver' | 'mechanic' };
-    (socket.data as any).userId = decoded.userId;
-    (socket.data as any).userType = decoded.userType;
+    const decoded = jwt.verify(token, JWT_SECRET);
+    socket.data.userId = decoded.userId;
+    socket.data.userType = decoded.userType;
     return next();
   } catch (err) {
     return next(new Error('Unauthorized'));
@@ -169,7 +169,7 @@ io.on('connection', (socket: Socket) => {
   
   // Bağlanırken kendi odasına otomatik katıl
   try {
-    const authedUserId = (socket.data as any).userId;
+    const authedUserId = socket.data.userId;
     if (authedUserId) {
       socket.join(authedUserId);
     }
@@ -178,7 +178,7 @@ io.on('connection', (socket: Socket) => {
   // Eski istemciler için 'join' desteği: sadece kendi odasına izin ver
   socket.on('join', (userId: string) => {
     try {
-      const authedUserId = (socket.data as any).userId;
+      const authedUserId = socket.data.userId;
       if (userId && authedUserId && userId === authedUserId) {
         socket.join(userId);
       }
