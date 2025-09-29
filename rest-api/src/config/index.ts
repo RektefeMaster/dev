@@ -8,6 +8,15 @@ if (!process.env.JWT_SECRET) {
 
 // MongoDB connection string (env override, fallback to localhost)
 export const MONGODB_URI: string = process.env.MONGODB_URI || 'mongodb+srv://rektefekadnur09:rektefekadnur09@cluster0.agf6m9t.mongodb.net/rektefe?retryWrites=true&w=majority&appName=Cluster0';
+export const MONGODB_OPTIONS = {
+  serverSelectionTimeoutMS: 30000,
+  connectTimeoutMS: 30000,
+  socketTimeoutMS: 30000,
+  maxPoolSize: 10,
+  bufferCommands: true, // Geçici olarak aktif
+  retryWrites: true,
+  w: 'majority'
+};
 
 // Server port
 export const PORT: number = Number(process.env.PORT) || 3000;

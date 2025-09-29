@@ -51,7 +51,7 @@ app.use(helmet());
 app.use(compression());
 
 // CORS configuration
-import { MONGODB_URI, PORT as CONFIG_PORT, CORS_ORIGIN, JWT_SECRET } from './config';
+import { MONGODB_URI, MONGODB_OPTIONS, PORT as CONFIG_PORT, CORS_ORIGIN, JWT_SECRET } from './config';
 
 // Secure CORS configuration - no wildcards
 const allowedOrigins = CORS_ORIGIN.split(',').map(origin => origin.trim());
@@ -290,15 +290,7 @@ app.use(errorHandler);
 (async () => {
   try {
     console.log('MongoDB bağlantısı başlatılıyor...');
-    await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 30000, // 30 saniye timeout
-      connectTimeoutMS: 30000,
-      socketTimeoutMS: 30000,
-      maxPoolSize: 10,
-      bufferCommands: false,
-      retryWrites: true,
-      w: 'majority'
-    });
+    await mongoose.connect(MONGODB_URI, MONGODB_OPTIONS);
     console.log('✅ MongoDB bağlantısı başarılı');
     
     // MongoDB bağlantısı başarılı olduktan sonra server'ı başlat
