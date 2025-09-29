@@ -296,6 +296,7 @@ async function startServer() {
     // MongoDB bağlantısı başarılı olduktan sonra server'ı başlat
     httpServer.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server ${PORT} portunda çalışıyor`);
+      console.log('✅ MongoDB bağlantısı ve server hazır');
     });
   } catch (err) {
     console.error('❌ MongoDB bağlantı hatası:', err);
