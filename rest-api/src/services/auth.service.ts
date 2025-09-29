@@ -77,14 +77,10 @@ export class AuthService {
       user.ratingCount = 0;
       user.totalServices = 0;
       user.isAvailable = true;
-      // currentLocation'ı kullanıcının konum bilgisi ile doldur
-      if (location?.coordinates) {
-        user.currentLocation = {
-          type: 'Point',
-          coordinates: [location.coordinates.longitude, location.coordinates.latitude]
-        };
-      }
-      // Konum bilgisi yoksa currentLocation alanını hiç set etme
+      
+      // currentLocation: Sadece mechanic (usta) için kullanılır
+      // Driver (şöför) için bu alan kullanılmaz
+      
       user.documents = { insurance: 'Sigorta bilgisi eklenecek' };
       user.shopName = '';
       user.location = {
@@ -106,6 +102,13 @@ export class AuthService {
       user.transmissionTypes = [];
       user.customBrands = [];
       
+      await user.save();
+    }
+    
+    // Driver için currentLocation'ı hiç set etme (GeoJSON hatası önlemek için)
+    if (finalUserType === 'driver') {
+      // Driver için sadece temel bilgileri set et
+      user.isAvailable = true;
       await user.save();
     }
 

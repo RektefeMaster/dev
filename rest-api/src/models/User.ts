@@ -43,13 +43,8 @@ export interface IUser extends Document {
   ratingCount?: number;
   totalServices?: number;
   isAvailable?: boolean;
-  currentLocation?: {
-    type: string;
-    coordinates: number[];
-    latitude?: number;
-    longitude?: number;
-    address?: string;
-  };
+  // currentLocation: Sadece mechanic (usta) için kullanılır
+  // Driver (şöför) için bu alan kullanılmaz
   documents?: {
     insurance?: string;
     license?: string;
@@ -242,16 +237,8 @@ const userSchema = new Schema<IUser>({
     type: Boolean,
     default: true
   },
-  currentLocation: {
-    type: {
-      type: String,
-      default: 'Point'
-    },
-    coordinates: [Number],
-    latitude: Number,
-    longitude: Number,
-    address: String
-  },
+  // currentLocation: Sadece mechanic (usta) için kullanılır
+  // Driver (şöför) için bu alan kullanılmaz
   documents: {
     insurance: String,
     license: String,
@@ -330,7 +317,7 @@ const userSchema = new Schema<IUser>({
 // Performance optimization: Add indexes for common queries
 userSchema.index({ userType: 1, isAvailable: 1 }); // Available mechanics/drivers
 userSchema.index({ userType: 1, city: 1 }); // Users by type and location
-userSchema.index({ currentLocation: '2dsphere' }); // Geospatial queries
+// userSchema.index({ currentLocation: '2dsphere' }); // Geospatial queries - sadece mechanic için
 userSchema.index({ createdAt: -1 }); // Recent users
 userSchema.index({ rating: -1 }); // Top rated users
 userSchema.index({ phone: 1 }); // Phone lookups
