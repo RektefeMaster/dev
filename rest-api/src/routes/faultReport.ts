@@ -1,21 +1,21 @@
 import express from 'express';
 import { auth } from '../middleware/auth';
 import { requireRole } from '../middleware/roleAuth';
-import {
-  createFaultReport,
-  getUserFaultReports,
-  getFaultReportById,
-  getMechanicFaultReportById,
-  submitMechanicResponse,
-  submitQuote,
-  selectQuote,
-  getMechanicFaultReports,
-  handleTomorrowResponse,
-  initiateContact,
-  createPayment,
-  confirmPayment,
-  finalizeWork
-} from '../controllers/faultReport.controller';
+// import {
+//   createFaultReport,
+//   getUserFaultReports,
+//   getFaultReportById,
+//   getMechanicFaultReportById,
+//   submitMechanicResponse,
+//   submitQuote,
+//   selectQuote,
+//   getMechanicFaultReports,
+//   handleTomorrowResponse,
+//   initiateContact,
+//   createPayment,
+//   confirmPayment,
+//   finalizeWork
+// } from '../controllers/faultReport.controller';
 
 const router = express.Router();
 

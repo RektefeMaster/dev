@@ -35,9 +35,9 @@ import messageRoutes from './routes/message';
 import walletRoutes from './routes/wallet';
 import tefePointRoutes from './routes/tefePoint';
 import activityRoutes from './routes/activity';
-import faultReportRoutes from './routes/faultReport';
+// import faultReportRoutes from './routes/faultReport';
 import serviceRequestRoutes from './routes/serviceRequests';
-import emergencyTowingRoutes from './routes/emergencyTowing';
+// import emergencyTowingRoutes from './routes/emergencyTowing';
 import paymentRoutes from './routes/payment';
 
 // .env dosyasını yükle
@@ -256,9 +256,9 @@ app.use('/api/message', messageRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/tefe-points', tefePointRoutes);
 app.use('/api/activity', activityRoutes);
-app.use('/api/fault-reports', faultReportRoutes);
+// app.use('/api/fault-reports', faultReportRoutes);
 app.use('/api/service-requests', serviceRequestRoutes);
-app.use('/api/emergency', emergencyTowingRoutes);
+// app.use('/api/emergency', emergencyTowingRoutes);
 app.use('/api/payment', paymentRoutes);
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
