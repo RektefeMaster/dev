@@ -36,7 +36,7 @@ import messageRoutes from './routes/message';
 import walletRoutes from './routes/wallet';
 import tefePointRoutes from './routes/tefePoint';
 import activityRoutes from './routes/activity';
-// import faultReportRoutes from './routes/faultReport';
+import faultReportRoutes from './routes/faultReport';
 import serviceRequestRoutes from './routes/serviceRequests';
 import emergencyTowingRoutes from './routes/emergencyTowing';
 import paymentRoutes from './routes/payment';
@@ -61,10 +61,16 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps or Postman)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
+    // Allow all origins for React Native apps
+    if (process.env.NODE_ENV === 'production') {
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        return callback(new Error('Not allowed by CORS'));
+      }
     } else {
-      return callback(new Error('Not allowed by CORS'));
+      // Development mode: allow all origins
+      return callback(null, true);
     }
   },
   credentials: true, // Always allow credentials for security
@@ -255,7 +261,7 @@ app.use('/api/message', messageRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/tefe-points', tefePointRoutes);
 app.use('/api/activity', activityRoutes);
-// app.use('/api/fault-reports', faultReportRoutes);
+app.use('/api/fault-reports', faultReportRoutes);
 app.use('/api/service-requests', serviceRequestRoutes);
 app.use('/api/emergency', emergencyTowingRoutes);
 app.use('/api/payment', paymentRoutes);

@@ -16,4 +16,4 @@ export const JWT_SECRET = process.env.JWT_SECRET;
 // CORS origin - Security fix: No wildcard in production
 export const CORS_ORIGIN = process.env.NODE_ENV === 'production' 
   ? process.env.CORS_ORIGIN || 'https://rektefe.com,https://app.rektefe.com'
-  : 'http://localhost:3000,http://192.168.1.36:3000,http://192.168.1.36:8081,http://192.168.1.36:8082,http://192.168.1.36:8083,http://192.168.1.36:8084';
+  : 'http://localhost:3000,http://192.168.1.36:3000,http://192.168.1.36:8081,http://192.168.1.36:8082,http://192.168.1.36:8083,http://192.168.1.36:8084,http://localhost:8081,http://localhost:8082,http://localhost:8083,http://localhost:8084';
