@@ -92,17 +92,17 @@ const PORT = CONFIG_PORT;
 // MongoDB bağlantısı
 
 // Mongoose modellerini import et (register için)
-import './models/User';
-import './models/Mechanic';
-import './models/Appointment';
-import './models/Vehicle';
-import './models/Message';
-import './models/Conversation';
-import './models/Notification';
-import './models/AppointmentRating';
-import './models/ServiceCategory';
-import './models/FaultReport';
-import './models/TefePoint';
+require('./models/User');
+require('./models/Mechanic');
+require('./models/Appointment');
+require('./models/Vehicle');
+require('./models/Message');
+require('./models/Conversation');
+require('./models/Notification');
+require('./models/AppointmentRating');
+require('./models/ServiceCategory');
+require('./models/FaultReport');
+require('./models/TefePoint');
 
 mongoose.connect(MONGODB_URI)
   .then(() => console.log('MongoDB bağlantısı başarılı'))
