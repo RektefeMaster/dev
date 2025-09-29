@@ -7,7 +7,7 @@ if (!process.env.JWT_SECRET) {
 }
 
 // MongoDB connection string (env override, fallback to localhost)
-export const MONGODB_URI: string = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/rektefe';
+export const MONGODB_URI: string = process.env.MONGODB_URI || 'mongodb+srv://rektefe:rektefe123@cluster0.mongodb.net/rektefe?retryWrites=true&w=majority';
 
 // Server port
 export const PORT: number = Number(process.env.PORT) || 3000;
