@@ -13,7 +13,7 @@ export const MONGODB_OPTIONS = {
   connectTimeoutMS: 30000,
   socketTimeoutMS: 30000,
   maxPoolSize: 10,
-  bufferCommands: true, // Geçici olarak aktif
+  bufferCommands: false,
   retryWrites: true,
   w: 'majority'
 };

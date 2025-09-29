@@ -287,7 +287,7 @@ app.use(notFound);
 app.use(errorHandler);
 
 // MongoDB bağlantısını başlat ve server'ı başlat
-(async () => {
+async function startServer() {
   try {
     console.log('MongoDB bağlantısı başlatılıyor...');
     await mongoose.connect(MONGODB_URI, MONGODB_OPTIONS);
@@ -302,4 +302,7 @@ app.use(errorHandler);
     console.error('MongoDB URI:', MONGODB_URI);
     process.exit(1);
   }
-})();
+}
+
+// Server'ı başlat
+startServer();
