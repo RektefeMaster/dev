@@ -4,8 +4,8 @@
   "description": "Rektefe REST API",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
+    "build": "echo 'Skipping TypeScript build for production'",
+    "start": "node -r dotenv/config src/index.ts",
     "dev": "ts-node-dev --respawn --transpile-only -r dotenv/config src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "render-postbuild": "npm run build"
@@ -41,6 +41,7 @@
     "socket.io": "^4.7.4",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.0",
+    "ts-node": "^10.9.1",
     "xss": "^1.0.14"
   },
   "devDependencies": {
