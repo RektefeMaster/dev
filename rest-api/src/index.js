@@ -112,7 +112,7 @@ mongoose.connect(MONGODB_URI)
 const httpServer = createServer(app);
 
 // Socket.io sunucusu oluştur - SECURE CORS
-export const io = new Server(httpServer, {
+const io = new Server(httpServer, {
   cors: {
     origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
