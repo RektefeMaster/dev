@@ -96,26 +96,25 @@ export const createFaultReport = async (req: Request, res: Response) => {
       });
     }
 
-    // Konum bilgisini kontrol et ve düzelt
+    // Konum bilgisini kontrol et - sadece çekici hizmeti için zorunlu
     let locationData = null;
     
-    // Çekici hizmeti için konum zorunlu değil (kaldırıldı)
-    // const isLocationRequired = normalizedServiceCategory === 'Çekici';
+    // Çekici hizmeti için konum zorunlu
+    const isLocationRequired = normalizedServiceCategory === 'Çekici';
     
-    // Location alanı kaldırıldı - artık kullanılmıyor
-    // if (location && location.coordinates && Array.isArray(location.coordinates) && location.coordinates.length === 2) {
-    //   locationData = {
-    //     type: 'Point',
-    //     coordinates: location.coordinates, // [longitude, latitude]
-    //     address: location.address || '',
-    //     city: location.city || ''
-    //   };
-    // } else if (isLocationRequired) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: 'Çekici hizmeti için konum bilgisi gereklidir'
-    //   });
-    // }
+    if (location && location.coordinates && Array.isArray(location.coordinates) && location.coordinates.length === 2) {
+      locationData = {
+        type: 'Point',
+        coordinates: location.coordinates, // [longitude, latitude]
+        address: location.address || '',
+        city: location.city || ''
+      };
+    } else if (isLocationRequired) {
+      return res.status(400).json({
+        success: false,
+        message: 'Çekici hizmeti için konum bilgisi gereklidir'
+      });
+    }
     
     const faultReport = new FaultReport({
       userId,
@@ -125,7 +124,7 @@ export const createFaultReport = async (req: Request, res: Response) => {
       photos,
       videos,
       priority,
-      // location: locationData, // Kaldırıldı
+      location: locationData, // Sadece çekici hizmeti için
       status: 'pending'
     });
 

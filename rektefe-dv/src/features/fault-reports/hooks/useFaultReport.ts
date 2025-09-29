@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '@/context/AuthContext';
 import { apiService } from '@/shared/services/api';
 import { withErrorHandling } from '@/shared/utils/errorHandler';
-// import LocationService, { UserLocation } from '@/shared/services/locationService'; // Kaldırıldı
+import LocationService, { UserLocation } from '@/shared/services/locationService'; // Çekici hizmetleri için geri eklendi
 
 interface Vehicle {
   _id: string;
@@ -52,10 +52,10 @@ export const useFaultReport = () => {
     { id: 'urgent', name: 'Acil', color: '#FF0000', icon: 'alert-circle', description: 'Hemen müdahale gerekiyor' },
   ];
   
-  // Location state kaldırıldı - artık konum bilgisi kullanılmıyor
-  // const [location, setLocation] = useState<UserLocation | null>(null);
-  // const [locationLoading, setLocationLoading] = useState(false);
-  // const [locationAddress, setLocationAddress] = useState('');
+  // Location state - sadece çekici hizmetleri için kullanılır
+  const [location, setLocation] = useState<UserLocation | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationAddress, setLocationAddress] = useState('');
 
   // 4 ana hizmet türü - tüm hizmetler bu 4 kategoriye bölünür
   const staticServiceCategories = [
@@ -92,7 +92,7 @@ export const useFaultReport = () => {
   // Load initial data
   useEffect(() => {
     loadVehicles();
-    // loadUserLocation(); // Kaldırıldı - artık konum bilgisi kullanılmıyor
+    loadUserLocation(); // Çekici hizmetleri için geri eklendi
     setServiceCategories(staticServiceCategories);
   }, []);
 
@@ -108,41 +108,40 @@ export const useFaultReport = () => {
   };
 
 
-  // loadUserLocation fonksiyonu kaldırıldı - artık konum bilgisi kullanılmıyor
-  // const loadUserLocation = async () => {
-  //   setLocationLoading(true);
-  //   try {
-  //     const locationService = LocationService.getInstance();
-  //     const userLocation = await locationService.getCurrentLocation();
-  //     
-  //     if (userLocation) {
-  //       setLocation(userLocation);
-  //       // Adres bilgisini reverse geocoding ile al
-  //       await reverseGeocode(userLocation);
-  //     }
-  //   } catch (error) {
-  //     console.log('Konum alınamadı:', error);
-  //   } finally {
-  //     setLocationLoading(false);
-  //   }
-  // };
+  const loadUserLocation = async () => {
+    setLocationLoading(true);
+    try {
+      const locationService = LocationService.getInstance();
+      const userLocation = await locationService.getCurrentLocation();
+      
+      if (userLocation) {
+        setLocation(userLocation);
+        // Adres bilgisini reverse geocoding ile al
+        await reverseGeocode(userLocation);
+      }
+    } catch (error) {
+      console.log('Konum alınamadı:', error);
+    } finally {
+      setLocationLoading(false);
+    }
+  };
 
-  // const reverseGeocode = async (location: UserLocation) => {
-  //   try {
-  //     const response = await fetch(
-  //       `https://nominatim.openstreetmap.org/reverse?format=json&lat=${location.latitude}&lon=${location.longitude}&addressdetails=1&accept-language=tr`
-  //     );
-  //     
-  //     if (response.ok) {
-  //       const data = await response.json();
-  //       const address = data.display_name || `${location.latitude}, ${location.longitude}`;
-  //       setLocationAddress(address);
-  //     }
-  //   } catch (error) {
-  //     console.log('Adres bilgisi alınamadı:', error);
-  //     setLocationAddress(`${location.latitude}, ${location.longitude}`);
-  //   }
-  // };
+  const reverseGeocode = async (location: UserLocation) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${location.latitude}&lon=${location.longitude}&addressdetails=1&accept-language=tr`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        const address = data.display_name || `${location.latitude}, ${location.longitude}`;
+        setLocationAddress(address);
+      }
+    } catch (error) {
+      console.log('Adres bilgisi alınamadı:', error);
+      setLocationAddress(`${location.latitude}, ${location.longitude}`);
+    }
+  };
 
   const addPhoto = (photoUri: string) => {
     if (photos.length >= 5) {
@@ -222,20 +221,20 @@ export const useFaultReport = () => {
   const submitReport = async () => {
     if (!validateStep(3)) return;
 
-    // Konum kontrolü kaldırıldı - artık konum gönderilmiyor
-    // const isLocationRequired = selectedServiceCategory === 'Çekici';
+    // Çekici hizmeti için konum zorunlu
+    const isLocationRequired = selectedServiceCategory === 'Çekici';
     
-    // if (isLocationRequired && !location) {
-    //   Alert.alert(
-    //     'Konum Gerekli', 
-    //     'Çekici hizmeti için konum bilgisi gereklidir. Lütfen konum erişimine izin verin.',
-    //     [
-    //       { text: 'İptal', style: 'cancel' },
-    //       { text: 'Konum Ver', onPress: loadUserLocation }
-    //     ]
-    //   );
-    //   return;
-    // }
+    if (isLocationRequired && !location) {
+      Alert.alert(
+        'Konum Gerekli', 
+        'Çekici hizmeti için konum bilgisi gereklidir. Lütfen konum erişimine izin verin.',
+        [
+          { text: 'İptal', style: 'cancel' },
+          { text: 'Konum Ver', onPress: loadUserLocation }
+        ]
+      );
+      return;
+    }
 
     setSubmitting(true);
     
@@ -248,14 +247,14 @@ export const useFaultReport = () => {
         serviceCategory: selectedServiceCategory,
         faultDescription: faultDescription, // Backend faultDescription bekliyor
         priority,
-        // Konum bilgisi kaldırıldı - artık gönderilmiyor
-        // ...(location && {
-        //   location: {
-        //     coordinates: [location.longitude, location.latitude], // Backend GeoJSON format bekliyor
-        //     address: locationAddress,
-        //     city: locationAddress.split(',')[locationAddress.split(',').length - 1]?.trim() || 'İstanbul'
-        //   }
-        // }),
+        // Konum sadece çekici hizmeti için gönder
+        ...(location && selectedServiceCategory === 'Çekici' && {
+          location: {
+            coordinates: [location.longitude, location.latitude], // Backend GeoJSON format bekliyor
+            address: locationAddress,
+            city: locationAddress.split(',')[locationAddress.split(',').length - 1]?.trim() || 'İstanbul'
+          }
+        }),
         photos,
         videos,
         vehicleInfo: selectedVehicleData ? {
@@ -303,8 +302,8 @@ export const useFaultReport = () => {
     setPhotos([]);
     setVideos([]);
     setPriority('medium');
-    // setLocation(null); // Kaldırıldı
-    // setLocationAddress(''); // Kaldırıldı
+    setLocation(null); // Çekici hizmetleri için geri eklendi
+    setLocationAddress(''); // Çekici hizmetleri için geri eklendi
   };
 
   return {
@@ -324,10 +323,10 @@ export const useFaultReport = () => {
     loading,
     submitting,
     
-    // Location state kaldırıldı - artık konum bilgisi kullanılmıyor
-    // location,
-    // locationLoading,
-    // locationAddress,
+    // Location state - sadece çekici hizmetleri için kullanılır
+    location,
+    locationLoading,
+    locationAddress,
     
     // Actions
     setSelectedVehicle,
@@ -342,7 +341,7 @@ export const useFaultReport = () => {
     previousStep,
     submitReport,
     resetForm,
-    // loadUserLocation, // Kaldırıldı
+    loadUserLocation, // Çekici hizmetleri için geri eklendi
     validateStep,
   };
 };

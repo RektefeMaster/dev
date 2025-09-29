@@ -10,7 +10,13 @@ export interface IFaultReport extends Document {
   status: 'pending' | 'quoted' | 'accepted' | 'payment_pending' | 'paid' | 'in_progress' | 'completed' | 'cancelled';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   // location: Sadece çekici hizmeti için kullanılır
-  // Diğer hizmetler için bu alan kullanılmaz
+  location?: {
+    coordinates: [number, number]; // [longitude, latitude]
+    address: string;
+    city: string;
+    district: string;
+    neighborhood: string;
+  };
   quotes: Array<{
     mechanicId: mongoose.Types.ObjectId;
     mechanicName: string;
@@ -66,7 +72,13 @@ const FaultReportSchema: Schema = new Schema({
     default: 'medium'
   },
   // location: Sadece çekici hizmeti için kullanılır
-  // Diğer hizmetler için bu alan kullanılmaz
+  location: {
+    coordinates: { type: [Number] },
+    address: String,
+    city: String,
+    district: String,
+    neighborhood: String
+  },
   quotes: [{
     mechanicId: { type: Schema.Types.ObjectId, ref: 'Mechanic', required: true },
     mechanicName: { type: String, required: true },
