@@ -215,6 +215,25 @@ app.get('/', (req, res) => {
   res.send('API Çalışıyor!');
 });
 
+// Render IP test endpoint'i
+app.get('/ip-test', (req, res) => {
+  const clientIP = req.ip || req.connection.remoteAddress || req.socket.remoteAddress;
+  const forwardedIP = req.headers['x-forwarded-for'];
+  const realIP = req.headers['x-real-ip'];
+  
+  res.json({
+    success: true,
+    message: 'IP test endpoint',
+    ips: {
+      clientIP,
+      forwardedIP,
+      realIP,
+      userAgent: req.headers['user-agent'],
+      allHeaders: req.headers
+    }
+  });
+});
+
 // IP test endpoint'i
 app.get('/ip-test', async (req, res) => {
   try {
