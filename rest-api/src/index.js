@@ -4,7 +4,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
 const { createServer } = require('http');
-const { Server, Socket } = require('socket.io');
+const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
@@ -162,9 +162,9 @@ io.engine.on('connection_error', (err) => {
   });
 
 // Kullanıcı bağlantısı ve oda mantığı
-io.on('connection', (socket: Socket) => {
+io.on('connection', (socket) => {
   // Bağlantı hatası
-  socket.on('error', (error: any) => {
+  socket.on('error', (error) => {
     });
   
   // Bağlanırken kendi odasına otomatik katıl
@@ -176,7 +176,7 @@ io.on('connection', (socket: Socket) => {
   } catch {}
 
   // Eski istemciler için 'join' desteği: sadece kendi odasına izin ver
-  socket.on('join', (userId: string) => {
+  socket.on('join', (userId) => {
     try {
       const authedUserId = socket.data.userId;
       if (userId && authedUserId && userId === authedUserId) {
@@ -187,7 +187,7 @@ io.on('connection', (socket: Socket) => {
   });
   
   // Bağlantı kesildi
-  socket.on('disconnect', (reason: string) => {
+  socket.on('disconnect', (reason) => {
     // Sessiz disconnect
     const rooms = Array.from(socket.rooms);
 
@@ -200,7 +200,7 @@ io.on('connection', (socket: Socket) => {
 });
 
 // Bildirim gönderme fonksiyonu
-export function sendNotificationToUser(userId: string, notification: any) {
+function sendNotificationToUser(userId, notification) {
   io.to(userId).emit('notification', notification);
 }
 
