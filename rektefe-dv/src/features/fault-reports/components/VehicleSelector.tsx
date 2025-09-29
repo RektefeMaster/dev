@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '@/context/ThemeContext';
 
 interface Vehicle {
@@ -27,6 +28,7 @@ export const VehicleSelector: React.FC<VehicleSelectorProps> = ({
   onSelectVehicle,
   loading = false
 }) => {
+  const navigation = useNavigation();
   const { theme } = useTheme();
 
   const renderVehicleItem = ({ item }: { item: Vehicle }) => {
@@ -112,6 +114,7 @@ export const VehicleSelector: React.FC<VehicleSelectorProps> = ({
         </Text>
         <TouchableOpacity 
           style={[styles.addVehicleButton, { backgroundColor: theme.colors.primary.main }]}
+          onPress={() => navigation.navigate('Garage' as never)}
         >
           <MaterialCommunityIcons name="plus" size={20} color="#FFFFFF" />
           <Text style={styles.addVehicleText}>Araç Ekle</Text>
