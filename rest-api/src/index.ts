@@ -230,6 +230,24 @@ app.get('/', (req, res) => {
   res.send('API Çalışıyor!');
 });
 
+// IP test endpoint'i
+app.get('/ip-test', async (req, res) => {
+  try {
+    const response = await fetch('https://api.ipify.org?format=json');
+    const data = await response.json();
+    res.json({
+      success: true,
+      renderIP: data.ip,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Ana API route'u
 app.get('/api', (req, res) => {
   res.json({
