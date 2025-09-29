@@ -709,11 +709,11 @@ router.get('/today-schedule', auth, async (req: Request, res: Response) => {
 });
 
 // Fiyat yönetimi endpoint'leri
-// router.put('/:appointmentId/price', auth, AppointmentController.setAppointmentPrice);
-// router.post('/:appointmentId/price-increase', auth, AppointmentController.addPriceIncrease);
+router.put('/:appointmentId/price', auth, AppointmentController.setAppointmentPrice);
+router.post('/:appointmentId/price-increase', auth, AppointmentController.addPriceIncrease);
 
 // Ödeme endpoint'leri
-// router.post('/:appointmentId/payment', auth, (req, res) => AppointmentController.createPayment(req, res));
-// router.post('/:appointmentId/confirm-payment', auth, (req, res) => AppointmentController.confirmPayment(req, res));
+router.post('/:appointmentId/payment', auth, (req, res) => AppointmentController.createPayment(req, res));
+router.post('/:appointmentId/confirm-payment', auth, (req, res) => AppointmentController.confirmPayment(req, res));
 
 export default router;

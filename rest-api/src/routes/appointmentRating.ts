@@ -11,22 +11,22 @@ router.get('/', (req, res) => {
 });
 
 // Şoförün usta puanlaması (3 gün süre kontrolü ile)
-// router.post('/', auth, checkRatingTimeLimit, AppointmentRatingController.createRating);
-// router.post('/appointments/:appointmentId/rating', auth, checkRatingTimeLimit, AppointmentRatingController.createRating);
+router.post('/', auth, checkRatingTimeLimit, AppointmentRatingController.createRating);
+router.post('/appointments/:appointmentId/rating', auth, checkRatingTimeLimit, AppointmentRatingController.createRating);
 
 // Ustanın ortalama puanını getir
-// router.get('/mechanic/:mechanicId/rating', AppointmentRatingController.getMechanicRating);
+router.get('/mechanic/:mechanicId/rating', AppointmentRatingController.getMechanicRating);
 
 // Ustanın tüm puanlarını getir
-// router.get('/mechanic/:mechanicId/ratings', AppointmentRatingController.getMechanicRatings);
+router.get('/mechanic/:mechanicId/ratings', AppointmentRatingController.getMechanicRatings);
 
 // Şoförün verdiği puanları getir
-// router.get('/my-ratings', auth, AppointmentRatingController.getMyRatings);
+router.get('/my-ratings', auth, AppointmentRatingController.getMyRatings);
 
 // Mevcut usta için istatistikler
-// router.get('/current/stats', auth, AppointmentRatingController.getCurrentMechanicStats);
+router.get('/current/stats', auth, AppointmentRatingController.getCurrentMechanicStats);
 
 // Mevcut usta için son puanlar
-// router.get('/current/recent', auth, AppointmentRatingController.getCurrentMechanicRecentRatings);
+router.get('/current/recent', auth, AppointmentRatingController.getCurrentMechanicRecentRatings);
 
 export default router;
