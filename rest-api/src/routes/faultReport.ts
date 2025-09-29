@@ -1,21 +1,23 @@
 import express from 'express';
 import { auth } from '../middleware/auth';
 import { requireRole } from '../middleware/roleAuth';
-// import {
-//   createFaultReport,
-//   getUserFaultReports,
-//   getFaultReportById,
-//   getMechanicFaultReportById,
-//   submitMechanicResponse,
-//   submitQuote,
-//   selectQuote,
-//   getMechanicFaultReports,
-//   handleTomorrowResponse,
-//   initiateContact,
-//   createPayment,
-//   confirmPayment,
-//   finalizeWork
-// } from '../controllers/faultReport.controller';
+// Dynamic import to avoid circular dependency issues
+const faultReportController = require('../controllers/faultReport.controller');
+const {
+  createFaultReport,
+  getUserFaultReports,
+  getFaultReportById,
+  getMechanicFaultReportById,
+  submitMechanicResponse,
+  submitQuote,
+  selectQuote,
+  getMechanicFaultReports,
+  handleTomorrowResponse,
+  initiateContact,
+  createPayment,
+  confirmPayment,
+  finalizeWork
+} = faultReportController;
 
 const router = express.Router();
 
