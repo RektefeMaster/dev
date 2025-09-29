@@ -218,9 +218,16 @@ export const createFaultReport = async (req: Request, res: Response) => {
     });
 
   } catch (error) {
+    console.error('FaultReport creation error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     res.status(500).json({
       success: false,
-      message: 'Arıza bildirimi oluşturulurken bir hata oluştu'
+      message: 'Arıza bildirimi oluşturulurken bir hata oluştu',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -1119,7 +1126,12 @@ async function findNearbyMechanics(
       surname: user.surname,
       email: user.email,
       phone: user.phone || '',
-      location: user.location || { coordinates: { latitude: 0, longitude: 0 } },
+      location: user.location ? {
+        coordinates: {
+          latitude: user.location.coordinates?.latitude || 0,
+          longitude: user.location.coordinates?.longitude || 0
+        }
+      } : { coordinates: { latitude: 0, longitude: 0 } },
       serviceCategories: user.serviceCategories || ['Genel Bakım'],
       supportedBrands: (user as any).supportedBrands || user.vehicleBrands || ['Genel'],
       isAvailable: user.isAvailable || true

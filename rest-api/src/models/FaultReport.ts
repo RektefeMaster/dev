@@ -125,7 +125,7 @@ const FaultReportSchema: Schema = new Schema({
 // Index'ler
 FaultReportSchema.index({ userId: 1, createdAt: -1 });
 FaultReportSchema.index({ serviceCategory: 1, status: 1 });
-FaultReportSchema.index({ 'location.coordinates': '2dsphere' });
+// FaultReportSchema.index({ 'location.coordinates': '2dsphere' }); // Sadece location olanlar için
 FaultReportSchema.index({ status: 1, createdAt: -1 });
 
 export const FaultReport = mongoose.model<IFaultReport>('FaultReport', FaultReportSchema);
