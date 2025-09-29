@@ -3,7 +3,7 @@ import { Mechanic } from '../models/Mechanic';
 import { User } from '../models/User';
 import { Notification } from '../models/Notification';
 import { NotificationTriggerService } from './notificationTriggerService';
-import { sendNotificationToUser } from '../index';
+import { sendNotificationToUser } from '../utils/socketNotifications';
 import mongoose from 'mongoose';
 
 export interface TowingRequestData {

@@ -5,7 +5,7 @@ import { Vehicle } from '../models/Vehicle';
 import { Mechanic } from '../models/Mechanic';
 import { User } from '../models/User';
 import { Appointment } from '../models/Appointment';
-import { sendNotificationToUser } from '../index';
+import { sendNotificationToUser } from '../utils/socketNotifications';
 import { validateFaultReport, validateQuote, validateSelectQuote, validateMechanicResponse, validateTomorrowResponse, validateContact } from '../validators/faultReport.validation';
 import { TefePointService } from '../services/tefePoint.service';
 

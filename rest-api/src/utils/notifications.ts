@@ -3,7 +3,7 @@ import schedule from 'node-schedule';
 import { Expo } from 'expo-server-sdk';
 import { Mechanic } from '../models/Mechanic';
 import { Notification } from '../models/Notification';
-import { sendNotificationToUser } from '../index';
+import { sendNotificationToUser } from './socketNotifications';
 
 // Expo SDK client oluştur
 const expo = new Expo();

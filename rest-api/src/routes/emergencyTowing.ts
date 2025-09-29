@@ -5,7 +5,7 @@ import { EmergencyTowingRequest } from '../models/EmergencyTowingRequest';
 import { User } from '../models/User';
 import { Mechanic } from '../models/Mechanic';
 import { Notification } from '../models/Notification';
-import { sendNotificationToUser } from '../index';
+import { sendNotificationToUser } from '../utils/socketNotifications';
 // import { WebSocketService } from '../services/websocketService';
 
 const router = express.Router();

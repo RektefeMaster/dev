@@ -4,7 +4,7 @@ import { AppointmentRating } from '../models/AppointmentRating';
 import { Appointment } from '../models/Appointment';
 import { Mechanic } from '../models/Mechanic';
 import { User } from '../models/User';
-import { sendNotificationToUser } from '../index';
+import { sendNotificationToUser } from '../utils/socketNotifications';
 import { sendResponse } from '../utils/response';
 
 export class AppointmentRatingController {
