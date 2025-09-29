@@ -11,7 +11,7 @@ import {
   FaultDescriptionInput, 
   MediaPicker, 
   PrioritySelector, 
-  LocationDisplay, 
+  // LocationDisplay, // Kaldırıldı
   ProgressIndicator 
 } from '../components';
 
@@ -36,10 +36,10 @@ const FaultReportScreen = () => {
     loading,
     submitting,
     
-    // Location state
-    location,
-    locationLoading,
-    locationAddress,
+    // Location state kaldırıldı - artık konum bilgisi kullanılmıyor
+    // location,
+    // locationLoading,
+    // locationAddress,
     
     // Actions
     setSelectedVehicle,
@@ -54,7 +54,7 @@ const FaultReportScreen = () => {
     previousStep,
     submitReport,
     resetForm,
-    loadUserLocation,
+    // loadUserLocation, // Kaldırıldı
   } = useFaultReport();
 
   const renderStepContent = () => {
@@ -107,13 +107,7 @@ const FaultReportScreen = () => {
               selectedPriority={priority}
               onSelectPriority={(priorityId: string) => setPriority(priorityId as any)}
             />
-            <LocationDisplay
-              location={location}
-              locationAddress={locationAddress}
-              locationLoading={locationLoading}
-              onRefreshLocation={loadUserLocation}
-              isLocationRequired={selectedServiceCategory === 'Çekici'}
-            />
+            {/* LocationDisplay kaldırıldı - artık konum bilgisi gönderilmiyor */}
           </View>
         );
       
