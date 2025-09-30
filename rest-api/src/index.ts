@@ -24,6 +24,7 @@ import userRoutes from './routes/user';
 import vehiclesRoutes from './routes/vehicles';
 import serviceCategoryRoutes from './routes/serviceCategory';
 import mechanicServiceRoutes from './routes/mechanicService';
+import supportRoutes from './routes/support';
 import uploadRoutes from './routes/upload';
 import mechanicRoutes from './routes/mechanic';
 import mechanicJobsRoutes from './routes/mechanicJobs';
@@ -283,6 +284,7 @@ app.use('/api/vehicles', vehiclesRoutes);
 app.use('/api/drivers', vehiclesRoutes); // Frontend uyumluluğu için
 app.use('/api/service-categories', serviceCategoryRoutes);
 app.use('/api/mechanic-services', mechanicServiceRoutes);
+app.use('/api/support', supportRoutes);
 app.use('/api/mechanic', mechanicRoutes);
 app.use('/api/mechanic-jobs', mechanicJobsRoutes);
 app.use('/api/mechanic-earnings', mechanicEarningsRoutes);

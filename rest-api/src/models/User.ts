@@ -45,6 +45,7 @@ export interface IUser extends Document {
   isAvailable?: boolean;
   // currentLocation: Sadece mechanic (usta) için kullanılır
   // Driver (şöför) için bu alan kullanılmaz
+  workingHours?: string; // JSON string olarak çalışma saatleri
   documents?: {
     insurance?: string;
     license?: string;
@@ -67,7 +68,6 @@ export interface IUser extends Document {
       longitude: number;
     };
   };
-  workingHours?: string;
   carBrands?: string[];
   engineTypes?: string[];
   transmissionTypes?: string[];
@@ -77,9 +77,36 @@ export interface IUser extends Document {
   washPackages?: any[];
   washOptions?: any[];
   notificationSettings?: {
-    push: boolean;
-    email: boolean;
-    sms: boolean;
+    pushNotifications: boolean;
+    emailUpdates: boolean;
+    appointmentNotifications: boolean;
+    paymentNotifications: boolean;
+    messageNotifications: boolean;
+    systemNotifications: boolean;
+    marketingNotifications: boolean;
+    soundAlerts: boolean;
+    vibrationAlerts: boolean;
+  };
+  privacySettings?: {
+    locationSharing: boolean;
+    profileVisibility: boolean;
+    emailHidden: boolean;
+    phoneHidden: boolean;
+  };
+  jobSettings?: {
+    autoAcceptJobs: boolean;
+    isAvailable: boolean;
+    workingHours: string;
+  };
+  appSettings?: {
+    darkMode: boolean;
+    language: string;
+    theme: string;
+  };
+  securitySettings?: {
+    twoFactorEnabled: boolean;
+    biometricEnabled: boolean;
+    sessionTimeout: number;
   };
 }
 
@@ -241,6 +268,10 @@ const userSchema = new Schema<IUser>({
   },
   // currentLocation: Sadece mechanic (usta) için kullanılır
   // Driver (şöför) için bu alan kullanılmaz
+  workingHours: {
+    type: String,
+    default: ''
+  },
   documents: {
     insurance: String,
     license: String,
@@ -296,10 +327,6 @@ const userSchema = new Schema<IUser>({
       }
     }
   },
-  workingHours: {
-    type: String,
-    default: ''
-  },
   carBrands: [{
     type: String,
     default: []
@@ -333,17 +360,101 @@ const userSchema = new Schema<IUser>({
     default: []
   }],
   notificationSettings: {
-    push: {
+    pushNotifications: {
       type: Boolean,
       default: true
     },
-    email: {
+    emailUpdates: {
       type: Boolean,
       default: true
     },
-    sms: {
+    appointmentNotifications: {
+      type: Boolean,
+      default: true
+    },
+    paymentNotifications: {
+      type: Boolean,
+      default: true
+    },
+    messageNotifications: {
+      type: Boolean,
+      default: true
+    },
+    systemNotifications: {
+      type: Boolean,
+      default: true
+    },
+    marketingNotifications: {
       type: Boolean,
       default: false
+    },
+    soundAlerts: {
+      type: Boolean,
+      default: true
+    },
+    vibrationAlerts: {
+      type: Boolean,
+      default: true
+    }
+  },
+  privacySettings: {
+    locationSharing: {
+      type: Boolean,
+      default: false
+    },
+    profileVisibility: {
+      type: Boolean,
+      default: true
+    },
+    emailHidden: {
+      type: Boolean,
+      default: false
+    },
+    phoneHidden: {
+      type: Boolean,
+      default: false
+    }
+  },
+  jobSettings: {
+    autoAcceptJobs: {
+      type: Boolean,
+      default: false
+    },
+    isAvailable: {
+      type: Boolean,
+      default: true
+    },
+    workingHours: {
+      type: String,
+      default: ''
+    }
+  },
+  appSettings: {
+    darkMode: {
+      type: Boolean,
+      default: false
+    },
+    language: {
+      type: String,
+      default: 'tr'
+    },
+    theme: {
+      type: String,
+      default: 'light'
+    }
+  },
+  securitySettings: {
+    twoFactorEnabled: {
+      type: Boolean,
+      default: false
+    },
+    biometricEnabled: {
+      type: Boolean,
+      default: false
+    },
+    sessionTimeout: {
+      type: Number,
+      default: 30
     }
   }
 });

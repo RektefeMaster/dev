@@ -972,4 +972,472 @@ router.get('/my-mechanics', auth, async (req: Request, res: Response) => {
   }
 });
 
+// ===== SETTINGS ENDPOINTS =====
+
+/**
+ * @swagger
+ * /api/users/privacy-settings:
+ *   get:
+ *     summary: Gizlilik ayarlarını al
+ *     description: Kullanıcının gizlilik ayarlarını getirir
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Gizlilik ayarları başarıyla getirildi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/privacy-settings', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    const user = await User.findById(userId).select('privacySettings');
+    if (!user) {
+      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    }
+
+    return ResponseHandler.success(res, user.privacySettings || {
+      locationSharing: false,
+      profileVisibility: true,
+      emailHidden: false,
+      phoneHidden: false
+    }, 'Gizlilik ayarları başarıyla getirildi');
+  } catch (error) {
+    return ResponseHandler.error(res, 'Gizlilik ayarları getirilirken hata oluştu');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/privacy-settings:
+ *   put:
+ *     summary: Gizlilik ayarlarını güncelle
+ *     description: Kullanıcının gizlilik ayarlarını günceller
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               locationSharing:
+ *                 type: boolean
+ *               profileVisibility:
+ *                 type: boolean
+ *               emailHidden:
+ *                 type: boolean
+ *               phoneHidden:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Gizlilik ayarları başarıyla güncellendi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.put('/privacy-settings', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    const { locationSharing, profileVisibility, emailHidden, phoneHidden } = req.body;
+    const updateData: any = {};
+    
+    if (locationSharing !== undefined) updateData['privacySettings.locationSharing'] = locationSharing;
+    if (profileVisibility !== undefined) updateData['privacySettings.profileVisibility'] = profileVisibility;
+    if (emailHidden !== undefined) updateData['privacySettings.emailHidden'] = emailHidden;
+    if (phoneHidden !== undefined) updateData['privacySettings.phoneHidden'] = phoneHidden;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      updateData,
+      { new: true, runValidators: true }
+    ).select('privacySettings');
+
+    if (!updatedUser) {
+      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    }
+
+    return ResponseHandler.updated(res, updatedUser.privacySettings, 'Gizlilik ayarları başarıyla güncellendi');
+  } catch (error) {
+    return ResponseHandler.error(res, 'Gizlilik ayarları güncellenirken hata oluştu');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/job-settings:
+ *   get:
+ *     summary: İş ayarlarını al
+ *     description: Kullanıcının iş ayarlarını getirir
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: İş ayarları başarıyla getirildi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/job-settings', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    const user = await User.findById(userId).select('jobSettings');
+    if (!user) {
+      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    }
+
+    return ResponseHandler.success(res, user.jobSettings || {
+      autoAcceptJobs: false,
+      isAvailable: true,
+      workingHours: ''
+    }, 'İş ayarları başarıyla getirildi');
+  } catch (error) {
+    return ResponseHandler.error(res, 'İş ayarları getirilirken hata oluştu');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/job-settings:
+ *   put:
+ *     summary: İş ayarlarını güncelle
+ *     description: Kullanıcının iş ayarlarını günceller
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               autoAcceptJobs:
+ *                 type: boolean
+ *               isAvailable:
+ *                 type: boolean
+ *               workingHours:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: İş ayarları başarıyla güncellendi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.put('/job-settings', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    const { autoAcceptJobs, isAvailable, workingHours } = req.body;
+    const updateData: any = {};
+    
+    if (autoAcceptJobs !== undefined) updateData['jobSettings.autoAcceptJobs'] = autoAcceptJobs;
+    if (isAvailable !== undefined) updateData['jobSettings.isAvailable'] = isAvailable;
+    if (workingHours !== undefined) updateData['jobSettings.workingHours'] = workingHours;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      updateData,
+      { new: true, runValidators: true }
+    ).select('jobSettings');
+
+    if (!updatedUser) {
+      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    }
+
+    return ResponseHandler.updated(res, updatedUser.jobSettings, 'İş ayarları başarıyla güncellendi');
+  } catch (error) {
+    return ResponseHandler.error(res, 'İş ayarları güncellenirken hata oluştu');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/app-settings:
+ *   get:
+ *     summary: Uygulama ayarlarını al
+ *     description: Kullanıcının uygulama ayarlarını getirir
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Uygulama ayarları başarıyla getirildi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/app-settings', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    const user = await User.findById(userId).select('appSettings');
+    if (!user) {
+      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    }
+
+    return ResponseHandler.success(res, user.appSettings || {
+      darkMode: false,
+      language: 'tr',
+      theme: 'light'
+    }, 'Uygulama ayarları başarıyla getirildi');
+  } catch (error) {
+    return ResponseHandler.error(res, 'Uygulama ayarları getirilirken hata oluştu');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/app-settings:
+ *   put:
+ *     summary: Uygulama ayarlarını güncelle
+ *     description: Kullanıcının uygulama ayarlarını günceller
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               darkMode:
+ *                 type: boolean
+ *               language:
+ *                 type: string
+ *               theme:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Uygulama ayarları başarıyla güncellendi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.put('/app-settings', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    const { darkMode, language, theme } = req.body;
+    const updateData: any = {};
+    
+    if (darkMode !== undefined) updateData['appSettings.darkMode'] = darkMode;
+    if (language !== undefined) updateData['appSettings.language'] = language;
+    if (theme !== undefined) updateData['appSettings.theme'] = theme;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      updateData,
+      { new: true, runValidators: true }
+    ).select('appSettings');
+
+    if (!updatedUser) {
+      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    }
+
+    return ResponseHandler.updated(res, updatedUser.appSettings, 'Uygulama ayarları başarıyla güncellendi');
+  } catch (error) {
+    return ResponseHandler.error(res, 'Uygulama ayarları güncellenirken hata oluştu');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/security-settings:
+ *   get:
+ *     summary: Güvenlik ayarlarını al
+ *     description: Kullanıcının güvenlik ayarlarını getirir
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Güvenlik ayarları başarıyla getirildi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/security-settings', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    const user = await User.findById(userId).select('securitySettings');
+    if (!user) {
+      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    }
+
+    return ResponseHandler.success(res, user.securitySettings || {
+      twoFactorEnabled: false,
+      biometricEnabled: false,
+      sessionTimeout: 30
+    }, 'Güvenlik ayarları başarıyla getirildi');
+  } catch (error) {
+    return ResponseHandler.error(res, 'Güvenlik ayarları getirilirken hata oluştu');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/security-settings:
+ *   put:
+ *     summary: Güvenlik ayarlarını güncelle
+ *     description: Kullanıcının güvenlik ayarlarını günceller
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               twoFactorEnabled:
+ *                 type: boolean
+ *               biometricEnabled:
+ *                 type: boolean
+ *               sessionTimeout:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Güvenlik ayarları başarıyla güncellendi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.put('/security-settings', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    const { twoFactorEnabled, biometricEnabled, sessionTimeout } = req.body;
+    const updateData: any = {};
+    
+    if (twoFactorEnabled !== undefined) updateData['securitySettings.twoFactorEnabled'] = twoFactorEnabled;
+    if (biometricEnabled !== undefined) updateData['securitySettings.biometricEnabled'] = biometricEnabled;
+    if (sessionTimeout !== undefined) updateData['securitySettings.sessionTimeout'] = sessionTimeout;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      updateData,
+      { new: true, runValidators: true }
+    ).select('securitySettings');
+
+    if (!updatedUser) {
+      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    }
+
+    return ResponseHandler.updated(res, updatedUser.securitySettings, 'Güvenlik ayarları başarıyla güncellendi');
+  } catch (error) {
+    return ResponseHandler.error(res, 'Güvenlik ayarları güncellenirken hata oluştu');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/service-categories:
+ *   put:
+ *     summary: Hizmet kategorilerini güncelle
+ *     description: Kullanıcının hizmet kategorilerini günceller
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               categories:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: Hizmet kategorileri başarıyla güncellendi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.put('/service-categories', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    const { categories } = req.body;
+    
+    if (!Array.isArray(categories)) {
+      return ResponseHandler.badRequest(res, 'Kategoriler listesi gerekli.');
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { serviceCategories: categories },
+      { new: true, runValidators: true }
+    ).select('serviceCategories');
+
+    if (!updatedUser) {
+      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    }
+
+    return ResponseHandler.updated(res, updatedUser.serviceCategories, 'Hizmet kategorileri başarıyla güncellendi');
+  } catch (error) {
+    return ResponseHandler.error(res, 'Hizmet kategorileri güncellenirken hata oluştu');
+  }
+});
+
 export default router; 
