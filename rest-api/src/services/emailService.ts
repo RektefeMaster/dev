@@ -15,7 +15,7 @@ export class EmailService {
   static async sendEmail(emailData: EmailData): Promise<boolean> {
     try {
       const { data, error } = await resend.emails.send({
-        from: process.env.FROM_EMAIL || 'onboarding@resend.dev',
+        from: 'Rektefe Destek <onboarding@resend.dev>',
         to: emailData.to,
         subject: emailData.subject,
         html: emailData.html
@@ -179,7 +179,7 @@ export class EmailService {
               <p>Eğer bu isteği siz yapmadıysanız, bu e-postayı görmezden gelebilirsiniz.</p>
               
               <div class="footer">
-                <p>© 2024 Rektefe. Tüm hakları saklıdır.</p>
+                <p>© 2025 Rektefe. Tüm hakları saklıdır.</p>
               </div>
             </div>
           </div>
@@ -223,7 +223,7 @@ export class EmailService {
               <p>Bu bir test e-postasıdır.</p>
               
               <div class="footer">
-                <p>© 2024 Rektefe. Tüm hakları saklıdır.</p>
+                <p>© 2025 Rektefe. Tüm hakları saklıdır.</p>
               </div>
             </div>
           </div>
