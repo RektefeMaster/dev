@@ -112,6 +112,7 @@ import './models/AppointmentRating';
 import './models/ServiceCategory';
 import './models/FaultReport';
 import './models/TefePoint';
+import './models/VerificationToken';
 
 // HTTP sunucusu oluştur
 const httpServer = createServer(app);

@@ -1440,4 +1440,228 @@ router.put('/service-categories', auth, async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/users/change-email:
+ *   post:
+ *     summary: E-posta değiştir
+ *     description: Yeni e-posta adresine onay linki gönderir
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - newEmail
+ *             properties:
+ *               newEmail:
+ *                 type: string
+ *                 format: email
+ *                 example: newemail@example.com
+ *     responses:
+ *       200:
+ *         description: Onay linki gönderildi
+ *       400:
+ *         description: Geçersiz e-posta
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.post('/change-email', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const { newEmail } = req.body;
+
+    if (!userId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    if (!newEmail) {
+      return ResponseHandler.badRequest(res, 'Yeni e-posta adresi gerekli');
+    }
+
+    const VerificationService = require('../services/verificationService').VerificationService;
+    const result = await VerificationService.initiateEmailChange(userId, newEmail);
+
+    if (result.success) {
+      return ResponseHandler.success(res, {}, result.message);
+    } else {
+      return ResponseHandler.badRequest(res, result.message);
+    }
+  } catch (error) {
+    return ResponseHandler.error(res, 'E-posta değiştirme başlatılamadı');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/confirm-email-change:
+ *   post:
+ *     summary: E-posta değişikliğini onayla
+ *     description: Token ile e-posta değişikliğini onaylar
+ *     tags:
+ *       - Users
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 example: abc123def456...
+ *     responses:
+ *       200:
+ *         description: E-posta başarıyla değiştirildi
+ *       400:
+ *         description: Geçersiz token
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.post('/confirm-email-change', async (req: Request, res: Response) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return ResponseHandler.badRequest(res, 'Token gerekli');
+    }
+
+    const VerificationService = require('../services/verificationService').VerificationService;
+    const result = await VerificationService.confirmEmailChange(token);
+
+    if (result.success) {
+      return ResponseHandler.success(res, {}, result.message);
+    } else {
+      return ResponseHandler.badRequest(res, result.message);
+    }
+  } catch (error) {
+    return ResponseHandler.error(res, 'E-posta değişikliği onaylanamadı');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/send-phone-verification:
+ *   post:
+ *     summary: Telefon doğrulama kodu gönder
+ *     description: Telefon numarasına SMS ile doğrulama kodu gönderir
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - phone
+ *             properties:
+ *               phone:
+ *                 type: string
+ *                 example: "05061234567"
+ *     responses:
+ *       200:
+ *         description: Doğrulama kodu gönderildi
+ *       400:
+ *         description: Geçersiz telefon numarası
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.post('/send-phone-verification', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const { phone } = req.body;
+
+    if (!userId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    if (!phone) {
+      return ResponseHandler.badRequest(res, 'Telefon numarası gerekli');
+    }
+
+    const VerificationService = require('../services/verificationService').VerificationService;
+    const result = await VerificationService.sendPhoneVerification(userId, phone);
+
+    if (result.success) {
+      return ResponseHandler.success(res, { code: result.code }, result.message); // Geçici: SMS olmadığı için kod döndür
+    } else {
+      return ResponseHandler.badRequest(res, result.message);
+    }
+  } catch (error) {
+    return ResponseHandler.error(res, 'Telefon doğrulama kodu gönderilemedi');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/verify-phone:
+ *   post:
+ *     summary: Telefon doğrulama kodunu kontrol et
+ *     description: Kullanıcının girdiği doğrulama kodunu kontrol eder
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - code
+ *             properties:
+ *               code:
+ *                 type: string
+ *                 example: "123456"
+ *     responses:
+ *       200:
+ *         description: Telefon başarıyla doğrulandı
+ *       400:
+ *         description: Geçersiz kod
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.post('/verify-phone', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const { code } = req.body;
+
+    if (!userId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    if (!code) {
+      return ResponseHandler.badRequest(res, 'Doğrulama kodu gerekli');
+    }
+
+    const VerificationService = require('../services/verificationService').VerificationService;
+    const result = await VerificationService.verifyPhoneCode(userId, code);
+
+    if (result.success) {
+      return ResponseHandler.success(res, {}, result.message);
+    } else {
+      return ResponseHandler.badRequest(res, result.message);
+    }
+  } catch (error) {
+    return ResponseHandler.error(res, 'Telefon doğrulanamadı');
+  }
+});
+
 export default router; 

@@ -582,8 +582,30 @@ router.post('/change-password', auth, async (req: Request, res: Response) => {
         message: 'Mevcut şifre ve yeni şifre gerekli'
       });
     }
+
+    // Kullanıcıyı bul
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı'
+      });
+    }
+
+    // Mevcut şifreyi kontrol et
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isPasswordValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mevcut şifre yanlış'
+      });
+    }
+
+    // Yeni şifreyi hashle
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
     
-    // Şifreyi değiştir (şimdilik basit response)
     res.json({
       success: true,
       message: 'Şifre başarıyla değiştirildi'
@@ -592,6 +614,270 @@ router.post('/change-password', auth, async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: 'Şifre değiştirilirken hata oluştu',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/auth/forgot-password:
+ *   post:
+ *     summary: Şifre sıfırlama e-postası gönder
+ *     description: Kullanıcının e-posta adresine şifre sıfırlama linki gönderir
+ *     tags:
+ *       - Auth
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: user@example.com
+ *     responses:
+ *       200:
+ *         description: Şifre sıfırlama e-postası gönderildi
+ *       400:
+ *         description: Geçersiz e-posta
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.post('/forgot-password', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'E-posta adresi gerekli'
+      });
+    }
+
+    const VerificationService = require('../services/verificationService').VerificationService;
+    const result = await VerificationService.sendPasswordResetEmail(email);
+
+    // Güvenlik için her zaman başarılı mesaj dön
+    return res.json({
+      success: true,
+      message: 'Eğer bu e-posta kayıtlıysa, şifre sıfırlama linki gönderildi'
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      message: 'Şifre sıfırlama e-postası gönderilemedi',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/auth/reset-password:
+ *   post:
+ *     summary: Şifreyi sıfırla
+ *     description: Token ile şifreyi sıfırlar
+ *     tags:
+ *       - Auth
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *               - newPassword
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 example: abc123def456...
+ *               newPassword:
+ *                 type: string
+ *                 example: newPassword123!
+ *     responses:
+ *       200:
+ *         description: Şifre başarıyla sıfırlandı
+ *       400:
+ *         description: Geçersiz token veya şifre
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.post('/reset-password', async (req: Request, res: Response) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Token ve yeni şifre gerekli'
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Şifre en az 6 karakter olmalıdır'
+      });
+    }
+
+    const VerificationService = require('../services/verificationService').VerificationService;
+    const result = await VerificationService.resetPassword(token, newPassword);
+
+    if (result.success) {
+      return res.json({
+        success: true,
+        message: result.message
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: result.message
+      });
+    }
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      message: 'Şifre sıfırlanamadı',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/auth/send-email-verification:
+ *   post:
+ *     summary: E-posta doğrulama kodu gönder
+ *     description: Kullanıcının e-posta adresine doğrulama kodu gönderir
+ *     tags:
+ *       - Auth
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Doğrulama kodu gönderildi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.post('/send-email-verification', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Kullanıcı doğrulanamadı'
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı'
+      });
+    }
+
+    const VerificationService = require('../services/verificationService').VerificationService;
+    const result = await VerificationService.sendEmailVerification(userId, user.email);
+
+    if (result.success) {
+      return res.json({
+        success: true,
+        message: result.message
+      });
+    } else {
+      return res.status(500).json({
+        success: false,
+        message: result.message
+      });
+    }
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      message: 'Doğrulama kodu gönderilemedi',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/auth/verify-email:
+ *   post:
+ *     summary: E-posta doğrulama kodunu kontrol et
+ *     description: Kullanıcının girdiği doğrulama kodunu kontrol eder
+ *     tags:
+ *       - Auth
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - code
+ *             properties:
+ *               code:
+ *                 type: string
+ *                 example: "123456"
+ *     responses:
+ *       200:
+ *         description: E-posta başarıyla doğrulandı
+ *       400:
+ *         description: Geçersiz kod
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.post('/verify-email', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const { code } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Kullanıcı doğrulanamadı'
+      });
+    }
+
+    if (!code) {
+      return res.status(400).json({
+        success: false,
+        message: 'Doğrulama kodu gerekli'
+      });
+    }
+
+    const VerificationService = require('../services/verificationService').VerificationService;
+    const result = await VerificationService.verifyEmailCode(userId, code);
+
+    if (result.success) {
+      return res.json({
+        success: true,
+        message: result.message
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: result.message
+      });
+    }
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      message: 'E-posta doğrulanamadı',
       error: error.message
     });
   }

@@ -15,6 +15,7 @@ export interface IUser extends Document {
   // Google OAuth alanları
   googleId?: string;
   emailVerified?: boolean;
+  phoneVerified?: boolean;
   // Diğer alanlar
   followers: mongoose.Types.ObjectId[];
   following: mongoose.Types.ObjectId[];
@@ -166,6 +167,10 @@ const userSchema = new Schema<IUser>({
     unique: true
   },
   emailVerified: {
+    type: Boolean,
+    default: false
+  },
+  phoneVerified: {
     type: Boolean,
     default: false
   },
