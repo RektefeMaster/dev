@@ -9,6 +9,8 @@ import {
   TextInput,
   Linking,
   Alert,
+  Modal,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +27,8 @@ interface HelpArticle {
 export default function HelpCenterScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedArticle, setSelectedArticle] = useState<HelpArticle | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   const categories = [
     { id: 'all', name: 'Tümü', icon: 'list' },
@@ -36,27 +40,47 @@ export default function HelpCenterScreen() {
   ];
 
   const helpArticles: HelpArticle[] = [
-    // Hesap Yönetimi
+    // Genel Bilgiler - En başta
     {
       id: '1',
+      title: 'Rektefe nedir?',
+      content: 'Rektefe, usta ve şöförleri buluşturan güvenilir bir platformdur. Araç sahipleri ihtiyaç duydukları hizmetleri kolayca bulabilir, ustalar ise müşteri portföylerini genişletebilir. Güvenli ödeme sistemi ve kalite garantisi ile hizmet verir.',
+      category: 'general'
+    },
+    {
+      id: '2',
+      title: 'Güvenlik nasıl sağlanıyor?',
+      content: 'Tüm kullanıcılar kimlik doğrulaması yapılır, ödemeler güvenli ödeme sistemleri ile işlenir, konuşmalar şifrelenir ve kişisel verileriniz korunur. Şüpheli aktiviteler anında tespit edilir ve gerekli önlemler alınır.',
+      category: 'general'
+    },
+    {
+      id: '3',
+      title: 'Müşteri değerlendirmeleri nasıl çalışır?',
+      content: 'Her tamamlanan işten sonra müşteriler sizi 1-5 yıldız arasında değerlendirebilir. Bu değerlendirmeler profilinizde görünür ve diğer müşterilerin karar vermesine yardımcı olur.',
+      category: 'general'
+    },
+
+    // Hesap Yönetimi
+    {
+      id: '4',
       title: 'Hesabımı nasıl oluştururum?',
       content: 'Rektefe uygulamasını indirdikten sonra "Kayıt Ol" butonuna tıklayın. E-posta adresinizi, telefon numaranızı ve güçlü bir şifre girin. E-posta doğrulama linkine tıklayarak hesabınızı aktifleştirin.',
       category: 'account'
     },
     {
-      id: '2',
+      id: '5',
       title: 'Profil bilgilerimi nasıl güncellerim?',
       content: 'Ana menüden "Profil" sekmesine gidin ve "Profili Düzenle" butonuna tıklayın. Ad, soyad, telefon, şehir ve bio bilgilerinizi güncelleyebilirsiniz. Değişiklikler anında kaydedilir.',
       category: 'account'
     },
     {
-      id: '3',
+      id: '6',
       title: 'Şifremi nasıl değiştiririm?',
       content: 'Ayarlar > Güvenlik > Şifre Değiştir bölümünden mevcut şifrenizi ve yeni şifrenizi girin. Şifreniz en az 6 karakter olmalıdır. Güvenlik için düzenli olarak şifrenizi değiştirmenizi öneririz.',
       category: 'account'
     },
     {
-      id: '4',
+      id: '7',
       title: 'Hesabımı nasıl silerim?',
       content: 'Hesap silme işlemi için müşteri hizmetleri ile iletişime geçmeniz gerekmektedir. E-posta: rektefly@gmail.com veya telefon: 0506 055 02 39 numaralarından bize ulaşabilirsiniz.',
       category: 'account'
@@ -64,25 +88,25 @@ export default function HelpCenterScreen() {
     
     // Hizmet Yönetimi
     {
-      id: '5',
+      id: '8',
       title: 'Hizmet alanlarımı nasıl düzenlerim?',
-      content: 'Ayarlar > Hesap Yönetimi > Hizmet Alanlarım bölümünden uzmanlık alanlarınızı seçebilirsiniz. Motor, Fren, Elektrik, Klima gibi 10 farklı kategori arasından seçim yapabilirsiniz. Bu alanlar müşterilerin sizi bulmasını kolaylaştırır.',
+      content: 'Ayarlar > Hesap Yönetimi > Hizmet Alanlarım bölümünden uzmanlık alanlarınızı seçebilirsiniz.\n\nÇEKİCİ HİZMETLERİ:\n- Araç Çekici\n- Yol Yardımı\n- Kaza Çekici\n\nYIKAMA HİZMETLERİ:\n- Otomatik Yıkama\n- El Yıkama\n- İç Temizlik\n- Motor Yıkama\n- Cila ve Wax\n\nLASTİK HİZMETLERİ:\n- Lastik Değişimi\n- Lastik Tamiri\n- Balans Ayarı\n- Rot Ayarı\n- Lastik Montaj\n\nTAMİR BAKIM HİZMETLERİ:\n- Motor Tamiri\n- Fren Sistemi\n- Elektrik Sistemi\n- Klima Sistemi\n- Akü Değişimi\n- Yağ Değişimi\n- Egzoz Sistemi\n- Kaporta Tamiri\n- Cam Değişimi\n- Periyodik Bakım\n\nBu alanlar müşterilerin sizi bulmasını kolaylaştırır.',
       category: 'services'
     },
     {
-      id: '6',
+      id: '9',
       title: 'Çalışma saatlerimi nasıl ayarlarım?',
       content: 'Ayarlar > Hesap Yönetimi > Çalışma Saatleri bölümünden haftanın her günü için çalışma saatlerinizi belirleyebilirsiniz. Müsait olduğunuz saatleri seçin ve "Kapalı" olarak işaretleyebilirsiniz. Bu bilgiler müşterilere gösterilir.',
       category: 'services'
     },
     {
-      id: '7',
+      id: '10',
       title: 'Randevularımı nasıl yönetirim?',
       content: 'Ana ekranda "Randevularım" sekmesinden tüm randevularınızı görüntüleyebilirsiniz. Gelen, Onaylanan, Devam Eden ve Tamamlanan randevuları filtreleyebilir, detaylarını inceleyebilir ve durumlarını güncelleyebilirsiniz.',
       category: 'services'
     },
     {
-      id: '8',
+      id: '11',
       title: 'Otomatik iş kabulü nasıl çalışır?',
       content: 'Ayarlar > İş Ayarları bölümünden "Otomatik İş Kabulü" özelliğini açabilirsiniz. Bu özellik aktif olduğunda, size gelen iş talepleri otomatik olarak kabul edilir. Müsait değilseniz bu özelliği kapatmanızı öneririz.',
       category: 'services'
@@ -90,68 +114,42 @@ export default function HelpCenterScreen() {
     
     // Ödeme Sistemi
     {
-      id: '9',
+      id: '12',
       title: 'Ödeme nasıl alırım?',
       content: 'Tamamlanan işler için ödemeler otomatik olarak hesabınıza yatırılır. Ödeme yöntemleri: Banka kartı, Kredi kartı, Havale/EFT. Ödemeler iş tamamlandıktan 24 saat sonra hesabınıza geçer. Cüzdan bölümünden ödeme geçmişinizi takip edebilirsiniz.',
       category: 'payments'
     },
     {
-      id: '10',
+      id: '13',
       title: 'Ödeme geçmişimi nasıl görürüm?',
       content: 'Ana menüden "Cüzdan" sekmesine gidin. Burada tüm gelirlerinizi, harcamalarınızı ve bakiye durumunuzu görebilirsiniz. Filtreleme seçenekleri ile belirli tarih aralıklarını inceleyebilirsiniz.',
-      category: 'payments'
-    },
-    {
-      id: '11',
-      title: 'TefePuan nedir ve nasıl kazanırım?',
-      content: 'TefePuan, hizmet kalitenizi ölçen puanlama sistemidir. Müşteri memnuniyeti, iş tamamlama süresi ve genel performansınıza göre puan kazanırsınız. Yüksek puanlı ustalar öncelikli olarak müşterilere gösterilir.',
       category: 'payments'
     },
     
     // Teknik Destek
     {
-      id: '12',
+      id: '14',
       title: 'Bildirimleri nasıl yönetirim?',
       content: 'Ayarlar > Bildirim Ayarları bölümünden push bildirimleri, e-posta bildirimleri, ses uyarıları ve titreşim ayarlarını düzenleyebilirsiniz. Randevu bildirimleri, ödeme bildirimleri ve sistem bildirimlerini ayrı ayrı kontrol edebilirsiniz.',
       category: 'technical'
     },
     {
-      id: '13',
+      id: '15',
       title: 'Uygulama çöküyor, ne yapmalıyım?',
       content: 'Uygulama çökme sorunları için: 1) Uygulamayı kapatıp yeniden açın, 2) Cihazınızı yeniden başlatın, 3) Uygulamayı güncelleyin, 4) Sorun devam ederse müşteri hizmetleri ile iletişime geçin.',
       category: 'technical'
     },
     {
-      id: '14',
+      id: '16',
       title: 'Konum paylaşımı nasıl çalışır?',
       content: 'Konum paylaşımı, müşterilerin size daha kolay ulaşmasını sağlar. Ayarlar > Gizlilik Ayarları bölümünden konum paylaşımını açabilirsiniz. Konumunuz sadece aktif işler sırasında paylaşılır ve güvenliğiniz korunur.',
       category: 'technical'
     },
     {
-      id: '15',
+      id: '17',
       title: 'Karanlık mod nasıl aktif edilir?',
       content: 'Ayarlar > Uygulama Ayarları bölümünden "Karanlık Mod" seçeneğini açabilirsiniz. Bu özellik göz yorgunluğunu azaltır ve düşük ışıkta daha rahat kullanım sağlar. Ayar değişikliği anında uygulanır.',
       category: 'technical'
-    },
-    
-    // Genel Bilgiler
-    {
-      id: '16',
-      title: 'Rektefe nedir?',
-      content: 'Rektefe, usta ve şöförleri buluşturan güvenilir bir platformdur. Araç sahipleri ihtiyaç duydukları hizmetleri kolayca bulabilir, ustalar ise müşteri portföylerini genişletebilir. Güvenli ödeme sistemi ve kalite garantisi ile hizmet verir.',
-      category: 'general'
-    },
-    {
-      id: '17',
-      title: 'Güvenlik nasıl sağlanıyor?',
-      content: 'Tüm kullanıcılar kimlik doğrulaması yapılır, ödemeler güvenli ödeme sistemleri ile işlenir, konuşmalar şifrelenir ve kişisel verileriniz korunur. Şüpheli aktiviteler anında tespit edilir ve gerekli önlemler alınır.',
-      category: 'general'
-    },
-    {
-      id: '18',
-      title: 'Müşteri değerlendirmeleri nasıl çalışır?',
-      content: 'Her tamamlanan işten sonra müşteriler sizi 1-5 yıldız arasında değerlendirebilir. Bu değerlendirmeler profilinizde görünür ve diğer müşterilerin karar vermesine yardımcı olur. Yüksek puanlı ustalar öncelikli gösterilir.',
-      category: 'general'
     }
   ];
 
@@ -186,13 +184,21 @@ export default function HelpCenterScreen() {
     </TouchableOpacity>
   );
 
+  const handleArticlePress = (article: HelpArticle) => {
+    setSelectedArticle(article);
+    setModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    setSelectedArticle(null);
+  };
+
   const renderArticleItem = (article: HelpArticle) => (
     <TouchableOpacity
       key={article.id}
       style={styles.articleItem}
-      onPress={() => {
-        // Article detail'e git
-      }}
+      onPress={() => handleArticlePress(article)}
       activeOpacity={0.7}
     >
       <View style={styles.articleContent}>
@@ -229,17 +235,25 @@ export default function HelpCenterScreen() {
             <Ionicons name="search" size={20} color={colors.text.tertiary} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Sorunuzu arayın..."
+              placeholder="Yardım ara..."
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholderTextColor={colors.text.tertiary}
             />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setSearchQuery('')}
+                style={styles.clearButton}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close-circle" size={20} color={colors.text.tertiary} />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
         {/* Kategoriler */}
         <View style={styles.categoriesContainer}>
-          <Text style={styles.sectionTitle}>Kategoriler</Text>
           <ScrollView 
             horizontal 
             showsHorizontalScrollIndicator={false}
@@ -251,10 +265,6 @@ export default function HelpCenterScreen() {
 
         {/* Makaleler */}
         <View style={styles.articlesContainer}>
-          <Text style={styles.sectionTitle}>
-            {selectedCategory === 'all' ? 'Tüm Makaleler' : `${categories.find(c => c.id === selectedCategory)?.name} Makaleleri`}
-          </Text>
-          
           {filteredArticles.length > 0 ? (
             <View style={styles.articlesList}>
               {filteredArticles.map(renderArticleItem)}
@@ -272,7 +282,6 @@ export default function HelpCenterScreen() {
 
         {/* İletişim */}
         <View style={styles.contactContainer}>
-          <Text style={styles.sectionTitle}>Hala yardıma mı ihtiyacınız var?</Text>
           <View style={styles.contactCard}>
             <View style={styles.contactIconContainer}>
               <Ionicons name="chatbubble" size={24} color={colors.primary.main} />
@@ -317,6 +326,37 @@ export default function HelpCenterScreen() {
         {/* Alt Boşluk */}
         <View style={styles.bottomSpacing} />
       </ScrollView>
+
+      {/* Makale Detay Modal */}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={closeModal}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={closeModal}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={24} color={colors.text.primary} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Yardım</Text>
+            <View style={styles.placeholder} />
+          </View>
+          
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            {selectedArticle && (
+              <>
+                <Text style={styles.modalArticleTitle}>{selectedArticle.title}</Text>
+                <Text style={styles.modalArticleContent}>{selectedArticle.content}</Text>
+              </>
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -378,6 +418,9 @@ const styles = StyleSheet.create({
     fontSize: typography.body1.fontSize,
     color: colors.text.primary,
   },
+  clearButton: {
+    padding: spacing.xs,
+  },
   categoriesContainer: {
     marginBottom: spacing.xl,
   },
@@ -430,26 +473,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.xl,
     marginVertical: spacing.xs,
-    backgroundColor: colors.background.primary,
-    ...shadows.small,
+    backgroundColor: colors.background.secondary,
+    ...shadows.medium,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
   },
   articleContent: {
     flex: 1,
+    marginRight: spacing.md,
   },
   articleTitle: {
     fontSize: typography.body1.fontSize,
     fontWeight: '600',
     color: colors.text.primary,
     marginBottom: spacing.xs,
+    lineHeight: 22,
   },
   articlePreview: {
-    fontSize: typography.caption.large.fontSize,
+    fontSize: typography.body2.fontSize,
     color: colors.text.secondary,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   emptyState: {
     alignItems: 'center',
@@ -516,6 +563,56 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: spacing.xl * 2,
+  },
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: colors.background.primary,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.secondary,
+    backgroundColor: colors.background.secondary,
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.background.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.small,
+  },
+  modalTitle: {
+    fontSize: typography.h3.fontSize,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  placeholder: {
+    width: 40,
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+  },
+  modalArticleTitle: {
+    fontSize: typography.h2.fontSize,
+    fontWeight: '700',
+    color: colors.text.primary,
+    marginBottom: spacing.lg,
+    lineHeight: 32,
+  },
+  modalArticleContent: {
+    fontSize: typography.body1.fontSize,
+    color: colors.text.secondary,
+    lineHeight: 24,
+    marginBottom: spacing.xl,
   },
 });
 

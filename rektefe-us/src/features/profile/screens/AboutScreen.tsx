@@ -56,7 +56,6 @@ export default function AboutScreen() {
             'Hizmet Alanları Yönetimi - 10 farklı hizmet kategorisinden uzmanlık alanlarınızı seçin',
             'Gerçek Zamanlı Bildirimler - Push, e-posta ve SMS bildirimleri ile hiçbir işi kaçırmayın',
             'Güvenli Ödeme Sistemi - Otomatik ödeme takibi ve güvenli para transferi',
-            'TefePuan Sistemi - Müşteri memnuniyetine göre puanlanın ve öncelikli gösterilin',
             'Konum Paylaşımı - Müşterilerinize kolay ulaşım için konum paylaşımı',
             'Karanlık Mod - Göz yorgunluğunu azaltan karanlık tema desteği',
             'Çoklu Dil Desteği - Türkçe ve İngilizce dil seçenekleri',

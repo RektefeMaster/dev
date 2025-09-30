@@ -65,16 +65,36 @@ export default function ServiceAreasScreen() {
   };
 
   const getDefaultCategories = (): ServiceCategory[] => [
-    { id: '1', name: 'Motor Tamiri', description: 'Motor arızaları ve bakımı', icon: 'car-sport', isSelected: false },
-    { id: '2', name: 'Fren Sistemi', description: 'Fren balata, disk ve hidrolik', icon: 'stop-circle', isSelected: false },
-    { id: '3', name: 'Elektrik Sistemi', description: 'Elektriksel arızalar', icon: 'flash', isSelected: false },
-    { id: '4', name: 'Klima Sistemi', description: 'Klima bakım ve tamiri', icon: 'snow', isSelected: false },
-    { id: '5', name: 'Lastik Değişimi', description: 'Lastik montaj ve balans', icon: 'radio-button-on', isSelected: false },
-    { id: '6', name: 'Akü Değişimi', description: 'Akü montaj ve test', icon: 'battery-charging', isSelected: false },
-    { id: '7', name: 'Yağ Değişimi', description: 'Motor yağı ve filtre', icon: 'water', isSelected: false },
-    { id: '8', name: 'Egzoz Sistemi', description: 'Egzoz borusu ve susturucu', icon: 'volume-high', isSelected: false },
-    { id: '9', name: 'Kaporta Tamiri', description: 'Boyama ve kaporta işleri', icon: 'color-palette', isSelected: false },
-    { id: '10', name: 'Cam Değişimi', description: 'Ön ve arka cam', icon: 'eye', isSelected: false },
+    // ÇEKİCİ HİZMETLERİ
+    { id: '1', name: 'Araç Çekici', description: 'Arızalı araçları çekme hizmeti', icon: 'car-outline', isSelected: false },
+    { id: '2', name: 'Yol Yardımı', description: 'Yolda kalan araçlara acil müdahale', icon: 'warning-outline', isSelected: false },
+    { id: '3', name: 'Kaza Çekici', description: 'Kaza geçiren araçları çekme', icon: 'alert-circle-outline', isSelected: false },
+
+    // YIKAMA HİZMETLERİ
+    { id: '4', name: 'Otomatik Yıkama', description: 'Otomatik araç yıkama hizmeti', icon: 'water-outline', isSelected: false },
+    { id: '5', name: 'El Yıkama', description: 'Detaylı el ile araç yıkama', icon: 'hand-left-outline', isSelected: false },
+    { id: '6', name: 'İç Temizlik', description: 'Araç içi detaylı temizlik', icon: 'sparkles-outline', isSelected: false },
+    { id: '7', name: 'Motor Yıkama', description: 'Motor bölümü temizliği', icon: 'settings-outline', isSelected: false },
+    { id: '8', name: 'Cila ve Wax', description: 'Araç cilalama ve koruma', icon: 'diamond-outline', isSelected: false },
+
+    // LASTİK HİZMETLERİ
+    { id: '9', name: 'Lastik Değişimi', description: 'Lastik sökme ve takma', icon: 'radio-button-on-outline', isSelected: false },
+    { id: '10', name: 'Lastik Tamiri', description: 'Delik lastik onarımı', icon: 'construct-outline', isSelected: false },
+    { id: '11', name: 'Balans Ayarı', description: 'Lastik balans ayarlama', icon: 'sync-outline', isSelected: false },
+    { id: '12', name: 'Rot Ayarı', description: 'Direksiyon rot ayarı', icon: 'git-merge-outline', isSelected: false },
+    { id: '13', name: 'Lastik Montaj', description: 'Yeni lastik montajı', icon: 'add-circle-outline', isSelected: false },
+
+    // TAMİR BAKIM HİZMETLERİ
+    { id: '14', name: 'Motor Tamiri', description: 'Motor arızaları ve bakımı', icon: 'car-sport-outline', isSelected: false },
+    { id: '15', name: 'Fren Sistemi', description: 'Fren balata, disk ve hidrolik', icon: 'stop-circle-outline', isSelected: false },
+    { id: '16', name: 'Elektrik Sistemi', description: 'Elektriksel arızalar ve bakım', icon: 'flash-outline', isSelected: false },
+    { id: '17', name: 'Klima Sistemi', description: 'Klima bakım ve tamiri', icon: 'snow-outline', isSelected: false },
+    { id: '18', name: 'Akü Değişimi', description: 'Akü montaj ve test', icon: 'battery-charging-outline', isSelected: false },
+    { id: '19', name: 'Yağ Değişimi', description: 'Motor yağı ve filtre değişimi', icon: 'water-outline', isSelected: false },
+    { id: '20', name: 'Egzoz Sistemi', description: 'Egzoz borusu ve susturucu', icon: 'volume-high-outline', isSelected: false },
+    { id: '21', name: 'Kaporta Tamiri', description: 'Boyama ve kaporta işleri', icon: 'color-palette-outline', isSelected: false },
+    { id: '22', name: 'Cam Değişimi', description: 'Ön ve arka cam değişimi', icon: 'eye-outline', isSelected: false },
+    { id: '23', name: 'Periyodik Bakım', description: 'Genel araç bakım hizmetleri', icon: 'calendar-outline', isSelected: false },
   ];
 
   const toggleCategory = (categoryId: string) => {
@@ -186,13 +206,31 @@ export default function ServiceAreasScreen() {
         <View style={styles.categoriesContainer}>
           <Text style={styles.sectionTitle}>Mevcut Hizmet Alanları</Text>
           
-          <FlatList
-            data={categories}
-            renderItem={renderCategoryItem}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesList}
-          />
+          <ScrollView showsVerticalScrollIndicator={false} style={styles.categoriesScrollView}>
+            {/* ÇEKİCİ HİZMETLERİ */}
+            <View style={styles.categorySection}>
+              <Text style={styles.categorySectionTitle}>ÇEKİCİ HİZMETLERİ</Text>
+              {categories.filter(cat => ['1', '2', '3'].includes(cat.id)).map(renderCategoryItem)}
+            </View>
+
+            {/* YIKAMA HİZMETLERİ */}
+            <View style={styles.categorySection}>
+              <Text style={styles.categorySectionTitle}>YIKAMA HİZMETLERİ</Text>
+              {categories.filter(cat => ['4', '5', '6', '7', '8'].includes(cat.id)).map(renderCategoryItem)}
+            </View>
+
+            {/* LASTİK HİZMETLERİ */}
+            <View style={styles.categorySection}>
+              <Text style={styles.categorySectionTitle}>LASTİK HİZMETLERİ</Text>
+              {categories.filter(cat => ['9', '10', '11', '12', '13'].includes(cat.id)).map(renderCategoryItem)}
+            </View>
+
+            {/* TAMİR BAKIM HİZMETLERİ */}
+            <View style={styles.categorySection}>
+              <Text style={styles.categorySectionTitle}>TAMİR BAKIM HİZMETLERİ</Text>
+              {categories.filter(cat => ['14', '15', '16', '17', '18', '19', '20', '21', '22', '23'].includes(cat.id)).map(renderCategoryItem)}
+            </View>
+          </ScrollView>
         </View>
 
         {/* Kaydet Butonu */}
@@ -303,6 +341,23 @@ const styles = StyleSheet.create({
   },
   categoriesList: {
     paddingBottom: spacing.lg,
+  },
+  categoriesScrollView: {
+    flex: 1,
+  },
+  categorySection: {
+    marginBottom: spacing.xl,
+  },
+  categorySectionTitle: {
+    fontSize: typography.h4.fontSize,
+    fontWeight: '700',
+    color: colors.primary.main,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.primary.main + '10',
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    textAlign: 'center',
   },
   categoryItem: {
     backgroundColor: colors.background.secondary,
