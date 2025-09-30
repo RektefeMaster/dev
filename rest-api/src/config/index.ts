@@ -15,11 +15,11 @@ export const MONGODB_OPTIONS = {
   maxPoolSize: 10,
   bufferCommands: false,
   retryWrites: true,
-  w: 'majority',
+  w: 'majority' as const,
   tls: true,
   tlsAllowInvalidCertificates: false,
   tlsAllowInvalidHostnames: false
-};
+} as const;
 
 // Server port
 export const PORT: number = Number(process.env.PORT) || 3000;
