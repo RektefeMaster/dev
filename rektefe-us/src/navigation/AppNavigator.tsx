@@ -14,6 +14,11 @@ import { AppointmentDetailScreen, CalendarScreen } from '@/features/appointments
 import { WalletScreen, FinancialTrackingScreen } from '@/features/wallet/screens';
 import { SupportScreen } from '@/features/support/screens';
 import { ProfileScreen, EditProfileScreen, SettingsScreen } from '@/features/profile/screens';
+import WorkingHoursScreen from '@/features/profile/screens/WorkingHoursScreen';
+import SecurityScreen from '@/features/profile/screens/SecurityScreen';
+import ServiceAreasScreen from '@/features/profile/screens/ServiceAreasScreen';
+import HelpCenterScreen from '@/features/profile/screens/HelpCenterScreen';
+import AboutScreen from '@/features/profile/screens/AboutScreen';
 import { FaultReportsScreen, FaultReportDetailScreen } from '@/features/fault-reports/screens';
 import { TowingServiceScreen, RepairServiceScreen, WashServiceScreen, TireServiceScreen } from '@/features/services/screens';
 import { AppointmentsScreen } from '@/features/appointments/screens';
@@ -105,7 +110,12 @@ const AppNavigator = () => {
         <Stack.Screen name="Calendar" component={CalendarScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+        <Stack.Screen name="WorkingHours" component={WorkingHoursScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="Security" component={SecurityScreen} />
+        <Stack.Screen name="ServiceAreas" component={ServiceAreasScreen} />
+        <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
+        <Stack.Screen name="About" component={AboutScreen} />
         <Stack.Screen 
           name="FaultReports" 
           component={FaultReportsScreen}

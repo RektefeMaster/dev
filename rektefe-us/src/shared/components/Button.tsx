@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, borderRadius, spacing, shadows } from '@/shared/theme';
 

@@ -23,10 +23,7 @@ export interface MechanicProfile extends User {
   totalJobs: number;
   totalEarnings: number;
   bio?: string;
-  workingHours: {
-    start: string;
-    end: string;
-  };
+  workingHours?: string;
   services: ServiceCategory[];
   shopName?: string;
   vehicleBrands?: string[];
@@ -519,6 +516,12 @@ export type RootStackParamList = {
   Calendar: undefined;
   Profile: undefined;
   EditProfile: undefined;
+  WorkingHours: undefined;
+  Settings: undefined;
+  Security: undefined;
+  ServiceAreas: undefined;
+  HelpCenter: undefined;
+  About: undefined;
   FaultReports: undefined;
   FaultReportDetail: { faultReportId: string };
   TowingService: undefined;
@@ -537,6 +540,7 @@ export type DrawerParamList = {
   Wallet: undefined;
   FinancialTracking: undefined;
   Profile: undefined;
+  WorkingHours: undefined;
   Support: undefined;
   Settings: undefined;
   [key: string]: undefined;

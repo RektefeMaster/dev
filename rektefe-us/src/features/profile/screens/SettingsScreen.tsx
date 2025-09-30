@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,33 +10,34 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/shared/context';
+import { useSettings } from '@/shared/context/SettingsContext';
 import { colors, typography, spacing, borderRadius, shadows } from '@/shared/theme';
 import { BackButton } from '@/shared/components';
 
 export default function SettingsScreen() {
+  const navigation = useNavigation();
   const { logout } = useAuth();
-  
-  const [settings, setSettings] = useState({
-    notifications: true,
-    emailUpdates: true,
-    pushNotifications: true,
-    locationSharing: false,
-    profileVisibility: true,
-    autoAcceptJobs: false,
-    soundAlerts: true,
-    vibrationAlerts: true,
-    darkMode: false,
-    language: 'tr',
-  });
+  const { 
+    notificationSettings, 
+    privacySettings, 
+    jobSettings, 
+    appSettings,
+    updateNotificationSettings,
+    updatePrivacySettings,
+    updateJobSettings,
+    updateAppSettings,
+    loading,
+    error
+  } = useSettings();
 
-  const handleSettingToggle = (setting: keyof typeof settings) => {
-    setSettings(prev => ({
-      ...prev,
-      [setting]: !prev[setting]
-    }));
-  };
+  useEffect(() => {
+    if (error) {
+      Alert.alert('Hata', error);
+    }
+  }, [error]);
 
   const handleLogout = () => {
     Alert.alert(
@@ -53,7 +54,8 @@ export default function SettingsScreen() {
     icon: string, 
     title: string, 
     subtitle: string, 
-    setting: keyof typeof settings, 
+    value: boolean,
+    onToggle: () => void,
     hasSwitch = true,
     onPress?: () => void
   ) => (
@@ -61,40 +63,54 @@ export default function SettingsScreen() {
       style={styles.settingItem}
       onPress={onPress}
       disabled={!onPress && hasSwitch}
+      activeOpacity={0.7}
     >
-      <View style={styles.settingIcon}>
-        <Ionicons name={icon as any} size={24} color={colors.primary} />
-      </View>
-      
-      <View style={styles.settingContent}>
-        <Text style={styles.settingTitle}>{title}</Text>
-        <Text style={styles.settingSubtitle}>{subtitle}</Text>
+      <View style={styles.settingLeft}>
+        <View style={styles.settingIconContainer}>
+          <Ionicons name={icon as any} size={22} color={colors.primary.main} />
+        </View>
+        
+        <View style={styles.settingContent}>
+          <Text style={styles.settingTitle}>{title}</Text>
+          <Text style={styles.settingSubtitle}>{subtitle}</Text>
+        </View>
       </View>
       
       {hasSwitch ? (
-        <Switch
-          value={settings[setting] as boolean}
-          onValueChange={() => handleSettingToggle(setting)}
-          trackColor={{ false: colors.border.secondary, true: colors.primary.light }}
-          thumbColor={settings[setting] ? colors.primary : colors.text.tertiary}
-        />
+        <View style={styles.switchContainer}>
+          <Switch
+            value={value}
+            onValueChange={onToggle}
+            trackColor={{ 
+              false: colors.border.secondary, 
+              true: colors.primary.main + '40' 
+            }}
+            thumbColor={value ? colors.primary.main : '#FFFFFF'}
+            disabled={loading}
+            style={styles.switch}
+          />
+        </View>
       ) : (
-        <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
+        <View style={styles.chevronContainer}>
+          <Ionicons name="chevron-forward" size={18} color={colors.text.tertiary} />
+        </View>
       )}
     </TouchableOpacity>
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+      <StatusBar barStyle="light-content" backgroundColor={colors.primary.main} />
       
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <BackButton />
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Ayarlar</Text>
-            <Text style={styles.headerSubtitle}>Hesap ve uygulama ayarlarınızı yönetin</Text>
+        <View style={styles.headerContent}>
+          <View style={styles.headerTop}>
+            <BackButton />
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle}>Ayarlar</Text>
+              <Text style={styles.headerSubtitle}>Hesap ve uygulama ayarlarınızı yönetin</Text>
+            </View>
           </View>
         </View>
       </View>
@@ -108,35 +124,40 @@ export default function SettingsScreen() {
               'notifications',
               'Bildirimler',
               'Randevu ve mesaj bildirimleri',
-              'notifications'
+              notificationSettings.pushNotifications,
+              () => updateNotificationSettings({ pushNotifications: !notificationSettings.pushNotifications })
             )}
             
             {renderSettingItem(
               'mail',
               'E-posta Güncellemeleri',
               'Haftalık rapor ve güncellemeler',
-              'emailUpdates'
+              notificationSettings.emailUpdates,
+              () => updateNotificationSettings({ emailUpdates: !notificationSettings.emailUpdates })
             )}
             
             {renderSettingItem(
               'phone-portrait',
               'Push Bildirimleri',
               'Anlık bildirimler',
-              'pushNotifications'
+              notificationSettings.pushNotifications,
+              () => updateNotificationSettings({ pushNotifications: !notificationSettings.pushNotifications })
             )}
             
             {renderSettingItem(
               'volume-high',
               'Ses Uyarıları',
               'Bildirim sesleri',
-              'soundAlerts'
+              notificationSettings.soundAlerts,
+              () => updateNotificationSettings({ soundAlerts: !notificationSettings.soundAlerts })
             )}
             
             {renderSettingItem(
               'phone-portrait',
               'Titreşim Uyarıları',
               'Bildirim titreşimleri',
-              'vibrationAlerts'
+              notificationSettings.vibrationAlerts,
+              () => updateNotificationSettings({ vibrationAlerts: !notificationSettings.vibrationAlerts })
             )}
           </View>
         </View>
@@ -149,14 +170,16 @@ export default function SettingsScreen() {
               'location',
               'Konum Paylaşımı',
               'Müşterilere konumunuzu göster',
-              'locationSharing'
+              privacySettings.locationSharing,
+              () => updatePrivacySettings({ locationSharing: !privacySettings.locationSharing })
             )}
             
             {renderSettingItem(
               'eye',
               'Profil Görünürlüğü',
               'Profilinizi herkese açık yap',
-              'profileVisibility'
+              privacySettings.profileVisibility,
+              () => updatePrivacySettings({ profileVisibility: !privacySettings.profileVisibility })
             )}
           </View>
         </View>
@@ -169,7 +192,8 @@ export default function SettingsScreen() {
               'checkmark-circle',
               'Otomatik İş Kabulü',
               'Gelen işleri otomatik kabul et',
-              'autoAcceptJobs'
+              jobSettings.autoAcceptJobs,
+              () => updateJobSettings({ autoAcceptJobs: !jobSettings.autoAcceptJobs })
             )}
           </View>
         </View>
@@ -182,14 +206,16 @@ export default function SettingsScreen() {
               'moon',
               'Karanlık Mod',
               'Karanlık tema kullan',
-              'darkMode'
+              appSettings.darkMode,
+              () => updateAppSettings({ darkMode: !appSettings.darkMode })
             )}
             
             {renderSettingItem(
               'language',
               'Dil',
               'Türkçe',
-              'language',
+              false,
+              () => {},
               false,
               () => Alert.alert('Dil', 'Dil seçenekleri yakında eklenecek')
             )}
@@ -200,48 +226,80 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Hesap Yönetimi</Text>
           <View style={styles.settingsCard}>
-            <TouchableOpacity style={styles.settingItem}>
-              <View style={styles.settingIcon}>
-                <Ionicons name="person" size={24} color={colors.primary} />
+            <TouchableOpacity 
+              style={styles.settingItem}
+              onPress={() => navigation.navigate('EditProfile' as never)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.settingLeft}>
+                <View style={styles.settingIconContainer}>
+                  <Ionicons name="person" size={22} color={colors.primary.main} />
+                </View>
+                <View style={styles.settingContent}>
+                  <Text style={styles.settingTitle}>Profili Düzenle</Text>
+                  <Text style={styles.settingSubtitle}>Kişisel bilgileri güncelle</Text>
+                </View>
               </View>
-              <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>Profili Düzenle</Text>
-                <Text style={styles.settingSubtitle}>Kişisel bilgileri güncelle</Text>
+              <View style={styles.chevronContainer}>
+                <Ionicons name="chevron-forward" size={18} color={colors.text.tertiary} />
               </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.settingItem}>
-              <View style={styles.settingIcon}>
-                <Ionicons name="shield-checkmark" size={24} color={colors.primary} />
+            <TouchableOpacity 
+              style={styles.settingItem}
+              onPress={() => navigation.navigate('Security' as never)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.settingLeft}>
+                <View style={styles.settingIconContainer}>
+                  <Ionicons name="shield-checkmark" size={22} color={colors.primary.main} />
+                </View>
+                <View style={styles.settingContent}>
+                  <Text style={styles.settingTitle}>Güvenlik</Text>
+                  <Text style={styles.settingSubtitle}>Şifre ve güvenlik ayarları</Text>
+                </View>
               </View>
-              <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>Güvenlik</Text>
-                <Text style={styles.settingSubtitle}>Şifre ve güvenlik ayarları</Text>
+              <View style={styles.chevronContainer}>
+                <Ionicons name="chevron-forward" size={18} color={colors.text.tertiary} />
               </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.settingItem}>
-              <View style={styles.settingIcon}>
-                <Ionicons name="construct" size={24} color={colors.primary} />
+            <TouchableOpacity 
+              style={styles.settingItem}
+              onPress={() => navigation.navigate('ServiceAreas' as never)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.settingLeft}>
+                <View style={styles.settingIconContainer}>
+                  <Ionicons name="construct" size={22} color={colors.primary.main} />
+                </View>
+                <View style={styles.settingContent}>
+                  <Text style={styles.settingTitle}>Hizmet Alanlarım</Text>
+                  <Text style={styles.settingSubtitle}>Uzmanlık alanlarını yönet</Text>
+                </View>
               </View>
-              <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>Hizmet Alanlarım</Text>
-                <Text style={styles.settingSubtitle}>Uzmanlık alanlarını yönet</Text>
+              <View style={styles.chevronContainer}>
+                <Ionicons name="chevron-forward" size={18} color={colors.text.tertiary} />
               </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.settingItem}>
-              <View style={styles.settingIcon}>
-                <Ionicons name="time" size={24} color={colors.primary} />
+            <TouchableOpacity 
+              style={styles.settingItem}
+              onPress={() => navigation.navigate('WorkingHours' as never)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.settingLeft}>
+                <View style={styles.settingIconContainer}>
+                  <Ionicons name="time" size={22} color={colors.primary.main} />
+                </View>
+                <View style={styles.settingContent}>
+                  <Text style={styles.settingTitle}>Çalışma Saatleri</Text>
+                  <Text style={styles.settingSubtitle}>Müsaitlik durumunu ayarla</Text>
+                </View>
               </View>
-              <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>Çalışma Saatleri</Text>
-                <Text style={styles.settingSubtitle}>Müsaitlik durumunu ayarla</Text>
+              <View style={styles.chevronContainer}>
+                <Ionicons name="chevron-forward" size={18} color={colors.text.tertiary} />
               </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -250,46 +308,78 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Destek ve Yardım</Text>
           <View style={styles.settingsCard}>
-            <TouchableOpacity style={styles.settingItem}>
-              <View style={styles.settingIcon}>
-                <Ionicons name="help-circle" size={24} color={colors.primary} />
+            <TouchableOpacity 
+              style={styles.settingItem}
+              onPress={() => navigation.navigate('HelpCenter' as never)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.settingLeft}>
+                <View style={styles.settingIconContainer}>
+                  <Ionicons name="help-circle" size={22} color={colors.primary.main} />
+                </View>
+                <View style={styles.settingContent}>
+                  <Text style={styles.settingTitle}>Yardım Merkezi</Text>
+                  <Text style={styles.settingSubtitle}>Sık sorulan sorular</Text>
+                </View>
               </View>
-              <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>Yardım Merkezi</Text>
-                <Text style={styles.settingSubtitle}>Sık sorulan sorular</Text>
+              <View style={styles.chevronContainer}>
+                <Ionicons name="chevron-forward" size={18} color={colors.text.tertiary} />
               </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.settingItem}>
-              <View style={styles.settingIcon}>
-                <Ionicons name="chatbubble" size={24} color={colors.primary} />
+            <TouchableOpacity 
+              style={styles.settingItem}
+              onPress={() => navigation.navigate('Support' as never)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.settingLeft}>
+                <View style={styles.settingIconContainer}>
+                  <Ionicons name="chatbubble" size={22} color={colors.primary.main} />
+                </View>
+                <View style={styles.settingContent}>
+                  <Text style={styles.settingTitle}>Destek</Text>
+                  <Text style={styles.settingSubtitle}>Müşteri hizmetleri ile iletişim</Text>
+                </View>
               </View>
-              <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>Destek</Text>
-                <Text style={styles.settingSubtitle}>Müşteri hizmetleri ile iletişim</Text>
+              <View style={styles.chevronContainer}>
+                <Ionicons name="chevron-forward" size={18} color={colors.text.tertiary} />
               </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.settingItem}>
-              <View style={styles.settingIcon}>
-                <Ionicons name="information-circle" size={24} color={colors.primary} />
+            <TouchableOpacity 
+              style={styles.settingItem}
+              onPress={() => navigation.navigate('About' as never)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.settingLeft}>
+                <View style={styles.settingIconContainer}>
+                  <Ionicons name="information-circle" size={22} color={colors.primary.main} />
+                </View>
+                <View style={styles.settingContent}>
+                  <Text style={styles.settingTitle}>Hakkında</Text>
+                  <Text style={styles.settingSubtitle}>Uygulama versiyonu ve bilgileri</Text>
+                </View>
               </View>
-              <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>Hakkında</Text>
-                <Text style={styles.settingSubtitle}>Uygulama versiyonu ve bilgileri</Text>
+              <View style={styles.chevronContainer}>
+                <Ionicons name="chevron-forward" size={18} color={colors.text.tertiary} />
               </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Çıkış Yap */}
         <View style={styles.section}>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={24} color="#DC2626" />
-            <Text style={styles.logoutButtonText}>Çıkış Yap</Text>
+          <TouchableOpacity 
+            style={styles.logoutButton} 
+            onPress={handleLogout}
+            activeOpacity={0.8}
+          >
+            <View style={styles.logoutButtonContent}>
+              <View style={styles.logoutIconContainer}>
+                <Ionicons name="log-out-outline" size={22} color="#DC2626" />
+              </View>
+              <Text style={styles.logoutButtonText}>Çıkış Yap</Text>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -306,18 +396,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.primary,
   },
   header: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primary.main,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.lg,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
+  },
+  headerContent: {
+    flex: 1,
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.md,
   },
-  headerContent: {
+  headerTitleContainer: {
     flex: 1,
-    alignItems: 'center',
     marginLeft: spacing.md,
   },
   headerTitle: {
@@ -334,39 +426,50 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
   },
   section: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
   },
   sectionTitle: {
     fontSize: typography.h4.fontSize,
     fontWeight: '600',
-    color: colors.text.primary.main,
+    color: colors.text.primary,
     marginBottom: spacing.md,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.xs,
   },
   settingsCard: {
     backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    ...shadows.small,
+    borderRadius: borderRadius.xl,
+    padding: spacing.sm,
+    ...shadows.medium,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
   },
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.secondary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.lg,
+    marginVertical: spacing.xs,
+    backgroundColor: colors.background.primary,
+    ...shadows.small,
   },
-  settingIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primary.ultraLight,
+  settingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  settingIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primary.main + '15',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.sm,
+    marginRight: spacing.md,
   },
   settingContent: {
     flex: 1,
@@ -374,28 +477,51 @@ const styles = StyleSheet.create({
   settingTitle: {
     fontSize: typography.body1.fontSize,
     fontWeight: '600',
-    color: colors.text.primary.main,
+    color: colors.text.primary,
     marginBottom: spacing.xs,
   },
   settingSubtitle: {
     fontSize: typography.caption.large.fontSize,
     color: colors.text.secondary,
+    lineHeight: 18,
+  },
+  switchContainer: {
+    paddingLeft: spacing.sm,
+  },
+  switch: {
+    transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }],
+  },
+  chevronContainer: {
+    paddingLeft: spacing.sm,
+    paddingRight: spacing.xs,
   },
   logoutButton: {
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    ...shadows.medium,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+  },
+  logoutButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    ...shadows.small,
+  },
+  logoutIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#DC2626' + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
   },
   logoutButtonText: {
     fontSize: typography.body1.fontSize,
     fontWeight: '600',
     color: '#DC2626',
-    marginLeft: spacing.sm,
   },
   bottomSpacing: {
     height: spacing.xl * 2,

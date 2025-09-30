@@ -28,20 +28,64 @@ export const MechanicCard: React.FC<MechanicCardProps> = ({
   const { theme } = useTheme();
 
   const formatWorkingHours = (workingHours: any) => {
-    if (!workingHours || !Array.isArray(workingHours)) return 'Bilgi yok';
+    if (!workingHours) return 'Bilgi yok';
     
-    const today = new Date().getDay();
-    const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
-    
-    const todaySchedule = workingHours.find(day => 
-      dayNames.indexOf(day.day) === today
-    );
-    
-    if (todaySchedule && todaySchedule.isWorking) {
-      return `${todaySchedule.startTime} - ${todaySchedule.endTime}`;
+    try {
+      // JSON string ise parse et
+      const hours = typeof workingHours === 'string' ? JSON.parse(workingHours) : workingHours;
+      
+      const today = new Date();
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const currentDay = dayNames[today.getDay()];
+      const currentTime = today.getHours() * 100 + today.getMinutes();
+      
+      const todaySchedule = hours[currentDay];
+      
+      if (!todaySchedule || !todaySchedule.isOpen) {
+        return 'Kapalı';
+      }
+      
+      const startTime = parseInt(todaySchedule.start.replace(':', ''));
+      const endTime = parseInt(todaySchedule.end.replace(':', ''));
+      
+      if (currentTime >= startTime && currentTime <= endTime) {
+        return `Müsait • ${todaySchedule.start} - ${todaySchedule.end}`;
+      } else {
+        return `Müsait Değil • ${todaySchedule.start} - ${todaySchedule.end}`;
+      }
+    } catch (error) {
+      return 'Bilgi yok';
     }
+  };
+
+  const getAvailabilityStatus = (workingHours: any) => {
+    if (!workingHours) return { isAvailable: false, text: 'Bilgi yok' };
     
-    return 'Kapalı';
+    try {
+      const hours = typeof workingHours === 'string' ? JSON.parse(workingHours) : workingHours;
+      
+      const today = new Date();
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const currentDay = dayNames[today.getDay()];
+      const currentTime = today.getHours() * 100 + today.getMinutes();
+      
+      const todaySchedule = hours[currentDay];
+      
+      if (!todaySchedule || !todaySchedule.isOpen) {
+        return { isAvailable: false, text: 'Müsait Değil' };
+      }
+      
+      const startTime = parseInt(todaySchedule.start.replace(':', ''));
+      const endTime = parseInt(todaySchedule.end.replace(':', ''));
+      
+      if (currentTime >= startTime && currentTime <= endTime) {
+        return { isAvailable: true, text: 'Müsait' };
+      } else {
+        return { isAvailable: false, text: 'Müsait Değil' };
+      }
+    } catch (error) {
+      return { isAvailable: false, text: 'Bilgi yok' };
+    }
   };
 
   const renderStars = (rating: number) => {
@@ -100,14 +144,19 @@ export const MechanicCard: React.FC<MechanicCardProps> = ({
         </View>
         
         <View style={styles.statusContainer}>
-          <View style={[
-            styles.statusBadge,
-            { backgroundColor: mechanic.isAvailable ? '#10B981' : '#EF4444' }
-          ]}>
-            <Text style={styles.statusText}>
-              {mechanic.isAvailable ? 'Müsait' : 'Meşgul'}
-            </Text>
-          </View>
+          {(() => {
+            const availability = getAvailabilityStatus(mechanic.workingHours);
+            return (
+              <View style={[
+                styles.statusBadge,
+                { backgroundColor: availability.isAvailable ? '#10B981' : '#EF4444' }
+              ]}>
+                <Text style={styles.statusText}>
+                  {availability.text}
+                </Text>
+              </View>
+            );
+          })()}
           <TouchableOpacity
             onPress={onToggleExpansion}
             style={styles.expandButton}
@@ -151,11 +200,11 @@ export const MechanicCard: React.FC<MechanicCardProps> = ({
               </Text>
             </View>
             
-            {(mechanic as any).workingHours && (
+            {mechanic.workingHours && (
               <View style={styles.infoRow}>
                 <MaterialCommunityIcons name="clock-outline" size={16} color={theme.colors.text.secondary} />
                 <Text style={[styles.infoText, { color: theme.colors.text.secondary }]}>
-                  Bugün: {formatWorkingHours((mechanic as any).workingHours || [])}
+                  Bugün: {formatWorkingHours(mechanic.workingHours)}
                 </Text>
               </View>
             )}

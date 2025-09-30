@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { auth } from '../middleware/auth';
 import { AuthRequest } from '../types/auth.d';
-import { ResponseHandler } from '../utils/responseHandler';
+import { ResponseHandler } from '../utils/response';
 
 const router = express.Router();
 

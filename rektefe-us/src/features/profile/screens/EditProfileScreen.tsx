@@ -178,7 +178,12 @@ export default function EditProfileScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Temel Bilgiler */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Temel Bilgiler</Text>
@@ -347,16 +352,17 @@ export default function EditProfileScreen() {
           </View>
         </View>
 
-        {/* Kaydet Butonu */}
-        <View style={styles.buttonContainer}>
-          <Button
-            title={loading ? 'Kaydediliyor...' : 'Kaydet'}
-            onPress={saveProfile}
-            disabled={loading}
-            style={styles.saveButton}
-          />
-        </View>
       </ScrollView>
+      
+      {/* Kaydet Butonu - ScrollView dışında */}
+      <View style={styles.buttonContainer}>
+        <Button
+          title={loading ? 'Kaydediliyor...' : 'Kaydet'}
+          onPress={saveProfile}
+          disabled={loading}
+          style={styles.saveButton}
+        />
+      </View>
     </SafeAreaView>
   );
 }
@@ -382,6 +388,9 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 120, // Buton yüksekliği + ekstra padding
   },
   section: {
     paddingHorizontal: spacing.lg,
@@ -445,17 +454,32 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   buttonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
+    paddingVertical: spacing.lg,
     backgroundColor: colors.background.primary,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.primary,
+    paddingBottom: spacing.xl,
+    shadowColor: colors.shadow.dark,
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
   },
   saveButton: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.lg,
+    backgroundColor: colors.primary.main,
+    borderRadius: borderRadius.button,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     minHeight: 50,
-    shadowColor: colors.primary,
+    shadowColor: colors.primary.main,
     shadowOffset: {
       width: 0,
       height: 2,

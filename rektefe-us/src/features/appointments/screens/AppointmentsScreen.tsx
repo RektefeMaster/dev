@@ -19,6 +19,7 @@ import { useTheme } from '@/shared/context';
 import { useAuth } from '@/shared/context';
 import apiService from '@/shared/services';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import BackButton from '@/shared/components/BackButton';
 
 const { width } = Dimensions.get('window');
 
@@ -358,143 +359,182 @@ const AppointmentsScreen = () => {
     const isUrgent = randevu.durum === 'TALEP_EDILDI' && new Date(randevu.appointmentDate) < new Date(Date.now() + 24 * 60 * 60 * 1000);
     
     return (
-      <TouchableOpacity
+      <View
         key={randevu._id}
         style={[
-          styles.randevuCard,
+          styles.modernCard,
           { 
             backgroundColor: colors.background.primary,
-            borderLeftColor: durumColor,
-            borderColor: colors.border.secondary,
-            shadowColor: isUrgent ? durumColor : colors.shadow,
+            borderColor: colors.neutral[200],
+            shadowColor: isUrgent ? durumColor : colors.shadow.dark,
           }
         ]}
-        onPress={() => {
-          // Randevu detayına git
-        }}
       >
-        <View style={styles.cardHeader}>
-          <View style={styles.customerInfo}>
-            <Text style={[styles.customerName, { color: colors.text.primary }]}>
-              {randevu.customer?.name} {randevu.customer?.surname}
-            </Text>
-            <Text style={[styles.customerPhone, { color: colors.text.secondary }]}>
-              {randevu.customer?.phone}
-            </Text>
+        {/* Card Header */}
+        <View style={[styles.modernCardHeader, { borderBottomColor: colors.neutral[100] }]}>
+          <View style={styles.customerSection}>
+            <View style={[styles.avatarContainer, { backgroundColor: colors.primary.ultraLight }]}>
+              <MaterialCommunityIcons name="account" size={24} color={colors.primary.main} />
+            </View>
+            <View style={styles.customerDetails}>
+              <Text style={[styles.modernCustomerName, { color: colors.text.primary }]}>
+                {randevu.customer?.name} {randevu.customer?.surname}
+              </Text>
+              <Text style={[styles.modernCustomerPhone, { color: colors.text.secondary }]}>
+                {randevu.customer?.phone}
+              </Text>
+            </View>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: durumColor }]}>
-            <Text style={[styles.statusText, { color: colors.text.inverse }]}>
+          <View style={[styles.modernStatusBadge, { backgroundColor: durumColor }]}>
+            <MaterialCommunityIcons 
+              name={DURUM_TABLARI.find(t => t.key === randevu.durum)?.icon as any || 'circle'} 
+              size={14} 
+              color="#FFFFFF" 
+            />
+            <Text style={[styles.modernStatusText, { color: '#FFFFFF' }]}>
               {getDurumText(randevu.durum)}
             </Text>
           </View>
         </View>
 
-        <View style={styles.vehicleInfo}>
-          <MaterialCommunityIcons name="car" size={16} color={colors.text.secondary} />
-          <Text style={[styles.vehicleText, { color: colors.text.primary }]}>
-            {randevu.vehicle?.brand} {randevu.vehicle?.modelName} - {randevu.vehicle?.plateNumber}
-          </Text>
+        {/* Vehicle & Service Info */}
+        <View style={styles.infoSection}>
+          <View style={styles.infoRow}>
+            <View style={[styles.infoIconContainer, { backgroundColor: colors.success.ultraLight }]}>
+              <MaterialCommunityIcons name="car" size={18} color={colors.success.main} />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={[styles.infoLabel, { color: colors.text.secondary }]}>Araç</Text>
+              <Text style={[styles.infoValue, { color: colors.text.primary }]}>
+                {randevu.vehicle?.brand} {randevu.vehicle?.modelName}
+              </Text>
+              <Text style={[styles.infoSubValue, { color: colors.text.tertiary }]}>
+                {randevu.vehicle?.plateNumber}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.infoRow}>
+            <View style={[styles.infoIconContainer, { backgroundColor: colors.warning.ultraLight }]}>
+              <MaterialCommunityIcons name="wrench" size={18} color={colors.warning.main} />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={[styles.infoLabel, { color: colors.text.secondary }]}>Hizmet</Text>
+              <Text style={[styles.infoValue, { color: colors.text.primary }]}>
+                {randevu.isTuru}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.infoRow}>
+            <View style={[styles.infoIconContainer, { backgroundColor: colors.primary.ultraLight }]}>
+              <MaterialCommunityIcons name="clock-outline" size={18} color={colors.primary.main} />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={[styles.infoLabel, { color: colors.text.secondary }]}>Tarih & Saat</Text>
+              <Text style={[styles.infoValue, { color: colors.text.primary }]}>
+                {formatTarih(randevu.appointmentDate)}
+              </Text>
+            </View>
+          </View>
         </View>
 
-        <View style={styles.serviceInfo}>
-          <MaterialCommunityIcons name="wrench" size={16} color={colors.text.secondary} />
-          <Text style={[styles.serviceText, { color: colors.text.primary }]}>
-            {randevu.isTuru}
-          </Text>
-        </View>
-
-        <View style={styles.timeInfo}>
-          <MaterialCommunityIcons name="clock-outline" size={16} color={colors.text.secondary} />
-          <Text style={[styles.timeText, { color: colors.text.primary }]}>
-            {formatTarih(randevu.appointmentDate)}
-          </Text>
-        </View>
-
+        {/* Description */}
         {randevu.description && (
-          <View style={styles.descriptionContainer}>
-            <Text style={[styles.descriptionText, { color: colors.text.secondary }]} numberOfLines={2}>
+          <View style={[styles.descriptionSection, { borderTopColor: colors.neutral[100] }]}>
+            <View style={styles.descriptionHeader}>
+              <MaterialCommunityIcons name="text-box-outline" size={16} color={colors.text.secondary} />
+              <Text style={[styles.descriptionLabel, { color: colors.text.secondary }]}>Açıklama</Text>
+            </View>
+            <Text style={[styles.modernDescriptionText, { color: colors.text.primary }]} numberOfLines={3}>
               {randevu.description}
             </Text>
           </View>
         )}
 
-        <View style={styles.priceContainer}>
-          <MaterialCommunityIcons name="currency-try" size={16} color={colors.success} />
-          <Text style={[styles.priceText, { color: colors.success }]}>
-            {randevu.price && randevu.price > 0
-              ? new Intl.NumberFormat('tr-TR', {
-                  style: 'currency',
-                  currency: 'TRY',
-                }).format(Number(randevu.price))
-              : 'Fiyat Belirtilmemiş'
-            }
-          </Text>
+        {/* Price Section */}
+        <View style={[styles.priceSection, { backgroundColor: colors.success.ultraLight, borderTopColor: colors.neutral[100] }]}>
+          <View style={styles.priceInfo}>
+            <MaterialCommunityIcons name="currency-try" size={20} color={colors.success.main} />
+            <View style={styles.priceDetails}>
+              <Text style={[styles.priceLabel, { color: colors.text.secondary }]}>Toplam Tutar</Text>
+              <Text style={[styles.modernPriceText, { color: colors.success.main }]}>
+                {randevu.price && randevu.price > 0
+                  ? new Intl.NumberFormat('tr-TR', {
+                      style: 'currency',
+                      currency: 'TRY',
+                    }).format(Number(randevu.price))
+                  : 'Fiyat Belirtilmemiş'
+                }
+              </Text>
+            </View>
+          </View>
         </View>
 
-        <View style={styles.cardActions}>
-          
+        {/* Action Buttons */}
+        <View style={[styles.modernActions, { borderTopColor: colors.neutral[100] }]}>
           {randevu.durum === 'TALEP_EDILDI' && (
             <>
               <TouchableOpacity
-                style={[styles.actionButton, styles.acceptButton, { backgroundColor: '#10B981' }]}
+                style={[styles.modernActionButton, { backgroundColor: colors.success.main }]}
                 onPress={() => handleStatusChange(randevu._id, 'PLANLANDI')}
               >
-                <MaterialCommunityIcons name="check" size={16} color="#FFFFFF" />
-                <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Kabul Et</Text>
+                <MaterialCommunityIcons name="check" size={18} color="#FFFFFF" />
+                <Text style={styles.modernActionText}>Kabul Et</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.actionButton, styles.rejectButton, { backgroundColor: '#EF4444' }]}
+                style={[styles.modernActionButton, { backgroundColor: colors.error.main }]}
                 onPress={() => handleStatusChange(randevu._id, 'IPTAL')}
               >
-                <MaterialCommunityIcons name="close" size={16} color="#FFFFFF" />
-                <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Reddet</Text>
+                <MaterialCommunityIcons name="close" size={18} color="#FFFFFF" />
+                <Text style={styles.modernActionText}>Reddet</Text>
               </TouchableOpacity>
             </>
           )}
           
           {randevu.durum === 'PLANLANDI' && (
             <TouchableOpacity
-              style={[styles.actionButton, styles.startButton, { backgroundColor: '#3B82F6' }]}
+              style={[styles.modernActionButton, { backgroundColor: colors.primary.main }]}
               onPress={() => handleStatusChange(randevu._id, 'SERVISTE')}
             >
-              <MaterialCommunityIcons name="play" size={16} color="#FFFFFF" />
-              <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Başlat</Text>
+              <MaterialCommunityIcons name="play" size={18} color="#FFFFFF" />
+              <Text style={styles.modernActionText}>Başlat</Text>
             </TouchableOpacity>
           )}
           
           {randevu.durum === 'SERVISTE' && (
             <>
               <TouchableOpacity
-                style={[styles.actionButton, styles.priceButton, { backgroundColor: '#F59E0B' }]}
+                style={[styles.modernActionButton, { backgroundColor: colors.warning.main }]}
                 onPress={() => openPriceModal(randevu)}
               >
-                <MaterialCommunityIcons name="currency-try" size={16} color="#FFFFFF" />
-                <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Fiyat Artır</Text>
+                <MaterialCommunityIcons name="currency-try" size={18} color="#FFFFFF" />
+                <Text style={styles.modernActionText}>Fiyat Artır</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.actionButton, styles.completeButton, { backgroundColor: '#10B981' }]}
+                style={[styles.modernActionButton, { backgroundColor: colors.success.main }]}
                 onPress={() => handleStatusChange(randevu._id, 'ODEME_BEKLIYOR')}
               >
-                <MaterialCommunityIcons name="check-circle" size={16} color="#FFFFFF" />
-                <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Tamamla</Text>
+                <MaterialCommunityIcons name="check-circle" size={18} color="#FFFFFF" />
+                <Text style={styles.modernActionText}>Tamamla</Text>
               </TouchableOpacity>
             </>
           )}
           
           {randevu.durum === 'ODEME_BEKLIYOR' && (
             <TouchableOpacity
-              style={[styles.actionButton, styles.finalizeButton, { backgroundColor: '#10B981' }]}
+              style={[styles.modernActionButton, { backgroundColor: colors.success.main }]}
               onPress={() => handleStatusChange(randevu._id, 'TAMAMLANDI')}
             >
-              <MaterialCommunityIcons name="check-all" size={16} color="#FFFFFF" />
-              <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Finalize Et</Text>
+              <MaterialCommunityIcons name="check-all" size={18} color="#FFFFFF" />
+              <Text style={styles.modernActionText}>Finalize Et</Text>
             </TouchableOpacity>
           )}
           
           {/* İptal butonu - TAMAMLANDI hariç tüm durumlarda */}
           {randevu.durum !== 'TAMAMLANDI' && randevu.durum !== 'IPTAL' && (
             <TouchableOpacity
-              style={[styles.actionButton, styles.cancelButton, { backgroundColor: '#EF4444' }]}
+              style={[styles.modernActionButton, { backgroundColor: colors.error.main }]}
               onPress={() => {
                 Alert.alert(
                   'Randevuyu İptal Et',
@@ -510,12 +550,12 @@ const AppointmentsScreen = () => {
                 );
               }}
             >
-              <MaterialCommunityIcons name="close-circle" size={16} color="#FFFFFF" />
-              <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>İptal Et</Text>
+              <MaterialCommunityIcons name="close-circle" size={18} color="#FFFFFF" />
+              <Text style={styles.modernActionText}>İptal Et</Text>
             </TouchableOpacity>
           )}
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -535,12 +575,13 @@ const AppointmentsScreen = () => {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.background.secondary }]}>
+      <View style={[styles.header, { backgroundColor: colors.background.primary }]}>
         <View style={styles.headerContent}>
           <View style={styles.headerTop}>
+            <BackButton />
             <Text style={[styles.title, { color: colors.text.primary }]}>Randevularım</Text>
             <TouchableOpacity
-              style={[styles.filterButton, { backgroundColor: colors.background.primary }]}
+              style={[styles.filterButton, { backgroundColor: colors.neutral[100] }]}
               onPress={() => setShowFilters(!showFilters)}
             >
               <MaterialCommunityIcons name="filter" size={20} color={colors.text.primary} />
@@ -548,20 +589,29 @@ const AppointmentsScreen = () => {
           </View>
           
           <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={[styles.statNumber, { color: colors.primary }]}>
+            <View style={[styles.statCard, { backgroundColor: colors.neutral[50], borderColor: colors.neutral[200] }]}>
+              <View style={[styles.statIcon, { backgroundColor: colors.primary.main }]}>
+                <MaterialCommunityIcons name="calendar-multiple" size={20} color="#FFFFFF" />
+              </View>
+              <Text style={[styles.statNumber, { color: colors.text.primary }]}>
                 {Object.values(counts).reduce((a, b) => a + b, 0)}
               </Text>
               <Text style={[styles.statLabel, { color: colors.text.secondary }]}>Toplam</Text>
             </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statNumber, { color: colors.success }]}>
+            <View style={[styles.statCard, { backgroundColor: colors.success.ultraLight, borderColor: colors.success.light }]}>
+              <View style={[styles.statIcon, { backgroundColor: colors.success.main }]}>
+                <MaterialCommunityIcons name="check-circle" size={20} color="#FFFFFF" />
+              </View>
+              <Text style={[styles.statNumber, { color: colors.success.main }]}>
                 {counts.SERVISTE + counts.ODEME_BEKLIYOR}
               </Text>
               <Text style={[styles.statLabel, { color: colors.text.secondary }]}>Aktif</Text>
             </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statNumber, { color: colors.warning }]}>
+            <View style={[styles.statCard, { backgroundColor: colors.warning.ultraLight, borderColor: colors.warning.light }]}>
+              <View style={[styles.statIcon, { backgroundColor: colors.warning.main }]}>
+                <MaterialCommunityIcons name="clock" size={20} color="#FFFFFF" />
+              </View>
+              <Text style={[styles.statNumber, { color: colors.warning.main }]}>
                 {counts.TALEP_EDILDI}
               </Text>
               <Text style={[styles.statLabel, { color: colors.text.secondary }]}>Bekleyen</Text>
@@ -571,8 +621,8 @@ const AppointmentsScreen = () => {
       </View>
 
       {/* Search */}
-      <View style={[styles.searchContainer, { backgroundColor: colors.background.secondary }]}>
-        <View style={[styles.searchBox, { backgroundColor: colors.background.primary }]}>
+      <View style={[styles.searchContainer, { backgroundColor: colors.background.primary }]}>
+        <View style={[styles.searchBox, { backgroundColor: colors.neutral[50], borderColor: colors.neutral[200] }]}>
           <MaterialCommunityIcons name="magnify" size={20} color={colors.text.secondary} />
           <TextInput
             style={[styles.searchInput, { color: colors.text.primary }]}
@@ -591,7 +641,7 @@ const AppointmentsScreen = () => {
       </View>
 
       {/* Status Tabs */}
-      <View style={[styles.tabsContainer, { backgroundColor: colors.background.secondary }]}>
+      <View style={[styles.tabsContainer, { backgroundColor: colors.background.primary }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsContent}>
           {DURUM_TABLARI.map(tab => (
             <TouchableOpacity
@@ -599,8 +649,9 @@ const AppointmentsScreen = () => {
               style={[
                 styles.tab,
                 {
-                  backgroundColor: selectedDurum === tab.key ? tab.color : colors.background.primary,
-                  borderColor: selectedDurum === tab.key ? tab.color : colors.border.secondary,
+                  backgroundColor: selectedDurum === tab.key ? tab.color : colors.neutral[50],
+                  borderColor: selectedDurum === tab.key ? tab.color : colors.neutral[200],
+                  borderWidth: selectedDurum === tab.key ? 2 : 1,
                 }
               ]}
               onPress={() => {
@@ -608,30 +659,32 @@ const AppointmentsScreen = () => {
                 fetchRandevular(tab.key as RandevuDurum);
               }}
             >
-              <MaterialCommunityIcons
-                name={tab.icon as any}
-                size={18}
-                color={selectedDurum === tab.key ? colors.text.inverse : tab.color}
-              />
-              <Text style={[
-                styles.tabText,
-                { color: selectedDurum === tab.key ? colors.text.inverse : tab.color }
-              ]}>
-                {tab.label}
-              </Text>
-              {counts[tab.key as RandevuDurum] > 0 && (
-                <View style={[
-                  styles.tabBadge,
-                  { backgroundColor: selectedDurum === tab.key ? colors.text.inverse : tab.color }
+              <View style={styles.tabContent}>
+                <MaterialCommunityIcons
+                  name={tab.icon as any}
+                  size={20}
+                  color={selectedDurum === tab.key ? colors.text.inverse : colors.text.primary}
+                />
+                <Text style={[
+                  styles.tabText,
+                  { color: selectedDurum === tab.key ? colors.text.inverse : colors.text.primary }
                 ]}>
-                  <Text style={[
-                    styles.tabBadgeText,
-                    { color: selectedDurum === tab.key ? tab.color : colors.text.inverse }
+                  {tab.label}
+                </Text>
+                {counts[tab.key as RandevuDurum] > 0 && (
+                  <View style={[
+                    styles.tabBadge,
+                    { backgroundColor: selectedDurum === tab.key ? colors.text.inverse : colors.error.main }
                   ]}>
-                    {counts[tab.key as RandevuDurum]}
-                  </Text>
-                </View>
-              )}
+                    <Text style={[
+                      styles.tabBadgeText,
+                      { color: selectedDurum === tab.key ? tab.color : colors.text.inverse }
+                    ]}>
+                      {counts[tab.key as RandevuDurum]}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -641,24 +694,42 @@ const AppointmentsScreen = () => {
       <View style={styles.content}>
         {error ? (
           <View style={styles.errorContainer}>
-            <MaterialCommunityIcons name="alert-circle" size={48} color={colors.error} />
-            <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+            <View style={[styles.errorIconContainer, { backgroundColor: colors.error.ultraLight }]}>
+              <MaterialCommunityIcons name="alert-circle" size={48} color={colors.error.main} />
+            </View>
+            <Text style={[styles.errorTitle, { color: colors.text.primary }]}>Bir Hata Oluştu</Text>
+            <Text style={[styles.errorText, { color: colors.text.secondary }]}>{error}</Text>
             <TouchableOpacity
-              style={[styles.retryButton, { backgroundColor: colors.primary }]}
+              style={[styles.retryButton, { backgroundColor: colors.primary.main }]}
               onPress={() => fetchRandevular(selectedDurum)}
             >
+              <MaterialCommunityIcons name="refresh" size={20} color={colors.text.inverse} />
               <Text style={[styles.retryButtonText, { color: colors.text.inverse }]}>Tekrar Dene</Text>
             </TouchableOpacity>
           </View>
         ) : filteredRandevular.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <MaterialCommunityIcons name="calendar-blank" size={64} color={colors.text.secondary} />
+            <View style={[styles.emptyIconContainer, { backgroundColor: colors.neutral[50] }]}>
+              <MaterialCommunityIcons 
+                name={search ? "magnify" : "calendar-blank"} 
+                size={64} 
+                color={colors.text.secondary} 
+              />
+            </View>
             <Text style={[styles.emptyTitle, { color: colors.text.primary }]}>
               {search ? 'Arama sonucu bulunamadı' : 'Bu kategoride randevu yok'}
             </Text>
             <Text style={[styles.emptySubtitle, { color: colors.text.secondary }]}>
               {search ? 'Farklı anahtar kelimeler deneyin' : 'Yeni randevular geldiğinde burada görünecek'}
             </Text>
+            {search && (
+              <TouchableOpacity
+                style={[styles.clearSearchButton, { backgroundColor: colors.neutral[100] }]}
+                onPress={() => setSearch('')}
+              >
+                <Text style={[styles.clearSearchText, { color: colors.text.primary }]}>Aramayı Temizle</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           <ScrollView
@@ -874,10 +945,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 12,
   },
   title: {
     fontSize: 24,
     fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
   },
   filterButton: {
     width: 40,
@@ -888,18 +962,38 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
+    gap: 12,
   },
-  statItem: {
+  statCard: {
+    flex: 1,
     alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   statNumber: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
+    marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    marginTop: 4,
+    fontWeight: '500',
+    textAlign: 'center',
   },
   searchContainer: {
     paddingHorizontal: 20,
@@ -911,7 +1005,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 12,
+    borderWidth: 1,
     gap: 12,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   searchInput: {
     flex: 1,
@@ -925,12 +1024,18 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   tab: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 20,
+    marginRight: 12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  tabContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 1,
     gap: 8,
   },
   tabText: {
@@ -954,142 +1059,205 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
-  randevuCard: {
+  // Modern Card Styles
+  modernCard: {
+    marginHorizontal: 16,
     marginVertical: 8,
-    padding: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderLeftWidth: 4,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    overflow: 'hidden',
+  },
+  modernCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  customerSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  avatarContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  customerDetails: {
+    flex: 1,
+  },
+  modernCustomerName: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  modernCustomerPhone: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  modernStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 2,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+  modernStatusText: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
-  customerInfo: {
+  infoSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  infoIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F8FAFC',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  infoContent: {
     flex: 1,
   },
-  customerName: {
+  infoLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  infoValue: {
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 2,
   },
-  customerPhone: {
+  infoSubValue: {
     fontSize: 14,
+    fontWeight: '500',
   },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+  descriptionSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
   },
-  statusText: {
+  descriptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  descriptionLabel: {
     fontSize: 12,
     fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginLeft: 6,
   },
-  vehicleInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
-  },
-  vehicleText: {
-    fontSize: 14,
-    flex: 1,
-  },
-  serviceInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
-  },
-  serviceText: {
-    fontSize: 14,
-    flex: 1,
-  },
-  timeInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
-  },
-  timeText: {
-    fontSize: 14,
-    flex: 1,
-  },
-  descriptionContainer: {
-    marginBottom: 12,
-  },
-  descriptionText: {
+  modernDescriptionText: {
     fontSize: 14,
     lineHeight: 20,
+    fontWeight: '500',
   },
-  priceContainer: {
+  priceSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    backgroundColor: '#F8FAFC',
+  },
+  priceInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
   },
-  priceText: {
-    fontSize: 16,
+  priceDetails: {
+    marginLeft: 12,
+  },
+  priceLabel: {
+    fontSize: 12,
     fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
-  cardActions: {
+  modernPriceText: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  modernActions: {
     flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     gap: 12,
-    marginTop: 12,
-    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: '#F3F4F6',
   },
-  actionButton: {
+  modernActionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 10,
+    borderRadius: 12,
     gap: 8,
     minHeight: 48,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
     elevation: 3,
   },
-  acceptButton: {
-    // backgroundColor set dynamically
+  acceptAction: {
+    backgroundColor: '#10B981',
   },
-  rejectButton: {
-    // backgroundColor set dynamically
+  rejectAction: {
+    backgroundColor: '#EF4444',
   },
-  startButton: {
-    // backgroundColor set dynamically
+  startAction: {
+    backgroundColor: '#3B82F6',
   },
-  completeButton: {
-    // backgroundColor set dynamically
+  completeAction: {
+    backgroundColor: '#10B981',
   },
-  priceButton: {
-    // backgroundColor set dynamically
+  priceAction: {
+    backgroundColor: '#F59E0B',
   },
-  finalizeButton: {
-    // backgroundColor set dynamically
+  finalizeAction: {
+    backgroundColor: '#10B981',
   },
-  actionButtonText: {
-    fontSize: 16,
+  cancelAction: {
+    backgroundColor: '#EF4444',
+  },
+  modernActionText: {
+    fontSize: 14,
     fontWeight: '700',
+    color: '#FFFFFF',
   },
   // Modal Styles
   modalOverlay: {
@@ -1237,16 +1405,36 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
-    gap: 16,
+    gap: 20,
+  },
+  errorIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   errorText: {
     fontSize: 16,
     textAlign: 'center',
+    lineHeight: 22,
   },
   retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   retryButtonText: {
     fontSize: 16,
@@ -1257,17 +1445,34 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
-    gap: 16,
+    gap: 20,
+  },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: 16,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 22,
+  },
+  clearSearchButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 20,
+    marginTop: 8,
+  },
+  clearSearchText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

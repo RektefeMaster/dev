@@ -720,46 +720,11 @@ class ApiService {
       
       return response.data;
     } catch (error) {
-      // Fallback: Mock data döndür
+      // Hata durumunda boş veri döndür
       return {
-        success: true,
-        message: 'No ratings available',
-        data: [
-          {
-            _id: '1',
-            appointmentId: 'Genel Bakım',
-            driverId: 'driver1',
-            mechanicId: 'mechanic1',
-            rating: 5,
-            comment: 'Çok iyi iş çıkardı',
-            createdAt: new Date().toISOString(),
-            customer: {
-              name: 'Ahmet',
-              surname: 'Yılmaz'
-            },
-            appointment: {
-              serviceType: 'Genel Bakım',
-              date: new Date()
-            }
-          },
-          {
-            _id: '2',
-            appointmentId: 'Ağır Bakım',
-            driverId: 'driver2',
-            mechanicId: 'mechanic1',
-            rating: 4,
-            comment: 'Hızlı ve kaliteli',
-            createdAt: new Date(Date.now() - 86400000).toISOString(),
-            customer: {
-              name: 'Mehmet',
-              surname: 'Demir'
-            },
-            appointment: {
-              serviceType: 'Ağır Bakım',
-              date: new Date(Date.now() - 86400000)
-            }
-          }
-        ]
+        success: false,
+        message: 'Puanlama verileri yüklenemedi',
+        data: []
       };
     }
   }
@@ -770,14 +735,14 @@ class ApiService {
       const response = await this.api.get('/appointment-ratings/current/stats');
       return response.data;
     } catch (error) {
-      // Fallback: Mock data döndür
+      // Hata durumunda boş veri döndür
       return {
-        success: true,
-        message: 'Rating stats loaded',
+        success: false,
+        message: 'Puanlama verileri yüklenemedi',
         data: { 
-          averageRating: 4.5, 
-          totalRatings: 12,
-          ratingDistribution: { 1: 0, 2: 0, 3: 1, 4: 5, 5: 6 }
+          averageRating: 0, 
+          totalRatings: 0,
+          ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
         }
       };
     }
@@ -1129,6 +1094,446 @@ class ApiService {
     try {
       const response = await this.api.put(`/emergency/towing-request/${requestId}/status`, { status });
       return response.data;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  // ===== SETTINGS ENDPOINTS =====
+  
+  /**
+   * Kullanıcı ayarlarını getir
+   */
+  async getUserSettings(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get('/users/settings');
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Kullanıcı ayarlarını güncelle
+   */
+  async updateUserSettings(settings: any): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put('/users/settings', settings);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Bildirim ayarlarını getir
+   */
+  async getNotificationSettings(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get('/users/notification-settings');
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Bildirim ayarlarını güncelle
+   */
+  async updateNotificationSettings(settings: any): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put('/users/notification-settings', settings);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Gizlilik ayarlarını getir
+   */
+  async getPrivacySettings(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get('/users/privacy-settings');
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Gizlilik ayarlarını güncelle
+   */
+  async updatePrivacySettings(settings: any): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put('/users/privacy-settings', settings);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * İş ayarlarını getir
+   */
+  async getJobSettings(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get('/users/job-settings');
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * İş ayarlarını güncelle
+   */
+  async updateJobSettings(settings: any): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put('/users/job-settings', settings);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Uygulama ayarlarını getir
+   */
+  async getAppSettings(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get('/users/app-settings');
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Uygulama ayarlarını güncelle
+   */
+  async updateAppSettings(settings: any): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put('/users/app-settings', settings);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Güvenlik ayarlarını getir
+   */
+  async getSecuritySettings(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get('/users/security-settings');
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Güvenlik ayarlarını güncelle
+   */
+  async updateSecuritySettings(settings: any): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put('/users/security-settings', settings);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Şifre değiştir
+   */
+  async changePassword(currentPassword: string, newPassword: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put('/users/change-password', {
+        currentPassword,
+        newPassword
+      });
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Hizmet kategorilerini getir
+   */
+  async getServiceCategories(): Promise<ApiResponse<any[]>> {
+    try {
+      const response = await this.api.get('/service-categories');
+      return response.data as ApiResponse<any[]>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Kullanıcının hizmet kategorilerini güncelle
+   */
+  async updateServiceCategories(categories: string[]): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put('/users/service-categories', { categories });
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Yardım makalelerini getir
+   */
+  async getHelpArticles(category?: string): Promise<ApiResponse<any[]>> {
+    try {
+      const url = category ? `/help/articles?category=${category}` : '/help/articles';
+      const response = await this.api.get(url);
+      return response.data as ApiResponse<any[]>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Yardım kategorilerini getir
+   */
+  async getHelpCategories(): Promise<ApiResponse<any[]>> {
+    try {
+      const response = await this.api.get('/help/categories');
+      return response.data as ApiResponse<any[]>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Destek talebi oluştur
+   */
+  async createSupportTicket(subject: string, message: string, priority: string = 'medium'): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.post('/support/tickets', {
+        subject,
+        message,
+        priority
+      });
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Destek taleplerini getir
+   */
+  async getSupportTickets(): Promise<ApiResponse<any[]>> {
+    try {
+      const response = await this.api.get('/support/tickets');
+      return response.data as ApiResponse<any[]>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Uygulama bilgilerini getir
+   */
+  async getAppInfo(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get('/app/info');
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  // ===== SETTINGS ENDPOINTS =====
+  async getUserSettings(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get('/users/settings');
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async updateUserSettings(settings: any): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put('/users/settings', settings);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getNotificationSettings(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get('/users/notification-settings');
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async updateNotificationSettings(settings: any): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put('/users/notification-settings', settings);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getPrivacySettings(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get('/users/privacy-settings');
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async updatePrivacySettings(settings: any): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put('/users/privacy-settings', settings);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getJobSettings(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get('/users/job-settings');
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async updateJobSettings(settings: any): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put('/users/job-settings', settings);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getAppSettings(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get('/users/app-settings');
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async updateAppSettings(settings: any): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put('/users/app-settings', settings);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getSecuritySettings(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get('/users/security-settings');
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async updateSecuritySettings(settings: any): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put('/users/security-settings', settings);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.post('/auth/change-password', {
+        currentPassword,
+        newPassword
+      });
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getServiceCategories(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get('/service-categories');
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async updateServiceCategories(categories: string[]): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put('/users/service-categories', { categories });
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  // ===== SUPPORT ENDPOINTS =====
+  async getHelpArticles(category?: string): Promise<ApiResponse<any>> {
+    try {
+      const params = category ? `?category=${category}` : '';
+      const response = await this.api.get(`/support/help-articles${params}`);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getHelpCategories(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get('/support/help-categories');
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async createSupportTicket(subject: string, message: string, priority: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.post('/support/tickets', {
+        subject,
+        message,
+        priority
+      });
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getSupportTickets(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get('/support/tickets');
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getAppInfo(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get('/support/app-info');
+      return response.data as ApiResponse<any>;
     } catch (error) {
       return this.handleError(error);
     }

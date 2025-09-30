@@ -266,6 +266,7 @@ export interface MechanicSearchResult {
   totalJobs: number;
   isAvailable: boolean;
   serviceCategories: string[];
+  workingHours?: string; // JSON string olarak çalışma saatleri
   location?: {
     coordinates: [number, number];
     address?: string;

@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, ThemeProvider } from './src/shared/context';
+import { SettingsProvider } from './src/shared/context/SettingsContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { notificationService } from './src/features/notifications/services';
 
@@ -33,8 +34,10 @@ export default function App() {
     <SafeAreaProvider>
       <ThemeProvider>
         <AuthProvider>
-          <AppNavigator />
-          <StatusBar style="auto" />
+          <SettingsProvider>
+            <AppNavigator />
+            <StatusBar style="auto" />
+          </SettingsProvider>
         </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>

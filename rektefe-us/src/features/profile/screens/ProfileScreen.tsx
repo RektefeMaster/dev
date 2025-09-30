@@ -123,6 +123,7 @@ export default function ProfileScreen() {
   };
 
   const getSatisfactionText = (rating: number) => {
+    if (rating === 0) return 'Henüz değerlendirilmedi';
     if (rating >= 4.5) return 'Mükemmel';
     if (rating >= 4.0) return 'Çok İyi';
     if (rating >= 3.5) return 'İyi';
@@ -276,12 +277,12 @@ export default function ProfileScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={colors.background.primary} />
       
       {/* Header */}
       <View style={styles.header}>
-        <SafeAreaView style={styles.headerContent}>
+        <View style={styles.headerContent}>
           <View style={styles.headerTop}>
             <BackButton />
             <View style={styles.headerCenter}>
@@ -294,7 +295,7 @@ export default function ProfileScreen() {
               <Ionicons name="log-out-outline" size={24} color={colors.text.inverse} />
             </TouchableOpacity>
           </View>
-        </SafeAreaView>
+        </View>
       </View>
 
       <ScrollView
@@ -309,6 +310,7 @@ export default function ProfileScreen() {
           />
         }
         showsVerticalScrollIndicator={false}
+        bounces={true}
       >
         {/* Profile Info Card */}
         <View style={styles.profileCard}>
@@ -400,22 +402,24 @@ export default function ProfileScreen() {
                 {getSatisfactionText(profileStats.averageRating)}
               </Text>
               <Text style={styles.satisfactionPercentage}>
-                {Math.round((profileStats.averageRating / 5) * 100)}% memnuniyet
+                {profileStats.averageRating === 0 ? 'Değerlendirme bekleniyor' : `${Math.round((profileStats.averageRating / 5) * 100)}% memnuniyet`}
               </Text>
             </View>
           </View>
 
           {/* Rating Distribution */}
-          <View style={styles.distributionSection}>
-            <Text style={styles.distributionTitle}>Puan Dağılımı</Text>
-            <View style={styles.distributionBars}>
-              {renderRatingBar(5, profileStats.ratingDistribution[5])}
-              {renderRatingBar(4, profileStats.ratingDistribution[4])}
-              {renderRatingBar(3, profileStats.ratingDistribution[3])}
-              {renderRatingBar(2, profileStats.ratingDistribution[2])}
-              {renderRatingBar(1, profileStats.ratingDistribution[1])}
+          {profileStats.totalReviews > 0 && (
+            <View style={styles.distributionSection}>
+              <Text style={styles.distributionTitle}>Puan Dağılımı</Text>
+              <View style={styles.distributionBars}>
+                {renderRatingBar(5, profileStats.ratingDistribution[5])}
+                {renderRatingBar(4, profileStats.ratingDistribution[4])}
+                {renderRatingBar(3, profileStats.ratingDistribution[3])}
+                {renderRatingBar(2, profileStats.ratingDistribution[2])}
+                {renderRatingBar(1, profileStats.ratingDistribution[1])}
+              </View>
             </View>
-          </View>
+          )}
         </View>
 
         {/* Earnings Card */}
@@ -496,7 +500,10 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('WorkingHours' as never)}
+          >
             <Ionicons name="time" size={20} color={colors.primary} />
             <Text style={styles.actionButtonText}>Çalışma Saatleri</Text>
             <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
@@ -594,7 +601,7 @@ export default function ProfileScreen() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -638,7 +645,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.xxl,
+    flexGrow: 1,
   },
   
   // Profile Card

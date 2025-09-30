@@ -13,6 +13,7 @@ import { WalletScreen, FinancialTrackingScreen } from '@/features/wallet/screens
 import { SupportScreen } from '@/features/support/screens';
 import { CalendarScreen } from '@/features/appointments/screens';
 import { ProfileScreen, SettingsScreen } from '@/features/profile/screens';
+import WorkingHoursScreen from '@/features/profile/screens/WorkingHoursScreen';
 
 const Drawer = createDrawerNavigator<DrawerParamList>();
 
@@ -226,6 +227,7 @@ const DrawerNavigator = () => {
       <Drawer.Screen name="Wallet" component={WalletScreen} />
       <Drawer.Screen name="FinancialTracking" component={FinancialTrackingScreen} />
       <Drawer.Screen name="Profile" component={ProfileScreen} />
+      <Drawer.Screen name="WorkingHours" component={WorkingHoursScreen} />
       <Drawer.Screen name="Support" component={SupportScreen} />
       <Drawer.Screen name="Settings" component={SettingsScreen} />
     </Drawer.Navigator>
