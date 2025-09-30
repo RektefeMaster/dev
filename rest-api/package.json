@@ -43,7 +43,9 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.0",
     "ts-node": "^10.9.1",
-    "xss": "^1.0.14"
+    "xss": "^1.0.14",
+    "resend": "^3.0.0",
+    "nanoid": "^3.3.7"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

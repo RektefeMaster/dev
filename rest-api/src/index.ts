@@ -41,6 +41,8 @@ import faultReportRoutes from './routes/faultReport';
 import serviceRequestRoutes from './routes/serviceRequests';
 import emergencyTowingRoutes from './routes/emergencyTowing';
 import paymentRoutes from './routes/payment';
+import emailTestRoutes from './routes/emailTest';
+import emailTestPublicRoutes from './routes/emailTestPublic';
 
 // .env dosyasını yükle
 dotenv.config();
@@ -300,6 +302,8 @@ app.use('/api/fault-reports', faultReportRoutes);
 app.use('/api/service-requests', serviceRequestRoutes);
 app.use('/api/emergency', emergencyTowingRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/email-test', emailTestRoutes);
+app.use('/api/email-test-public', emailTestPublicRoutes);
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
