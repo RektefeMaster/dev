@@ -12,18 +12,24 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettings } from '@/shared/context/SettingsContext';
+import { useAuth } from '@/shared/context';
 import apiService from '@/shared/services/api';
 import { colors, typography, spacing, borderRadius, shadows } from '@/shared/theme';
 import { BackButton } from '@/shared/components';
 
 export default function SecurityScreen() {
   const { changePassword } = useSettings();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showChangeEmail, setShowChangeEmail] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
+  });
+  const [emailData, setEmailData] = useState({
+    newEmail: '',
   });
 
   const handleChangePassword = async () => {
@@ -163,6 +169,104 @@ export default function SecurityScreen() {
           </View>
         </View>
 
+        {/* E-posta Değiştir */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>E-posta Değiştir</Text>
+          <View style={styles.settingsCard}>
+            {!showChangeEmail ? (
+              <TouchableOpacity
+                style={styles.settingItem}
+                onPress={() => setShowChangeEmail(true)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.settingLeft}>
+                  <View style={styles.settingIconContainer}>
+                    <Ionicons name="mail" size={22} color={colors.primary.main} />
+                  </View>
+                  <View style={styles.settingContent}>
+                    <Text style={styles.settingTitle}>E-posta Değiştir</Text>
+                    <Text style={styles.settingSubtitle}>Mevcut: {user?.email}</Text>
+                  </View>
+                </View>
+                <View style={styles.chevronContainer}>
+                  <Ionicons name="chevron-forward" size={18} color={colors.text.tertiary} />
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.passwordForm}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Yeni E-posta</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="Yeni e-posta adresinizi girin"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    value={emailData.newEmail}
+                    onChangeText={(text) => setEmailData({ newEmail: text })}
+                    placeholderTextColor={colors.text.tertiary}
+                  />
+                </View>
+                
+                <View style={styles.buttonRow}>
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={() => {
+                      setShowChangeEmail(false);
+                      setEmailData({ newEmail: '' });
+                    }}
+                    activeOpacity={0.8}
+                    disabled={loading}
+                  >
+                    <Text style={styles.cancelButtonText}>İptal</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={styles.saveButton}
+                    onPress={async () => {
+                      if (!emailData.newEmail) {
+                        Alert.alert('Hata', 'Yeni e-posta adresini girin');
+                        return;
+                      }
+
+                      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                      if (!emailRegex.test(emailData.newEmail)) {
+                        Alert.alert('Hata', 'Geçerli bir e-posta adresi girin');
+                        return;
+                      }
+
+                      try {
+                        setLoading(true);
+                        const response = await apiService.changeEmail(emailData.newEmail);
+                        
+                        if (response.success) {
+                          Alert.alert(
+                            'Başarılı', 
+                            'Yeni e-posta adresinize onay linki gönderildi. Lütfen e-postanızı kontrol edin.'
+                          );
+                          setShowChangeEmail(false);
+                          setEmailData({ newEmail: '' });
+                        } else {
+                          Alert.alert('Hata', response.message || 'E-posta değiştirilemedi');
+                        }
+                      } catch (error: any) {
+                        Alert.alert('Hata', error.message || 'E-posta değiştirilirken hata oluştu');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    activeOpacity={0.8}
+                    disabled={loading}
+                  >
+                    <Text style={styles.saveButtonText}>
+                      {loading ? 'Gönderiliyor...' : 'Onay Linki Gönder'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+
         {/* Güvenlik İpuçları */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Güvenlik İpuçları</Text>
@@ -177,11 +281,11 @@ export default function SecurityScreen() {
             </View>
             <View style={styles.tipItem}>
               <Ionicons name="checkmark-circle" size={20} color={colors.primary.main} />
-              <Text style={styles.tipText}>Şifrenizi kimseyle paylaşmayın</Text>
+              <Text style={styles.tipText}>E-posta adresinizi güncel tutun</Text>
             </View>
             <View style={styles.tipItem}>
               <Ionicons name="checkmark-circle" size={20} color={colors.primary.main} />
-              <Text style={styles.tipText}>Farklı hesaplar için farklı şifreler kullanın</Text>
+              <Text style={styles.tipText}>Şüpheli aktiviteleri hemen bildirin</Text>
             </View>
           </View>
         </View>

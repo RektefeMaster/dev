@@ -504,6 +504,9 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Auth: undefined;
   Main: undefined;
+  EmailVerification: { email: string };
+  ForgotPassword: undefined;
+  ResetPassword: { token: string };
   Chat: { conversationId: string; otherParticipant: MechanicProfile };
   NewMessage: undefined;
   AppointmentDetail: { appointmentId: string };
@@ -529,7 +532,7 @@ export type RootStackParamList = {
   WashService: undefined;
   EmergencyNotification: undefined;
   TireService: undefined;
-  [key: string]: undefined | { conversationId: string; otherParticipant: MechanicProfile } | { appointmentId: string } | { faultReportId: string };
+  [key: string]: undefined | { conversationId: string; otherParticipant: MechanicProfile } | { appointmentId: string } | { faultReportId: string } | { email: string } | { token: string };
 };
 
 export type DrawerParamList = {

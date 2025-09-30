@@ -7,7 +7,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '@/constants/config';
 
 // Screens
-import { SplashScreen, OnboardingScreen, AuthScreen } from '@/features/auth/screens';
+import { 
+  SplashScreen, 
+  OnboardingScreen, 
+  AuthScreen,
+  EmailVerificationScreen,
+  ForgotPasswordScreen,
+  ResetPasswordScreen
+} from '@/features/auth/screens';
 import TabNavigator from './TabNavigator';
 import { ChatScreen, NewMessageScreen, MessagesScreen } from '@/features/messages/screens';
 import { AppointmentDetailScreen, CalendarScreen } from '@/features/appointments/screens';
@@ -96,6 +103,9 @@ const AppNavigator = () => {
       >
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         <Stack.Screen name="Auth" component={AuthScreen} />
+        <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
         <Stack.Screen name="Main" component={TabNavigator} />
         <Stack.Screen name="Chat" component={ChatScreen} />
         <Stack.Screen name="NewMessage" component={NewMessageScreen} />

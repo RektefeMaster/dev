@@ -1538,6 +1538,104 @@ class ApiService {
       return this.handleError(error);
     }
   }
+
+  // ===== EMAIL & PHONE VERIFICATION ENDPOINTS =====
+  
+  /**
+   * E-posta doğrulama kodu gönder
+   */
+  async sendEmailVerification(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.post('/auth/send-email-verification');
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * E-posta doğrulama kodunu kontrol et
+   */
+  async verifyEmail(code: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.post('/auth/verify-email', { code });
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Şifre sıfırlama e-postası gönder
+   */
+  async forgotPassword(email: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.post('/auth/forgot-password', { email });
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Şifreyi sıfırla (token ile)
+   */
+  async resetPassword(token: string, newPassword: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.post('/auth/reset-password', { token, newPassword });
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * E-posta değiştirme başlat
+   */
+  async changeEmail(newEmail: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.post('/users/change-email', { newEmail });
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * E-posta değişikliğini onayla
+   */
+  async confirmEmailChange(token: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.post('/users/confirm-email-change', { token });
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Telefon doğrulama kodu gönder
+   */
+  async sendPhoneVerification(phone: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.post('/users/send-phone-verification', { phone });
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Telefon doğrulama kodunu kontrol et
+   */
+  async verifyPhone(code: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.post('/users/verify-phone', { code });
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
 }
 
 export default new ApiService();

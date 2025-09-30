@@ -198,18 +198,8 @@ export default function AuthScreen() {
         });
         
         if (response.success) {
-          Alert.alert('Başarılı', 'Hesabınız oluşturuldu. Giriş yapabilirsiniz.');
-          setIsLogin(true);
-          setFormData({
-            email: '',
-            password: '',
-            confirmPassword: '',
-            name: '',
-            surname: '',
-            phone: '',
-          });
-          setSelectedCategories([]);
-          setUserLocation(null);
+          // Kayıt başarılı - E-posta doğrulama ekranına yönlendir
+          navigation.navigate('EmailVerification' as never, { email: formData.email } as never);
         } else {
           Alert.alert('Hata', response.message || 'Kayıt başarısız');
         }
@@ -406,7 +396,11 @@ export default function AuthScreen() {
 
             {/* Forgot Password */}
             {isLogin && (
-              <TouchableOpacity style={styles.forgotPasswordButton}>
+              <TouchableOpacity 
+                style={styles.forgotPasswordButton}
+                onPress={() => navigation.navigate('ForgotPassword' as never)}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.forgotPasswordText}>
                   Şifremi Unuttum
                 </Text>
