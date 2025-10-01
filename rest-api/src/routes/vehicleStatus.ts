@@ -16,7 +16,7 @@ const VehicleStatus = mongoose.models.VehicleStatus || mongoose.model('VehicleSt
 // Kullanıcıya ait araç durumunu getir
 router.get('/:userId', async (req: Request, res: Response) => {
   try {
-    const status = await VehicleStatus.findOne({ userId: req.params.userId });
+    const status = await (VehicleStatus as any).findOne({ userId: req.params.userId });
     if (!status) {
       return res.status(200).json(null);
     }

@@ -22,7 +22,7 @@ router.get('/', auth, async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Kullanıcı doğrulanamadı.' });
     }
     const userId = req.user.userId;
-    const records = await Maintenance.find({ userId });
+    const records = await (Maintenance as any).find({ userId });
     if (!records || records.length === 0) {
       return res.status(200).json([]);
     }

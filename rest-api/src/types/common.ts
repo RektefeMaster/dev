@@ -62,10 +62,16 @@ export interface MechanicResponse {
 }
 
 export interface LocationDetails {
-  address: string;
+  address?: string;
   city: string;
   district: string;
-  coordinates: {
+  neighborhood?: string;
+  street?: string;
+  building?: string;
+  floor?: string;
+  apartment?: string;
+  description?: string;
+  coordinates?: {
     latitude: number;
     longitude: number;
   };
@@ -77,6 +83,9 @@ export interface NotificationData {
   data?: any;
   userId: string;
   faultReportId?: string;
+  vehicleId?: string;
+  mechanicId?: string;
+  quoteAmount?: number;
   type: 'fault_report' | 'appointment' | 'message' | 'payment';
 }
 

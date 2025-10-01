@@ -202,8 +202,9 @@ export class ErrorHandler {
     // Log error for debugging (except client errors)
     if (statusCode >= 500) {
       console.error('Server Error:', {
-        error: error.message,
-        stack: error.stack,
+        errorCode,
+        message,
+        details,
         timestamp: new Date().toISOString()
       });
     }

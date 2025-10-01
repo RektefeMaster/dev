@@ -16,7 +16,7 @@ const TireStatus = mongoose.models.TireStatus || mongoose.model('TireStatus', ti
 // Kullanıcıya ait lastik servisi durumunu getir
 router.get('/:userId', async (req: Request, res: Response) => {
   try {
-    const status = await TireStatus.findOne({ userId: req.params.userId });
+    const status = await (TireStatus as any).findOne({ userId: req.params.userId });
     if (!status) {
       return res.status(200).json(null);
     }

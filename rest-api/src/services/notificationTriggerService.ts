@@ -42,7 +42,7 @@ export class NotificationTriggerService {
 
       await notification.save();
       // Push notification gönder
-      if (user.pushToken && settings?.push) {
+      if (user.pushToken && settings?.pushNotifications) {
         try {
           await sendPushNotification(user.pushToken, {
             title: notificationData.title,

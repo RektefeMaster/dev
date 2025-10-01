@@ -274,10 +274,14 @@ export class FaultReportService {
 
       // Add quote
       const newQuote: FaultQuote = {
-        mechanicId: new mongoose.Types.ObjectId(mechanicId) as any,
+        _id: new mongoose.Types.ObjectId().toString(),
+        faultReportId: faultReport._id.toString(),
+        mechanicId: new mongoose.Types.ObjectId(mechanicId).toString(),
         mechanicName: `${mechanic.name} ${mechanic.surname}`,
         mechanicPhone: mechanic.phone || '',
         quoteAmount: Number(quoteAmount),
+        price: Number(quoteAmount),
+        description: notes,
         estimatedDuration: Number(estimatedDuration),
         notes,
         status: 'pending',
@@ -318,9 +322,12 @@ export class FaultReportService {
 
       // Add response
       const response: MechanicResponse = {
-        mechanicId: new mongoose.Types.ObjectId(mechanicId) as any,
+        _id: new mongoose.Types.ObjectId().toString(),
+        faultReportId: faultReport._id.toString(),
+        mechanicId: new mongoose.Types.ObjectId(mechanicId).toString(),
         responseType,
         message: message || '',
+        status: 'pending',
         createdAt: new Date()
       };
 

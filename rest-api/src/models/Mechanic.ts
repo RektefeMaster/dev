@@ -12,8 +12,8 @@ export interface IMechanic extends IUser {
   totalServices: number; // Toplam yapılan iş sayısı
   isAvailable: boolean;
   currentLocation?: {
-    type: string;
-    coordinates: number[];
+    type: 'Point';
+    coordinates: [number, number];
   };
   documents: {
     insurance: string;

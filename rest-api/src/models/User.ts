@@ -44,8 +44,10 @@ export interface IUser extends Document {
   ratingCount?: number;
   totalServices?: number;
   isAvailable?: boolean;
-  // currentLocation: Sadece mechanic (usta) için kullanılır
-  // Driver (şöför) için bu alan kullanılmaz
+  currentLocation?: {
+    type: 'Point';
+    coordinates: [number, number];
+  };
   workingHours?: string; // JSON string olarak çalışma saatleri
   documents?: {
     insurance?: string;
@@ -271,8 +273,17 @@ const userSchema = new Schema<IUser>({
     type: Boolean,
     default: true
   },
-  // currentLocation: Sadece mechanic (usta) için kullanılır
-  // Driver (şöför) için bu alan kullanılmaz
+  currentLocation: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number],
+      default: [0, 0]
+    }
+  },
   workingHours: {
     type: String,
     default: ''

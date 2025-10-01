@@ -18,7 +18,7 @@ const Insurance = mongoose.models.Insurance || mongoose.model('Insurance', insur
 // Kullanıcıya ait sigorta bilgisini getir
 router.get('/:userId', async (req: Request, res: Response) => {
   try {
-    const info = await Insurance.findOne({ userId: req.params.userId });
+    const info = await (Insurance as any).findOne({ userId: req.params.userId });
     if (!info) {
       return res.status(200).json(null);
     }

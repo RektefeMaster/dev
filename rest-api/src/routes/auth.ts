@@ -4,6 +4,8 @@ import { validate } from '../middleware/validate';
 import { registerSchema, loginSchema } from '../validators/auth.validation';
 import { AuthController } from '../controllers/auth.controller';
 import { Request, Response } from 'express';
+import { User } from '../models/User';
+import bcrypt from 'bcryptjs';
 
 /**
  * @swagger
