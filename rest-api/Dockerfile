@@ -1,5 +1,5 @@
 # Production Dockerfile
-FROM node:18-alpine
+FROM node:20-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -7,18 +7,35 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install ALL dependencies (including devDependencies for build)
+RUN npm ci
 
 # Copy source code
 COPY . .
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
+# Build TypeScript
+RUN npm run build
 
-# Change ownership
-RUN chown -R nodejs:nodejs /app
+# Production stage
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install only production dependencies
+RUN npm ci --only=production
+
+# Copy built files from builder
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/healthcheck.js ./healthcheck.js
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001 && \
+    chown -R nodejs:nodejs /app
+
 USER nodejs
 
 # Expose port
