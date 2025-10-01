@@ -1,13 +1,16 @@
 {
   "name": "rektefe-monorepo",
   "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "rest-api",
+    "rektefe-dv",
+    "rektefe-us",
+    "shared"
+  ],
   "scripts": {
     "start": "cd rest-api && npm start",
     "build": "cd rest-api && npm run build",
     "install:all": "cd rest-api && npm ci"
-  },
-  "dependencies": {
-    "expo-print": "~14.0.3",
-    "gsap": "^3.13.0"
   }
 }
