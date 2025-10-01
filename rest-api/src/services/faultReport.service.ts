@@ -451,24 +451,8 @@ export class FaultReportService {
     try {
       const mechanics = await this.findNearbyMechanics(faultReport);
       
-      // Import notification service to avoid circular dependency
-      const { sendNotificationToUser } = await import('../index');
-      
-      for (const mechanic of mechanics) {
-        const notificationData: NotificationData = {
-          faultReportId: faultReport._id.toString(),
-          vehicleId: faultReport.vehicleId.toString(),
-          message: `Yeni arıza bildirimi: ${faultReport.serviceCategory}`
-        };
-
-        // Send real-time notification
-        sendNotificationToUser(mechanic._id.toString(), {
-          type: 'fault_report',
-          title: '🔧 Yeni Arıza Bildirimi',
-          message: `${faultReport.serviceCategory} kategorisinde yeni bir arıza bildirimi`,
-          data: notificationData
-        });
-      }
+      // TODO: Implement notification service
+      console.log(`Notifying ${mechanics.length} nearby mechanics about fault report ${faultReport._id}`);
 
     } catch (error) {
       // Don't throw error - notification failure shouldn't block fault report creation
@@ -521,23 +505,11 @@ export class FaultReportService {
    */
   private static async notifyUserAboutQuote(faultReport: any, quote: FaultQuote) {
     try {
-      const { sendNotificationToUser } = await import('../index');
-      
-      const notificationData: NotificationData = {
-        faultReportId: faultReport._id.toString(),
-        mechanicId: quote.mechanicId.toString(),
-        quoteAmount: quote.quoteAmount
-      };
-
-      sendNotificationToUser(faultReport.userId.toString(), {
-        type: 'quote_received',
-        title: '💰 Yeni Teklif Aldınız',
-        message: `${quote.mechanicName} - ₺${quote.quoteAmount}`,
-        data: notificationData
-      });
-
+      // TODO: Implement notification service
+      console.log(`User ${faultReport.userId} received quote from ${quote.mechanicName}: ${quote.quoteAmount} TL`);
     } catch (error) {
-      }
+      // Don't throw error - notification failure shouldn't block quote creation
+    }
   }
 
   /**
@@ -545,40 +517,11 @@ export class FaultReportService {
    */
   private static async notifyUserAboutResponse(faultReport: any, response: MechanicResponse) {
     try {
-      const { sendNotificationToUser } = await import('../index');
-      
-      const notificationData: NotificationData = {
-        faultReportId: faultReport._id.toString(),
-        mechanicId: response.mechanicId.toString()
-      };
-
-      const mechanic = await User.findById(response.mechanicId);
-      const mechanicName = mechanic ? `${mechanic.name} ${mechanic.surname}` : 'Usta';
-
-      let title = '📨 Usta Yanıtı';
-      let message = `${mechanicName} arıza bildiriminize yanıt verdi`;
-
-      switch (response.responseType) {
-        case 'not_available':
-          message = `${mechanicName} şu anda müsait değil`;
-          break;
-        case 'check_tomorrow':
-          message = `${mechanicName} yarın kontrol edecek`;
-          break;
-        case 'contact_me':
-          message = `${mechanicName} sizinle iletişime geçmek istiyor`;
-          break;
-      }
-
-      sendNotificationToUser(faultReport.userId.toString(), {
-        type: 'fault_report',
-        title,
-        message,
-        data: notificationData
-      });
-
+      // TODO: Implement notification service
+      console.log(`Mechanic ${response.mechanicId} responded to fault report ${faultReport._id}: ${response.responseType}`);
     } catch (error) {
-      }
+      // Don't throw error - notification failure shouldn't block response creation
+    }
   }
 
   /**
@@ -586,22 +529,11 @@ export class FaultReportService {
    */
   private static async notifyMechanicAboutSelection(faultReport: any, quote: any) {
     try {
-      const { sendNotificationToUser } = await import('../index');
-      
-      const notificationData: NotificationData = {
-        faultReportId: faultReport._id.toString(),
-        quoteAmount: quote.quoteAmount
-      };
-
-      sendNotificationToUser(quote.mechanicId.toString(), {
-        type: 'quote_received',
-        title: '🎉 Teklifiniz Kabul Edildi!',
-        message: `₺${quote.quoteAmount} tutarındaki teklifiniz kabul edildi`,
-        data: notificationData
-      });
-
+      // TODO: Implement notification service
+      console.log(`Quote ${quote._id} from mechanic ${quote.mechanicId} was selected for fault report ${faultReport._id}`);
     } catch (error) {
-      }
+      // Don't throw error - notification failure shouldn't block quote selection
+    }
   }
 }
 
