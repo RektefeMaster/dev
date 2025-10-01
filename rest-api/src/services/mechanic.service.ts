@@ -53,7 +53,6 @@ export class MechanicService {
           building: profileData.location.building || '',
           floor: profileData.location.floor || '',
           apartment: profileData.location.apartment || '',
-          description: profileData.location.description || '',
           coordinates: profileData.location.coordinates || {
             latitude: 0,
             longitude: 0
