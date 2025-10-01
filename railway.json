@@ -2,10 +2,11 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "watchPatterns": ["rest-api/**"]
+    "buildCommand": "npm ci && npm run build",
+    "watchPaths": ["rest-api/**"]
   },
   "deploy": {
-    "startCommand": "cd rest-api && npm start",
+    "startCommand": "npm start",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
