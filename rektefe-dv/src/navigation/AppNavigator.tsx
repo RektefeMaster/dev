@@ -180,7 +180,7 @@ const AppNavigator = () => {
     );
   }
 
-  // Auth/Onboarding/Main koşullu yönlendirme
+  // Auth/Onboarding/Main koşullu yönlendirme - Test için onboarding her zaman göster
   return (
     <NavigationContainer>
       <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
@@ -188,11 +188,8 @@ const AppNavigator = () => {
         {isAuthenticated ? (
           <Stack.Screen name="Main" component={TabNavigator} />
         ) : (
-          onboardingDone ? (
-            <Stack.Screen name="Auth" component={AuthScreen} />
-          ) : (
-            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-          )
+          // Test için onboarding her zaman göster
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         )}
 
         {/* Auth ekranını her zaman erişilebilir yap (duplicate olmaması için farklı isim) */}

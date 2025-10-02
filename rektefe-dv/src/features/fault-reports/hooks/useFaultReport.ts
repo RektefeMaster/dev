@@ -64,7 +64,7 @@ export const useFaultReport = () => {
       name: 'Tamir ve Bakım', 
       icon: 'wrench', 
       color: '#007AFF',
-      description: 'Genel bakım, ağır bakım, alt/üst takım, kaporta, elektrik, yedek parça, egzoz'
+      description: 'Genel bakım, ağır bakım, alt/üst takım, kaporta/boya, elektrik-elektronik, yedek parça, egzoz & emisyon'
     },
     { 
       id: 'Araç Yıkama', 
@@ -83,7 +83,7 @@ export const useFaultReport = () => {
     { 
       id: 'Çekici', 
       name: 'Çekici', 
-      icon: 'car-sport', 
+      icon: 'car', 
       color: '#FF3B30',
       description: 'Araç çekme hizmetleri'
     },

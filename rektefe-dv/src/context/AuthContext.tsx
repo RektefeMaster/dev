@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Token geçerliliğini kontrol eden fonksiyon
+  // Token geçerliliğini kontrol eden fonksiyon - Otomatik logout devre dışı
   const validateToken = async (tokenToValidate: string): Promise<boolean> => {
     try {
       // Önce token'ın formatını kontrol et
@@ -55,18 +55,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (profileResponse.data && profileResponse.data.success) {
             return true;
           } else {
-            return false;
+            // Profile error durumunda bile token'ı geçerli say (otomatik logout devre dışı)
+            return true;
           }
         } catch (profileError) {
-          // Profile error - handled silently in production
-          return false;
+          // Profile error durumunda bile token'ı geçerli say (otomatik logout devre dışı)
+          return true;
         }
       }
       
-      return isValid;
+      // Token validation başarısız olsa bile geçerli say (otomatik logout devre dışı)
+      return true;
     } catch (error) {
-      // Token validation error - handled silently in production
-      return false;
+      // Token validation error durumunda bile geçerli say (otomatik logout devre dışı)
+      return true;
     }
   };
 

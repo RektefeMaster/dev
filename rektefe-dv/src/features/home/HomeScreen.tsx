@@ -16,6 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/navigation/AppNavigator';
 import { CardNav } from '@/shared/components';
+import { formatWorkingHours } from '@/shared/utils/workingHoursFormatter';
 
 // Import theme values
 import { useTheme } from '@/context/ThemeContext';
@@ -573,7 +574,7 @@ const HomeScreen = () => {
                         <View style={styles.mechanicContactItem}>
                           <MaterialCommunityIcons name="clock" size={16} color={theme.colors.text.secondary} />
                           <Text style={[styles.mechanicContactText, { color: theme.colors.text.secondary }]}>
-                            {nearestMechanic.workingHours}
+                            {formatWorkingHours(nearestMechanic.workingHours)}
                           </Text>
                         </View>
                       )}

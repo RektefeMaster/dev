@@ -72,7 +72,7 @@ const MaintenancePlanScreen = () => {
     return unsubscribe;
   }, [navigation]);
 
-  // Servis tipleri (HomeScreen ile aynı 12 hizmet)
+  // Servis tipleri (HomeScreen ile aynı - Ekspertiz ve Sigorta & Kasko kaldırıldı)
   const serviceTypes = [
     { id: 'agir-bakim', name: 'Ağır Bakım', icon: 'wrench' },
     { id: 'genel-bakim', name: 'Genel Bakım', icon: 'tools' },
@@ -83,8 +83,6 @@ const MaintenancePlanScreen = () => {
     { id: 'yedek-parca', name: 'Yedek Parça', icon: 'car-wash' },
     { id: 'lastik', name: 'Lastik Servisi', icon: 'tire' },
     { id: 'egzoz-emisyon', name: 'Egzoz & Emisyon', icon: 'smoke' },
-    { id: 'ekspertiz', name: 'Ekspertiz', icon: 'magnify' },
-    { id: 'sigorta-kasko', name: 'Sigorta & Kasko', icon: 'shield-check' },
     { id: 'arac-yikama', name: 'Araç Yıkama', icon: 'car-wash' },
   ];
 
@@ -166,21 +164,44 @@ const MaintenancePlanScreen = () => {
           // Araç markasını bul
           const selectedVehicleObj = vehicles.find((v: any) => v._id === selectedVehicle);
           const brand = selectedVehicleObj ? selectedVehicleObj.brand : '';
-          // Seçilen servisin backend'deki ismini bul
-          const serviceName = serviceTypes.find(s => s.id === selectedService)?.name || selectedService;
+          
+          // Frontend hizmet kategorilerini backend formatına çevir
+          const serviceCategoryMapping: { [key: string]: string } = {
+            'agir-bakim': 'Genel Bakım',
+            'genel-bakim': 'Genel Bakım', 
+            'alt-takim': 'Genel Bakım',
+            'ust-takim': 'Genel Bakım',
+            'kaporta-boya': 'Genel Bakım',
+            'elektrik-elektronik': 'Genel Bakım',
+            'yedek-parca': 'Genel Bakım',
+            'egzoz-emisyon': 'Genel Bakım',
+            'lastik': 'repair', // Lastik servisi için repair kullan
+            'arac-yikama': 'wash' // Araç yıkama için wash kullan
+          };
+          
+          const backendServiceCategory = serviceCategoryMapping[selectedService] || 'Genel Bakım';
+          
+          console.log('🔍 MaintenancePlanScreen: Seçilen hizmet:', selectedService);
+          console.log('🔍 MaintenancePlanScreen: Backend kategori:', backendServiceCategory);
+          console.log('🔍 MaintenancePlanScreen: Araç markası:', brand);
           
           const response = await axios.get(`${API_URL}/mechanic-services/mechanics`, {
-            params: { serviceCategory: serviceName, vehicleBrand: brand },
+            params: { serviceCategory: backendServiceCategory, vehicleBrand: brand },
             headers: { Authorization: `Bearer ${token}` },
           });
+          
+          console.log('🔍 MaintenancePlanScreen: Usta listesi yanıtı:', response.data);
           
           // API response formatı kontrol et
           if (response.data && response.data.success && response.data.data) {
             setMasters(response.data.data);
+            console.log('✅ MaintenancePlanScreen: Usta sayısı:', response.data.data.length);
           } else {
             setMasters([]);
+            console.log('⚠️ MaintenancePlanScreen: Usta bulunamadı');
           }
         } catch (error) {
+          console.error('❌ MaintenancePlanScreen: Usta getirme hatası:', error);
           setMasters([]);
         } finally {
           setLoadingMasters(false);

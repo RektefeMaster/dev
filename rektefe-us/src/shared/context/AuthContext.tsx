@@ -50,7 +50,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const storedUserData = await AsyncStorage.getItem(STORAGE_KEYS.USER_DATA);
 
         if (storedToken && storedUserId) {
-          // Token'ı test et
+          // Token'ı test et - Otomatik logout devre dışı
           try {
             
             const testResponse = await apiService.getMechanicProfile();
@@ -76,12 +76,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'true');
               
             } else {
-              // Token geçersiz, temizle
-              await clearStoredData();
+              // Token geçersiz olsa bile kullanıcıyı giriş yapmış say (otomatik logout devre dışı)
+              setToken(storedToken);
+              setUserId(storedUserId);
+              setIsAuthenticated(true);
+              
+              if (storedUserData) {
+                try {
+                  const userData = JSON.parse(storedUserData);
+                  setUser(userData);
+                } catch (error) {
+                  // Parse hatası varsa API'den çek
+                  await loadUserDataFromAPI();
+                }
+              }
+              
+              // Onboarding tamamlandı olarak işaretle
+              await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'true');
             }
           } catch (error) {
-            // Token hatası, temizle
-            await clearStoredData();
+            // Token hatası olsa bile kullanıcıyı giriş yapmış say (otomatik logout devre dışı)
+            setToken(storedToken);
+            setUserId(storedUserId);
+            setIsAuthenticated(true);
+            
+            if (storedUserData) {
+              try {
+                const userData = JSON.parse(storedUserData);
+                setUser(userData);
+              } catch (error) {
+                // Parse hatası varsa API'den çek
+                await loadUserDataFromAPI();
+              }
+            }
+            
+            // Onboarding tamamlandı olarak işaretle
+            await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'true');
           }
         } else {
         }

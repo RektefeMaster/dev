@@ -56,7 +56,7 @@ const FaultReportSchema: Schema = new Schema({
   serviceCategory: { 
     type: String, 
     required: true,
-    enum: ['Ağır Bakım', 'Üst Takım', 'Alt Takım', 'Kaporta/Boya', 'Elektrik-Elektronik', 'Yedek Parça', 'Lastik', 'Egzoz & Emisyon', 'Ekspertiz', 'Sigorta & Kasko', 'Araç Yıkama', 'Genel Bakım', 'Çekici', 'repair', 'tire', 'wash', 'towing']
+    enum: ['Ağır Bakım', 'Üst Takım', 'Alt Takım', 'Kaporta/Boya', 'Elektrik-Elektronik', 'Yedek Parça', 'Lastik', 'Egzoz & Emisyon', 'Araç Yıkama', 'Genel Bakım', 'Çekici', 'repair', 'tire', 'wash', 'towing']
   },
   faultDescription: { type: String, required: true, maxlength: 1000 },
   photos: [{ type: String }], // Cloudinary URL'leri

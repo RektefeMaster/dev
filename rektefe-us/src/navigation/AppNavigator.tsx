@@ -57,12 +57,9 @@ const AppNavigator = () => {
       const onboardingCompleted = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETED);
       const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
 
-      if (onboardingCompleted === 'true') {
-        if (token) {
-          setInitialRoute('Main');
-        } else {
-          setInitialRoute('Auth');
-        }
+      // Test için onboarding her zaman göster
+      if (token) {
+        setInitialRoute('Main');
       } else {
         setInitialRoute('Onboarding');
       }
@@ -84,6 +81,7 @@ const AppNavigator = () => {
     return (
       <NavigationContainer ref={navigationRef}>
         <Stack.Navigator
+          id={undefined}
           initialRouteName="Auth"
           screenOptions={{ headerShown: false }}
         >
@@ -96,6 +94,7 @@ const AppNavigator = () => {
   return (
     <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
+        id={undefined}
         initialRouteName={initialRoute}
         screenOptions={{
           headerShown: false,

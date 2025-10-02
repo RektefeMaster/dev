@@ -175,8 +175,6 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
     { id: 'yedek-parca', title: 'Yedek Parça', icon: 'car-wash', color: '#5856D6' },
     { id: 'lastik', title: 'Lastik Servisi', icon: 'tire', color: '#FF6B35' },
     { id: 'egzoz-emisyon', title: 'Egzoz & Emisyon', icon: 'smoke', color: '#8E8E93' },
-    { id: 'ekspertiz', title: 'Ekspertiz', icon: 'magnify', color: '#5AC8FA' },
-    { id: 'sigorta-kasko', title: 'Sigorta & Kasko', icon: 'shield-check', color: '#4CD964' },
     { id: 'arac-yikama', title: 'Araç Yıkama', icon: 'car-wash', color: '#007AFF' },
   ];
 

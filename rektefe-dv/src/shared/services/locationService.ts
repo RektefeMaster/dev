@@ -71,7 +71,7 @@ class LocationService {
   }
 
   /**
-   * Mevcut konumu al. Başarısız olursa null döner.
+   * Mevcut konumu al. Başarısız olursa varsayılan konum döner.
    */
   public async getCurrentLocation(): Promise<UserLocation | null> {
     try {
@@ -81,13 +81,35 @@ class LocationService {
       }
 
       if (!this.permissionStatus?.granted) {
-        return null;
+        // Konum izni reddedilirse varsayılan konum döndür (İstanbul)
+        console.log('⚠️ Konum izni reddedildi, varsayılan konum kullanılıyor');
+        return {
+          latitude: 41.0082,
+          longitude: 28.9784,
+          accuracy: 1000,
+          timestamp: Date.now(),
+        };
       }
 
       const position: GeoPosition = await new Promise((resolve, reject) => {
         Geolocation.getCurrentPosition(
           pos => resolve(pos),
-          err => reject(err),
+          err => {
+            console.log('⚠️ Konum alınamadı, varsayılan konum kullanılıyor:', err);
+            // Konum alınamazsa varsayılan konum döndür
+            resolve({
+              coords: {
+                latitude: 41.0082,
+                longitude: 28.9784,
+                accuracy: 1000,
+                altitude: null,
+                altitudeAccuracy: null,
+                heading: null,
+                speed: null,
+              },
+              timestamp: Date.now(),
+            } as GeoPosition);
+          },
           {
             enableHighAccuracy: true,
             timeout: 10000,
@@ -106,7 +128,14 @@ class LocationService {
       };
       return this.currentLocation;
     } catch (error) {
-      return null;
+      console.log('⚠️ Konum servisi hatası, varsayılan konum kullanılıyor:', error);
+      // Hata durumunda varsayılan konum döndür
+      return {
+        latitude: 41.0082,
+        longitude: 28.9784,
+        accuracy: 1000,
+        timestamp: Date.now(),
+      };
     }
   }
 

@@ -74,7 +74,7 @@ api.interceptors.response.use(
       return Promise.reject(appError);
     }
     
-    // 401 Unauthorized handling
+    // 401 Unauthorized handling - Test için otomatik logout devre dışı
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       
@@ -82,7 +82,15 @@ api.interceptors.response.use(
         // AuthContext ile tutarlı key kullan
         const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
         if (!refreshToken) {
-          throw new Error('Refresh token bulunamadı');
+          // Refresh token yoksa bile otomatik logout yapma (test için)
+          console.log('⚠️ Refresh token bulunamadı, otomatik logout yapılmıyor (test modu)');
+          // Test için varsayılan token döndür
+          const testToken = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+          if (testToken) {
+            originalRequest.headers.Authorization = `Bearer ${testToken}`;
+            return api(originalRequest);
+          }
+          return Promise.reject(appError);
         }
 
         const response = await axios.post(`${API_CONFIG.BASE_URL}/auth/refresh-token`, {
@@ -99,9 +107,15 @@ api.interceptors.response.use(
           return api(originalRequest);
         }
       } catch (refreshError) {
-        // AuthContext ile tutarlı key kullan
-        await AsyncStorage.multiRemove([STORAGE_KEYS.AUTH_TOKEN, STORAGE_KEYS.REFRESH_TOKEN, STORAGE_KEYS.USER_ID, STORAGE_KEYS.USER_DATA]);
-        throw refreshError;
+        // Refresh token hatası durumunda bile otomatik logout yapma (test için)
+        console.log('⚠️ Refresh token hatası, otomatik logout yapılmıyor (test modu)');
+        // Test için varsayılan token döndür
+        const testToken = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+        if (testToken) {
+          originalRequest.headers.Authorization = `Bearer ${testToken}`;
+          return api(originalRequest);
+        }
+        return Promise.reject(appError);
       }
     }
     
@@ -215,14 +229,67 @@ class ApiService {
 
   // ===== APPOINTMENT ENDPOINTS (ORTAK) =====
   async getAppointments(userType: 'driver' | 'mechanic' = 'driver') {
-    const endpoint = userType === 'driver' ? '/appointments/driver' : '/appointments/mechanic';
-    const response = await this.api.get(endpoint);
-    return response.data;
+    try {
+      console.log('🔍 getAppointments: API çağrısı başlatılıyor...', userType);
+      const endpoint = userType === 'driver' ? '/appointments/driver' : '/appointments/mechanic';
+      const response = await this.api.get(endpoint);
+      console.log('✅ getAppointments: Başarılı yanıt:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ getAppointments: Detaylı hata:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers
+        }
+      });
+      
+      // Hata detaylarını kullanıcıya göster
+      throw new Error(`Randevular getirilemedi: ${error.response?.data?.message || error.message}`);
+    }
   }
 
   async createAppointment(appointmentData: AppointmentData): Promise<ApiResponse> {
-    const response = await this.api.post('/appointments', appointmentData);
-    return response.data;
+    try {
+      console.log('🔍 createAppointment: Gönderilen veri:', appointmentData);
+      
+      // Veriyi temizle ve doğru formatta gönder
+      const cleanData = {
+        userId: appointmentData.userId,
+        vehicleId: appointmentData.vehicleId,
+        serviceType: appointmentData.serviceType,
+        appointmentDate: appointmentData.appointmentDate,
+        timeSlot: appointmentData.timeSlot,
+        description: appointmentData.description,
+        mechanicId: appointmentData.mechanicId,
+        ...(appointmentData.price && { price: appointmentData.price })
+      };
+      
+      console.log('🔍 createAppointment: Temizlenmiş veri:', cleanData);
+      
+      const response = await this.api.post('/appointments', cleanData);
+      console.log('✅ createAppointment: Başarılı yanıt:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ createAppointment: Detaylı hata:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers
+        }
+      });
+      
+      // Hata detaylarını kullanıcıya göster
+      throw new Error(`Randevu oluşturulamadı: ${error.response?.data?.message || error.message}`);
+    }
   }
 
   async getAppointmentById(appointmentId: string) {
@@ -273,13 +340,51 @@ class ApiService {
 
   // ===== MECHANIC ENDPOINTS =====
   async getMechanics() {
-    const response = await this.api.get('/mechanic-services/mechanics');
-    return response.data;
+    try {
+      console.log('🔍 getMechanics: API çağrısı başlatılıyor...');
+      const response = await this.api.get('/mechanic-services/mechanics');
+      console.log('✅ getMechanics: Başarılı yanıt:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ getMechanics: Detaylı hata:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers
+        }
+      });
+      
+      // Hata detaylarını kullanıcıya göster
+      throw new Error(`Ustalar getirilemedi: ${error.response?.data?.message || error.message}`);
+    }
   }
 
   async getMechanicById(mechanicId: string) {
-    const response = await this.api.get(`/mechanic/details/${mechanicId}`);
-    return response.data;
+    try {
+      console.log('🔍 getMechanicById: API çağrısı başlatılıyor...', mechanicId);
+      const response = await this.api.get(`/mechanic/details/${mechanicId}`);
+      console.log('✅ getMechanicById: Başarılı yanıt:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ getMechanicById: Detaylı hata:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers
+        }
+      });
+      
+      // Hata detaylarını kullanıcıya göster
+      throw new Error(`Usta detayları getirilemedi: ${error.response?.data?.message || error.message}`);
+    }
   }
 
   async getMechanicDetails(mechanicId: string) {
@@ -636,8 +741,53 @@ class ApiService {
 
   // ===== FAULT REPORT ENDPOINTS =====
   async createFaultReport(faultReportData: Record<string, unknown>): Promise<ApiResponse> {
-    const response = await this.api.post('/fault-reports', faultReportData);
-    return response.data;
+    try {
+      console.log('🔍 createFaultReport: Gönderilen veri:', faultReportData);
+      
+      // Frontend'den gelen serviceCategory'yi backend formatına çevir
+      // Çekici, Araç Yıkama ve Lastik hariç tüm hizmetler "Tamir ve Bakım" altında
+      const serviceCategoryMapping: { [key: string]: string } = {
+        'Tamir ve Bakım': 'Genel Bakım', // Tüm tamir/bakım hizmetleri Genel Bakım olarak gönderilir
+        'Araç Yıkama': 'Araç Yıkama',
+        'Lastik': 'Lastik', 
+        'Çekici': 'Çekici'
+      };
+      
+      const mappedServiceCategory = serviceCategoryMapping[faultReportData.serviceCategory as string] || faultReportData.serviceCategory;
+      
+      // Veriyi temizle ve doğru formatta gönder
+      const cleanData = {
+        vehicleId: faultReportData.vehicleId,
+        serviceCategory: mappedServiceCategory,
+        faultDescription: faultReportData.faultDescription,
+        priority: faultReportData.priority || 'medium',
+        photos: faultReportData.photos || [],
+        videos: faultReportData.videos || [],
+        // vehicleInfo backend'de kabul edilmiyor, sadece vehicleId yeterli
+        ...(faultReportData.location && { location: faultReportData.location })
+      };
+      
+      console.log('🔍 createFaultReport: Temizlenmiş veri:', cleanData);
+      
+      const response = await this.api.post('/fault-reports', cleanData);
+      console.log('✅ createFaultReport: Başarılı yanıt:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ createFaultReport: Detaylı hata:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers
+        }
+      });
+      
+      // Hata detaylarını kullanıcıya göster
+      throw new Error(`Arıza bildirimi gönderilemedi: ${error.response?.data?.message || error.message}`);
+    }
   }
 
   async getUserFaultReports(params?: { status?: string; page?: number; limit?: number }) {

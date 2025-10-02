@@ -147,6 +147,7 @@ export interface VehicleData {
 
 // Randevu verileri
 export interface AppointmentData {
+  userId: string;
   mechanicId: string;
   vehicleId: string;
   serviceType: string;
@@ -155,6 +156,7 @@ export interface AppointmentData {
   description?: string;
   location?: Location;
   estimatedCost?: number;
+  price?: number;
 }
 
 // Mesaj verileri

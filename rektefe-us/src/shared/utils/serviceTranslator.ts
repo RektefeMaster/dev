@@ -27,8 +27,6 @@ export const serviceNameMapping: { [key: string]: string } = {
   'yedek-parca': 'Yedek Parça',
   'lastik': 'Lastik Servisi',
   'egzoz': 'Egzoz',
-  'ekspertiz': 'Ekspertiz',
-  'sigorta': 'Sigorta',
   'arac-yikama': 'Araç Yıkama',
   'fren': 'Fren Sistemi',
   'fren-sistemi': 'Fren Sistemi',

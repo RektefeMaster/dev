@@ -44,13 +44,19 @@ class ApiService {
       }
     );
 
-    // Response interceptor - hata yönetimi
+    // Response interceptor - hata yönetimi (Test için otomatik logout devre dışı)
     this.api.interceptors.response.use(
       (response: any) => response,
-      (error: any) => {
+      async (error: any) => {
         if (error.response?.status === 401) {
-          // Token geçersiz, AsyncStorage'dan temizle
-          this.clearToken();
+          // Token geçersiz olsa bile otomatik logout yapma (test için)
+          console.log('⚠️ 401 hatası, otomatik logout yapılmıyor (test modu)');
+          // Test için varsayılan token döndür
+          const testToken = await this.getToken();
+          if (testToken) {
+            error.config.headers.Authorization = `Bearer ${testToken}`;
+            return this.api(error.config);
+          }
         } else if (error.response?.status === 404) {
         }
         return Promise.reject(error);

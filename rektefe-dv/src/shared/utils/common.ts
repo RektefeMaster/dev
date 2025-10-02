@@ -59,10 +59,10 @@ export const truncateText = (text: string, maxLength: number): string => {
 
 // Async storage key'leri
 export const STORAGE_KEYS = {
-  AUTH_TOKEN: 'auth_token',
-  REFRESH_TOKEN: 'refresh_token',
-  USER_ID: 'user_id',
-  USER_DATA: 'user_data',
+  AUTH_TOKEN: 'authToken',
+  REFRESH_TOKEN: 'refreshToken',
+  USER_ID: 'userId',
+  USER_DATA: 'userData',
   THEME: 'app_theme',
 } as const;
 

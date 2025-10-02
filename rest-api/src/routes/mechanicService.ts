@@ -666,24 +666,6 @@ router.delete('/:id', auth, async (req: Request, res: Response) => {
 router.get('/mechanics', async (req: Request, res: Response) => {
   try {
     const { serviceCategory, vehicleBrand, city, isAvailable } = req.query;
-    const filter: any = {};
-    const orConditions = [];
-    
-    if (serviceCategory) {
-      orConditions.push({ serviceCategories: serviceCategory });
-      orConditions.push({ serviceCategories: 'Tümü' });
-    }
-    if (vehicleBrand) {
-      orConditions.push({ vehicleBrands: vehicleBrand });
-      orConditions.push({ vehicleBrands: 'Genel' });
-      orConditions.push({ vehicleBrands: 'Tüm Markalar' });
-    }
-    if (city) filter['location.city'] = city;
-    if (isAvailable !== undefined) filter.isAvailable = isAvailable === 'true';
-    
-    if (orConditions.length > 0) {
-      filter.$or = orConditions;
-    }
     
     // MechanicService.getAllMechanics() kullanarak koordinat bilgilerini ekle
     const allMechanics = await MechanicService.getAllMechanics();
@@ -700,9 +682,9 @@ router.get('/mechanics', async (req: Request, res: Response) => {
     
     if (vehicleBrand) {
       filteredMechanics = filteredMechanics.filter(mechanic => 
-        mechanic.vehicleBrands?.includes(vehicleBrand as string) || 
-        mechanic.vehicleBrands?.includes('Genel') ||
-        mechanic.vehicleBrands?.includes('Tüm Markalar')
+        mechanic.carBrands?.includes(vehicleBrand as string) || 
+        mechanic.carBrands?.includes('Genel') ||
+        mechanic.carBrands?.includes('Tüm Markalar')
       );
     }
     

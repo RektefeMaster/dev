@@ -473,7 +473,7 @@ const GarageScreen = () => {
                       {/* Marka Seçimi */}
                       <View style={styles.inputGroup}>
                         <View style={styles.inputHeader}>
-                          <MaterialCommunityIcons name="car-sport" size={20} color="#007AFF" />
+                          <MaterialCommunityIcons name="car" size={20} color="#007AFF" />
                           <Text style={styles.inputLabel}>Marka</Text>
                         </View>
                         <DropDownPicker
