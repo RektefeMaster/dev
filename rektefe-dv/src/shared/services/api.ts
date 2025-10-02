@@ -12,10 +12,88 @@ import {
   Mechanic
 } from '@/shared/types/common';
 import { handleApiError } from '@/shared/utils/errorHandler';
+import { 
+  isTokenExpired, 
+  shouldRefreshToken, 
+  isTokenValid,
+  getTokenUserInfo 
+} from '@/shared/utils/tokenUtils';
 
 if (!API_CONFIG.BASE_URL) {
   throw new Error('API_URL tanımsız!');
 }
+
+// Token yenileme fonksiyonu
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value: any) => void;
+  reject: (error: any) => void;
+}> = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(({ resolve, reject }) => {
+    if (error) {
+      reject(error);
+    } else {
+      resolve(token);
+    }
+  });
+  
+  failedQueue = [];
+};
+
+const refreshTokenIfNeeded = async (): Promise<string | null> => {
+  if (isRefreshing) {
+    return new Promise((resolve, reject) => {
+      failedQueue.push({ resolve, reject });
+    });
+  }
+
+  isRefreshing = true;
+
+  try {
+    const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+    if (!refreshToken) {
+      console.log('⚠️ Refresh token bulunamadı');
+      processQueue(new Error('Refresh token bulunamadı'), null);
+      return null;
+    }
+
+    console.log('🔄 Token yenileme başlatılıyor...');
+    const response = await axios.post(`${API_CONFIG.BASE_URL}/auth/refresh-token`, {
+      refreshToken
+    });
+
+    if (response.data && response.data.success && response.data.token) {
+      const newToken = response.data.token;
+      const newRefreshToken = response.data.refreshToken || refreshToken;
+
+      // Yeni token'ları kaydet
+      await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, newToken);
+      await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
+
+      console.log('✅ Token başarıyla yenilendi');
+      processQueue(null, newToken);
+      return newToken;
+    } else {
+      throw new Error('Token yenileme başarısız');
+    }
+  } catch (error) {
+    console.error('❌ Token yenileme hatası:', error);
+    
+    // Token yenileme başarısızsa tüm token'ları temizle
+    await AsyncStorage.multiRemove([
+      STORAGE_KEYS.AUTH_TOKEN,
+      STORAGE_KEYS.REFRESH_TOKEN,
+      STORAGE_KEYS.USER_ID
+    ]);
+    
+    processQueue(error, null);
+    return null;
+  } finally {
+    isRefreshing = false;
+  }
+};
 
 const api = axios.create({
   baseURL: API_CONFIG.BASE_URL, // Use config instead of hardcoded URL
@@ -35,13 +113,32 @@ api.interceptors.request.use(
       
       if (token) {
         // Token validation kontrolü
-        if (typeof token === 'string' && token.trim().length > 0) {
-          config.headers.Authorization = `Bearer ${token}`;
-          console.log('✅ Request interceptor: Token eklendi, uzunluk:', token.length);
+        if (isTokenValid(token)) {
+          // Token geçerli, ancak yenilenmesi gerekip gerekmediğini kontrol et
+          if (shouldRefreshToken(token)) {
+            console.log('🔄 Token yenilenmesi gerekiyor, yenileme başlatılıyor...');
+            try {
+              const newToken = await refreshTokenIfNeeded();
+              if (newToken) {
+                config.headers.Authorization = `Bearer ${newToken}`;
+                console.log('✅ Token yenilendi ve eklendi');
+              } else {
+                config.headers.Authorization = `Bearer ${token}`;
+                console.log('⚠️ Token yenilenemedi, mevcut token kullanılıyor');
+              }
+            } catch (refreshError) {
+              console.error('❌ Token yenileme hatası:', refreshError);
+              config.headers.Authorization = `Bearer ${token}`;
+            }
+          } else {
+            config.headers.Authorization = `Bearer ${token}`;
+            console.log('✅ Request interceptor: Token eklendi, uzunluk:', token.length);
+          }
         } else {
           // Geçersiz token'ı temizle
           console.log('⚠️ Request interceptor: Geçersiz token temizleniyor');
           await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+          await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
         }
       } else {
         console.log('⚠️ Request interceptor: Token bulunamadı');
@@ -74,47 +171,28 @@ api.interceptors.response.use(
       return Promise.reject(appError);
     }
     
-    // 401 Unauthorized handling - Test için otomatik logout devre dışı
+    // 401 Unauthorized handling - Gerçek logout mekanizması
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       
       try {
-        // AuthContext ile tutarlı key kullan
-        const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
-        if (!refreshToken) {
-          // Refresh token yoksa bile otomatik logout yapma (test için)
-          console.log('⚠️ Refresh token bulunamadı, otomatik logout yapılmıyor (test modu)');
-          // Test için varsayılan token döndür
-          const testToken = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-          if (testToken) {
-            originalRequest.headers.Authorization = `Bearer ${testToken}`;
-            return api(originalRequest);
-          }
+        // Token yenileme dene
+        const newToken = await refreshTokenIfNeeded();
+        
+        if (newToken) {
+          // Yeni token ile isteği tekrar gönder
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return api(originalRequest);
+        } else {
+          // Token yenilenemedi, logout yap
+          console.log('🚪 Token yenilenemedi, otomatik logout yapılıyor...');
+          await performLogout();
           return Promise.reject(appError);
         }
-
-        const response = await axios.post(`${API_CONFIG.BASE_URL}/auth/refresh-token`, {
-          refreshToken
-        });
-
-        if (response.data.token) {
-          // AuthContext ile tutarlı key kullan
-          await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, response.data.token);
-          if (response.data.refreshToken) {
-            await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, response.data.refreshToken);
-          }
-          originalRequest.headers.Authorization = `Bearer ${response.data.token}`;
-          return api(originalRequest);
-        }
       } catch (refreshError) {
-        // Refresh token hatası durumunda bile otomatik logout yapma (test için)
-        console.log('⚠️ Refresh token hatası, otomatik logout yapılmıyor (test modu)');
-        // Test için varsayılan token döndür
-        const testToken = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-        if (testToken) {
-          originalRequest.headers.Authorization = `Bearer ${testToken}`;
-          return api(originalRequest);
-        }
+        console.error('❌ Token yenileme hatası:', refreshError);
+        // Token yenileme başarısız, logout yap
+        await performLogout();
         return Promise.reject(appError);
       }
     }
@@ -126,6 +204,26 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Logout fonksiyonu
+const performLogout = async () => {
+  try {
+    console.log('🚪 Otomatik logout başlatılıyor...');
+    
+    // Tüm auth verilerini temizle
+    await AsyncStorage.multiRemove([
+      STORAGE_KEYS.AUTH_TOKEN,
+      STORAGE_KEYS.REFRESH_TOKEN,
+      STORAGE_KEYS.USER_ID
+    ]);
+    
+    // AuthContext'i güncelle (eğer mevcut ise)
+    // Bu kısım AuthContext'ten çağrılacak
+    console.log('✅ Logout tamamlandı');
+  } catch (error) {
+    console.error('❌ Logout hatası:', error);
+  }
+};
 
 // Profil fotoğrafı güncelleme (sadece backend'e yükleme)
 export const updateProfilePhoto = async (uri: string) => {

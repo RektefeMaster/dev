@@ -5,6 +5,7 @@ import axios from 'axios';
 import { API_URL } from '@/constants/config';
 import { api } from '@/shared/services/api';
 import { Driver, RegisterData } from '@/shared/types/common';
+import { isTokenValid, isTokenExpired, getTokenUserInfo } from '@/shared/utils/tokenUtils';
 
 interface AuthContextType {
   token: string | null;
@@ -31,11 +32,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Token geçerliliğini kontrol eden fonksiyon - Otomatik logout devre dışı
+  // Token geçerliliğini kontrol eden fonksiyon - Gerçek validation
   const validateToken = async (tokenToValidate: string): Promise<boolean> => {
     try {
       // Önce token'ın formatını kontrol et
-      if (!tokenToValidate || tokenToValidate.trim().length === 0) {
+      if (!isTokenValid(tokenToValidate)) {
+        console.log('❌ Token formatı geçersiz veya süresi dolmuş');
+        return false;
+      }
+
+      // Token'ın süresi dolmuş mu kontrol et
+      if (isTokenExpired(tokenToValidate)) {
+        console.log('❌ Token süresi dolmuş');
         return false;
       }
       
@@ -45,30 +53,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
       
       const isValid = response.data && response.data.success;
-      // Eğer token geçerliyse, kullanıcı profilini de kontrol et
-      if (isValid) {
-        try {
-          const profileResponse = await axios.get(`${API_URL}/users/profile`, {
-            headers: { Authorization: `Bearer ${tokenToValidate}` }
-          });
-          
-          if (profileResponse.data && profileResponse.data.success) {
-            return true;
-          } else {
-            // Profile error durumunda bile token'ı geçerli say (otomatik logout devre dışı)
-            return true;
-          }
-        } catch (profileError) {
-          // Profile error durumunda bile token'ı geçerli say (otomatik logout devre dışı)
+      if (!isValid) {
+        console.log('❌ Backend token validation başarısız');
+        return false;
+      }
+
+      // Kullanıcı profilini de kontrol et
+      try {
+        const profileResponse = await axios.get(`${API_URL}/users/profile`, {
+          headers: { Authorization: `Bearer ${tokenToValidate}` }
+        });
+        
+        if (profileResponse.data && profileResponse.data.success) {
+          console.log('✅ Token ve profil validation başarılı');
           return true;
+        } else {
+          console.log('❌ Profil validation başarısız');
+          return false;
         }
+      } catch (profileError) {
+        console.log('❌ Profil validation hatası:', profileError);
+        return false;
       }
       
-      // Token validation başarısız olsa bile geçerli say (otomatik logout devre dışı)
-      return true;
     } catch (error) {
-      // Token validation error durumunda bile geçerli say (otomatik logout devre dışı)
-      return true;
+      console.log('❌ Token validation hatası:', error);
+      return false;
     }
   };
 
@@ -81,7 +91,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const storedUserId = await AsyncStorage.getItem(STORAGE_KEYS.USER_ID);
         
         // Token validation kontrolü
-        if (storedToken && typeof storedToken === 'string' && storedToken.trim().length > 0 && storedUserId) {
+        if (storedToken && storedUserId) {
           // Token'ın geçerli olup olmadığını kontrol et
           const isValidToken = await validateToken(storedToken);
           
@@ -89,18 +99,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setToken(storedToken);
             setUserId(storedUserId);
             setIsAuthenticated(true);
-            } else {
+            console.log('✅ AuthContext: Token geçerli, kullanıcı giriş yapıldı');
+          } else {
             // Geçersiz token'ı temizle
+            console.log('❌ AuthContext: Token geçersiz, temizleniyor');
             await AsyncStorage.multiRemove([
               STORAGE_KEYS.AUTH_TOKEN,
+              STORAGE_KEYS.REFRESH_TOKEN,
               STORAGE_KEYS.USER_ID
             ]);
             setToken(null);
             setUserId(null);
             setIsAuthenticated(false);
-            }
+          }
         } else {
-          // Geçersiz token'ı temizle
+          // Token veya userId yoksa temizle
+          console.log('⚠️ AuthContext: Token veya userId bulunamadı');
           if (storedToken) {
             await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
           }
@@ -216,6 +230,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     try {
+      console.log('🚪 AuthContext: Logout başlatılıyor...');
+      
       // Önce state'i temizle
       setToken(null);
       setUserId(null);
@@ -225,11 +241,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Sonra AsyncStorage'ı temizle - onboarding'i de temizle ki tekrar onboarding'e dönsün
       await AsyncStorage.multiRemove([
         STORAGE_KEYS.AUTH_TOKEN,
+        STORAGE_KEYS.REFRESH_TOKEN,
         STORAGE_KEYS.USER_ID,
         STORAGE_KEYS.ONBOARDING_COMPLETED
       ]);
       
+      console.log('✅ AuthContext: Logout tamamlandı');
     } catch (error) {
+      console.error('❌ AuthContext: Logout hatası:', error);
       // Hata olsa bile state'i temizle
       setToken(null);
       setUserId(null);
