@@ -127,6 +127,7 @@ export interface IUser extends Document {
     createdAt: Date;
   }>;
   suppliers?: Array<{
+    _id?: mongoose.Types.ObjectId;
     name: string;
     phone: string;
     email?: string;
@@ -144,6 +145,7 @@ export interface IUser extends Document {
     date: Date;
   }>;
   maintenanceReminders?: Array<{
+    _id?: mongoose.Types.ObjectId;
     vehicleId: string;
     type: 'mileage' | 'date' | 'both';
     targetMileage?: number;

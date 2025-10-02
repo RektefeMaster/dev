@@ -538,7 +538,8 @@ export type RootStackParamList = {
   Reports: undefined;
   EndOfDay: undefined;
   Suppliers: undefined;
-  [key: string]: undefined | { conversationId: string; otherParticipant: MechanicProfile } | { appointmentId: string } | { faultReportId: string } | { email: string } | { token: string };
+  VehicleHistory: { vehicleId: string; vehicle: any };
+  [key: string]: undefined | { conversationId: string; otherParticipant: MechanicProfile } | { appointmentId: string } | { faultReportId: string } | { email: string } | { token: string } | { vehicleId: string; vehicle: any };
 };
 
 export type DrawerParamList = {

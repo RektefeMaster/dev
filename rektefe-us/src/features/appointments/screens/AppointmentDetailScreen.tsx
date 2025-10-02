@@ -40,6 +40,11 @@ export default function AppointmentDetailScreen() {
   const [statusNotes, setStatusNotes] = useState('');
   const [availableStatuses, setAvailableStatuses] = useState<string[]>([]);
   const [loyaltyInfo, setLoyaltyInfo] = useState<any>(null);
+  const [showReferralModal, setShowReferralModal] = useState(false);
+  const [selectedMechanic, setSelectedMechanic] = useState<any>(null);
+  const [referralReason, setReferralReason] = useState('');
+  const [trustedMechanics, setTrustedMechanics] = useState<any[]>([]);
+  const [loadingMechanics, setLoadingMechanics] = useState(false);
 
   useEffect(() => {
     fetchAppointmentDetails();
@@ -54,6 +59,23 @@ export default function AppointmentDetailScreen() {
       }
     } catch (error) {
       console.error('Status fetch error:', error);
+    }
+  };
+
+  const fetchTrustedMechanics = async () => {
+    try {
+      setLoadingMechanics(true);
+      const response = await apiService.getTrustedMechanics();
+      if (response.success && response.data) {
+        setTrustedMechanics(response.data);
+      } else {
+        Alert.alert('Hata', response.message || 'Güvenilir ustalar yüklenirken bir hata oluştu.');
+      }
+    } catch (error: any) {
+      console.error('Trusted mechanics fetch error:', error);
+      Alert.alert('Hata', 'Güvenilir ustalar yüklenirken bir hata oluştu.');
+    } finally {
+      setLoadingMechanics(false);
     }
   };
 
@@ -163,6 +185,39 @@ export default function AppointmentDetailScreen() {
 
   const openStatusModal = () => {
     setShowStatusModal(true);
+  };
+
+  const handleJobReferral = async () => {
+    if (!selectedMechanic || !referralReason.trim() || !appointment) return;
+
+    try {
+      setProcessing(true);
+      const response = await apiService.referJob({
+        appointmentId: appointmentId,
+        toMechanicId: selectedMechanic._id,
+        reason: referralReason.trim()
+      });
+      
+      if (response.success) {
+        Alert.alert('Başarılı', 'İş başarıyla yönlendirildi.');
+        setShowReferralModal(false);
+        setSelectedMechanic(null);
+        setReferralReason('');
+        fetchAppointmentDetails();
+      } else {
+        Alert.alert('Hata', response.message || 'İş yönlendirilirken bir hata oluştu.');
+      }
+    } catch (error: any) {
+      console.error('Job referral error:', error);
+      Alert.alert('Hata', 'İş yönlendirilirken bir hata oluştu.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const openReferralModal = () => {
+    setShowReferralModal(true);
+    fetchTrustedMechanics();
   };
 
   const getStatusDisplayName = (status: string) => {
@@ -435,6 +490,13 @@ export default function AppointmentDetailScreen() {
               style={[styles.actionButton, { backgroundColor: colors.primary }] as any}
               textStyle={styles.actionButtonText}
             />
+            <Button
+              title="İş Yönlendir"
+              onPress={openReferralModal}
+              loading={processing}
+              style={[styles.actionButton, { backgroundColor: colors.warning }] as any}
+              textStyle={styles.actionButtonText}
+            />
           </View>
         )}
       </ScrollView>
@@ -540,6 +602,101 @@ export default function AppointmentDetailScreen() {
               >
                 <Text style={styles.modalButtonPrimaryText}>
                   {processing ? 'Güncelleniyor...' : 'Güncelle'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Job Referral Modal */}
+      <Modal
+        visible={showReferralModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowReferralModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>İş Yönlendir</Text>
+            
+            {/* Mechanic Selection */}
+            <View style={styles.mechanicSelection}>
+              <Text style={styles.mechanicSelectionLabel}>Güvenilir Usta Seçin:</Text>
+              {loadingMechanics ? (
+                <View style={styles.loadingContainer}>
+                  <LoadingSpinner />
+                  <Text style={styles.loadingText}>Ustalar yükleniyor...</Text>
+                </View>
+              ) : (
+                <ScrollView style={styles.mechanicScroll} showsVerticalScrollIndicator={false}>
+                  {trustedMechanics.map((mechanic) => (
+                    <TouchableOpacity
+                      key={mechanic._id}
+                      style={[
+                        styles.mechanicOption,
+                        selectedMechanic?._id === mechanic._id && styles.mechanicOptionSelected,
+                        { backgroundColor: selectedMechanic?._id === mechanic._id ? colors.primary : colors.background.secondary }
+                      ]}
+                      onPress={() => setSelectedMechanic(mechanic)}
+                    >
+                      <View style={styles.mechanicInfo}>
+                        <Text style={[
+                          styles.mechanicName,
+                          { color: selectedMechanic?._id === mechanic._id ? colors.text.inverse : colors.text.primary }
+                        ]}>
+                          {mechanic.name} {mechanic.surname}
+                        </Text>
+                        <Text style={[
+                          styles.mechanicShop,
+                          { color: selectedMechanic?._id === mechanic._id ? colors.text.inverse : colors.text.secondary }
+                        ]}>
+                          {mechanic.shopName}
+                        </Text>
+                        {mechanic.specialties && mechanic.specialties.length > 0 && (
+                          <View style={styles.specialtiesContainer}>
+                            {mechanic.specialties.slice(0, 3).map((specialty: string, index: number) => (
+                              <View key={index} style={styles.specialtyBadge}>
+                                <Text style={styles.specialtyText}>{specialty}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+
+            {/* Reason */}
+            <View style={styles.reasonSection}>
+              <Text style={styles.reasonLabel}>Yönlendirme Sebebi:</Text>
+              <TextInput
+                style={styles.reasonInput}
+                placeholder="Neden bu ustaya yönlendiriyorsunuz?"
+                value={referralReason}
+                onChangeText={setReferralReason}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => setShowReferralModal(false)}
+              >
+                <Text style={styles.modalButtonText}>İptal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonPrimary]}
+                onPress={handleJobReferral}
+                disabled={processing || !selectedMechanic || !referralReason.trim()}
+              >
+                <Text style={styles.modalButtonPrimaryText}>
+                  {processing ? 'Yönlendiriliyor...' : 'Yönlendir'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -866,6 +1023,76 @@ const createStyles = (colors: any) => StyleSheet.create({
     color: colors.warning.main,
     fontWeight: '500',
     marginBottom: spacing.xs,
+  },
+  // Job Referral Modal Styles
+  mechanicSelection: {
+    marginBottom: spacing.lg,
+  },
+  mechanicSelectionLabel: {
+    fontSize: typography.body2.fontSize,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  mechanicScroll: {
+    maxHeight: 200,
+  },
+  mechanicOption: {
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
+  },
+  mechanicOptionSelected: {
+    borderColor: colors.primary.main,
+  },
+  mechanicInfo: {
+    flex: 1,
+  },
+  mechanicName: {
+    fontSize: typography.body1.fontSize,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  mechanicShop: {
+    fontSize: typography.body2.fontSize,
+    marginBottom: spacing.sm,
+  },
+  specialtiesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  specialtyBadge: {
+    backgroundColor: colors.info.ultraLight,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  specialtyText: {
+    fontSize: typography.caption.small.fontSize,
+    color: colors.info.main,
+  },
+  reasonSection: {
+    marginBottom: spacing.lg,
+  },
+  reasonLabel: {
+    fontSize: typography.body2.fontSize,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  reasonInput: {
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    fontSize: typography.body2.fontSize,
+    color: colors.text.primary,
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
 });
 

@@ -272,7 +272,7 @@ router.get('/history', auth, async (req: Request, res: Response) => {
     // Yönlendirme geçmişini getir
     const referrals = await Appointment.find(query)
       .populate('userId', 'name surname phone')
-      .populate('mechanicId', 'name surname shopName')
+      .populate('mechanicId', 'shopName')
       .sort({ 'referralInfo.timestamp': -1 })
       .skip(skip)
       .limit(limit);
@@ -294,9 +294,9 @@ router.get('/history', auth, async (req: Request, res: Response) => {
         referrals: referrals.map(ref => ({
           id: ref._id,
           customer: {
-            name: ref.userId?.name,
-            surname: ref.userId?.surname,
-            phone: ref.userId?.phone
+            name: (ref.userId as any)?.name,
+            surname: (ref.userId as any)?.surname,
+            phone: (ref.userId as any)?.phone
           },
           fromMechanic: ref.referralInfo?.referredBy ? {
             id: ref.referralInfo.referredBy,
@@ -305,7 +305,7 @@ router.get('/history', auth, async (req: Request, res: Response) => {
           toMechanic: {
             id: ref.referralInfo?.referredTo,
             name: ref.referralInfo?.referredTo === mechanicId ? 'Siz' : 'Diğer Usta',
-            shopName: ref.mechanicId?.shopName
+            shopName: (ref.mechanicId as any)?.shopName
           },
           reason: ref.referralInfo?.reason,
           timestamp: ref.referralInfo?.timestamp,

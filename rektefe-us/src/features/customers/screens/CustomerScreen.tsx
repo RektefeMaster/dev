@@ -72,7 +72,7 @@ export default function CustomerScreen() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [customerDetails, setCustomerDetails] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
-  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [loyaltyInfo, setLoyaltyInfo] = useState<any>(null);
 
   const fetchCustomers = useCallback(async () => {
@@ -477,7 +477,25 @@ export default function CustomerScreen() {
 
                   {/* Recent Jobs */}
                   <View style={styles.vehiclesCard}>
-                    <Text style={styles.cardTitle}>Son İşler</Text>
+                    <View style={styles.cardHeader}>
+                      <Text style={styles.cardTitle}>Son İşler</Text>
+                      <TouchableOpacity 
+                        style={styles.viewAllButton}
+                        onPress={() => {
+                          // Araç geçmişi ekranına git
+                          if (customerDetails.customer.vehicles && customerDetails.customer.vehicles.length > 0) {
+                            const vehicle = customerDetails.customer.vehicles[0]; // İlk araç
+                            (navigation as any).navigate('VehicleHistory', { 
+                              vehicleId: vehicle._id, 
+                              vehicle: vehicle 
+                            });
+                          }
+                        }}
+                      >
+                        <Text style={styles.viewAllButtonText}>Araç Geçmişi</Text>
+                        <Ionicons name="chevron-forward" size={16} color={colors.primary.main} />
+                      </TouchableOpacity>
+                    </View>
                     {customerDetails.jobs && customerDetails.jobs.length > 0 ? (
                       customerDetails.jobs.slice(0, 5).map((job: any) => (
                         <View key={job._id} style={styles.vehicleItem}>
@@ -877,11 +895,26 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     ...shadows.medium,
   },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
   cardTitle: {
     fontSize: typography.h3.fontSize,
     fontWeight: typography.h3.fontWeight,
     color: colors.text.primary,
-    marginBottom: spacing.md,
+  },
+  viewAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  viewAllButtonText: {
+    fontSize: typography.caption.large.fontSize,
+    fontWeight: '600',
+    color: colors.primary.main,
   },
   vehicleItem: {
     paddingVertical: spacing.sm,

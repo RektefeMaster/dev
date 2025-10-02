@@ -174,6 +174,7 @@ router.post('/', auth, async (req: Request, res: Response) => {
 
     // Yeni tedarikçi objesi oluştur
     const newSupplier = {
+      _id: new Types.ObjectId(),
       name: name.trim(),
       phone: phone.trim(),
       email: email?.trim() || '',

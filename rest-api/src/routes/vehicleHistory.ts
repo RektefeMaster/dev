@@ -99,7 +99,7 @@ router.get('/:vehicleId', auth, async (req: Request, res: Response) => {
           date: apt.appointmentDate,
           serviceType: apt.serviceType,
           price: apt.price,
-          customer: `${apt.userId?.name} ${apt.userId?.surname}`,
+          customer: `${(apt.userId as any)?.name} ${(apt.userId as any)?.surname}`,
           description: apt.description
         })),
         stats: {
@@ -409,6 +409,7 @@ router.post('/:vehicleId/reminders', auth, async (req: Request, res: Response) =
 
     // Yeni hatırlatma oluştur
     const newReminder = {
+      _id: new Types.ObjectId(),
       vehicleId,
       type,
       targetMileage: targetMileage ? parseInt(targetMileage) : undefined,

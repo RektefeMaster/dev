@@ -137,16 +137,15 @@ router.get('/report', auth, async (req: Request, res: Response) => {
       }
     ]);
 
-    // Değerlendirme sayısı
-    const ratings = await Appointment.find({
-      mechanicId: new Types.ObjectId(mechanicId),
-      status: 'TAMAMLANDI',
-      appointmentDate: { $gte: startOfDay, $lte: endOfDay },
-      rating: { $exists: true, $ne: null }
+    // Değerlendirme sayısı - AppointmentRating modelinden al
+    const { AppointmentRating } = await import('../models/AppointmentRating');
+    const completedJobIds = completedJobs.map(job => job._id);
+    const ratings = await AppointmentRating.find({
+      appointmentId: { $in: completedJobIds }
     });
 
     const averageRating = ratings.length > 0 
-      ? ratings.reduce((sum, job) => sum + (job.rating || 0), 0) / ratings.length 
+      ? ratings.reduce((sum, rating) => sum + rating.rating, 0) / ratings.length 
       : 0;
 
     // Rapor objesi oluştur
@@ -168,14 +167,18 @@ router.get('/report', auth, async (req: Request, res: Response) => {
         };
         return acc;
       }, {} as any),
-      completedJobs: completedJobs.map(job => ({
-        id: job._id,
-        customerName: `${job.userId?.name} ${job.userId?.surname}`,
-        serviceType: job.serviceType,
-        price: job.price,
-        appointmentDate: job.appointmentDate,
-        rating: job.rating
-      })),
+      completedJobs: completedJobs.map(job => {
+        // Bu iş için rating'i bul
+        const jobRating = ratings.find(r => r.appointmentId.toString() === job._id.toString());
+        return {
+          id: job._id,
+          customerName: `${(job.userId as any)?.name} ${(job.userId as any)?.surname}`,
+          serviceType: job.serviceType,
+          price: job.price,
+          appointmentDate: job.appointmentDate,
+          rating: jobRating?.rating || null
+        };
+      }),
       achievements: []
     };
 

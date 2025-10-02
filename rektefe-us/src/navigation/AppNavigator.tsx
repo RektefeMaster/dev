@@ -239,6 +239,13 @@ const AppNavigator = () => {
             headerShown: false,
           }}
         />
+        <Stack.Screen 
+          name="VehicleHistory" 
+          component={VehicleHistoryScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
