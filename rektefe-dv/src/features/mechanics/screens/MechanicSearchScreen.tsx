@@ -66,7 +66,12 @@ const MechanicSearchScreen: React.FC<NavigationProps> = ({ navigation, route }) 
   );
 
   const handleMechanicPress = (mechanic: MechanicSearchResult) => {
+    console.log('🔍 MechanicSearchScreen handleMechanicPress: Fonksiyon çağrıldı');
+    console.log('🔍 Mechanic data:', mechanic);
+    
     navigation.navigate('MechanicDetail' as never, { mechanic } as never);
+    
+    console.log('✅ MechanicSearchScreen: Navigation çağrısı yapıldı');
   };
 
   const handleCallMechanic = async (mechanic: MechanicSearchResult) => {

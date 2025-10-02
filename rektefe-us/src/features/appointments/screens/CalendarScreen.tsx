@@ -29,6 +29,7 @@ export default function CalendarScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentWeek, setCurrentWeek] = useState(0);
+  const [viewMode, setViewMode] = useState<'list'>('list');
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -47,7 +48,108 @@ export default function CalendarScreen() {
           : Array.isArray((response.data as any)?.appointments) 
             ? (response.data as any).appointments 
             : [];
-        setAppointments(appointments);
+        
+        // Test verisi ekle (geliştirme için)
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
+        const dayAfterTomorrow = new Date(today);
+        dayAfterTomorrow.setDate(today.getDate() + 2);
+        
+        const testAppointments: Appointment[] = [
+          {
+            _id: 'test1',
+            appointmentDate: today.toISOString(),
+            timeSlot: '09:00',
+            serviceType: 'Motor Bakımı',
+            status: 'confirmed',
+            mechanicId: 'mech1',
+            userId: 'user1',
+            description: 'Motor bakımı ve yağ değişimi',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            customer: { 
+              _id: 'c1', 
+              name: 'Ahmet', 
+              surname: 'Yılmaz', 
+              email: 'ahmet@test.com', 
+              phone: '05551234567' 
+            },
+            vehicle: { 
+              _id: 'v1', 
+              brand: 'Toyota', 
+              modelName: 'Corolla', 
+              year: 2020, 
+              plateNumber: '34ABC123', 
+              fuelType: 'Benzin', 
+              engineType: '1.6', 
+              transmission: 'Manuel',
+              package: 'Comfort'
+            }
+          },
+          {
+            _id: 'test2',
+            appointmentDate: tomorrow.toISOString(),
+            timeSlot: '14:00',
+            serviceType: 'Fren Balata Değişimi',
+            status: 'pending',
+            mechanicId: 'mech1',
+            userId: 'user2',
+            description: 'Fren balata ve disk değişimi',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            customer: { 
+              _id: 'c2', 
+              name: 'Mehmet', 
+              surname: 'Kaya', 
+              email: 'mehmet@test.com', 
+              phone: '05551234568' 
+            },
+            vehicle: { 
+              _id: 'v2', 
+              brand: 'Honda', 
+              modelName: 'Civic', 
+              year: 2019, 
+              plateNumber: '34DEF456', 
+              fuelType: 'Benzin', 
+              engineType: '1.5', 
+              transmission: 'Otomatik',
+              package: 'Sport'
+            }
+          },
+          {
+            _id: 'test3',
+            appointmentDate: dayAfterTomorrow.toISOString(),
+            timeSlot: '11:30',
+            serviceType: 'Lastik Değişimi',
+            status: 'completed',
+            mechanicId: 'mech1',
+            userId: 'user3',
+            description: '4 lastik değişimi ve balans ayarı',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            customer: { 
+              _id: 'c3', 
+              name: 'Ayşe', 
+              surname: 'Demir', 
+              email: 'ayse@test.com', 
+              phone: '05551234569' 
+            },
+            vehicle: { 
+              _id: 'v3', 
+              brand: 'Ford', 
+              modelName: 'Focus', 
+              year: 2021, 
+              plateNumber: '34GHI789', 
+              fuelType: 'Benzin', 
+              engineType: '1.0', 
+              transmission: 'Manuel',
+              package: 'Trend'
+            }
+          }
+        ];
+        
+        setAppointments([...appointments, ...testAppointments]);
       } else {
         setAppointments([]);
       }
@@ -85,31 +187,49 @@ export default function CalendarScreen() {
   const getDayAppointments = (date: Date) => {
     return appointments.filter(appointment => {
       const appointmentDate = new Date(appointment.appointmentDate);
-      return appointmentDate.toDateString() === date.toDateString();
+      // Tarih karşılaştırmasını düzelt
+      const appointmentDateOnly = new Date(appointmentDate.getFullYear(), appointmentDate.getMonth(), appointmentDate.getDate());
+      const targetDateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      return appointmentDateOnly.getTime() === targetDateOnly.getTime();
     });
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return colors.warning;
-      case 'confirmed': return colors.success;
-      case 'rejected': return colors.error;
-      case 'in-progress': return colors.primary;
-      case 'completed': return colors.secondary;
-      case 'cancelled': return colors.text.tertiary;
-      default: return colors.text.tertiary;
+      case 'pending': return '#F59E0B'; // Turuncu - Onay Bekleyen
+      case 'confirmed': return '#3B82F6'; // Mavi - Onaylanmış Randevu
+      case 'rejected': return '#EF4444'; // Kırmızı - Reddedildi
+      case 'in-progress': return '#8B5CF6'; // Mor - Serviste
+      case 'completed': return '#10B981'; // Yeşil - Tamamlanmış ve Ödemesi Alınmış
+      case 'cancelled': return '#6B7280'; // Gri - İptal Edilmiş
+      case 'payment-pending': return '#F59E0B'; // Turuncu - Ödeme Bekleyen
+      default: return '#6B7280'; // Gri - Bilinmiyor
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'pending': return 'Bekliyor';
-      case 'confirmed': return 'Onaylandı';
+      case 'pending': return 'Onay Bekleyen';
+      case 'confirmed': return 'Onaylanmış';
       case 'rejected': return 'Reddedildi';
-      case 'in-progress': return 'Devam Ediyor';
+      case 'in-progress': return 'Serviste';
       case 'completed': return 'Tamamlandı';
       case 'cancelled': return 'İptal Edildi';
+      case 'payment-pending': return 'Ödeme Bekleyen';
       default: return status;
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending': return 'time-outline';
+      case 'confirmed': return 'checkmark-circle-outline';
+      case 'rejected': return 'close-circle-outline';
+      case 'in-progress': return 'construct-outline';
+      case 'completed': return 'checkmark-done-outline';
+      case 'cancelled': return 'close-outline';
+      case 'payment-pending': return 'card-outline';
+      default: return 'help-outline';
     }
   };
 
@@ -339,19 +459,19 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderBottomColor: colors.border.primary,
   },
   navButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.background.primary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border.secondary,
     shadowColor: colors.shadow.dark,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   weekInfo: {
     flex: 1,
@@ -426,12 +546,18 @@ const createStyles = (colors: any) => StyleSheet.create({
   appointmentItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
+    padding: spacing.lg,
     marginBottom: spacing.sm,
     backgroundColor: colors.background.primary,
-    borderRadius: borderRadius.sm,
-    borderLeftWidth: 3,
+    borderRadius: borderRadius.md,
+    borderLeftWidth: 4,
     borderLeftColor: colors.primary,
+    shadowColor: colors.shadow.dark,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    minHeight: 72,
   },
   appointmentTime: {
     marginRight: spacing.md,
@@ -478,6 +604,27 @@ const createStyles = (colors: any) => StyleSheet.create({
   emptyText: {
     fontSize: typography.body3.fontSize,
     color: colors.text.tertiary,
+  },
+
+  // Grid View Styles
+  viewModeButtons: {
+    flexDirection: 'row',
+    marginBottom: spacing.sm,
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.sm,
+    padding: 2,
+  },
+  viewModeButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.sm,
+    minWidth: 48,
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activeViewMode: {
+    backgroundColor: colors.primary,
   },
 });
 

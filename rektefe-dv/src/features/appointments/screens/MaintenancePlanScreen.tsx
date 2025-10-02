@@ -54,20 +54,32 @@ const MaintenancePlanScreen = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
-  // Ekrana her girildiğinde state'leri sıfırla
+  // Ekrana her girildiğinde state'leri sıfırla - SADECE İLK GİRİŞTE
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      setStep(1);
-      setSelectedService('');
-      setSelectedVehicle('');
-      setSelectedDate('');
-      setSelectedTime('');
-      setNotes('');
-      setSharePhone(false);
-      setAvailableSlots([]);
-      setShowCalendar(false);
-      setCurrentMonth(new Date());
-      setSelectedDay(null);
+      // Sadece hiçbir seçim yapılmamışsa sıfırla
+      const hasAnySelection = 
+        step > 1 || 
+        selectedService !== '' || 
+        selectedVehicle !== '' || 
+        selectedDate !== '' || 
+        selectedTime !== '' || 
+        notes !== '' || 
+        sharePhone !== false;
+      
+      if (!hasAnySelection) {
+        setStep(1);
+        setSelectedService('');
+        setSelectedVehicle('');
+        setSelectedDate('');
+        setSelectedTime('');
+        setNotes('');
+        setSharePhone(false);
+        setAvailableSlots([]);
+        setShowCalendar(false);
+        setCurrentMonth(new Date());
+        setSelectedDay(null);
+      }
     });
     return unsubscribe;
   }, [navigation]);
@@ -175,7 +187,7 @@ const MaintenancePlanScreen = () => {
             'elektrik-elektronik': 'Genel Bakım',
             'yedek-parca': 'Genel Bakım',
             'egzoz-emisyon': 'Genel Bakım',
-            'lastik': 'repair', // Lastik servisi için repair kullan
+            'lastik': 'tamir', // Lastik servisi için tamir kullan
             'arac-yikama': 'wash' // Araç yıkama için wash kullan
           };
           
@@ -222,15 +234,38 @@ const MaintenancePlanScreen = () => {
       // Yerel saat diliminde tarih oluştur
       const appointmentDateTime = new Date(year, month - 1, day, hours, minutes);
       
+      // timeSlot formatını düzelt (HH:MM-HH:MM formatına çevir)
+      const [startHour, startMinute] = selectedTime.split(':').map(Number);
+      const endTime = new Date(year, month - 1, day, startHour + 1, startMinute);
+      const endTimeString = `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`;
+      const formattedTimeSlot = `${selectedTime}-${endTimeString}`;
+      
+      // Service type'ı backend formatına çevir
+      const serviceTypeMapping: { [key: string]: string } = {
+        'agir-bakim': 'Ağır Bakım',
+        'genel-bakim': 'Genel Bakım',
+        'alt-takim': 'Alt Takım Bakımı',
+        'ust-takim': 'Üst Takım Bakımı',
+        'kaporta-boya': 'Kaporta & Boya',
+        'elektrik-elektronik': 'Elektrik-Elektronik',
+        'yedek-parca': 'Yedek Parça Değişimi',
+        'lastik': 'Lastik Servisi',
+        'egzoz-emisyon': 'Egzoz & Emisyon',
+        'arac-yikama': 'Araç Yıkama',
+      };
+      
+      const backendServiceType = serviceTypeMapping[selectedService] || selectedService;
+      
       const appointmentData = {
-        userId: userId, // Backend'de gerekli
         vehicleId: selectedVehicle,
-        serviceType: selectedService,
+        serviceType: backendServiceType,
         appointmentDate: appointmentDateTime.toISOString(),
-        timeSlot: selectedTime, // Backend'de timeSlot olarak bekleniyor
-        description: notes, // Backend'de description olarak bekleniyor
+        timeSlot: formattedTimeSlot,
+        description: notes || 'Bakım randevusu',
         mechanicId: selectedMaster,
       };
+
+      console.log('📤 MaintenancePlanScreen: Gönderilen veri:', appointmentData);
 
       const response = await axios.post(
         `${API_URL}/appointments`,
@@ -240,20 +275,29 @@ const MaintenancePlanScreen = () => {
         }
       );
 
-      Alert.alert(
-        '🎉 Randevu Başarıyla Oluşturuldu!',
-        'Randevunuz başarıyla oluşturuldu.\n\n💡 Randevunuzu "Randevular" kısmında takip edebilirsiniz.',
-        [
-          {
-            text: 'Ana Sayfaya Git',
-            onPress: () => {
-              navigation.navigate('Main', { screen: 'MainTabs' });
+      console.log('📥 MaintenancePlanScreen: Backend yanıtı:', response.data);
+
+      if (response.data && response.data.success) {
+        Alert.alert(
+          '🎉 Randevu Başarıyla Oluşturuldu!',
+          'Randevunuz başarıyla oluşturuldu.\n\n💡 Randevunuzu "Randevular" kısmında takip edebilirsiniz.',
+          [
+            {
+              text: 'Ana Sayfaya Git',
+              onPress: () => {
+                navigation.navigate('Main', { screen: 'MainTabs' });
+              },
             },
-          },
-        ]
-      );
+          ]
+        );
+      } else {
+        Alert.alert('Hata', response.data?.message || 'Randevu oluşturulamadı');
+      }
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Randevu oluşturulurken bir hata oluştu';
+      console.error('❌ MaintenancePlanScreen: Randevu oluşturma hatası:', error);
+      console.error('❌ MaintenancePlanScreen: Hata detayı:', error.response?.data);
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Randevu oluşturulurken bir hata oluştu';
       Alert.alert('Hata', errorMessage);
     } finally {
       setLoading(false);
@@ -284,8 +328,20 @@ const MaintenancePlanScreen = () => {
     }
   };
 
-  // Geri butonuna basınca uyarı göster (sadece seçim yapıldıysa)
+  // Geri butonuna basınca normal çalışsın (sadece step'i azalt)
   const handleBackButton = () => {
+    if (step > 1) {
+      setStep(step - 1);
+    } else {
+      // İlk adımdaysa ana sayfaya git
+      navigation.canGoBack()
+        ? navigation.goBack()
+        : navigation.navigate('Main', { screen: 'Home' });
+    }
+  };
+
+  // İptal butonuna basınca uyarı göster
+  const handleCancelButton = () => {
     const hasSelection =
       step > 1 ||
       selectedVehicle !== '' ||
@@ -304,7 +360,7 @@ const MaintenancePlanScreen = () => {
     }
 
     Alert.alert(
-      'Bakım Planı Yarıda Kalacak',
+      'Bakım Planı İptal Edilecek',
       'Çıkarsanız bakım planı sıfırlanacaktır. Emin misiniz?',
       [
         {
@@ -327,10 +383,8 @@ const MaintenancePlanScreen = () => {
             setShowCalendar(false);
             setCurrentMonth(new Date());
             setSelectedDay(null);
-            // Çıkış
-            navigation.canGoBack()
-              ? navigation.goBack()
-              : navigation.navigate('Main', { screen: 'Home' });
+            // Ana sayfaya git
+            navigation.navigate('Main', { screen: 'Home' });
           },
         },
       ]
@@ -383,7 +437,7 @@ const MaintenancePlanScreen = () => {
               setCurrentMonth(newMonth);
             }}
           >
-            <Ionicons name="chevron-back" size={24} color="#0066cc" />
+            <Ionicons name="chevron-back" size={24} color="#3b82f6" />
           </TouchableOpacity>
           <Text style={styles.calendarTitle}>
             {currentMonth.toLocaleString('tr-TR', { month: 'long', year: 'numeric' })}
@@ -395,7 +449,7 @@ const MaintenancePlanScreen = () => {
               setCurrentMonth(newMonth);
             }}
           >
-            <Ionicons name="chevron-forward" size={24} color="#0066cc" />
+            <Ionicons name="chevron-forward" size={24} color="#3b82f6" />
           </TouchableOpacity>
         </View>
 
@@ -478,7 +532,7 @@ const MaintenancePlanScreen = () => {
               Bakım yaptırmak istediğiniz aracı seçin
             </Text>
             {loading ? (
-              <ActivityIndicator size="large" color="#0066cc" />
+              <ActivityIndicator size="large" color="#3b82f6" />
             ) : (
               <ScrollView style={styles.vehiclesList}>
                 {vehicles.map((vehicle: any) => (
@@ -499,7 +553,7 @@ const MaintenancePlanScreen = () => {
                       </Text>
                     </View>
                     {selectedVehicle === vehicle._id && (
-                      <Ionicons name="checkmark-circle" size={24} color="#0066cc" />
+                      <Ionicons name="checkmark-circle" size={24} color="#3b82f6" />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -516,12 +570,13 @@ const MaintenancePlanScreen = () => {
               Yaptırmak istediğiniz bakım servisini seçin
             </Text>
             <View style={styles.servicesGrid}>
-              {serviceTypes.map((service) => (
+              {serviceTypes.map((service, index) => (
                 <TouchableOpacity
                   key={service.id}
                   style={[
                     styles.serviceCard,
                     selectedService === service.id && styles.serviceCardSelected,
+                    index % 2 === 1 && styles.serviceCardRight,
                   ]}
                   onPress={() => setSelectedService(service.id)}
                 >
@@ -552,13 +607,13 @@ const MaintenancePlanScreen = () => {
               Seçtiğiniz hizmet ve araca uygun ustaları veya dükkanları seçin
             </Text>
             {loadingMasters ? (
-              <ActivityIndicator size="large" color="#0066cc" />
+              <ActivityIndicator size="large" color="#3b82f6" />
             ) : masters.length === 0 ? (
-              <View style={{alignItems:'center', marginTop:32}}>
-                <Text style={{ color: '#888', textAlign: 'center', marginBottom: 12 }}>
+              <View style={{alignItems:'center', marginTop:20, padding: 16, backgroundColor: '#fef3c7', borderRadius: 12, borderWidth: 1, borderColor: '#fbbf24'}}>
+                <Text style={{ color: '#92400e', textAlign: 'center', marginBottom: 8, fontSize: 14, fontWeight: '600' }}>
                   Uygun usta veya dükkan bulunamadı.
                 </Text>
-                <Text style={{ color: '#FF9500', textAlign: 'center', fontWeight:'bold' }}>
+                <Text style={{ color: '#d97706', textAlign: 'center', fontWeight:'600', fontSize: 13 }}>
                   Farklı bir servis veya araç seçmeyi deneyin.
                 </Text>
               </View>
@@ -598,12 +653,14 @@ const MaintenancePlanScreen = () => {
                           </View>
                         </View>
                         {selectedMaster === master._id && (
-                          <Ionicons name="checkmark-circle" size={24} color="#0066cc" />
+                          <Ionicons name="checkmark-circle" size={24} color="#3b82f6" />
                         )}
                       </TouchableOpacity>
                     ));
                   } catch (err) {
-                    return <Text style={{ color: 'red', textAlign: 'center' }}>Listeleme hatası oluştu.</Text>;
+                    return <View style={{ padding: 16, backgroundColor: '#fee2e2', borderRadius: 12, borderWidth: 1, borderColor: '#fca5a5' }}>
+                      <Text style={{ color: '#dc2626', textAlign: 'center', fontWeight: '600', fontSize: 14 }}>Listeleme hatası oluştu.</Text>
+                    </View>;
                   }
                 })()}
               </ScrollView>
@@ -623,7 +680,7 @@ const MaintenancePlanScreen = () => {
                 style={styles.dateButton}
                 onPress={() => setShowCalendar(!showCalendar)}
               >
-                <Ionicons name="calendar-outline" size={24} color="#0066cc" />
+                <Ionicons name="calendar-outline" size={24} color="#3b82f6" />
                 <Text style={styles.dateButtonText}>
                   {selectedDate || 'Tarih Seçin'}
                 </Text>
@@ -698,8 +755,9 @@ const MaintenancePlanScreen = () => {
               <Switch
                 value={sharePhone}
                 onValueChange={setSharePhone}
-                trackColor={{ false: '#767577', true: '#81b0ff' }}
-                thumbColor={sharePhone ? '#0066cc' : '#f4f3f4'}
+                trackColor={{ false: '#e2e8f0', true: '#93c5fd' }}
+                thumbColor={sharePhone ? '#3b82f6' : '#ffffff'}
+                ios_backgroundColor="#e2e8f0"
               />
             </View>
           </View>
@@ -719,9 +777,15 @@ const MaintenancePlanScreen = () => {
             style={styles.backButton}
             onPress={handleBackButton}
           >
-            <Ionicons name="arrow-back" size={24} color="#0066cc" />
+            <Ionicons name="arrow-back" size={24} color="#3b82f6" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Bakım Planla</Text>
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={handleCancelButton}
+          >
+            <Ionicons name="close" size={24} color="#ef4444" />
+          </TouchableOpacity>
         </View>
 
         {renderStepIndicator()}
@@ -738,10 +802,10 @@ const MaintenancePlanScreen = () => {
         <View style={styles.footer}>
           {step > 1 && (
             <TouchableOpacity
-              style={[styles.footerButton, styles.backButton]}
+              style={[styles.footerButton, { backgroundColor: '#ffffff', borderWidth: 2, borderColor: '#e2e8f0' }]}
               onPress={handleBackButton}
             >
-              <Ionicons name="arrow-back" size={20} color="#0066cc" />
+              <Ionicons name="arrow-back" size={20} color="#3b82f6" />
               <Text style={[styles.footerButtonText, styles.backButtonText]}>
                 Geri
               </Text>
@@ -775,197 +839,228 @@ const MaintenancePlanScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8fafc',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#e2e8f0',
   },
   backButton: {
     padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
-    marginLeft: 16,
-    color: '#1a1a1a',
+    marginLeft: 12,
+    color: '#1e293b',
+    flex: 1,
+  },
+  cancelButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#fef2f2',
   },
   stepIndicatorContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 20,
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
   },
   stepIndicatorWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   stepIndicator: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: '#e2e8f0',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
   },
   stepIndicatorActive: {
-    backgroundColor: '#0066cc',
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
   },
   stepIndicatorCompleted: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#10b981',
+    borderColor: '#10b981',
   },
   stepIndicatorText: {
-    color: '#fff',
-    fontSize: 16,
+    color: '#ffffff',
+    fontSize: 14,
     fontWeight: '600',
   },
   stepIndicatorLine: {
-    width: 50,
+    width: 40,
     height: 2,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: '#e2e8f0',
+    borderRadius: 1,
+    marginHorizontal: 6,
   },
   stepIndicatorLineCompleted: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#10b981',
   },
   content: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   stepContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
-    padding: 20,
+    padding: 16,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
   },
   stepTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 8,
+    color: '#0f172a',
+    marginBottom: 6,
   },
   stepDescription: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 24,
+    fontSize: 14,
+    color: '#64748b',
+    marginBottom: 20,
+    lineHeight: 20,
   },
   vehiclesList: {
-    maxHeight: 400,
+    maxHeight: 350,
   },
   vehicleCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#e2e8f0',
     overflow: 'hidden',
   },
   vehicleCardSelected: {
-    borderColor: '#0066cc',
-    backgroundColor: '#f0f7ff',
+    borderColor: '#3b82f6',
+    backgroundColor: '#eff6ff',
   },
   vehicleInfo: {
     flex: 1,
-    marginRight: 10,
+    padding: 16,
   },
   vehicleName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: '#0f172a',
     marginBottom: 4,
   },
   vehicleDetails: {
     fontSize: 14,
-    color: '#666',
+    color: '#64748b',
+    lineHeight: 18,
   },
   servicesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginTop: 16,
+    marginTop: 4,
   },
   serviceCard: {
-    width: (width - 72) / 2,
+    width: '48%',
     aspectRatio: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 12,
+    marginRight: '2%',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#e2e8f0',
+  },
+  serviceCardRight: {
+    marginRight: 0,
   },
   serviceCardSelected: {
-    backgroundColor: '#0066cc',
-    borderColor: '#0066cc',
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
   },
   serviceName: {
     marginTop: 12,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
-    color: '#1a1a1a',
+    color: '#0f172a',
     textAlign: 'center',
+    lineHeight: 18,
   },
   serviceNameSelected: {
-    color: '#fff',
+    color: '#ffffff',
+    fontWeight: '600',
   },
   dateTimeContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: 20,
+    gap: 12,
   },
   dateButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    padding: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    marginRight: 12,
+    borderColor: '#e2e8f0',
   },
   dateButtonText: {
     marginLeft: 12,
-    fontSize: 16,
-    color: '#1a1a1a',
+    fontSize: 14,
+    color: '#0f172a',
+    fontWeight: '500',
   },
   timeContainer: {
     flex: 1,
   },
   inputLabel: {
     fontSize: 14,
-    color: '#666',
+    color: '#475569',
     marginBottom: 8,
+    fontWeight: '500',
   },
   input: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    padding: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    fontSize: 16,
+    borderColor: '#e2e8f0',
+    fontSize: 14,
+    color: '#0f172a',
   },
   calendarContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 24,
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
   },
   calendarHeader: {
     flexDirection: 'row',
@@ -974,20 +1069,21 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   calendarTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: '#0f172a',
   },
   weekDaysContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   weekDay: {
-    width: 40,
+    width: 36,
     textAlign: 'center',
-    fontSize: 14,
-    color: '#666',
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '500',
   },
   daysContainer: {
     flexDirection: 'row',
@@ -995,109 +1091,122 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   dayButton: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
     margin: 4,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   emptyDay: {
     opacity: 0,
   },
   selectedDay: {
-    backgroundColor: '#0066cc',
-    borderRadius: 20,
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
   },
   dayText: {
-    fontSize: 16,
-    color: '#1a1a1a',
+    fontSize: 14,
+    color: '#0f172a',
+    fontWeight: '500',
   },
   selectedDayText: {
-    color: '#fff',
+    color: '#ffffff',
+    fontWeight: '600',
   },
   availableSlotsContainer: {
-    marginTop: 24,
+    marginTop: 20,
   },
   availableSlotsTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 16,
+    color: '#0f172a',
+    marginBottom: 12,
   },
   timeSlot: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#e2e8f0',
     marginRight: 12,
   },
   timeSlotSelected: {
-    backgroundColor: '#0066cc',
-    borderColor: '#0066cc',
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
   },
   timeSlotText: {
-    fontSize: 16,
-    color: '#1a1a1a',
+    fontSize: 14,
+    color: '#0f172a',
+    fontWeight: '500',
   },
   timeSlotTextSelected: {
-    color: '#fff',
+    color: '#ffffff',
+    fontWeight: '600',
   },
   notesContainer: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   notesInput: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    padding: 16,
-    fontSize: 16,
-    minHeight: 120,
+    borderColor: '#e2e8f0',
+    padding: 14,
+    fontSize: 14,
+    minHeight: 100,
+    color: '#0f172a',
+    textAlignVertical: 'top',
   },
   phoneShareContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#e2e8f0',
   },
   phoneShareText: {
-    fontSize: 16,
-    color: '#1a1a1a',
+    fontSize: 14,
+    color: '#0f172a',
+    fontWeight: '500',
+    flex: 1,
   },
   footerContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: '#e2e8f0',
   },
   footer: {
     flexDirection: 'row',
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
   },
   footerButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    borderRadius: 8,
-    marginHorizontal: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
   },
   nextButton: {
-    backgroundColor: '#0066cc',
+    backgroundColor: '#3b82f6',
   },
   footerButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: '#ffffff',
   },
   backButtonText: {
-    color: '#0066cc',
+    color: '#3b82f6',
   },
   masterCardInner: {
     flexDirection: 'row',
@@ -1106,20 +1215,24 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   masterCardDisabled: {
-    backgroundColor: '#f5f5f5',
-    opacity: 0.6,
+    backgroundColor: '#f8fafc',
+    opacity: 0.7,
   },
   availabilityContainer: {
     alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
   },
   availabilityDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     marginBottom: 4,
   },
   availabilityText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
   },
 });

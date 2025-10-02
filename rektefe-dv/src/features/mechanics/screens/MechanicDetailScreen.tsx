@@ -7,17 +7,23 @@ import {
   TouchableOpacity,
   Image,
   Dimensions,
-  Animated,
+  SafeAreaView,
   Alert,
   Linking,
+  ActivityIndicator,
+  RefreshControl,
+  Animated,
+  StatusBar,
+  Platform,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+import { useTheme } from '@/context/ThemeContext';
+import { apiService } from '@/shared/services/api';
+import { withErrorHandling } from '@/shared/utils/errorHandler';
 
-const { width, height } = Dimensions.get('window');
-
+// --- Interfaces ---
 interface Mechanic {
   id: string;
   _id: string;
@@ -28,521 +34,577 @@ interface Mechanic {
   totalJobs?: number;
   experience?: number;
   specialties?: string[];
-  reviews?: any[];
+  reviews?: Review[];
   phone?: string;
   email?: string;
   address?: string;
   isOnline?: boolean;
+  city?: string;
+  district?: string;
+  shopName?: string;
+  bio?: string;
+  isAvailable?: boolean;
+  workingHours?: any;
+  fullAddress?: string;
+  formattedDistance?: string;
+  specialization?: string[];
+  ratingCount?: number;
+  location?: {
+    coordinates: [number, number];
+  };
 }
 
+interface Review {
+  id: string;
+  userName: string;
+  rating: number;
+  comment: string;
+  date: string;
+  avatar?: string;
+}
+
+// --- UI/UX Constants ---
+const { width } = Dimensions.get('window');
+const HEADER_EXPANDED_HEIGHT = 380;
+const HEADER_COLLAPSED_HEIGHT = Platform.OS === 'ios' ? 110 : 120;
+const TAB_BAR_HEIGHT = 48;
+
 const MechanicDetailScreen: React.FC = () => {
+  // --- Hooks ---
   const navigation = useNavigation();
   const route = useRoute();
-  const { mechanic } = route.params as { mechanic: Mechanic };
+  const { theme } = useTheme();
+  const routeParams = route.params as { mechanic: Mechanic } | undefined;
+  const mechanic = routeParams?.mechanic;
   
   const [mechanicDetails, setMechanicDetails] = useState<Mechanic | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [mechanicReviews, setMechanicReviews] = useState<Review[]>([]);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [activeTab, setActiveTab] = useState<'about' | 'services' | 'reviews'>('about');
   
-  // Animasyon değerleri
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  // --- Data Loading and Actions ---
+  if (!mechanic) {
+    console.log('❌ Mechanic data not found, navigating back');
+    navigation.goBack();
+    return null;
+  }
 
   useEffect(() => {
-    // Animasyonları başlat
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 100,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    // Usta detaylarını yükle
-    loadMechanicDetails();
+    loadAllData();
   }, []);
+  
+  const loadAllData = async () => {
+    setLoading(true);
+    await Promise.all([
+      loadMechanicDetails(),
+      loadReviews(),
+      checkFavoriteStatus()
+    ]);
+    setLoading(false);
+  };
 
   const loadMechanicDetails = async () => {
     try {
-      // API'den usta detaylarını yükle
-      // const response = await apiService.getMechanicDetails(mechanic.id);
-      // setMechanicDetails(response.data);
+      setError(null);
       
-      // Şimdilik mock data kullan
-      setMechanicDetails({
-        ...mechanic,
-        rating: 4.8,
-        totalJobs: 1247,
-        experience: 8,
-        specialties: ['Motor Tamiri', 'Fren Sistemi', 'Elektrik', 'Klima'],
-        reviews: [
-          {
-            id: 1,
-            userName: 'Ahmet Y.',
-            rating: 5,
-            comment: 'Çok profesyonel ve hızlı. Kesinlikle tavsiye ederim.',
-            date: '2024-01-15',
-          },
-          {
-            id: 2,
-            userName: 'Fatma K.',
-            rating: 4,
-            comment: 'İşini çok iyi yapıyor. Fiyatlar da uygun.',
-            date: '2024-01-10',
-          },
-        ],
-        phone: '+90 555 123 45 67',
-        email: 'usta@example.com',
-        address: 'İstanbul, Kadıköy',
-        isOnline: true,
-      });
-    } catch (error) {
-      console.error('Usta detayları yüklenemedi:', error);
-    } finally {
-      setLoading(false);
+      const mechanicId = mechanic.id || mechanic._id;
+      const { data, error: apiError } = await withErrorHandling(
+        () => apiService.getMechanicDetails(mechanicId),
+        { showErrorAlert: false }
+      );
+
+      if (data && data.success) {
+        setMechanicDetails(data.data);
+      } else {
+        setMechanicDetails(mechanic);
+      }
+    } catch (err) {
+      console.error('Usta detayları yüklenemedi:', err);
+      setError('Usta bilgileri yüklenemedi');
+      setMechanicDetails(mechanic);
     }
   };
 
-  const handleBookAppointment = () => {
-    const currentMechanic = mechanicDetails || mechanic;
-    const mechanicId = currentMechanic.id || currentMechanic._id;
-    
-    console.log('Randevu için usta bilgileri:', {
-      mechanicId,
-      name: currentMechanic.name,
-      surname: currentMechanic.surname,
-    });
+  const loadReviews = async () => {
+    try {
+      const mechanicId = mechanic.id || mechanic._id;
+      const { data, error: apiError } = await withErrorHandling(
+        () => apiService.getMechanicReviews(mechanicId),
+        { showErrorAlert: false }
+      );
 
-    navigation.navigate('BookAppointment' as never, {
+      if (data && data.success && data.data) {
+        setMechanicReviews(data.data);
+      }
+    } catch (err) {
+      console.error('Yorumlar yüklenemedi:', err);
+      setMechanicReviews([]);
+    }
+  };
+
+  const checkFavoriteStatus = async () => {
+    try {
+      const mechanicId = mechanic.id || mechanic._id;
+      const { data } = await withErrorHandling(
+        () => apiService.checkFavoriteMechanic(mechanicId),
+        { showErrorAlert: false }
+      );
+
+      if (data && data.success) {
+        setIsFavorite(data.data.isFavorite || false);
+      }
+    } catch (err) {
+      console.error('Favori durumu kontrol edilemedi:', err);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([loadMechanicDetails(), loadReviews(), checkFavoriteStatus()]);
+    setRefreshing(false);
+  };
+
+  // --- Helper functions for booking, messaging, calling, and favorites ---
+
+  const handleBookAppointment = () => {
+    const mechanicId = mechanic.id || mechanic._id;
+    (navigation as any).navigate('BookAppointment', {
       mechanicId,
-      mechanicName: currentMechanic.name,
-      mechanicSurname: currentMechanic.surname,
-    } as never);
+      mechanicName: mechanic.name,
+      mechanicSurname: mechanic.surname,
+    });
   };
 
   const handleMessage = () => {
-    const currentMechanic = mechanicDetails || mechanic;
-    const mechanicId = currentMechanic.id || currentMechanic._id;
-    
-    console.log('Mesaj için usta bilgileri:', {
-      mechanicId,
-      name: currentMechanic.name,
-      surname: currentMechanic.surname,
+    const mechanicId = mechanic.id || mechanic._id;
+    (navigation as any).navigate('ChatScreen', {
+      otherParticipant: {
+        _id: mechanicId,
+        name: mechanic.name,
+        surname: mechanic.surname,
+        avatar: mechanic.avatar,
+        userType: 'mechanic'
+      }
     });
-
-    navigation.navigate('Chat' as never, {
-      mechanicId,
-      mechanicName: currentMechanic.name,
-      mechanicSurname: currentMechanic.surname,
-    } as never);
   };
 
   const handleCall = () => {
-    const phoneNumber = mechanicDetails?.phone;
-    if (phoneNumber) {
-      Linking.openURL(`tel:${phoneNumber}`);
+    const phone = (mechanicDetails || mechanic).phone;
+    if (phone) {
+      Linking.openURL(`tel:${phone}`);
+    } else {
+      Alert.alert('Bilgi', 'Bu ustanın telefon numarası kayıtlı değil.');
     }
   };
 
-  const toggleFavorite = () => {
-    setIsFavorite(!isFavorite);
-    // TODO: API'ye favori durumunu kaydet
+  const toggleFavorite = async () => {
+    try {
+      const mechanicId = mechanic.id || mechanic._id;
+      const { data } = await withErrorHandling(() => apiService.toggleFavoriteMechanic(mechanicId), { showErrorAlert: false });
+      if (data && data.success) {
+        setIsFavorite(data.data.isFavorite);
+      }
+    } catch (err) {
+      console.error('Favori durumu güncellenemedi:', err);
+    }
   };
 
-  const renderStars = (rating: number) => {
-    return Array.from({ length: 5 }, (_, index) => (
+  // --- Render Functions ---
+
+  const renderStars = (rating: number) => (
+    Array.from({ length: 5 }, (_, index) => (
       <MaterialCommunityIcons
         key={index}
         name={index < Math.floor(rating) ? 'star' : 'star-outline'}
-        size={16}
+        size={14}
         color="#FFD700"
       />
-    ));
-  };
-
-  const renderSpecialtyChip = (specialty: string, index: number) => (
-    <Animated.View
-      key={index}
-      style={[
-        styles.specialtyChip,
-        {
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
-        },
-      ]}
-    >
-      <MaterialCommunityIcons name="check-circle" size={16} color="#4CAF50" />
-      <Text style={styles.specialtyText}>{specialty}</Text>
-    </Animated.View>
+    ))
   );
 
-  const renderReviewCard = (review: any, index: number) => (
-    <Animated.View
-      key={review.id}
-      style={[
-        styles.reviewCard,
-        {
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
-        },
-      ]}
-    >
-      <View style={styles.reviewHeader}>
-        <View style={styles.reviewerAvatar}>
-          <Text style={styles.reviewerInitial}>
-            {review.userName.charAt(0)}
-          </Text>
-        </View>
-        <View style={styles.reviewInfo}>
-          <Text style={styles.reviewerName}>{review.userName}</Text>
-          <View style={styles.reviewRating}>
-            {renderStars(review.rating)}
-            <Text style={styles.reviewDate}>{review.date}</Text>
+  const renderTabBar = () => {
+    const tabs = [
+      { key: 'about', title: 'Hakkında' },
+      { key: 'services', title: 'Hizmetler' },
+      { key: 'reviews', title: 'Yorumlar' },
+    ];
+    return (
+      <View style={[styles.tabBarContainer, { backgroundColor: theme.colors.background.primary }]}>
+        {tabs.map((tab) => (
+          <TouchableOpacity key={tab.key} onPress={() => setActiveTab(tab.key as any)} style={styles.tabItem}>
+            <Text style={[
+              styles.tabText,
+              { color: activeTab === tab.key ? theme.colors.primary.main : theme.colors.text.secondary }
+            ]}>
+              {tab.title}
+            </Text>
+            {activeTab === tab.key && (
+              <View style={[styles.activeTabIndicator, { backgroundColor: theme.colors.primary.main }]} />
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
+  
+  const renderAboutTab = (currentMechanic: Mechanic) => (
+    <View style={styles.tabContentContainer}>
+      {/* Quick Stats */}
+      <View style={styles.statsContainer}>
+        <View style={[styles.statCard, { backgroundColor: theme.colors.background.card }]}>
+          <View style={[styles.statIcon, { backgroundColor: theme.colors.primary.main + '20' }]}>
+            <MaterialCommunityIcons name="clock-outline" size={24} color={theme.colors.primary.main} />
           </View>
+          <Text style={[styles.statNumber, { color: theme.colors.text.primary }]}>
+            {currentMechanic.experience || '0'}
+          </Text>
+          <Text style={[styles.statLabel, { color: theme.colors.text.secondary }]}>Yıl Deneyim</Text>
+        </View>
+        
+        <View style={[styles.statCard, { backgroundColor: theme.colors.background.card }]}>
+          <View style={[styles.statIcon, { backgroundColor: theme.colors.success.main + '20' }]}>
+            <MaterialCommunityIcons name="wrench" size={24} color={theme.colors.success.main} />
+          </View>
+          <Text style={[styles.statNumber, { color: theme.colors.text.primary }]}>
+            {currentMechanic.totalJobs || '0'}
+          </Text>
+          <Text style={[styles.statLabel, { color: theme.colors.text.secondary }]}>Tamamlanan İş</Text>
+        </View>
+        
+        <View style={[styles.statCard, { backgroundColor: theme.colors.background.card }]}>
+          <View style={[styles.statIcon, { backgroundColor: theme.colors.warning.main + '20' }]}>
+            <MaterialCommunityIcons name="map-marker" size={24} color={theme.colors.warning.main} />
+          </View>
+          <Text style={[styles.statNumber, { color: theme.colors.text.primary }]}>
+            {currentMechanic.formattedDistance || '0 m'}
+          </Text>
+          <Text style={[styles.statLabel, { color: theme.colors.text.secondary }]}>Mesafe</Text>
         </View>
       </View>
-      <Text style={styles.reviewComment}>{review.comment}</Text>
-    </Animated.View>
+
+      {currentMechanic.bio && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>Hakkında</Text>
+          <Text style={[styles.bioText, { color: theme.colors.text.secondary }]}>{currentMechanic.bio}</Text>
+        </View>
+      )}
+       <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>İletişim Bilgileri</Text>
+          {currentMechanic.phone && (
+            <TouchableOpacity style={[styles.contactItem, { backgroundColor: theme.colors.background.card }]} onPress={handleCall}>
+                <MaterialCommunityIcons name="phone" size={22} color={theme.colors.success.main} />
+                <Text style={[styles.contactText, { color: theme.colors.text.primary }]}>{currentMechanic.phone}</Text>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.text.secondary} />
+            </TouchableOpacity>
+          )}
+          {currentMechanic.email && (
+             <View style={[styles.contactItem, { backgroundColor: theme.colors.background.card }]}>
+                <MaterialCommunityIcons name="email" size={22} color={theme.colors.primary.main} />
+                <Text style={[styles.contactText, { color: theme.colors.text.primary }]}>{currentMechanic.email}</Text>
+            </View>
+          )}
+          {currentMechanic.fullAddress && (
+             <View style={[styles.contactItem, { backgroundColor: theme.colors.background.card }]}>
+                <MaterialCommunityIcons name="map-marker" size={22} color={theme.colors.warning.main} />
+                <Text style={[styles.contactText, { color: theme.colors.text.primary }]}>{currentMechanic.fullAddress}</Text>
+            </View>
+          )}
+       </View>
+    </View>
   );
 
+  const renderServicesTab = (specialties: string[]) => (
+    <View style={styles.tabContentContainer}>
+       <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>Uzmanlık Alanları</Text>
+            {specialties.length > 0 ? (
+                <View style={styles.specialtiesContainer}>
+                    {specialties.map((specialty, index) => (
+                        <View key={index} style={[styles.specialtyChip, { backgroundColor: theme.colors.primary.main + '15' }]}>
+                            <MaterialCommunityIcons name="check-circle" size={16} color={theme.colors.primary.main} />
+                            <Text style={[styles.specialtyText, { color: theme.colors.primary.main }]}>{specialty}</Text>
+                        </View>
+                    ))}
+                </View>
+            ) : <Text style={{color: theme.colors.text.secondary}}>Uzmanlık alanı belirtilmemiş.</Text>}
+       </View>
+    </View>
+  );
+
+  const renderReviewsTab = (reviews: Review[]) => (
+    <View style={styles.tabContentContainer}>
+        <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+                Müşteri Yorumları ({reviews.length})
+            </Text>
+            {reviews.length > 0 ? reviews.map((review) => (
+                <View key={review.id} style={[styles.reviewCard, { backgroundColor: theme.colors.background.card }]}>
+                  <View style={styles.reviewHeader}>
+                    <View style={styles.reviewInfo}>
+                      <Text style={[styles.reviewerName, { color: theme.colors.text.primary }]}>{review.userName}</Text>
+                      <Text style={[styles.reviewDate, { color: theme.colors.text.secondary }]}>
+                          {new Date(review.date).toLocaleDateString('tr-TR')}
+                      </Text>
+                    </View>
+                    <View style={styles.reviewRating}>{renderStars(review.rating)}</View>
+                  </View>
+                  <Text style={[styles.reviewComment, { color: theme.colors.text.primary }]}>{review.comment}</Text>
+                </View>
+            )) : <Text style={{color: theme.colors.text.secondary}}>Henüz yorum yapılmamış.</Text>}
+        </View>
+    </View>
+  );
+
+  // --- Loading and Error States ---
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <Animated.View style={{ opacity: fadeAnim, transform: [{ scale: scaleAnim }] }}>
-          <MaterialCommunityIcons name="wrench" size={60} color="#007AFF" />
-          <Text style={styles.loadingText}>Usta bilgileri yükleniyor...</Text>
-        </Animated.View>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background.primary }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary.main} />
+        <Text style={[styles.loadingText, { color: theme.colors.text.primary }]}>
+          Usta bilgileri yükleniyor...
+        </Text>
+      </View>
+    );
+  }
+
+  if (error && !mechanicDetails) {
+    return (
+      <View style={[styles.errorContainer, { backgroundColor: theme.colors.background.primary }]}>
+        <MaterialCommunityIcons name="alert-circle" size={64} color={theme.colors.error.main} />
+        <Text style={[styles.errorText, { color: theme.colors.text.primary }]}>{error}</Text>
+        <TouchableOpacity style={[styles.primaryButton, { backgroundColor: theme.colors.primary.main }]} onPress={loadAllData}>
+             <Text style={styles.primaryButtonText}>Tekrar Dene</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
   const currentMechanic = mechanicDetails || mechanic;
+  const specialties = currentMechanic.specialties || currentMechanic.specialization || [];
 
+  // --- Animation Interpolations ---
+  const headerHeight = scrollY.interpolate({
+    inputRange: [0, HEADER_EXPANDED_HEIGHT - HEADER_COLLAPSED_HEIGHT],
+    outputRange: [HEADER_EXPANDED_HEIGHT, HEADER_COLLAPSED_HEIGHT],
+    extrapolate: 'clamp'
+  });
+
+  const headerContentOpacity = scrollY.interpolate({
+    inputRange: [0, (HEADER_EXPANDED_HEIGHT - HEADER_COLLAPSED_HEIGHT) / 2],
+    outputRange: [1, 0],
+    extrapolate: 'clamp'
+  });
+
+  const collapsedHeaderOpacity = scrollY.interpolate({
+    inputRange: [(HEADER_EXPANDED_HEIGHT - HEADER_COLLAPSED_HEIGHT) / 2, HEADER_EXPANDED_HEIGHT - HEADER_COLLAPSED_HEIGHT],
+    outputRange: [0, 1],
+    extrapolate: 'clamp'
+  });
+  
+
+  // --- Main Render ---
   return (
-    <View style={styles.container}>
-      {/* Header with Gradient Background */}
-      <LinearGradient
-        colors={['#007AFF', '#5856D6', '#AF52DE']}
-        style={styles.header}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <BlurView intensity={20} style={styles.headerBlur}>
-          {/* Header Actions */}
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={styles.headerButton}
-              onPress={() => navigation.goBack()}
-            >
-              <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
-            </TouchableOpacity>
-            
-            <View style={styles.headerRightActions}>
-              <TouchableOpacity
-                style={styles.headerButton}
-                onPress={toggleFavorite}
-              >
-                <MaterialCommunityIcons
-                  name={isFavorite ? 'heart' : 'heart-outline'}
-                  size={24}
-                  color={isFavorite ? '#FF3B30' : '#fff'}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.headerButton}>
-                <MaterialCommunityIcons name="share-variant" size={24} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Mechanic Avatar */}
-          <Animated.View
-            style={[
-              styles.avatarContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ scale: scaleAnim }],
-              },
-            ]}
-          >
-            <Image
-              source={{ uri: currentMechanic.avatar || 'https://via.placeholder.com/150?text=U' }}
-              style={styles.avatar}
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
+        <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary.main} />
+        {/* --- Animated Header --- */}
+        <Animated.View style={[styles.header, { height: headerHeight }]}>
+            <LinearGradient 
+              colors={[theme.colors.primary.main, theme.colors.primary.dark]} 
+              style={StyleSheet.absoluteFill} 
             />
-            {currentMechanic.isOnline && (
-              <View style={styles.onlineIndicator}>
-                <View style={styles.onlineDot} />
-              </View>
-            )}
-          </Animated.View>
-
-          {/* Mechanic Name */}
-          <Animated.View
-            style={[
-              styles.nameContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
-            <Text style={styles.mechanicName}>
-              {currentMechanic.name} {currentMechanic.surname}
-            </Text>
-            <Text style={styles.mechanicTitle}>Profesyonel Usta</Text>
-          </Animated.View>
-        </BlurView>
-      </LinearGradient>
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Stats Cards */}
-        <Animated.View
-          style={[
-            styles.statsContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          <View style={styles.statCard}>
-            <MaterialCommunityIcons name="clock-outline" size={32} color="#007AFF" />
-            <Text style={styles.statNumber}>{currentMechanic.experience}</Text>
-            <Text style={styles.statLabel}>Yıl Deneyim</Text>
-          </View>
-          
-          <View style={styles.statCard}>
-            <MaterialCommunityIcons name="wrench" size={32} color="#34C759" />
-            <Text style={styles.statNumber}>{currentMechanic.totalJobs}</Text>
-            <Text style={styles.statLabel}>Tamamlanan İş</Text>
-          </View>
-          
-          <View style={styles.statCard}>
-            <MaterialCommunityIcons name="star" size={32} color="#FFD700" />
-            <Text style={styles.statNumber}>{currentMechanic.rating}</Text>
-            <Text style={styles.statLabel}>Puan</Text>
-          </View>
-        </Animated.View>
-
-        {/* Action Buttons */}
-        <Animated.View
-          style={[
-            styles.actionsContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          <TouchableOpacity style={styles.primaryButton} onPress={handleBookAppointment}>
-            <LinearGradient
-              colors={['#007AFF', '#5856D6']}
-              style={styles.buttonGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              <MaterialCommunityIcons name="calendar-plus" size={24} color="#fff" />
-              <Text style={styles.primaryButtonText}>Randevu Al</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <View style={styles.secondaryButtons}>
-            <TouchableOpacity style={styles.secondaryButton} onPress={handleMessage}>
-              <MaterialCommunityIcons name="message-text" size={24} color="#007AFF" />
-              <Text style={styles.secondaryButtonText}>Mesaj</Text>
-            </TouchableOpacity>
             
-            <TouchableOpacity style={styles.secondaryButton} onPress={handleCall}>
-              <MaterialCommunityIcons name="phone" size={24} color="#34C759" />
-              <Text style={styles.secondaryButtonText}>Ara</Text>
+            {/* Expanded Header Content */}
+            <Animated.View style={[styles.expandedHeaderContent, { opacity: headerContentOpacity }]}>
+                <Text style={styles.mechanicName}>{currentMechanic.name} {currentMechanic.surname}</Text>
+                {currentMechanic.shopName && (
+                  <Text style={styles.mechanicShop}>{currentMechanic.shopName}</Text>
+                )}
+                <View style={styles.ratingContainer}>
+                    {renderStars(currentMechanic.rating || 0)}
+                    <Text style={styles.ratingText}>
+                      {currentMechanic.rating?.toFixed(1) || '0.0'} ({currentMechanic.ratingCount || mechanicReviews.length})
+                    </Text>
+                </View>
+            </Animated.View>
+            
+            {/* Collapsed Header Content */}
+            <Animated.View style={[styles.collapsedHeaderContent, { opacity: collapsedHeaderOpacity }]}>
+                <Text style={styles.collapsedMechanicName}>{currentMechanic.name} {currentMechanic.surname}</Text>
+            </Animated.View>
+
+            {/* Shared Header Buttons */}
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
             </TouchableOpacity>
-          </View>
-        </Animated.View>
-
-        {/* Specialties */}
-        {currentMechanic.specialties && (
-          <Animated.View
-            style={[
-              styles.section,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
-            <Text style={styles.sectionTitle}>Uzmanlık Alanları</Text>
-            <View style={styles.specialtiesContainer}>
-              {currentMechanic.specialties.map(renderSpecialtyChip)}
+            <View style={styles.headerActions}>
+                <TouchableOpacity style={styles.headerButton} onPress={toggleFavorite}>
+                    <MaterialCommunityIcons name={isFavorite ? 'heart' : 'heart-outline'} size={24} color={isFavorite ? '#FF3B30' : '#fff'} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.headerButton}>
+                    <MaterialCommunityIcons name="share-variant" size={24} color="#fff" />
+                </TouchableOpacity>
             </View>
-          </Animated.View>
-        )}
-
-        {/* Reviews */}
-        {currentMechanic.reviews && currentMechanic.reviews.length > 0 && (
-          <Animated.View
-            style={[
-              styles.section,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
-            <Text style={styles.sectionTitle}>Müşteri Yorumları</Text>
-            {currentMechanic.reviews.map(renderReviewCard)}
-          </Animated.View>
-        )}
-
-        {/* Contact Information */}
-        <Animated.View
-          style={[
-            styles.section,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          <Text style={styles.sectionTitle}>İletişim Bilgileri</Text>
-          
-          <TouchableOpacity style={styles.contactItem} onPress={handleCall}>
-            <MaterialCommunityIcons name="phone" size={24} color="#007AFF" />
-            <Text style={styles.contactText}>{currentMechanic.phone}</Text>
-            <MaterialCommunityIcons name="chevron-right" size={24} color="#C7C7CC" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.contactItem}>
-            <MaterialCommunityIcons name="email" size={24} color="#007AFF" />
-            <Text style={styles.contactText}>{currentMechanic.email}</Text>
-            <MaterialCommunityIcons name="chevron-right" size={24} color="#C7C7CC" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.contactItem}>
-            <MaterialCommunityIcons name="map-marker" size={24} color="#007AFF" />
-            <Text style={styles.contactText}>{currentMechanic.address}</Text>
-            <MaterialCommunityIcons name="chevron-right" size={24} color="#C7C7CC" />
-          </TouchableOpacity>
         </Animated.View>
 
-        <View style={styles.bottomSpacing} />
-      </ScrollView>
-    </View>
+        
+        {/* Content ScrollView */}
+        <ScrollView
+            showsVerticalScrollIndicator={false}
+            onScroll={Animated.event(
+                [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                { useNativeDriver: false }
+            )}
+            scrollEventThrottle={16}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.colors.primary.main} />}
+        >
+            <View style={{ paddingTop: HEADER_EXPANDED_HEIGHT }}>
+                {/* --- Sticky Tab Bar --- */}
+                {renderTabBar()}
+                
+                {/* --- Tab Content --- */}
+                {activeTab === 'about' && renderAboutTab(currentMechanic)}
+                {activeTab === 'services' && renderServicesTab(specialties)}
+                {activeTab === 'reviews' && renderReviewsTab(mechanicReviews)}
+            </View>
+        </ScrollView>
+        
+        {/* --- Floating Action Buttons --- */}
+        <View style={[styles.footer, {borderTopColor: theme.colors.border?.primary || '#eee'}]}>
+            <TouchableOpacity 
+              style={[styles.secondaryButton, {borderColor: theme.colors.primary.main}]} 
+              onPress={handleMessage}
+            >
+                <MaterialCommunityIcons name="message-text" size={20} color={theme.colors.primary.main} />
+                <Text style={[styles.secondaryButtonText, { color: theme.colors.primary.main }]}>Mesaj</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.primaryButton, { backgroundColor: theme.colors.primary.main }]} 
+              onPress={handleBookAppointment}
+            >
+                <MaterialCommunityIcons name="calendar-plus" size={20} color="#fff" />
+                <Text style={styles.primaryButtonText}>Randevu Al</Text>
+            </TouchableOpacity>
+        </View>
+    </SafeAreaView>
   );
 };
 
+// --- Styles ---
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  container: { flex: 1 },
+  loadingContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
+    paddingHorizontal: 20,
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#8E8E93',
     fontWeight: '500',
   },
-  header: {
-    height: height * 0.4,
-    justifyContent: 'flex-end',
+  errorContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    padding: 20 
   },
-  headerBlur: {
+  errorText: { 
+    fontSize: 16, 
+    textAlign: 'center', 
+    marginTop: 16,
+    marginBottom: 24,
+  },
+  // Header
+  header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 60
+  },
+  expandedHeaderContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
     flex: 1,
     paddingHorizontal: 20,
-    paddingBottom: 30,
+  },
+  collapsedHeaderContent: {
+    position: 'absolute',
+    bottom: 12,
+  },
+  backButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 55 : 45,
+    left: 15,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   headerActions: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 55 : 45,
+    right: 15,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 50,
-    marginBottom: 20,
+    gap: 10
   },
   headerButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.2)',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  headerRightActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  avatarContainer: {
-    alignSelf: 'center',
-    marginBottom: 20,
-  },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-    borderColor: '#fff',
-  },
-  onlineIndicator: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  onlineDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#34C759',
-  },
-  nameContainer: {
-    alignItems: 'center',
-  },
+  // Mechanic Info
   mechanicName: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 'bold',
     color: '#fff',
     textAlign: 'center',
+    marginBottom: 8,
   },
-  mechanicTitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 4,
+  collapsedMechanicName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
   },
-  content: {
-    flex: 1,
-    marginTop: -30,
+  mechanicShop: {
+    fontSize: 18,
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: 8,
+    fontWeight: '500',
   },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6
+  },
+  ratingText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#fff',
+  },
+  // Stats
   statsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
     marginBottom: 24,
     gap: 12,
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -550,87 +612,73 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
+  statIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   statNumber: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#1C1C1E',
-    marginTop: 8,
+    marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    color: '#8E8E93',
-    marginTop: 4,
     textAlign: 'center',
+    fontWeight: '500',
   },
-  actionsContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
-  primaryButton: {
-    borderRadius: 16,
-    marginBottom: 16,
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  buttonGradient: {
+  // Tab Bar
+  tabBarContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 16,
-    gap: 8,
+    height: TAB_BAR_HEIGHT,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
-  primaryButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  secondaryButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  secondaryButton: {
+  tabItem: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    paddingVertical: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    alignItems: 'center',
+    position: 'relative'
   },
-  secondaryButtonText: {
-    fontSize: 16,
+  tabText: {
+    fontSize: 15,
     fontWeight: '600',
-    color: '#1C1C1E',
+  },
+  activeTabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    height: 3,
+    width: '60%',
+    borderRadius: 2,
+  },
+  // Tab Content
+  tabContentContainer: {
+    padding: 20
   },
   section: {
-    paddingHorizontal: 20,
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#1C1C1E',
-    marginBottom: 16,
+    marginBottom: 12,
   },
+  bioText: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  // Services/Specialties
   specialtiesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
   },
   specialtyChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F5E8',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
@@ -639,11 +687,10 @@ const styles = StyleSheet.create({
   specialtyText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#4CAF50',
   },
+  // Reviews
   reviewCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     shadowColor: '#000',
@@ -654,53 +701,36 @@ const styles = StyleSheet.create({
   },
   reviewHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  reviewerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  reviewerInitial: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
+    marginBottom: 8,
   },
   reviewInfo: {
     flex: 1,
   },
   reviewerName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  reviewRating: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    gap: 8,
   },
   reviewDate: {
     fontSize: 12,
-    color: '#8E8E93',
+    marginTop: 2,
+  },
+  reviewRating: {
+    flexDirection: 'row'
   },
   reviewComment: {
     fontSize: 14,
-    color: '#1C1C1E',
     lineHeight: 20,
   },
+  // Contact
   contactItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
     padding: 16,
     borderRadius: 12,
-    marginBottom: 8,
+    marginBottom: 10,
+    gap: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -708,13 +738,43 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   contactText: {
-    flex: 1,
-    fontSize: 16,
-    color: '#1C1C1E',
-    marginLeft: 12,
+    fontSize: 15,
+    flex: 1
   },
-  bottomSpacing: {
-    height: 40,
+  // Footer Actions
+  footer: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+    borderTopWidth: 1,
+  },
+  primaryButton: {
+    flex: 1,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  primaryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  secondaryButton: {
+    flex: 1,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  secondaryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

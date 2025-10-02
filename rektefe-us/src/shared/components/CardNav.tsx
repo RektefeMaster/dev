@@ -75,8 +75,14 @@ const CardNav: React.FC<CardNavProps> = ({
   const [isHamburgerOpen, setIsHamburgerOpen] = useState(false);
   
   const heightAnim = useRef(new Animated.Value(60)).current;
-  const cardsAnim = useRef(items.slice(0, maxItems).map(() => new Animated.Value(50))).current;
-  const opacityAnim = useRef(items.slice(0, maxItems).map(() => new Animated.Value(0))).current;
+  const cardsAnim = useRef<Animated.Value[]>([]);
+  const opacityAnim = useRef<Animated.Value[]>([]);
+  
+  // Animasyon array'lerini items değiştiğinde güncelle
+  useEffect(() => {
+    cardsAnim.current = items.map(() => new Animated.Value(50));
+    opacityAnim.current = items.map(() => new Animated.Value(0));
+  }, [items.length]);
   
   // Hamburger animasyonları
   const hamburgerLine1Anim = useRef(new Animated.Value(0)).current;
@@ -88,12 +94,11 @@ const CardNav: React.FC<CardNavProps> = ({
 
   const calculateHeight = () => {
     if (isMobile) {
-      // Mobile için dinamik yükseklik hesaplama
+      // Mobile için sabit maksimum yükseklik - scroll için
       const topBar = 60;
+      const maxContentHeight = 400; // Maksimum içerik yüksekliği
       const padding = 16;
-      const cardHeight = 120; // Her kart için ortalama yükseklik
-      const contentHeight = items.slice(0, maxItems).length * cardHeight;
-      return topBar + contentHeight + padding;
+      return topBar + maxContentHeight + padding;
     }
     return 260; // Desktop için sabit yükseklik
   };
@@ -135,7 +140,7 @@ const CardNav: React.FC<CardNavProps> = ({
           useNativeDriver: false,
         }),
         // Kartlar animasyonu - staggered effect
-        ...cardsAnim.map((cardAnim, index) =>
+        ...cardsAnim.current.map((cardAnim, index) =>
           Animated.spring(cardAnim, {
             toValue: 0,
             tension: 120,
@@ -144,7 +149,7 @@ const CardNav: React.FC<CardNavProps> = ({
             useNativeDriver: true,
           })
         ),
-        ...opacityAnim.map((opacityAnim, index) =>
+        ...opacityAnim.current.map((opacityAnim, index) =>
           Animated.timing(opacityAnim, {
             toValue: 1,
             duration: 300,
@@ -182,7 +187,7 @@ const CardNav: React.FC<CardNavProps> = ({
           useNativeDriver: false,
         }),
         // Kartlar animasyonu - hızlı kapanma
-        ...cardsAnim.map((cardAnim, index) =>
+        ...cardsAnim.current.map((cardAnim, index) =>
           Animated.timing(cardAnim, {
             toValue: 50,
             duration: 200,
@@ -190,7 +195,7 @@ const CardNav: React.FC<CardNavProps> = ({
             useNativeDriver: true,
           })
         ),
-        ...opacityAnim.map((opacityAnim, index) =>
+        ...opacityAnim.current.map((opacityAnim, index) =>
           Animated.timing(opacityAnim, {
             toValue: 0,
             duration: 200,
@@ -226,11 +231,11 @@ const CardNav: React.FC<CardNavProps> = ({
   // Animasyon değerlerini sıfırla - sadece component mount olduğunda
   useEffect(() => {
     heightAnim.setValue(60);
-    cardsAnim.forEach(anim => anim.setValue(50));
-    opacityAnim.forEach(anim => anim.setValue(0));
+    cardsAnim.current.forEach(anim => anim.setValue(50));
+    opacityAnim.current.forEach(anim => anim.setValue(0));
   }, []); // items dependency'sini kaldırdık
 
-  const displayItems = items.slice(0, maxItems);
+  const displayItems = items; // maxItems kısıtlamasını kaldır
 
   // Helper functions
   const getCardIcon = (id: string) => {
@@ -387,7 +392,7 @@ const CardNav: React.FC<CardNavProps> = ({
         {/* Content */}
         {isExpanded && (
           <ScrollView
-            style={styles.content}
+            style={[styles.content, { maxHeight: 400 }]}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.contentContainer}
           >
@@ -397,8 +402,8 @@ const CardNav: React.FC<CardNavProps> = ({
                 style={[
                   styles.navCard,
                   {
-                    transform: [{ translateY: cardsAnim[index] }],
-                    opacity: opacityAnim[index],
+                    transform: [{ translateY: cardsAnim.current[index] }],
+                    opacity: opacityAnim.current[index],
                   },
                 ]}
               >

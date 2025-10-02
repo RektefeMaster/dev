@@ -31,6 +31,11 @@ import { TowingServiceScreen, RepairServiceScreen, WashServiceScreen, TireServic
 import { AppointmentsScreen } from '@/features/appointments/screens';
 import { NotificationsScreen, NotificationSettingsScreen } from '@/features/notifications/screens';
 import EmergencyNotificationScreen from '@/features/emergency/screens/EmergencyNotificationScreen';
+import { ReportsScreen, EndOfDayScreen } from '@/features/reports/screens';
+import { CustomerScreen } from '@/features/customers/screens';
+import { QuickQuoteScreen } from '@/features/quotes/screens';
+import { SuppliersScreen } from '@/features/suppliers/screens';
+import { VehicleHistoryScreen } from '@/features/vehicle-history/screens';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -194,6 +199,42 @@ const AppNavigator = () => {
         <Stack.Screen 
           name="EmergencyNotification" 
           component={EmergencyNotificationScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        {/* Yeni eklenen ekranlar */}
+        <Stack.Screen 
+          name="QuickQuote" 
+          component={QuickQuoteScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="Customers" 
+          component={CustomerScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="Reports" 
+          component={ReportsScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="EndOfDay" 
+          component={EndOfDayScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="Suppliers" 
+          component={SuppliersScreen}
           options={{
             headerShown: false,
           }}

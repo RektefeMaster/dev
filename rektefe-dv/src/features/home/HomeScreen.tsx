@@ -223,22 +223,33 @@ const HomeScreen = () => {
   };
 
   const handleMechanicDetail = () => {
+    console.log('🔍 handleMechanicDetail: Fonksiyon çağrıldı');
+    console.log('🔍 nearestMechanic:', nearestMechanic);
+    
     if (nearestMechanic) {
+      const mechanicData = {
+        id: nearestMechanic._id,
+        name: nearestMechanic.name,
+        surname: nearestMechanic.surname,
+        rating: nearestMechanic.rating,
+        experience: nearestMechanic.experience,
+        totalJobs: nearestMechanic.totalJobs,
+        specialties: nearestMechanic.specialization || [],
+        city: nearestMechanic.city,
+        isAvailable: nearestMechanic.isAvailable,
+        avatar: nearestMechanic.avatar,
+        bio: nearestMechanic.bio,
+      };
+      
+      console.log('🔍 Navigation parametreleri:', mechanicData);
+      
       navigation.navigate('MechanicDetail', { 
-        mechanic: {
-          id: nearestMechanic._id,
-          name: nearestMechanic.name,
-          surname: nearestMechanic.surname,
-          rating: nearestMechanic.rating,
-          experience: nearestMechanic.experience,
-          totalJobs: nearestMechanic.totalJobs,
-          specialties: nearestMechanic.specialization || [],
-          city: nearestMechanic.city,
-          isAvailable: nearestMechanic.isAvailable,
-          avatar: nearestMechanic.avatar,
-          bio: nearestMechanic.bio,
-        }
+        mechanic: mechanicData
       });
+      
+      console.log('✅ Navigation çağrısı yapıldı');
+    } else {
+      console.log('❌ nearestMechanic bulunamadı');
     }
   };
 

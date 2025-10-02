@@ -35,10 +35,47 @@ export default function AppointmentDetailScreen() {
   const [processing, setProcessing] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<string>('');
+  const [statusNotes, setStatusNotes] = useState('');
+  const [availableStatuses, setAvailableStatuses] = useState<string[]>([]);
+  const [loyaltyInfo, setLoyaltyInfo] = useState<any>(null);
 
   useEffect(() => {
     fetchAppointmentDetails();
+    fetchAvailableStatuses();
   }, [appointmentId]);
+
+  const fetchAvailableStatuses = async () => {
+    try {
+      const response = await apiService.getAvailableStatuses();
+      if (response.success && response.data) {
+        setAvailableStatuses(response.data);
+      }
+    } catch (error) {
+      console.error('Status fetch error:', error);
+    }
+  };
+
+  const checkCustomerLoyalty = async (customerId: string) => {
+    try {
+      const response = await apiService.checkCustomerLoyalty(customerId);
+      if (response.success && response.data) {
+        setLoyaltyInfo(response.data);
+        
+        // Sadık müşteri uyarısı göster
+        if (response.data.isLoyal) {
+          Alert.alert(
+            'Sadık Müşteri Uyarısı',
+            `${response.data.customer.name} ${response.data.customer.surname} ${response.data.loyalty.visitCount}. kez size geliyor. Bu sadık bir müşteriniz!`,
+            [{ text: 'Tamam' }]
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Loyalty check error:', error);
+    }
+  };
 
   const fetchAppointmentDetails = async () => {
     try {
@@ -48,6 +85,11 @@ export default function AppointmentDetailScreen() {
       if (response.success && response.data) {
         const appointmentData = response.data;
         setAppointment(appointmentData);
+        
+        // Sadık müşteri kontrolü yap
+        if (appointmentData.customer?._id) {
+          await checkCustomerLoyalty(appointmentData.customer._id);
+        }
       } else {
         Alert.alert('Hata', response.message || 'Randevu detayları yüklenemedi');
       }
@@ -87,6 +129,66 @@ export default function AppointmentDetailScreen() {
     } finally {
       setProcessing(false);
     }
+  };
+
+  const handleStatusUpdate = async () => {
+    if (!selectedStatus) {
+      Alert.alert('Hata', 'Durum seçmelisiniz');
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      const response = await apiService.updateJobStatus(appointmentId, selectedStatus, statusNotes);
+      
+      if (response.success) {
+        Alert.alert('Başarılı', 'Durum güncellendi ve müşteriye bildirildi', [
+          { text: 'Tamam', onPress: () => {
+            setShowStatusModal(false);
+            setSelectedStatus('');
+            setStatusNotes('');
+            fetchAppointmentDetails();
+          }}
+        ]);
+      } else {
+        Alert.alert('Hata', response.message || 'Durum güncellenemedi');
+      }
+    } catch (error: any) {
+      const errorMessage = apiService.handleError(error);
+      Alert.alert('Hata', errorMessage.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const openStatusModal = () => {
+    setShowStatusModal(true);
+  };
+
+  const getStatusDisplayName = (status: string) => {
+    const statusMap: { [key: string]: string } = {
+      'queued': 'Sırada',
+      'in_progress': 'İşleme Alındı',
+      'part_wait': 'Parça Bekleniyor',
+      'testing': 'Test Ediliyor',
+      'ready_for_pickup': 'Teslime Hazır',
+      'completed': 'Tamamlandı',
+      'cancelled': 'İptal Edildi'
+    };
+    return statusMap[status] || status;
+  };
+
+  const getStatusColor = (status: string) => {
+    const colorMap: { [key: string]: string } = {
+      'queued': colors.warning.main,
+      'in_progress': colors.info.main,
+      'part_wait': colors.warning.main,
+      'testing': colors.info.main,
+      'ready_for_pickup': colors.success.main,
+      'completed': colors.success.main,
+      'cancelled': colors.error.main
+    };
+    return colorMap[status] || colors.text.secondary;
   };
 
   const handleReject = async () => {
@@ -153,6 +255,13 @@ export default function AppointmentDetailScreen() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('tr-TR', {
+      style: 'currency',
+      currency: 'TRY',
+    }).format(amount);
   };
 
   const renderInfoSection = (title: string, children: React.ReactNode) => (
@@ -258,7 +367,27 @@ export default function AppointmentDetailScreen() {
         {/* Customer Info */}
         {renderInfoSection('Müşteri Bilgileri', (
           <>
-            {renderInfoRow('Ad Soyad', `${appointment.customer?.name} ${appointment.customer?.surname}`, 'person')}
+            <View style={styles.customerHeader}>
+              <View style={styles.customerNameContainer}>
+                {renderInfoRow('Ad Soyad', `${appointment.customer?.name} ${appointment.customer?.surname}`, 'person')}
+              </View>
+              {loyaltyInfo?.isLoyal && (
+                <View style={[styles.loyaltyBadge, { backgroundColor: colors.warning.main }]}>
+                  <Ionicons name="star" size={16} color={colors.text.inverse} />
+                  <Text style={styles.loyaltyText}>Sadık Müşteri</Text>
+                </View>
+              )}
+            </View>
+            {loyaltyInfo?.isLoyal && (
+              <View style={styles.loyaltyInfo}>
+                <Text style={styles.loyaltyDetailText}>
+                  {loyaltyInfo.loyalty.visitCount}. ziyaret • {loyaltyInfo.loyalty.totalJobs} iş tamamlandı
+                </Text>
+                <Text style={styles.loyaltyDetailText}>
+                  Toplam harcama: {formatCurrency(loyaltyInfo.loyalty.totalSpent)}
+                </Text>
+              </View>
+            )}
             {renderInfoRow('Telefon', appointment.customer?.phone, 'call')}
             {renderInfoRow('E-posta', appointment.customer?.email, 'mail')}
           </>
@@ -291,6 +420,19 @@ export default function AppointmentDetailScreen() {
               onPress={() => setShowRejectModal(true)}
               loading={processing}
               style={[styles.actionButton, { backgroundColor: colors.error }] as any}
+              textStyle={styles.actionButtonText}
+            />
+          </View>
+        )}
+
+        {/* Status Update Button - Only for confirmed appointments */}
+        {appointment.status === 'confirmed' && (
+          <View style={styles.actionSection}>
+            <Button
+              title="Durum Güncelle"
+              onPress={openStatusModal}
+              loading={processing}
+              style={[styles.actionButton, { backgroundColor: colors.primary }] as any}
               textStyle={styles.actionButtonText}
             />
           </View>
@@ -328,6 +470,76 @@ export default function AppointmentDetailScreen() {
               >
                 <Text style={[styles.modalButtonText, { color: colors.text.inverse }]}>
                   Reddet
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Status Update Modal */}
+      <Modal
+        visible={showStatusModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowStatusModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Durum Güncelle</Text>
+            
+            {/* Status Selection */}
+            <View style={styles.statusSelection}>
+              <Text style={styles.statusSelectionLabel}>Yeni Durum:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusScroll}>
+                {availableStatuses.map((status) => (
+                  <TouchableOpacity
+                    key={status}
+                    style={[
+                      styles.statusOption,
+                      selectedStatus === status && styles.statusOptionSelected,
+                      { backgroundColor: selectedStatus === status ? getStatusColor(status) : colors.background.secondary }
+                    ]}
+                    onPress={() => setSelectedStatus(status)}
+                  >
+                    <Text style={[
+                      styles.statusOptionText,
+                      { color: selectedStatus === status ? colors.text.inverse : colors.text.primary }
+                    ]}>
+                      {getStatusDisplayName(status)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Notes */}
+            <View style={styles.notesSection}>
+              <Text style={styles.notesLabel}>Notlar (İsteğe bağlı):</Text>
+              <TextInput
+                style={styles.notesInput}
+                placeholder="Durum hakkında not yazın..."
+                value={statusNotes}
+                onChangeText={setStatusNotes}
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => setShowStatusModal(false)}
+              >
+                <Text style={styles.modalButtonText}>İptal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonPrimary]}
+                onPress={handleStatusUpdate}
+                disabled={processing || !selectedStatus}
+              >
+                <Text style={styles.modalButtonPrimaryText}>
+                  {processing ? 'Güncelleniyor...' : 'Güncelle'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -562,6 +774,98 @@ const createStyles = (colors: any) => StyleSheet.create({
     fontSize: typography.body2.fontSize,
     fontWeight: '600',
     color: colors.text.primary,
+  },
+  modalButtonPrimary: {
+    backgroundColor: colors.primary.main,
+    borderColor: colors.primary.main,
+  },
+  modalButtonPrimaryText: {
+    fontSize: typography.body2.fontSize,
+    fontWeight: '600',
+    color: colors.text.inverse,
+  },
+  // Status Update Modal Styles
+  statusSelection: {
+    marginBottom: spacing.lg,
+  },
+  statusSelectionLabel: {
+    fontSize: typography.body2.fontSize,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  statusScroll: {
+    maxHeight: 60,
+  },
+  statusOption: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    marginRight: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
+  },
+  statusOptionSelected: {
+    borderColor: colors.primary.main,
+  },
+  statusOptionText: {
+    fontSize: typography.caption.large.fontSize,
+    fontWeight: '500',
+  },
+  notesSection: {
+    marginBottom: spacing.lg,
+  },
+  notesLabel: {
+    fontSize: typography.body2.fontSize,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  notesInput: {
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    fontSize: typography.body2.fontSize,
+    color: colors.text.primary,
+    backgroundColor: colors.background.secondary,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  // Loyalty Customer Styles
+  customerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  customerNameContainer: {
+    flex: 1,
+  },
+  loyaltyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.lg,
+    gap: spacing.xs,
+  },
+  loyaltyText: {
+    fontSize: typography.caption.small.fontSize,
+    fontWeight: '600',
+    color: colors.text.inverse,
+  },
+  loyaltyInfo: {
+    backgroundColor: colors.warning.ultraLight,
+    borderRadius: borderRadius.md,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  loyaltyDetailText: {
+    fontSize: typography.caption.large.fontSize,
+    color: colors.warning.main,
+    fontWeight: '500',
+    marginBottom: spacing.xs,
   },
 });
 

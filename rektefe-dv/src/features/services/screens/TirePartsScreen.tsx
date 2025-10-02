@@ -116,7 +116,7 @@ const TirePartsScreen = () => {
       requiresSpecs: true
     },
     {
-      id: 'tire_repair',
+      id: 'tire_tamir',
       name: 'Lastik Tamiri',
       description: 'Lastik yama ve tamir hizmeti',
       icon: 'wrench',
@@ -165,7 +165,7 @@ const TirePartsScreen = () => {
       case 'tire_change':
         basePrice = 800; // 4 lastik + montaj
         break;
-      case 'tire_repair':
+      case 'tire_tamir':
         basePrice = 120; // Yama + balans
         break;
       case 'tire_balance':

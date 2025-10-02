@@ -13,7 +13,10 @@ import {
   Image,
   Animated,
   Modal,
+  ScrollView,
+  Dimensions,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/shared/context';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -42,6 +45,40 @@ type ChatScreenProps = {
 const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
   const { token, userId, isAuthenticated } = useAuth();
   const { conversationId, otherParticipant } = route.params;
+
+  // Hızlı yanıtlar şablonları
+  const quickReplies = [
+    {
+      id: 'greeting',
+      text: 'Merhaba, randevu talebinizi aldım. Müsaitlik durumumu kontrol edip size en kısa sürede döneceğim.',
+      icon: 'hand-left-outline'
+    },
+    {
+      id: 'ready',
+      text: 'Aracınızın işlemi tamamlanmıştır, gelip alabilirsiniz.',
+      icon: 'checkmark-circle-outline'
+    },
+    {
+      id: 'price',
+      text: 'Parça fiyatı için araştırma yapıp size bilgi vereceğim.',
+      icon: 'card-outline'
+    },
+    {
+      id: 'delay',
+      text: 'İşlem biraz uzayacak, sabırla beklediğiniz için teşekkürler.',
+      icon: 'time-outline'
+    },
+    {
+      id: 'parts',
+      text: 'Gerekli parçalar temin edildi, işleme başlıyoruz.',
+      icon: 'construct-outline'
+    },
+    {
+      id: 'payment',
+      text: 'Ödeme işleminiz tamamlandı, teşekkür ederiz.',
+      icon: 'wallet-outline'
+    }
+  ];
   
   // Debug: Route params'ı log'la
   const [messages, setMessages] = useState<Message[]>([]);
@@ -54,8 +91,15 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [recording, setRecording] = useState<any>(null);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [showMediaOptions, setShowMediaOptions] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
+  const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // Animasyon değerleri
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -203,6 +247,200 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
     } catch (error) {
       }
   }, [conversationId, lastMessageId, loading]);
+
+  // Sesle yazdırma fonksiyonu
+  const startVoiceRecording = async () => {
+    try {
+      setIsListening(true);
+      // Burada gerçek ses tanıma API'si entegre edilecek
+      // Şimdilik simüle ediyoruz
+      setTimeout(() => {
+        setIsListening(false);
+        // Simüle edilmiş ses metni
+        const simulatedText = "Aracınızın işlemi tamamlandı, gelip alabilirsiniz.";
+        setNewMessage(simulatedText);
+      }, 2000);
+    } catch (error) {
+      setIsListening(false);
+      Alert.alert('Hata', 'Ses tanıma başlatılamadı');
+    }
+  };
+
+  const stopVoiceRecording = () => {
+    setIsListening(false);
+  };
+
+  // Ses kaydı fonksiyonları (Gerçek implementasyon)
+  const startAudioRecording = async () => {
+    try {
+      // İzin kontrolü
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('İzin Gerekli', 'Ses kaydı için mikrofon izni gerekli');
+        return;
+      }
+
+      // Ses kaydını başlat
+      setIsRecording(true);
+      setRecordingDuration(0);
+
+      // Kayıt süresini takip et
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
+
+      // Gerçek ses kaydı için MediaRecorder API'sini kullanabiliriz
+      // Şimdilik simüle ediyoruz ama gerçek implementasyon için:
+      // navigator.mediaDevices.getUserMedia({ audio: true })
+      //   .then(stream => {
+      //     const mediaRecorder = new MediaRecorder(stream);
+      //     // Kayıt işlemi...
+      //   });
+
+    } catch (error) {
+      Alert.alert('Hata', 'Ses kaydı başlatılamadı');
+    }
+  };
+
+  const stopAudioRecording = async () => {
+    try {
+      setIsRecording(false);
+      
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
+      }
+
+      // Gerçek ses kaydı dosyasını gönder
+      // Şimdilik simüle ediyoruz
+      const audioUri = `audio_${Date.now()}.m4a`;
+      await sendAudioMessage(audioUri);
+      
+      setRecording(null);
+      setRecordingDuration(0);
+    } catch (error) {
+      Alert.alert('Hata', 'Ses kaydı durdurulamadı');
+    }
+  };
+
+  const sendAudioMessage = async (audioUri: string) => {
+    try {
+      setSending(true);
+      
+      const messageData = {
+        content: 'Ses kaydı',
+        messageType: 'file' as const,
+        receiverId: otherParticipant._id,
+        conversationId: conversationId.startsWith('temp_') ? undefined : conversationId,
+        audioUri: audioUri
+      };
+
+      const response = await apiService.sendMessage(messageData);
+      
+      if (response.success) {
+        // Başarılı gönderim
+        setTimeout(() => {
+          checkNewMessages();
+        }, 500);
+      } else {
+        Alert.alert('Hata', 'Ses kaydı gönderilemedi');
+      }
+    } catch (error) {
+      Alert.alert('Hata', 'Ses kaydı gönderilemedi');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Fotoğraf/video seçme fonksiyonları
+  const pickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('İzin Gerekli', 'Fotoğraf seçmek için galeri izni gerekli');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await sendImageMessage(result.assets[0].uri);
+      }
+    } catch (error) {
+      Alert.alert('Hata', 'Fotoğraf seçilemedi');
+    }
+  };
+
+  const takePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('İzin Gerekli', 'Fotoğraf çekmek için kamera izni gerekli');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await sendImageMessage(result.assets[0].uri);
+      }
+    } catch (error) {
+      Alert.alert('Hata', 'Fotoğraf çekilemedi');
+    }
+  };
+
+  const sendImageMessage = async (imageUri: string) => {
+    try {
+      setSending(true);
+      
+      const messageData = {
+        content: 'Fotoğraf',
+        messageType: 'image' as const,
+        receiverId: otherParticipant._id,
+        conversationId: conversationId.startsWith('temp_') ? undefined : conversationId,
+        imageUri: imageUri
+      };
+
+      const response = await apiService.sendMessage(messageData);
+      
+      if (response.success) {
+        setTimeout(() => {
+          checkNewMessages();
+        }, 500);
+      } else {
+        Alert.alert('Hata', 'Fotoğraf gönderilemedi');
+      }
+    } catch (error) {
+      Alert.alert('Hata', 'Fotoğraf gönderilemedi');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const formatRecordingDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Hızlı yanıt gönderme
+  const sendQuickReply = (replyText: string) => {
+    setNewMessage(replyText);
+    setShowQuickReplies(false);
+    // Mesajı hemen gönder
+    setTimeout(() => {
+      sendMessage();
+    }, 100);
+  };
 
   const sendMessage = async () => {
     if (!newMessage.trim() || sending) return;
@@ -445,7 +683,7 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
                 <Ionicons 
                   name="checkmark-done" 
                   size={14} 
-                  color={item.isRead ? colors.primary : colors.text.tertiary} 
+                  color={item.isRead ? colors.primary.main : colors.text.tertiary} 
                 />
               </View>
             )}
@@ -532,6 +770,32 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
         style={styles.inputContainer}
       >
         <View style={styles.inputWrapper}>
+          {/* Hızlı Yanıtlar Butonu */}
+          <TouchableOpacity
+            style={styles.quickReplyButton}
+            onPress={() => setShowQuickReplies(!showQuickReplies)}
+            activeOpacity={0.7}
+          >
+            <Ionicons 
+              name="chatbubbles-outline" 
+              size={20} 
+              color={colors.primary.main} 
+            />
+          </TouchableOpacity>
+
+          {/* Fotoğraf/Video Butonu */}
+          <TouchableOpacity
+            style={styles.mediaButton}
+            onPress={() => setShowMediaOptions(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons 
+              name="camera-outline" 
+              size={20} 
+              color={colors.primary.main} 
+            />
+          </TouchableOpacity>
+
           <TextInput
             ref={inputRef}
             style={styles.textInput}
@@ -543,6 +807,22 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
             maxLength={1000}
             onSubmitEditing={sendMessage}
           />
+          
+          {/* Ses Kaydı Butonu */}
+          <TouchableOpacity
+            style={[
+              styles.voiceButton,
+              isRecording && styles.voiceButtonActive
+            ]}
+            onPress={isRecording ? stopAudioRecording : startAudioRecording}
+            activeOpacity={0.7}
+          >
+            <Ionicons 
+              name={isRecording ? "stop" : "mic"} 
+              size={20} 
+              color={isRecording ? colors.error.main : colors.primary.main} 
+            />
+          </TouchableOpacity>
           
           <TouchableOpacity
             style={[
@@ -560,14 +840,137 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
               <Ionicons 
                 name="send" 
                 size={20} 
-                color={newMessage.trim() ? colors.primary : colors.text.tertiary} 
+                color={newMessage.trim() ? colors.primary.main : colors.text.tertiary} 
               />
             )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
 
-      {/* Options Modal */}
+      {/* Hızlı Yanıtlar Modal */}
+      <Modal
+        visible={showQuickReplies}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowQuickReplies(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.quickRepliesModal}>
+            <View style={styles.quickRepliesHeader}>
+              <Text style={styles.quickRepliesTitle}>Hızlı Yanıtlar</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowQuickReplies(false)}
+              >
+                <Ionicons name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.quickRepliesList} showsVerticalScrollIndicator={false}>
+              {quickReplies.map((reply) => (
+                <TouchableOpacity
+                  key={reply.id}
+                  style={styles.quickReplyItem}
+                  onPress={() => sendQuickReply(reply.text)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.quickReplyIcon}>
+                    <Ionicons name={reply.icon as any} size={20} color={colors.primary.main} />
+                  </View>
+                  <Text style={styles.quickReplyText}>{reply.text}</Text>
+                  <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Fotoğraf/Video Seçenekleri Modal */}
+      <Modal
+        visible={showMediaOptions}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowMediaOptions(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.mediaOptionsModal}>
+            <View style={styles.mediaOptionsHeader}>
+              <Text style={styles.mediaOptionsTitle}>Fotoğraf Seçin</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowMediaOptions(false)}
+              >
+                <Ionicons name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.mediaOptionsList}>
+              <TouchableOpacity
+                style={styles.mediaOptionItem}
+                onPress={() => {
+                  setShowMediaOptions(false);
+                  takePhoto();
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.mediaOptionIcon}>
+                  <Ionicons name="camera" size={24} color={colors.primary.main} />
+                </View>
+                <View style={styles.mediaOptionText}>
+                  <Text style={styles.mediaOptionTitle}>Fotoğraf Çek</Text>
+                  <Text style={styles.mediaOptionSubtitle}>Kameradan fotoğraf çek</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.mediaOptionItem}
+                onPress={() => {
+                  setShowMediaOptions(false);
+                  pickImage();
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.mediaOptionIcon}>
+                  <Ionicons name="images" size={24} color={colors.primary.main} />
+                </View>
+                <View style={styles.mediaOptionText}>
+                  <Text style={styles.mediaOptionTitle}>Galeriden Seç</Text>
+                  <Text style={styles.mediaOptionSubtitle}>Galeriden fotoğraf seç</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Ses Kaydı Modal */}
+      {isRecording && (
+        <Modal
+          visible={isRecording}
+          transparent
+          animationType="fade"
+        >
+          <View style={styles.recordingModalOverlay}>
+            <View style={styles.recordingModal}>
+              <View style={styles.recordingContent}>
+                <View style={styles.recordingIcon}>
+                  <Ionicons name="mic" size={32} color={colors.error.main} />
+                </View>
+                <Text style={styles.recordingTitle}>Ses Kaydı</Text>
+                <Text style={styles.recordingDuration}>
+                  {formatRecordingDuration(recordingDuration)}
+                </Text>
+                <Text style={styles.recordingSubtitle}>
+                  Kaydı durdurmak için mikrofon butonuna basın
+                </Text>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
       <Modal
         visible={showOptionsModal}
         transparent
@@ -585,7 +988,7 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
               onPress={showDeleteConfirmation}
               activeOpacity={0.7}
             >
-              <Ionicons name="trash-outline" size={20} color={colors.error} />
+              <Ionicons name="trash-outline" size={20} color={colors.error.main} />
               <Text style={[styles.optionText, styles.deleteOptionText]}>
                 Sohbeti Sil
               </Text>
@@ -780,6 +1183,31 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingHorizontal: themeDimensions.screenPadding,
     paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  quickReplyButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.background.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
+  },
+  voiceButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.background.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
+  },
+  voiceButtonActive: {
+    backgroundColor: colors.error.main + '20',
+    borderColor: colors.error.main,
   },
   textInput: {
     flex: 1,
@@ -807,7 +1235,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.primary.main,
     shadowColor: colors.shadow.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -829,7 +1257,7 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: colors.primary,
+    borderColor: colors.primary.main,
     borderTopColor: 'transparent',
   },
   modalOverlay: {
@@ -864,7 +1292,186 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   deleteOptionText: {
-    color: colors.error,
+    color: colors.error.main,
+  },
+
+  // Hızlı Yanıtlar Modal Stilleri
+  quickRepliesModal: {
+    backgroundColor: colors.background.primary,
+    borderRadius: borderRadius.lg,
+    marginHorizontal: spacing.lg,
+    maxHeight: '70%',
+    shadowColor: colors.shadow.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  quickRepliesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.secondary,
+  },
+  quickRepliesTitle: {
+    fontSize: typography.h3.fontSize,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.background.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quickRepliesList: {
+    maxHeight: 400,
+  },
+  quickReplyItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.secondary,
+  },
+  quickReplyIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary.main + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  quickReplyText: {
+    flex: 1,
+    fontSize: typography.body2.fontSize,
+    color: colors.text.primary,
+    lineHeight: 20,
+  },
+  // Medya Butonları Stilleri
+  mediaButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.background.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
+  },
+  mediaOptionsModal: {
+    backgroundColor: colors.background.primary,
+    borderRadius: borderRadius.lg,
+    marginHorizontal: spacing.lg,
+    maxHeight: '50%',
+    shadowColor: colors.shadow.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  mediaOptionsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.secondary,
+  },
+  mediaOptionsTitle: {
+    fontSize: typography.h3.fontSize,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  mediaOptionsList: {
+    paddingVertical: spacing.sm,
+  },
+  mediaOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.secondary,
+  },
+  mediaOptionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary.main + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  mediaOptionText: {
+    flex: 1,
+  },
+  mediaOptionTitle: {
+    fontSize: typography.body1.fontSize,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  mediaOptionSubtitle: {
+    fontSize: typography.caption.small.fontSize,
+    color: colors.text.secondary,
+  },
+  // Ses Kaydı Modal Stilleri
+  recordingModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  recordingModal: {
+    backgroundColor: colors.background.primary,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    marginHorizontal: spacing.lg,
+    alignItems: 'center',
+    shadowColor: colors.shadow.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 16,
+  },
+  recordingContent: {
+    alignItems: 'center',
+  },
+  recordingIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.error.main + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  recordingTitle: {
+    fontSize: typography.h3.fontSize,
+    fontWeight: '700',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  recordingDuration: {
+    fontSize: typography.h1.fontSize,
+    fontWeight: '700',
+    color: colors.error.main,
+    marginBottom: spacing.md,
+  },
+  recordingSubtitle: {
+    fontSize: typography.body2.fontSize,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
 

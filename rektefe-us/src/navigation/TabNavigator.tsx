@@ -12,6 +12,10 @@ import { HomeScreen } from '@/features/home/screens';
 import { MessagesScreen } from '@/features/messages/screens';
 import { WalletScreen } from '@/features/wallet/screens';
 import { ProfileScreen } from '@/features/profile/screens';
+import { ReportsScreen, EndOfDayScreen } from '@/features/reports/screens';
+import { CustomerScreen } from '@/features/customers/screens';
+import { QuickQuoteScreen } from '@/features/quotes/screens';
+import { SuppliersScreen } from '@/features/suppliers/screens';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 const { width } = Dimensions.get('window');
@@ -47,6 +51,10 @@ const HamburgerMenu = ({ visible, onClose, navigation }: HamburgerMenuProps) => 
   const menuItems = [
     { icon: 'calendar-outline', label: 'Takvim', screen: 'Calendar' },
     { icon: 'trending-up', label: 'Kazanç Takibi', screen: 'FinancialTracking' },
+    { icon: 'document-text', label: 'Hızlı Teklif', screen: 'QuickQuote' },
+    { icon: 'people', label: 'Müşteri Defterim', screen: 'Customers' },
+    { icon: 'business', label: 'Parçacılar Rehberi', screen: 'Suppliers' },
+    { icon: 'today', label: 'Günlük Rapor', screen: 'EndOfDay' },
     { icon: 'help-circle', label: 'Destek', screen: 'Support' },
     { icon: 'settings', label: 'Ayarlar', screen: 'Settings' },
   ];
@@ -86,7 +94,7 @@ const HamburgerMenu = ({ visible, onClose, navigation }: HamburgerMenuProps) => 
           <ScrollView style={styles.menuContent}>
             <Text style={styles.menuTitle}>İş Yönetimi</Text>
             
-            {menuItems.slice(0, 2).map((item, index) => (
+            {menuItems.slice(0, 3).map((item, index) => (
               <TouchableOpacity
                 key={index}
                 style={styles.menuItem}
@@ -103,11 +111,11 @@ const HamburgerMenu = ({ visible, onClose, navigation }: HamburgerMenuProps) => 
               </TouchableOpacity>
             ))}
 
-            <Text style={[styles.menuTitle, { marginTop: spacing.lg }]}>Finansal</Text>
+            <Text style={[styles.menuTitle, { marginTop: spacing.lg }]}>Raporlar</Text>
             
-            {menuItems.slice(2, 4).map((item, index) => (
+            {menuItems.slice(3, 5).map((item, index) => (
               <TouchableOpacity
-                key={index + 2}
+                key={index + 3}
                 style={styles.menuItem}
                 onPress={() => handleNavigation(item.screen)}
                 activeOpacity={0.7}
@@ -124,7 +132,7 @@ const HamburgerMenu = ({ visible, onClose, navigation }: HamburgerMenuProps) => 
 
             <Text style={[styles.menuTitle, { marginTop: spacing.lg }]}>Hesap</Text>
             
-            {menuItems.slice(4).map((item, index) => (
+            {menuItems.slice(5).map((item, index) => (
               <TouchableOpacity
                 key={index + 4}
                 style={styles.menuItem}
@@ -235,13 +243,17 @@ const CustomTabBar = ({ state, descriptors, navigation }: TabBarProps) => {
               label = 'Yıkama';
               break;
             case 'TireService':
-              icon = 'car';
+              icon = 'disc';
               label = 'Lastik';
               break;
             case 'Messages':
               icon = 'chatbubble';
               label = 'Mesajlar';
               badge = unreadCount;
+              break;
+            case 'Reports':
+              icon = 'analytics';
+              label = 'Raporlar';
               break;
             case 'Wallet':
               icon = 'wallet';
@@ -367,6 +379,9 @@ const TabNavigator = () => {
         component={HomeScreen}
         options={{
           title: 'Ana Sayfa',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home" size={size} color={color} />
+          ),
         }}
       />
 
@@ -377,6 +392,9 @@ const TabNavigator = () => {
           component={require('../features/services/screens/TowingServiceScreen').default}
           options={{
             title: 'Çekici',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="car" size={size} color={color} />
+            ),
           }}
         />
       )}
@@ -389,6 +407,9 @@ const TabNavigator = () => {
           component={require('../features/services/screens/WashServiceScreen').default}
           options={{
             title: 'Yıkama',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="water" size={size} color={color} />
+            ),
           }}
         />
       )}
@@ -399,6 +420,9 @@ const TabNavigator = () => {
           component={require('../features/services/screens/TireServiceScreen').default}
           options={{
             title: 'Lastik',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="disc" size={size} color={color} />
+            ),
           }}
         />
       )}
@@ -409,6 +433,22 @@ const TabNavigator = () => {
         component={MessagesScreen}
         options={{
           title: 'Mesajlar',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="chatbubble" size={size} color={color} />
+          ),
+        }}
+      />
+
+
+      {/* Raporlar - herkes için */}
+      <Tab.Screen 
+        name="Reports" 
+        component={ReportsScreen}
+        options={{
+          title: 'Raporlar',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="analytics" size={size} color={color} />
+          ),
         }}
       />
 
@@ -418,6 +458,9 @@ const TabNavigator = () => {
         component={WalletScreen}
         options={{
           title: 'Cüzdan',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="wallet" size={size} color={color} />
+          ),
         }}
       />
 
@@ -427,6 +470,9 @@ const TabNavigator = () => {
         component={ProfileScreen}
         options={{
           title: 'Profil',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person" size={size} color={color} />
+          ),
         }}
       />
       </Tab.Navigator>
@@ -599,7 +645,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   menuTitle: {
-    ...typography.label,
+    fontSize: typography.label.fontSize,
+    fontWeight: '600' as const,
     color: colors.text.secondary,
     marginBottom: spacing.md,
     textTransform: 'uppercase',

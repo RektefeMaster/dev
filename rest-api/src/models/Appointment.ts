@@ -78,6 +78,30 @@ export interface IAppointment extends Document {
     date: Date;
     mechanicId: string;
   }>;
+  // Yeni özellikler için eklenen alanlar
+  statusHistory?: Array<{
+    status: string;
+    timestamp: Date;
+    mechanicId: string;
+    notes?: string;
+  }>;
+  loyaltyInfo?: {
+    isLoyal: boolean;
+    visitCount: number;
+    loyaltyScore: number;
+  };
+  jobStory?: Array<{
+    stage: string;
+    description: string;
+    photos: string[];
+    timestamp: Date;
+  }>;
+  referralInfo?: {
+    referredBy?: string;
+    referredTo?: string;
+    reason: string;
+    timestamp: Date;
+  };
   
   createdAt: Date;
   updatedAt: Date;

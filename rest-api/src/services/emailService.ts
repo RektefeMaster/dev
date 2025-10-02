@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY || 're_hCvownPa_9MhAUEX4Dpqt1yioYYHDvRVd');
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export interface EmailData {
   to: string;
@@ -15,7 +15,7 @@ export class EmailService {
   static async sendEmail(emailData: EmailData): Promise<boolean> {
     try {
       const { data, error } = await resend.emails.send({
-        from: 'Rektefe Destek <onboarding@resend.dev>',
+        from: 'Rektefe <destek@rektefe.com>',
         to: emailData.to,
         subject: emailData.subject,
         html: emailData.html
@@ -190,50 +190,6 @@ export class EmailService {
     return this.sendEmail({
       to: newEmail,
       subject: 'Rektefe - E-posta Değişikliği Onayı',
-      html
-    });
-  }
-
-  /**
-   * Test e-postası gönder
-   */
-  static async sendTestEmail(to: string): Promise<boolean> {
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-            .header h1 { color: white; margin: 0; font-size: 28px; }
-            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-            .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>✅ Test E-postası</h1>
-            </div>
-            <div class="content">
-              <h2>Tebrikler!</h2>
-              <p>Rektefe e-posta servisi başarıyla çalışıyor.</p>
-              <p>Bu bir test e-postasıdır.</p>
-              
-              <div class="footer">
-                <p>© 2025 Rektefe. Tüm hakları saklıdır.</p>
-              </div>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
-
-    return this.sendEmail({
-      to,
-      subject: 'Rektefe - Test E-postası',
       html
     });
   }

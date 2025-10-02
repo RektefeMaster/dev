@@ -3,7 +3,7 @@ import { User } from '../models/User';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-key-for-development';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Google OAuth client ID'leri
 const GOOGLE_CLIENT_IDS = [
@@ -65,13 +65,13 @@ export class GoogleAuthService {
       const token = jwt.sign(
         { userId: (user._id as any).toString(), userType: user.userType },
         JWT_SECRET,
-        { expiresIn: '15m' } // Security fix: Add expiration
+        { expiresIn: '1h' } // Optimized: 15m -> 1h
       );
       
       const refreshToken = jwt.sign(
         { userId: (user._id as any).toString(), userType: user.userType },
         JWT_SECRET,
-        { expiresIn: '60d' }
+        { expiresIn: '30d' } // Optimized: 60d -> 30d
       );
       
       return {
@@ -109,13 +109,13 @@ export class GoogleAuthService {
       const token = jwt.sign(
         { userId: (user._id as any).toString(), userType: user.userType },
         JWT_SECRET,
-        { expiresIn: '15m' } // Security fix: Add expiration
+        { expiresIn: '1h' } // Optimized: 15m -> 1h
       );
       
       const refreshToken = jwt.sign(
         { userId: (user._id as any).toString(), userType: user.userType },
         JWT_SECRET,
-        { expiresIn: '60d' }
+        { expiresIn: '30d' } // Optimized: 60d -> 30d
       );
       
       return {

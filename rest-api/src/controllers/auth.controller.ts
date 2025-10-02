@@ -36,12 +36,13 @@ export class AuthController {
   // Çıkış yapma
   static logout = asyncHandler(async (req: Request, res: Response) => {
     const userId = (req as any).user?.userId;
+    const token = req.header('Authorization')?.replace('Bearer ', '');
     
     if (!userId) {
       return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı');
     }
     
-    const result = await AuthService.logout(userId);
+    const result = await AuthService.logout(userId, token);
     
     return ResponseHandler.success(res, result, 'Çıkış başarılı');
   });

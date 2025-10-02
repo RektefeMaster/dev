@@ -111,6 +111,47 @@ export interface IUser extends Document {
     biometricEnabled: boolean;
     sessionTimeout: number;
   };
+  // Yeni özellikler için eklenen alanlar
+  customerNotes?: Array<{
+    customerId: string;
+    note: string;
+    createdAt: Date;
+  }>;
+  serviceCatalog?: Array<{
+    name: string;
+    category: string;
+    description: string;
+    price: number;
+    duration: number;
+    isActive: boolean;
+    createdAt: Date;
+  }>;
+  suppliers?: Array<{
+    name: string;
+    phone: string;
+    email?: string;
+    address?: string;
+    specialties: string[];
+    notes?: string;
+    createdAt: Date;
+  }>;
+  vehicleHistory?: Array<{
+    vehicleId: string;
+    serviceType: string;
+    description: string;
+    price: number;
+    mileage: number;
+    date: Date;
+  }>;
+  maintenanceReminders?: Array<{
+    vehicleId: string;
+    type: 'mileage' | 'date' | 'both';
+    targetMileage?: number;
+    targetDate?: Date;
+    description: string;
+    isActive: boolean;
+    createdAt: Date;
+  }>;
 }
 
 const userSchema = new Schema<IUser>({
@@ -472,7 +513,163 @@ const userSchema = new Schema<IUser>({
       type: Number,
       default: 30
     }
-  }
+  },
+  // Yeni özellikler için eklenen alanlar
+  customerNotes: [{
+    customerId: {
+      type: String,
+      required: true
+    },
+    note: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  serviceCatalog: [{
+    name: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    category: {
+      type: String,
+      required: true,
+      enum: [
+        'Motor Bakımı',
+        'Fren Sistemi',
+        'Süspansiyon',
+        'Elektrik',
+        'Klima',
+        'Lastik',
+        'Egzoz',
+        'Kaportaj',
+        'Boyama',
+        'Genel Bakım',
+        'Diğer'
+      ]
+    },
+    description: {
+      type: String,
+      trim: true
+    },
+    price: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    duration: {
+      type: Number,
+      required: true,
+      min: 1
+    },
+    isActive: {
+      type: Boolean,
+      default: true
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  suppliers: [{
+    name: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    phone: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true
+    },
+    address: {
+      type: String,
+      trim: true
+    },
+    specialties: [{
+      type: String,
+      trim: true
+    }],
+    notes: {
+      type: String,
+      trim: true
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  vehicleHistory: [{
+    vehicleId: {
+      type: String,
+      required: true
+    },
+    serviceType: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    description: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    price: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    mileage: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    date: {
+      type: Date,
+      required: true
+    }
+  }],
+  maintenanceReminders: [{
+    vehicleId: {
+      type: String,
+      required: true
+    },
+    type: {
+      type: String,
+      required: true,
+      enum: ['mileage', 'date', 'both']
+    },
+    targetMileage: {
+      type: Number,
+      min: 0
+    },
+    targetDate: {
+      type: Date
+    },
+    description: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    isActive: {
+      type: Boolean,
+      default: true
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }]
 });
 
 // Performance optimization: Add indexes for common queries

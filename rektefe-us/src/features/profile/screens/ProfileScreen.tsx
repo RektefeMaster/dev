@@ -10,6 +10,7 @@ import {
   StatusBar,
   Dimensions,
   Modal,
+  Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -41,6 +42,12 @@ export default function ProfileScreen() {
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [showCapabilitiesModal, setShowCapabilitiesModal] = useState(false);
   const [selectedCapabilities, setSelectedCapabilities] = useState<string[]>([]);
+  const [portfolioImages, setPortfolioImages] = useState<any[]>([]);
+  const [certificates, setCertificates] = useState<any[]>([]);
+  const [showPortfolioModal, setShowPortfolioModal] = useState(false);
+  const [showCertificatesModal, setShowCertificatesModal] = useState(false);
+  const [showExperienceModal, setShowExperienceModal] = useState(false);
+  const [experienceYears, setExperienceYears] = useState(0);
 
   const fetchProfileData = useCallback(async () => {
     try {
@@ -88,6 +95,7 @@ export default function ProfileScreen() {
           ...prev,
           experienceYears: user.experience
         }));
+        setExperienceYears(user.experience);
       }
 
     } catch (error: any) {
@@ -98,12 +106,10 @@ export default function ProfileScreen() {
   }, [user]);
 
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isAuthenticated) {
       fetchProfileData();
-      // Load user capabilities
-      setSelectedCapabilities(user.serviceCategories || []);
     }
-  }, [isAuthenticated, user, fetchProfileData]);
+  }, [isAuthenticated, fetchProfileData]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -117,48 +123,30 @@ export default function ProfileScreen() {
       'Hesabınızdan çıkmak istediğinizden emin misiniz?',
       [
         { text: 'İptal', style: 'cancel' },
-        { text: 'Çıkış Yap', onPress: logout }
+        { text: 'Çıkış Yap', style: 'destructive', onPress: logout }
       ]
     );
   };
 
-  const getSatisfactionText = (rating: number) => {
-    if (rating === 0) return 'Henüz değerlendirilmedi';
-    if (rating >= 4.5) return 'Mükemmel';
-    if (rating >= 4.0) return 'Çok İyi';
-    if (rating >= 3.5) return 'İyi';
-    if (rating >= 3.0) return 'Orta';
-    if (rating >= 2.0) return 'Kötü';
-    return 'Çok Kötü';
-  };
-
-  // Capabilities data
   const capabilities = [
     {
-      id: 'towing',
-      title: 'Çekici Hizmeti',
-      icon: 'car',
-      color: '#EF4444',
-      description: 'Acil kurtarma hizmetleri'
-    },
-    {
-      id: 'repair',
-      title: 'Tamir & Bakım',
+      id: 'motor',
+      title: 'Motor Tamiri',
       icon: 'construct',
       color: '#3B82F6',
-      description: 'Arıza tespit ve onarım'
+      description: 'Motor arızaları ve bakımı'
     },
     {
-      id: 'wash',
-      title: 'Yıkama Hizmeti',
-      icon: 'water',
-      color: '#10B981',
-      description: 'Araç temizlik hizmetleri'
-    },
-    {
-      id: 'tire',
-      title: 'Lastik & Parça',
+      id: 'fren',
+      title: 'Fren Sistemi',
       icon: 'car',
+      color: '#EF4444',
+      description: 'Fren balata ve disk değişimi'
+    },
+    {
+      id: 'lastik',
+      title: 'Lastik Hizmetleri',
+      icon: 'disc',
       color: '#F59E0B',
       description: 'Lastik ve yedek parça'
     }
@@ -176,11 +164,9 @@ export default function ProfileScreen() {
     try {
       setLoading(true);
 
-      // API call to update capabilities
       const response = await apiService.updateUserCapabilities(selectedCapabilities);
 
       if (response.success) {
-        // AuthContext'teki user'ı güncelle
         updateUser({ serviceCategories: selectedCapabilities });
 
         Alert.alert(
@@ -205,71 +191,65 @@ export default function ProfileScreen() {
     }
   };
 
-  const renderRatingBar = (stars: number, count: number) => {
-    const percentage = profileStats.totalReviews > 0 ? (count / profileStats.totalReviews) * 100 : 0;
-    
-    return (
-      <View style={styles.ratingBarRow}>
-        <Text style={styles.ratingStars}>{stars}</Text>
-        <Ionicons name="star" size={16} color="#F59E0B" />
-        <View style={styles.ratingBarContainer}>
-          <View style={[styles.ratingBar, { width: `${percentage}%` }]} />
-        </View>
-        <Text style={styles.ratingCount}>{count}</Text>
-      </View>
-    );
+  const addPortfolioImage = () => {
+    const newImage = {
+      uri: 'https://via.placeholder.com/200x150/3B82F6/FFFFFF?text=Referans+İş',
+      title: `Referans İş ${portfolioImages.length + 1}`,
+      id: Date.now().toString()
+    };
+    setPortfolioImages(prev => [...prev, newImage]);
   };
 
-  const renderReviewCard = (review: any) => (
-    <View style={styles.reviewCard}>
-      <View style={styles.reviewHeader}>
-        <View style={styles.reviewAvatar}>
-          <Text style={styles.avatarText}>
-            {review.customer?.name?.charAt(0) || 'M'}
-          </Text>
-        </View>
-        
-        <View style={styles.reviewInfo}>
-          <Text style={styles.reviewCustomerName}>
-            {review.customer?.name ? `${review.customer.name} ${review.customer.surname || ''}` : 'Müşteri'}
-          </Text>
-          <Text style={styles.reviewDate}>
-            {new Date(review.createdAt).toLocaleDateString('tr-TR')}
-          </Text>
-        </View>
-        
-        <View style={styles.reviewRating}>
-          <Text style={styles.reviewRatingText}>{review.rating}/5</Text>
-          <View style={styles.reviewStars}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Ionicons
-                key={star}
-                name={star <= review.rating ? "star" : "star-outline"}
-                size={16}
-                color="#F59E0B"
-              />
-            ))}
-          </View>
-        </View>
-      </View>
+  const removePortfolioImage = (index: number) => {
+    setPortfolioImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const addCertificate = () => {
+    const newCert = {
+      uri: 'https://via.placeholder.com/200x150/10B981/FFFFFF?text=Sertifika',
+      title: `Sertifika ${certificates.length + 1}`,
+      id: Date.now().toString()
+    };
+    setCertificates(prev => [...prev, newCert]);
+  };
+
+  const removeCertificate = (index: number) => {
+    setCertificates(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSaveExperience = async () => {
+    try {
+      setLoading(true);
       
-      {review.comment && (
-        <View style={styles.reviewContent}>
-          <View style={styles.reviewLabel}>
-            <Ionicons name="chatbubble" size={16} color="#3B82F6" />
-            <Text style={styles.reviewLabelText}>Müşteri Yorumu:</Text>
-          </View>
-          <Text style={styles.reviewText}>{review.comment}</Text>
-        </View>
-      )}
-    </View>
-  );
+      const response = await apiService.updateMechanicProfile({ experience: experienceYears });
+      
+      if (response.success) {
+        updateUser({ experience: experienceYears });
+        setProfileStats(prev => ({
+          ...prev,
+          experienceYears: experienceYears
+        }));
+        
+        Alert.alert(
+          'Başarılı',
+          'Deneyim yılı başarıyla güncellendi.',
+          [{ text: 'Tamam', onPress: () => setShowExperienceModal(false) }]
+        );
+      } else {
+        throw new Error(response.message || 'Deneyim yılı güncellenemedi');
+      }
+    } catch (error) {
+      Alert.alert('Hata', 'Deneyim yılı güncellenirken bir hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <View style={styles.loadingContent}>
-          <Ionicons name="person" size={40} color={colors.primary} />
+          <Ionicons name="person" size={40} color={colors.primary.main} />
           <Text style={styles.loadingText}>Profil yükleniyor...</Text>
         </View>
       </View>
@@ -305,8 +285,8 @@ export default function ProfileScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+            colors={[colors.primary.main]}
+            tintColor={colors.primary.main}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -332,9 +312,29 @@ export default function ProfileScreen() {
                 {user?.city || 'Konum belirtilmemiş'}
               </Text>
               <View style={styles.roleContainer}>
-                <Ionicons name="construct" size={16} color={colors.primary} />
+                <Ionicons name="construct" size={16} color={colors.primary.main} />
                 <Text style={styles.roleText}>Usta</Text>
               </View>
+            </View>
+          </View>
+          
+          {/* Deneyim Yılı Düzenleme */}
+          <View style={styles.experienceSection}>
+            <View style={styles.experienceHeader}>
+              <Ionicons name="time" size={20} color={colors.primary.main} />
+              <Text style={styles.experienceTitle}>Deneyim Yılı</Text>
+            </View>
+            <View style={styles.experienceContent}>
+              <Text style={styles.experienceValue}>
+                {profileStats.experienceYears} Yıl
+              </Text>
+              <TouchableOpacity
+                style={styles.editExperienceButton}
+                onPress={() => setShowExperienceModal(true)}
+              >
+                <Ionicons name="create-outline" size={16} color={colors.primary.main} />
+                <Text style={styles.editExperienceText}>Düzenle</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -374,154 +374,274 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Rating Summary Card */}
-        <View style={styles.ratingCard}>
-          <View style={styles.ratingHeader}>
-            <Text style={styles.ratingTitle}>Puan Detayları</Text>
-            <View style={styles.ratingBadge}>
-              <Text style={styles.ratingBadgeText}>
-                {profileStats.totalReviews} değerlendirme
-              </Text>
+        {/* Referans İşler Bölümü */}
+        <View style={styles.portfolioSection}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Ionicons name="images" size={20} color={colors.primary.main} />
+              <Text style={styles.sectionTitle}>Referans İşlerim</Text>
             </View>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => setShowPortfolioModal(true)}
+            >
+              <Ionicons name="add" size={20} color={colors.primary.main} />
+              <Text style={styles.addButtonText}>Ekle</Text>
+            </TouchableOpacity>
           </View>
           
-          <View style={styles.ratingSummary}>
-            <View style={styles.ratingMain}>
-              <Text style={styles.averageRating}>{profileStats.averageRating.toFixed(1)}</Text>
-              <View style={styles.starsContainer}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Ionicons
-                    key={star}
-                    name={star <= profileStats.averageRating ? "star" : "star-outline"}
-                    size={20}
-                    color="#F59E0B"
-                  />
-                ))}
-              </View>
-              <Text style={styles.satisfactionText}>
-                {getSatisfactionText(profileStats.averageRating)}
+          {portfolioImages.length > 0 ? (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.portfolioScroll}
+            >
+              {portfolioImages.map((image, index) => (
+                <View key={index} style={styles.portfolioItem}>
+                  <Image source={{ uri: image.uri }} style={styles.portfolioImage} />
+                  <TouchableOpacity
+                    style={styles.removePortfolioButton}
+                    onPress={() => removePortfolioImage(index)}
+                  >
+                    <Ionicons name="close" size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                  <Text style={styles.portfolioTitle} numberOfLines={1}>
+                    {image.title || 'Referans İş'}
+                  </Text>
+                </View>
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={styles.emptyPortfolio}>
+              <Ionicons name="images-outline" size={48} color={colors.text.tertiary} />
+              <Text style={styles.emptyPortfolioText}>
+                Henüz referans iş eklenmemiş
               </Text>
-              <Text style={styles.satisfactionPercentage}>
-                {profileStats.averageRating === 0 ? 'Değerlendirme bekleniyor' : `${Math.round((profileStats.averageRating / 5) * 100)}% memnuniyet`}
+              <Text style={styles.emptyPortfolioSubtext}>
+                En iyi işlerinizin fotoğraflarını ekleyerek müşterilere güven verin
               </Text>
-            </View>
-          </View>
-
-          {/* Rating Distribution */}
-          {profileStats.totalReviews > 0 && (
-            <View style={styles.distributionSection}>
-              <Text style={styles.distributionTitle}>Puan Dağılımı</Text>
-              <View style={styles.distributionBars}>
-                {renderRatingBar(5, profileStats.ratingDistribution[5])}
-                {renderRatingBar(4, profileStats.ratingDistribution[4])}
-                {renderRatingBar(3, profileStats.ratingDistribution[3])}
-                {renderRatingBar(2, profileStats.ratingDistribution[2])}
-                {renderRatingBar(1, profileStats.ratingDistribution[1])}
-              </View>
             </View>
           )}
         </View>
 
-        {/* Earnings Card */}
-        <View style={styles.earningsCard}>
-          <View style={styles.earningsHeader}>
-            <Ionicons name="wallet" size={24} color="#10B981" />
-            <Text style={styles.earningsTitle}>Kazanç Özeti</Text>
+        {/* Sertifikalar Bölümü */}
+        <View style={styles.certificatesSection}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Ionicons name="ribbon" size={20} color={colors.primary.main} />
+              <Text style={styles.sectionTitle}>Sertifikalarım</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => setShowCertificatesModal(true)}
+            >
+              <Ionicons name="add" size={20} color={colors.primary.main} />
+              <Text style={styles.addButtonText}>Ekle</Text>
+            </TouchableOpacity>
           </View>
           
-          <View style={styles.earningsContent}>
-            <View style={styles.earningsRow}>
-              <Text style={styles.earningsLabel}>Toplam Kazanç</Text>
-              <Text style={styles.earningsValue}>
-                ₺{profileStats.totalEarnings.toLocaleString('tr-TR')}
+          {certificates.length > 0 ? (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.certificatesScroll}
+            >
+              {certificates.map((cert, index) => (
+                <View key={index} style={styles.certificateItem}>
+                  <Image source={{ uri: cert.uri }} style={styles.certificateImage} />
+                  <TouchableOpacity
+                    style={styles.removeCertificateButton}
+                    onPress={() => removeCertificate(index)}
+                  >
+                    <Ionicons name="close" size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                  <Text style={styles.certificateTitle} numberOfLines={1}>
+                    {cert.title || 'Sertifika'}
+                  </Text>
+                </View>
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={styles.emptyCertificates}>
+              <Ionicons name="ribbon-outline" size={48} color={colors.text.tertiary} />
+              <Text style={styles.emptyCertificatesText}>
+                Henüz sertifika eklenmemiş
+              </Text>
+              <Text style={styles.emptyCertificatesSubtext}>
+                Mesleki sertifikalarınızı ekleyerek uzmanlığınızı kanıtlayın
               </Text>
             </View>
-            
-            <View style={styles.earningsRow}>
-              <Text style={styles.earningsLabel}>Ortalama İş Başına</Text>
-              <Text style={styles.earningsValue}>
-                ₺{profileStats.completedJobs > 0 
-                  ? (profileStats.totalEarnings / profileStats.completedJobs).toFixed(0)
-                  : '0'
-                }
-              </Text>
-            </View>
-          </View>
+          )}
         </View>
-
-        {/* Recent Reviews */}
-        {recentReviews.length > 0 && (
-          <View style={styles.reviewsSection}>
-            <View style={styles.reviewsHeader}>
-              <Text style={styles.reviewsTitle}>Değerlendirmeler</Text>
-              <TouchableOpacity onPress={() => setShowAllReviews(!showAllReviews)}>
-                <Text style={styles.viewAllText}>
-                  {showAllReviews ? 'Daha Az Göster' : 'Tümünü Gör'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            
-            {(showAllReviews ? recentReviews : recentReviews.slice(0, 3)).map((review, index) => (
-              <View key={review._id || index}>
-                {renderReviewCard(review)}
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Empty State for Reviews */}
-        {recentReviews.length === 0 && (
-          <View style={styles.emptyState}>
-            <Ionicons name="star-outline" size={48} color={colors.text.tertiary} />
-            <Text style={styles.emptyStateTitle}>Henüz değerlendirme yok</Text>
-            <Text style={styles.emptyStateText}>
-              Müşterilerden gelen değerlendirmeler burada görünecek
-            </Text>
-          </View>
-        )}
-
-        {/* Profile Actions */}
-        <View style={styles.profileActions}>
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('EditProfile' as never)}
-          >
-            <Ionicons name="person" size={20} color={colors.primary} />
-            <Text style={styles.actionButtonText}>Profili Düzenle</Text>
-            <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
-          </TouchableOpacity>
-          
+        <View style={styles.actionButtons}>
           <TouchableOpacity 
             style={styles.actionButton}
             onPress={() => setShowCapabilitiesModal(true)}
           >
-            <Ionicons name="construct" size={20} color={colors.primary} />
-            <Text style={styles.actionButtonText}>Hizmet Alanlarım</Text>
+            <Ionicons name="construct" size={20} color={colors.primary.main} />
+            <Text style={styles.actionButtonText}>Hizmet Alanları</Text>
             <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={styles.actionButton}
-            onPress={() => navigation.navigate('WorkingHours' as never)}
+            onPress={() => navigation.navigate('Customers' as never)}
           >
-            <Ionicons name="time" size={20} color={colors.primary} />
-            <Text style={styles.actionButtonText}>Çalışma Saatleri</Text>
-            <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={() => {
-              // @ts-ignore
-              navigation.navigate('Settings');
-            }}
-          >
-            <Ionicons name="settings" size={20} color={colors.primary} />
-            <Text style={styles.actionButtonText}>Hesap Ayarları</Text>
+            <Ionicons name="people" size={20} color={colors.primary.main} />
+            <Text style={styles.actionButtonText}>Müşteri Defterim</Text>
             <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Deneyim Yılı Modal */}
+      <Modal
+        visible={showExperienceModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowExperienceModal(false)}
+            >
+              <Ionicons name="close" size={24} color={colors.text.primary} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Deneyim Yılı</Text>
+            <TouchableOpacity
+              style={styles.modalSaveButton}
+              onPress={handleSaveExperience}
+              disabled={loading}
+            >
+              <Text style={styles.modalSaveText}>Kaydet</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.modalContent}>
+            <Text style={styles.modalDescription}>
+              Kaç yıllık deneyiminiz var? Bu bilgi müşterilere güven verecektir.
+            </Text>
+            
+            <View style={styles.experienceInputContainer}>
+              <Text style={styles.experienceInputLabel}>Deneyim Yılı</Text>
+              <View style={styles.experienceInputRow}>
+                <TouchableOpacity
+                  style={styles.experienceButton}
+                  onPress={() => setExperienceYears(Math.max(0, experienceYears - 1))}
+                >
+                  <Ionicons name="remove" size={20} color={colors.primary.main} />
+                </TouchableOpacity>
+                <Text style={styles.experienceValue}>{experienceYears}</Text>
+                <TouchableOpacity
+                  style={styles.experienceButton}
+                  onPress={() => setExperienceYears(Math.min(50, experienceYears + 1))}
+                >
+                  <Ionicons name="add" size={20} color={colors.primary.main} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Portfolio Modal */}
+      <Modal
+        visible={showPortfolioModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowPortfolioModal(false)}
+            >
+              <Ionicons name="close" size={24} color={colors.text.primary} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Referans İşlerim</Text>
+            <TouchableOpacity
+              style={styles.modalSaveButton}
+              onPress={addPortfolioImage}
+            >
+              <Text style={styles.modalSaveText}>Ekle</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.modalContent}>
+            <Text style={styles.modalDescription}>
+              En iyi işlerinizin fotoğraflarını ekleyerek müşterilere güven verin.
+            </Text>
+            
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.modalPortfolioScroll}
+            >
+              {portfolioImages.map((image, index) => (
+                <View key={index} style={styles.modalPortfolioItem}>
+                  <Image source={{ uri: image.uri }} style={styles.modalPortfolioImage} />
+                  <TouchableOpacity
+                    style={styles.modalRemoveButton}
+                    onPress={() => removePortfolioImage(index)}
+                  >
+                    <Ionicons name="close" size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Certificates Modal */}
+      <Modal
+        visible={showCertificatesModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowCertificatesModal(false)}
+            >
+              <Ionicons name="close" size={24} color={colors.text.primary} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Sertifikalarım</Text>
+            <TouchableOpacity
+              style={styles.modalSaveButton}
+              onPress={addCertificate}
+            >
+              <Text style={styles.modalSaveText}>Ekle</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.modalContent}>
+            <Text style={styles.modalDescription}>
+              Mesleki sertifikalarınızı ekleyerek uzmanlığınızı kanıtlayın.
+            </Text>
+            
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.modalCertificatesScroll}
+            >
+              {certificates.map((cert, index) => (
+                <View key={index} style={styles.modalCertificateItem}>
+                  <Image source={{ uri: cert.uri }} style={styles.modalCertificateImage} />
+                  <TouchableOpacity
+                    style={styles.modalRemoveButton}
+                    onPress={() => removeCertificate(index)}
+                  >
+                    <Ionicons name="close" size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </SafeAreaView>
+      </Modal>
 
       {/* Capabilities Modal */}
       <Modal
@@ -576,7 +696,7 @@ export default function ProfileScreen() {
                     <View style={styles.capabilityText}>
                       <Text style={[
                         styles.capabilityTitle,
-                        { color: colors.text.primary.main }
+                        { color: colors.text.primary }
                       ]}>
                         {capability.title}
                       </Text>
@@ -628,33 +748,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: typography.h1.fontSize,
-    fontWeight: '700',
+    fontSize: typography.h2.fontSize,
+    fontWeight: typography.h2.fontWeight,
     color: colors.text.inverse,
   },
   logoutButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: spacing.sm,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxl,
-    flexGrow: 1,
+    paddingBottom: spacing.xl,
   },
-  
-  // Profile Card
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background.primary,
+  },
+  loadingContent: {
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: typography.body1.fontSize,
+    color: colors.text.secondary,
+    marginTop: spacing.md,
+  },
   profileCard: {
     backgroundColor: colors.background.secondary,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
-    marginBottom: spacing.lg,
+    margin: spacing.lg,
     ...shadows.medium,
   },
   profileHeader: {
@@ -668,58 +793,97 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
+    backgroundColor: colors.primary.main,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   avatarText: {
-    fontSize: 32,
-    fontWeight: '700',
+    fontSize: typography.h1.fontSize,
+    fontWeight: typography.h1.fontWeight,
     color: colors.text.inverse,
   },
   profileInfo: {
     flex: 1,
   },
   profileName: {
-    fontSize: typography.h2.fontSize,
-    fontWeight: '700',
-    color: colors.text.primary.main,
+    fontSize: typography.h3.fontSize,
+    fontWeight: typography.h3.fontWeight,
+    color: colors.text.primary,
     marginBottom: spacing.xs,
   },
   profileEmail: {
-    fontSize: typography.body1.fontSize,
+    fontSize: typography.body2.fontSize,
     color: colors.text.secondary,
     marginBottom: spacing.xs,
   },
   profileLocation: {
-    fontSize: typography.body3.fontSize,
-    color: colors.text.tertiary,
+    fontSize: typography.body2.fontSize,
+    color: colors.text.secondary,
+    marginBottom: spacing.sm,
   },
   roleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.sm,
-    gap: spacing.xs,
   },
   roleText: {
-    fontSize: typography.body2.fontSize,
-    fontWeight: '600',
-    color: colors.primary,
+    fontSize: typography.caption.small.fontSize,
+    color: colors.primary.main,
+    marginLeft: spacing.xs,
+    fontWeight: '500',
   },
-
-  // Stats Grid
+  experienceSection: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.secondary,
+  },
+  experienceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  experienceTitle: {
+    fontSize: typography.body1.fontSize,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  experienceContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  experienceValue: {
+    fontSize: typography.h2.fontSize,
+    fontWeight: '700',
+    color: colors.primary.main,
+  },
+  editExperienceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.primary.ultraLight,
+    borderRadius: borderRadius.sm,
+    gap: spacing.xs,
+  },
+  editExperienceText: {
+    fontSize: typography.caption.small.fontSize,
+    color: colors.primary.main,
+    fontWeight: '500',
+  },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
     marginBottom: spacing.lg,
   },
   statCard: {
-    width: (width - spacing.lg * 3) / 2,
+    width: '50%',
     backgroundColor: colors.background.secondary,
     borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    padding: spacing.lg,
+    marginBottom: spacing.sm,
     alignItems: 'center',
     ...shadows.small,
   },
@@ -727,315 +891,186 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.primary.ultraLight,
-    alignItems: 'center',
+    backgroundColor: colors.background.primary,
     justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: spacing.sm,
   },
   statValue: {
     fontSize: typography.h2.fontSize,
-    fontWeight: '700',
-    color: colors.text.primary.main,
+    fontWeight: typography.h2.fontWeight,
+    color: colors.text.primary,
     marginBottom: spacing.xs,
   },
   statLabel: {
-    fontSize: typography.caption.large.fontSize,
-    color: colors.text.secondary,
-    textAlign: 'center',
-  },
-
-  // Rating Card
-  ratingCard: {
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    ...shadows.medium,
-  },
-  ratingHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.lg,
-  },
-  ratingTitle: {
-    fontSize: typography.h3.fontSize,
-    fontWeight: '700',
-    color: colors.text.primary.main,
-  },
-  ratingBadge: {
-    backgroundColor: colors.primary.ultraLight,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
-  },
-  ratingBadgeText: {
     fontSize: typography.caption.small.fontSize,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  ratingSummary: {
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  ratingMain: {
-    alignItems: 'center',
-  },
-  averageRating: {
-    fontSize: 48,
-    fontWeight: '700',
-    color: colors.primary,
-    marginBottom: spacing.sm,
-  },
-  starsContainer: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  satisfactionText: {
-    fontSize: typography.h4.fontSize,
-    fontWeight: '600',
-    color: colors.text.primary.main,
-    marginBottom: spacing.xs,
-  },
-  satisfactionPercentage: {
-    fontSize: typography.body3.fontSize,
     color: colors.text.secondary,
-  },
-  distributionSection: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border.secondary,
-    paddingTop: spacing.lg,
-  },
-  distributionTitle: {
-    fontSize: typography.h4.fontSize,
-    fontWeight: '600',
-    color: colors.text.primary.main,
-    marginBottom: spacing.md,
     textAlign: 'center',
   },
-  distributionBars: {
-    gap: spacing.sm,
-  },
-  ratingBarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  ratingStars: {
-    fontSize: typography.body2.fontSize,
-    fontWeight: '600',
-    color: colors.text.primary.main,
-    width: 20,
-  },
-  ratingBarContainer: {
-    flex: 1,
-    height: 8,
-    backgroundColor: colors.border.secondary,
-    borderRadius: borderRadius.sm,
-    overflow: 'hidden',
-  },
-  ratingBar: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.sm,
-  },
-  ratingCount: {
-    fontSize: typography.caption.large.fontSize,
-    fontWeight: '600',
-    color: colors.text.secondary,
-    width: 30,
-    textAlign: 'right',
-  },
-
-  // Earnings Card
-  earningsCard: {
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    ...shadows.medium,
-  },
-  earningsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  earningsTitle: {
-    fontSize: typography.h3.fontSize,
-    fontWeight: '700',
-    color: colors.text.primary.main,
-    marginLeft: spacing.sm,
-  },
-  earningsContent: {
-    gap: spacing.md,
-  },
-  earningsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  earningsLabel: {
-    fontSize: typography.body1.fontSize,
-    color: colors.text.secondary,
-  },
-  earningsValue: {
-    fontSize: typography.h4.fontSize,
-    fontWeight: '700',
-    color: colors.text.primary.main,
-  },
-
-  // Reviews Section
-  reviewsSection: {
-    marginBottom: spacing.lg,
-  },
-  reviewsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
-  reviewsTitle: {
-    fontSize: typography.h3.fontSize,
-    fontWeight: '700',
-    color: colors.text.primary.main,
-  },
-  viewAllText: {
-    fontSize: typography.body3.fontSize,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-
-  // Review Card
-  reviewCard: {
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    ...shadows.small,
-  },
-  reviewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  reviewAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  reviewInfo: {
-    flex: 1,
-  },
-  reviewCustomerName: {
-    fontSize: typography.body1.fontSize,
-    fontWeight: '600',
-    color: colors.text.primary.main,
-    marginBottom: spacing.xs,
-  },
-  reviewDate: {
-    fontSize: typography.caption.large.fontSize,
-    color: colors.text.secondary,
-  },
-  reviewRating: {
-    alignItems: 'flex-end',
-  },
-  reviewRatingText: {
-    fontSize: typography.body1.fontSize,
-    fontWeight: '700',
-    color: colors.text.primary.main,
-    marginBottom: spacing.xs,
-  },
-  reviewStars: {
-    flexDirection: 'row',
-    gap: 2,
-  },
-  reviewContent: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border.secondary,
-    paddingTop: spacing.md,
-  },
-  reviewLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-    gap: spacing.xs,
-  },
-  reviewLabelText: {
-    fontSize: typography.caption.large.fontSize,
-    fontWeight: '600',
-    color: colors.text.primary.main,
-  },
-  reviewText: {
-    fontSize: typography.body3.fontSize,
-    color: colors.text.secondary,
-    lineHeight: 20,
-    backgroundColor: colors.background.primary,
-    padding: spacing.sm,
-    borderRadius: borderRadius.sm,
-  },
-
-  // Loading & Empty States
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: colors.background.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingContent: {
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: typography.body1.fontSize,
-    fontWeight: '600',
-    color: colors.text.inverse,
-    marginTop: spacing.lg,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl * 2,
-  },
-  emptyStateTitle: {
-    fontSize: typography.h4.fontSize,
-    fontWeight: '600',
-    color: colors.text.secondary,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  emptyStateText: {
-    fontSize: typography.body1.fontSize,
-    color: colors.text.tertiary,
-    textAlign: 'center',
-    paddingHorizontal: spacing.xl,
-    lineHeight: 20,
-  },
-  profileActions: {
-    marginTop: spacing.lg,
+  actionButtons: {
     paddingHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
   },
   actionButton: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: colors.background.secondary,
     borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    padding: spacing.lg,
+    marginBottom: spacing.sm,
     ...shadows.small,
   },
   actionButtonText: {
     flex: 1,
     fontSize: typography.body1.fontSize,
-    fontWeight: '600',
-    color: colors.text.primary.main,
+    color: colors.text.primary,
     marginLeft: spacing.sm,
+    fontWeight: '500',
   },
-
-  // Modal Styles
+  // Portfolio ve Sertifika Stilleri
+  portfolioSection: {
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    ...shadows.medium,
+  },
+  certificatesSection: {
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    ...shadows.medium,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: typography.h3.fontSize,
+    fontWeight: typography.h3.fontWeight,
+    color: colors.text.primary,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.primary.ultraLight,
+    borderRadius: borderRadius.sm,
+    gap: spacing.xs,
+  },
+  addButtonText: {
+    fontSize: typography.caption.small.fontSize,
+    color: colors.primary.main,
+    fontWeight: '500',
+  },
+  portfolioScroll: {
+    marginTop: spacing.sm,
+  },
+  portfolioItem: {
+    marginRight: spacing.md,
+    alignItems: 'center',
+  },
+  portfolioImage: {
+    width: 120,
+    height: 90,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.background.primary,
+  },
+  removePortfolioButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.error.main,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  portfolioTitle: {
+    fontSize: typography.caption.small.fontSize,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+    maxWidth: 120,
+  },
+  emptyPortfolio: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+  },
+  emptyPortfolioText: {
+    fontSize: typography.body1.fontSize,
+    color: colors.text.secondary,
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  emptyPortfolioSubtext: {
+    fontSize: typography.caption.small.fontSize,
+    color: colors.text.tertiary,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  certificatesScroll: {
+    marginTop: spacing.sm,
+  },
+  certificateItem: {
+    marginRight: spacing.md,
+    alignItems: 'center',
+  },
+  certificateImage: {
+    width: 120,
+    height: 90,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.background.primary,
+  },
+  removeCertificateButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.error.main,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  certificateTitle: {
+    fontSize: typography.caption.small.fontSize,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+    maxWidth: 120,
+  },
+  emptyCertificates: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+  },
+  emptyCertificatesText: {
+    fontSize: typography.body1.fontSize,
+    color: colors.text.secondary,
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  emptyCertificatesSubtext: {
+    fontSize: typography.caption.small.fontSize,
+    color: colors.text.tertiary,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  // Modal Stilleri
   modalContainer: {
     flex: 1,
     backgroundColor: colors.background.primary,
@@ -1045,42 +1080,109 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.secondary,
   },
+  modalCloseButton: {
+    padding: spacing.sm,
+  },
   modalTitle: {
     fontSize: typography.h3.fontSize,
-    fontWeight: '700',
-    color: colors.text.primary.main,
+    fontWeight: typography.h3.fontWeight,
+    color: colors.text.primary,
+  },
+  modalSaveButton: {
+    padding: spacing.sm,
+  },
+  modalSaveText: {
+    fontSize: typography.body1.fontSize,
+    color: colors.primary.main,
+    fontWeight: '600',
   },
   modalCancelText: {
     fontSize: typography.body1.fontSize,
     color: colors.text.secondary,
   },
-  modalSaveText: {
-    fontSize: typography.body1.fontSize,
-    color: colors.primary,
-    fontWeight: '600',
-  },
   modalContent: {
     flex: 1,
-    paddingHorizontal: spacing.lg,
+    padding: spacing.lg,
   },
   modalDescription: {
-    fontSize: typography.body1.fontSize,
+    fontSize: typography.body2.fontSize,
     color: colors.text.secondary,
-    textAlign: 'center',
-    marginVertical: spacing.lg,
+    marginBottom: spacing.lg,
     lineHeight: 20,
   },
+  experienceInputContainer: {
+    marginTop: spacing.lg,
+  },
+  experienceInputLabel: {
+    fontSize: typography.body1.fontSize,
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+    fontWeight: '500',
+  },
+  experienceInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.lg,
+  },
+  experienceButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary.ultraLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalPortfolioScroll: {
+    marginTop: spacing.md,
+  },
+  modalPortfolioItem: {
+    marginRight: spacing.md,
+    position: 'relative',
+  },
+  modalPortfolioImage: {
+    width: 150,
+    height: 120,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.background.secondary,
+  },
+  modalRemoveButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.error.main,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCertificatesScroll: {
+    marginTop: spacing.md,
+  },
+  modalCertificateItem: {
+    marginRight: spacing.md,
+    position: 'relative',
+  },
+  modalCertificateImage: {
+    width: 150,
+    height: 120,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.background.secondary,
+  },
   capabilitiesList: {
-    gap: spacing.md,
+    marginTop: spacing.md,
   },
   capabilityCard: {
     borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
     borderWidth: 2,
-    padding: spacing.md,
+    ...shadows.small,
   },
   capabilityContent: {
     flexDirection: 'row',
@@ -1098,12 +1200,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   capabilityTitle: {
-    fontSize: typography.h4.fontSize,
+    fontSize: typography.body1.fontSize,
     fontWeight: '600',
     marginBottom: spacing.xs,
   },
   capabilityDescription: {
-    fontSize: typography.body3.fontSize,
-    fontWeight: '500',
+    fontSize: typography.caption.small.fontSize,
+    lineHeight: 16,
   },
 });

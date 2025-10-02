@@ -532,6 +532,12 @@ export type RootStackParamList = {
   WashService: undefined;
   EmergencyNotification: undefined;
   TireService: undefined;
+  // Yeni eklenen ekranlar
+  QuickQuote: undefined;
+  Customers: undefined;
+  Reports: undefined;
+  EndOfDay: undefined;
+  Suppliers: undefined;
   [key: string]: undefined | { conversationId: string; otherParticipant: MechanicProfile } | { appointmentId: string } | { faultReportId: string } | { email: string } | { token: string };
 };
 
@@ -556,6 +562,7 @@ export type TabParamList = {
   WashService: undefined;
   TireService: undefined;
   Messages: undefined;
+  Reports: undefined;
   Wallet: undefined;
   Profile: undefined;
   [key: string]: undefined;

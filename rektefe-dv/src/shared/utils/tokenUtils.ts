@@ -87,11 +87,11 @@ export const isTokenValid = (token: string): boolean => {
 
 /**
  * Token'ın yenilenmesi gerekip gerekmediğini kontrol eder
- * (Son 5 dakika içinde dolacaksa true döner)
+ * (Son 10 dakika içinde dolacaksa true döner - 1h token için optimize edildi)
  */
 export const shouldRefreshToken = (token: string): boolean => {
   const timeToExpiry = getTokenTimeToExpiry(token);
-  return timeToExpiry <= 5; // Son 5 dakika
+  return timeToExpiry <= 10; // Son 10 dakika (1h token için optimize edildi)
 };
 
 /**

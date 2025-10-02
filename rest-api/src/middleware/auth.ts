@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config';
+import { TokenBlacklistService } from '../services/tokenBlacklist.service';
 
 export const auth: RequestHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -9,6 +10,13 @@ export const auth: RequestHandler = async (req: Request, res: Response, next: Ne
     
     if (!token) {
       res.status(401).json({ message: 'Yetkilendirme token\'ı bulunamadı' });
+      return;
+    }
+
+    // Token'ın blacklist'te olup olmadığını kontrol et
+    const isBlacklisted = await TokenBlacklistService.isTokenBlacklisted(token);
+    if (isBlacklisted) {
+      res.status(401).json({ message: 'Token geçersiz (blacklist)' });
       return;
     }
 

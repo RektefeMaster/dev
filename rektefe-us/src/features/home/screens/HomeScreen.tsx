@@ -78,9 +78,11 @@ export default function HomeScreen() {
   const [recentRatings, setRecentRatings] = useState<Rating[]>([]);
   const [faultReportsCount, setFaultReportsCount] = useState(0);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [pendingAppointmentsCount, setPendingAppointmentsCount] = useState(0);
   
   // Real-time güncelleme için
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const appState = useRef(AppState.currentState);
   const spinValue = useRef(new Animated.Value(0)).current;
 
@@ -148,6 +150,20 @@ const mechanicCapabilities = [
           },
         ],
       },
+      {
+        id: 'quickquote',
+        label: 'Hızlı Teklif',
+        links: [
+          {
+            label: 'Teklif Oluştur',
+            onPress: () => navigation.navigate('QuickQuote'),
+          },
+          {
+            label: 'Teklif Geçmişi',
+            onPress: () => navigation.navigate('QuickQuote'),
+          },
+        ],
+      },
     ];
 
     // Finansal menüler
@@ -170,6 +186,20 @@ const mechanicCapabilities = [
           },
         ],
       },
+      {
+        id: 'reports',
+        label: 'Raporlar',
+        links: [
+          {
+            label: 'Analitik Raporlar',
+            onPress: () => navigation.navigate('Reports'),
+          },
+          {
+            label: 'Günlük Rapor',
+            onPress: () => navigation.navigate('EndOfDay'),
+          },
+        ],
+      },
     ];
 
     // Hesap menüleri
@@ -181,6 +211,10 @@ const mechanicCapabilities = [
           {
             label: 'Profil Ayarları',
             onPress: () => navigation.navigate('Profile'),
+          },
+          {
+            label: 'Müşteri Defterim',
+            onPress: () => navigation.navigate('Customers'),
           },
           {
             label: 'Yardım Merkezi',
@@ -384,7 +418,9 @@ const mechanicCapabilities = [
         ratingStatsRes,
         appointmentStatsRes,
         faultReportsRes,
-        notificationsRes
+        notificationsRes,
+        conversationsRes,
+        pendingAppointmentsRes
       ] = await Promise.allSettled([
         apiService.getMechanicAppointments('confirmed'),
         apiService.getMechanicAppointments('completed'),
@@ -393,7 +429,9 @@ const mechanicCapabilities = [
         apiService.getRatingStats(),
         apiService.getAppointmentStats(),
         apiService.getMechanicFaultReports('pending'),
-        apiService.getNotifications()
+        apiService.getNotifications(),
+        apiService.getConversations(),
+        apiService.getMechanicAppointments('pending')
       ]);
 
       // Bugünkü onaylanan randevular
@@ -507,6 +545,28 @@ const mechanicCapabilities = [
         setUnreadNotificationCount(unreadCount);
       }
 
+      // Okunmamış mesaj sayısı
+      if (conversationsRes.status === 'fulfilled' && conversationsRes.value.success && conversationsRes.value.data) {
+        const conversations = Array.isArray(conversationsRes.value.data) 
+          ? conversationsRes.value.data 
+          : [];
+        
+        const unreadMessages = conversations.reduce((total: number, conversation: any) => {
+          return total + (conversation.unreadCount || 0);
+        }, 0);
+        
+        setUnreadMessagesCount(unreadMessages);
+      }
+
+      // Onay bekleyen randevu sayısı
+      if (pendingAppointmentsRes.status === 'fulfilled' && pendingAppointmentsRes.value.success && pendingAppointmentsRes.value.data) {
+        const pendingAppointments = Array.isArray(pendingAppointmentsRes.value.data) 
+          ? pendingAppointmentsRes.value.data 
+          : [];
+        
+        setPendingAppointmentsCount(pendingAppointments.length);
+      }
+
     } catch (error) {
       Alert.alert('Hata', 'Veriler yüklenirken bir hata oluştu');
     } finally {
@@ -579,6 +639,17 @@ const mechanicCapabilities = [
       navigation.navigate('Profile');
     }
   };
+
+  // Bugünkü randevuları zaman sırasına göre sırala
+  const getSortedTodayAppointments = useCallback(() => {
+    return todayAppointments
+      .sort((a, b) => {
+        const timeA = a.timeSlot || '00:00';
+        const timeB = b.timeSlot || '00:00';
+        return timeA.localeCompare(timeB);
+      })
+      .slice(0, 3); // İlk 3 randevuyu göster
+  }, [todayAppointments]);
 
   if (loading) {
     return (
@@ -712,6 +783,119 @@ const mechanicCapabilities = [
             </View>
           </View>
         </View>
+
+        {/* Bugün ki Ajanda - Dinamik Dashboard */}
+        <View style={styles.agendaSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Bugün ki Ajandanız</Text>
+            <Text style={styles.sectionSubtitle}>
+              {(todayAppointments.length > 0 || unreadMessagesCount > 0 || pendingAppointmentsCount > 0) 
+                ? 'Aksiyon gerektiren öğeler' 
+                : 'Bugün için planlanmış iş yok'
+              }
+            </Text>
+          </View>
+            
+            <View style={styles.agendaContainer}>
+              {/* Bugün ki Randevular */}
+              {todayAppointments.length > 0 && (
+                <View style={styles.agendaItem}>
+                  <View style={styles.agendaItemHeader}>
+                    <View style={styles.agendaItemIcon}>
+                      <Ionicons name="calendar" size={20} color="#3B82F6" />
+                    </View>
+                    <Text style={styles.agendaItemTitle}>Bugün ki Randevular</Text>
+                    <Text style={styles.agendaItemCount}>{todayAppointments.length}</Text>
+                  </View>
+                  <View style={styles.appointmentsList}>
+                    {getSortedTodayAppointments().map((appointment, index) => (
+                      <View key={appointment._id || index} style={styles.appointmentItem}>
+                        <View style={styles.appointmentTime}>
+                          <Text style={styles.appointmentTimeText}>
+                            {appointment.timeSlot || '09:00'}
+                          </Text>
+                        </View>
+                        <View style={styles.appointmentDetailsNew}>
+                          <Text style={styles.appointmentCustomer}>
+                            {typeof appointment.userId === 'object' && appointment.userId 
+                              ? `${appointment.userId.name} ${appointment.userId.surname}`
+                              : 'Müşteri'
+                            }
+                          </Text>
+                          <Text style={styles.appointmentService}>
+                            {appointment.serviceType}
+                          </Text>
+                          {typeof appointment.vehicleId === 'object' && appointment.vehicleId && (
+                            <Text style={styles.appointmentVehicle}>
+                              {appointment.vehicleId.brand} {appointment.vehicleId.modelName}
+                            </Text>
+                          )}
+                        </View>
+                        <TouchableOpacity 
+                          style={styles.appointmentAction}
+                          onPress={() => navigation.navigate('AppointmentDetail', { appointmentId: appointment._id })}
+                        >
+                          <Ionicons name="chevron-forward" size={16} color="#64748B" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {/* Aksiyon Gerektiren Öğeler - Öncelikli */}
+              {(unreadMessagesCount > 0 || pendingAppointmentsCount > 0) && (
+                <View style={styles.actionItemsContainer}>
+                  <Text style={styles.actionItemsTitle}>Acil Aksiyonlar</Text>
+                  
+                  {unreadMessagesCount > 0 && (
+                    <TouchableOpacity 
+                      style={[styles.actionItem, styles.actionItemUrgent]}
+                      onPress={() => navigation.navigate('Messages')}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.actionItemIcon}>
+                        <Ionicons name="chatbubbles" size={24} color="#FFFFFF" />
+                        <View style={styles.actionBadge}>
+                          <Text style={styles.actionBadgeText}>{unreadMessagesCount}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.actionItemContent}>
+                        <Text style={styles.actionItemTitle}>Cevaplanmamış Mesajlar</Text>
+                        <Text style={styles.actionItemSubtitle}>
+                          {unreadMessagesCount} müşteri sizi bekliyor
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  )}
+
+                  {pendingAppointmentsCount > 0 && (
+                    <TouchableOpacity 
+                      style={[styles.actionItem, styles.actionItemWarning]}
+                      onPress={() => navigation.navigate('Appointments')}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.actionItemIcon}>
+                        <Ionicons name="time" size={24} color="#FFFFFF" />
+                        <View style={styles.actionBadge}>
+                          <Text style={styles.actionBadgeText}>{pendingAppointmentsCount}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.actionItemContent}>
+                        <Text style={styles.actionItemTitle}>Onay Bekleyen Randevular</Text>
+                        <Text style={styles.actionItemSubtitle}>
+                          {pendingAppointmentsCount} randevu onayınızı bekliyor
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+            </View>
+          </View>
+
         {/* Enhanced Quick Actions */}
         <View style={styles.quickActionsSection}>
           <View style={styles.sectionHeader}>
@@ -1240,7 +1424,7 @@ const styles = StyleSheet.create({
   appointmentsSection: {
     marginTop: 30,
   },
-  appointmentsList: {
+  appointmentsListOld: {
     gap: 16,
   },
   appointmentCard: {
@@ -1443,5 +1627,182 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 100,
+  },
+
+  // Bugün ki Ajanda Stilleri
+  agendaSection: {
+    marginTop: 24,
+    paddingHorizontal: 20,
+  },
+  agendaContainer: {
+    gap: 20,
+  },
+  agendaItem: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  agendaItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+  },
+  agendaItemIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EBF4FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  agendaItemTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1E293B',
+    flex: 1,
+  },
+  agendaItemCount: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#3B82F6',
+    backgroundColor: '#EBF4FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  appointmentsList: {
+    gap: 12,
+  },
+  appointmentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  appointmentTime: {
+    width: 60,
+    alignItems: 'center',
+  },
+  appointmentTimeText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#3B82F6',
+  },
+  appointmentDetailsNew: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  appointmentCustomer: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 4,
+  },
+  appointmentService: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  appointmentVehicle: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+  appointmentAction: {
+    padding: 8,
+  },
+
+  // Aksiyon Öğeleri Stilleri
+  actionItemsContainer: {
+    gap: 12,
+    marginTop: 8,
+  },
+  actionItemsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 8,
+  },
+  actionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    minHeight: 64,
+  },
+  actionItemUrgent: {
+    backgroundColor: '#EF4444',
+    shadowColor: '#EF4444',
+    shadowOpacity: 0.2,
+    borderColor: '#EF4444',
+  },
+  actionItemWarning: {
+    backgroundColor: '#F59E0B',
+    shadowColor: '#F59E0B',
+    shadowOpacity: 0.2,
+    borderColor: '#F59E0B',
+  },
+  actionItemIcon: {
+    position: 'relative',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEF2F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  actionBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#EF4444',
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  actionBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  actionItemContent: {
+    flex: 1,
+  },
+  actionItemTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  actionItemSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '500',
   },
 });

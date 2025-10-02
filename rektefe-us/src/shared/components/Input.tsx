@@ -63,8 +63,8 @@ const Input: React.FC<InputProps> = ({
   };
 
   const getBorderColor = () => {
-    if (error) return colors.error;
-    if (isFocused) return colors.primary;
+    if (error) return colors.error.main;
+    if (isFocused) return colors.primary.main;
     if (disabled) return colors.border.tertiary;
     return colors.border.primary;
   };
@@ -166,7 +166,7 @@ const Input: React.FC<InputProps> = ({
       {/* Error Message */}
       {error && (
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={16} color={colors.error} />
+          <Ionicons name="alert-circle" size={16} color={colors.error.main} />
           <Text style={styles.errorText}>{error}</Text>
         </View>
       )}
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: typography.caption.large.fontSize,
-    color: colors.error,
+    color: colors.error.main,
     fontWeight: '500',
   },
 });

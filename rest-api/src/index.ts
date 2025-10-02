@@ -41,8 +41,13 @@ import faultReportRoutes from './routes/faultReport';
 import serviceRequestRoutes from './routes/serviceRequests';
 import emergencyTowingRoutes from './routes/emergencyTowing';
 import paymentRoutes from './routes/payment';
-import emailTestRoutes from './routes/emailTest';
-import emailTestPublicRoutes from './routes/emailTestPublic';
+import customersRoutes from './routes/customers';
+import suppliersRoutes from './routes/suppliers';
+import statusNotificationsRoutes from './routes/statusNotifications';
+import endOfDayRoutes from './routes/endOfDay';
+import loyalCustomersRoutes from './routes/loyalCustomers';
+import vehicleHistoryRoutes from './routes/vehicleHistory';
+import jobReferralsRoutes from './routes/jobReferrals';
 
 // .env dosyasını yükle
 dotenv.config();
@@ -303,8 +308,13 @@ app.use('/api/fault-reports', faultReportRoutes);
 app.use('/api/service-requests', serviceRequestRoutes);
 app.use('/api/emergency', emergencyTowingRoutes);
 app.use('/api/payment', paymentRoutes);
-app.use('/api/email-test', emailTestRoutes);
-app.use('/api/email-test-public', emailTestPublicRoutes);
+app.use('/api/customers', customersRoutes);
+app.use('/api/suppliers', suppliersRoutes);
+app.use('/api/status-notifications', statusNotificationsRoutes);
+app.use('/api/end-of-day', endOfDayRoutes);
+app.use('/api/loyal-customers', loyalCustomersRoutes);
+app.use('/api/vehicle-history', vehicleHistoryRoutes);
+app.use('/api/job-referrals', jobReferralsRoutes);
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 

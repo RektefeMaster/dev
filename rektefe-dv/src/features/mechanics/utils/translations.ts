@@ -3,7 +3,8 @@
  */
 
 export const specialtyTranslations: { [key: string]: string } = {
-  'repair': 'Tamir & Bakım',
+  'tamir': 'Tamir & Bakım',
+  'bakim': 'Tamir & Bakım',
   'maintenance': 'Genel Bakım',
   'engine': 'Motor',
   'transmission': 'Şanzıman',

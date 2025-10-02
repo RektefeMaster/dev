@@ -652,14 +652,19 @@ export const useHomeData = () => {
           
           // Nurullah Aydın için özel kategori düzeltmesi
           if (nearest.email === 'testust@gmail.com' && nearest.name === 'Nurullah') {
-            serviceCategories = ['repair'];
+            serviceCategories = ['tamir'];
           }
           
           const categoryTranslations: { [key: string]: string } = {
-            'repair': 'Tamir & Bakım',
+            'tamir': 'Tamir ve Bakım',
+            'bakim': 'Tamir ve Bakım',
             'tire': 'Lastik',
-            'wash': 'Yıkama',
-            'towing': 'Çekici'
+            'wash': 'Araç Yıkama',
+            'towing': 'Çekici',
+            'Tamir ve Bakım': 'Tamir ve Bakım',
+            'Araç Yıkama': 'Araç Yıkama',
+            'Lastik': 'Lastik',
+            'Çekici': 'Çekici'
           };
           
           const translatedCategories = serviceCategories.map((cat: string) => 

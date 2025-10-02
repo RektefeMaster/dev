@@ -183,6 +183,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
         
         if (userId && token) {
+          // Refresh token'ı da kaydet
+          const refreshToken = response.data.data?.refreshToken || response.data.refreshToken;
+          if (refreshToken) {
+            await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+            console.log('✅ Refresh token kaydedildi');
+          } else {
+            console.log('⚠️ Refresh token bulunamadı');
+          }
+          
           await setTokenAndUserId(token, userId);
           if (userData) {
             setUser(userData);

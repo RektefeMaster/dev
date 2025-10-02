@@ -112,17 +112,17 @@ export class AuthService {
       await user.save();
     }
 
-    // Token'ları oluştur
+    // Token'ları oluştur - Optimized durations
     const token = jwt.sign(
       { userId: (user._id as mongoose.Types.ObjectId).toString(), userType: finalUserType },
       JWT_SECRET,
-      { expiresIn: '15m' } // Security fix: Add expiration
+      { expiresIn: '1h' } // Optimized: 15m -> 1h (daha az yenileme)
     );
     
     const refreshToken = jwt.sign(
       { userId: (user._id as mongoose.Types.ObjectId).toString(), userType: finalUserType },
       JWT_SECRET,
-      { expiresIn: '60d' }
+      { expiresIn: '30d' } // Optimized: 60d -> 30d (güvenlik)
     );
 
     return {
@@ -171,17 +171,17 @@ export class AuthService {
         }
     }
 
-    // Token'ları oluştur
+    // Token'ları oluştur - Optimized durations
     const token = jwt.sign(
       { userId: (user._id as mongoose.Types.ObjectId).toString(), userType: user.userType },
       JWT_SECRET,
-      { expiresIn: '15m' } // Security fix: Add expiration
+      { expiresIn: '1h' } // Optimized: 15m -> 1h (daha az yenileme)
     );
     
     const refreshToken = jwt.sign(
       { userId: (user._id as mongoose.Types.ObjectId).toString(), userType: user.userType },
       JWT_SECRET,
-      { expiresIn: '60d' }
+      { expiresIn: '30d' } // Optimized: 60d -> 30d (güvenlik)
     );
 
     return {
@@ -203,10 +203,11 @@ export class AuthService {
         throw new CustomError('Kullanıcı bulunamadı.', 401);
       }
 
-      // Yeni token oluştur
+      // Yeni token oluştur - Optimized duration
       const newToken = jwt.sign(
         { userId: (user._id as mongoose.Types.ObjectId).toString(), userType: user.userType },
-        JWT_SECRET
+        JWT_SECRET,
+        { expiresIn: '1h' } // Optimized: 1h duration
       );
 
       return {
@@ -219,9 +220,18 @@ export class AuthService {
   }
 
   // Çıkış yapma
-  static async logout(userId: string) {
-    // Burada token blacklist'e eklenebilir (Redis kullanarak)
-    // Şimdilik basit bir response dönüyoruz
-    return { message: 'Başarıyla çıkış yapıldı.' };
+  static async logout(userId: string, token?: string) {
+    try {
+      // Token'ı blacklist'e ekle
+      if (token) {
+        const { TokenBlacklistService } = await import('./tokenBlacklist.service');
+        await TokenBlacklistService.addToBlacklist(token, userId, 3600); // 1 saat blacklist
+      }
+      
+      return { message: 'Başarıyla çıkış yapıldı.' };
+    } catch (error) {
+      console.error('Logout hatası:', error);
+      return { message: 'Çıkış yapıldı.' };
+    }
   }
 }

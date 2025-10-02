@@ -14,9 +14,20 @@ import {
   ApiResponse,
   User
 } from '@/shared/types';
+import { 
+  isTokenExpired, 
+  shouldRefreshToken, 
+  isTokenValid,
+  getTokenUserInfo 
+} from '@/shared/utils/tokenUtils';
 
 class ApiService {
   private api: AxiosInstance;
+  private isRefreshing = false;
+  private failedQueue: Array<{
+    resolve: (value?: any) => void;
+    reject: (error?: any) => void;
+  }> = [];
 
   constructor() {
     this.api = axios.create({
@@ -27,95 +38,214 @@ class ApiService {
       },
     });
 
-    // Request interceptor - token ekle
+    this.setupInterceptors();
+  }
+
+  private setupInterceptors() {
+    // Request interceptor - proaktif token yenileme ile
     this.api.interceptors.request.use(
       async (config: any) => {
         try {
-          const token = await this.getToken();
+          const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+          console.log('🔍 Request interceptor: Token kontrolü - URL:', config.url);
+          
           if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+            // Token validation kontrolü
+            if (isTokenValid(token)) {
+              // Token geçerli, ancak yenilenmesi gerekip gerekmediğini kontrol et
+              if (shouldRefreshToken(token)) {
+                console.log('🔄 Token yenilenmesi gerekiyor, yenileme başlatılıyor...');
+                try {
+                  const newToken = await this.refreshToken();
+                  if (newToken) {
+                    config.headers.Authorization = `Bearer ${newToken}`;
+                    console.log('✅ Token yenilendi ve eklendi');
+                  } else {
+                    config.headers.Authorization = `Bearer ${token}`;
+                    console.log('⚠️ Token yenilenemedi, mevcut token kullanılıyor');
+                  }
+                } catch (refreshError) {
+                  console.error('❌ Token yenileme hatası:', refreshError);
+                  config.headers.Authorization = `Bearer ${token}`;
+                }
+              } else {
+                config.headers.Authorization = `Bearer ${token}`;
+                console.log('✅ Request interceptor: Token eklendi, uzunluk:', token.length);
+              }
+            } else {
+              // Geçersiz token'ı temizle
+              console.log('⚠️ Request interceptor: Geçersiz token temizleniyor');
+              await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+              await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+            }
+          } else {
+            console.log('⚠️ Request interceptor: Token bulunamadı');
           }
+          return config;
         } catch (error) {
-          }
-        return config;
+          console.error('❌ Request interceptor: Hata:', error);
+          return Promise.reject(error);
+        }
       },
       (error: any) => {
         return Promise.reject(error);
       }
     );
 
-    // Response interceptor - hata yönetimi (Test için otomatik logout devre dışı)
+    // Response interceptor - token yenileme ve hata yönetimi
     this.api.interceptors.response.use(
       (response: any) => response,
       async (error: any) => {
-        if (error.response?.status === 401) {
-          // Token geçersiz olsa bile otomatik logout yapma (test için)
-          console.log('⚠️ 401 hatası, otomatik logout yapılmıyor (test modu)');
-          // Test için varsayılan token döndür
-          const testToken = await this.getToken();
-          if (testToken) {
-            error.config.headers.Authorization = `Bearer ${testToken}`;
-            return this.api(error.config);
+        const originalRequest = error.config;
+        
+        // 401 Unauthorized handling - Token yenileme mekanizması
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          if (this.isRefreshing) {
+            // Token yenileme devam ediyorsa, isteği kuyruğa al
+            return new Promise((resolve, reject) => {
+              this.failedQueue.push({ resolve, reject });
+            }).then(token => {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              return this.api(originalRequest);
+            }).catch(err => {
+              return Promise.reject(err);
+            });
           }
-        } else if (error.response?.status === 404) {
+
+          originalRequest._retry = true;
+          this.isRefreshing = true;
+
+          try {
+            // Token yenileme dene
+            const newToken = await this.refreshToken();
+            
+            if (newToken) {
+              // Yeni token ile isteği tekrar gönder
+              originalRequest.headers.Authorization = `Bearer ${newToken}`;
+              
+              // Kuyruktaki istekleri işle
+              this.processQueue(null, newToken);
+              
+              return this.api(originalRequest);
+            } else {
+              // Token yenilenemedi, logout yap
+              console.log('🚪 Token yenilenemedi, otomatik logout yapılıyor...');
+              await this.performLogout();
+              this.processQueue(new Error('Token refresh failed'), null);
+              return Promise.reject(error);
+            }
+          } catch (refreshError) {
+            console.error('❌ Token yenileme hatası:', refreshError);
+            // Token yenileme başarısız, logout yap
+            await this.performLogout();
+            this.processQueue(refreshError, null);
+            return Promise.reject(error);
+          } finally {
+            this.isRefreshing = false;
+          }
         }
+        
         return Promise.reject(error);
       }
     );
   }
 
+  // Token yenileme fonksiyonu
+  private async refreshToken(): Promise<string | null> {
+    try {
+      const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+      if (!refreshToken) {
+        console.log('⚠️ Refresh token bulunamadı');
+        return null;
+      }
+
+      console.log('🔄 Token yenileme başlatılıyor...');
+      const response = await axios.post(`${API_URL}/auth/refresh-token`, {
+        refreshToken
+      });
+
+      if (response.data && response.data.success && response.data.token) {
+        const newToken = response.data.token;
+        const newRefreshToken = response.data.refreshToken || refreshToken;
+
+        // Yeni token'ları kaydet
+        await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, newToken);
+        await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
+
+        console.log('✅ Token başarıyla yenilendi');
+        return newToken;
+      } else {
+        throw new Error('Token yenileme başarısız');
+      }
+    } catch (error) {
+      console.error('❌ Token yenileme hatası:', error);
+      
+      // Token yenileme başarısızsa tüm token'ları temizle
+      await this.clearAllTokens();
+      return null;
+    }
+  }
+
+  // Kuyruk yönetimi
+  private processQueue(error: any, token: string | null = null) {
+    this.failedQueue.forEach(({ resolve, reject }) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(token);
+      }
+    });
+    
+    this.failedQueue = [];
+  }
+
+  // Tüm token'ları temizle
+  private async clearAllTokens(): Promise<void> {
+    try {
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.AUTH_TOKEN,
+        STORAGE_KEYS.REFRESH_TOKEN,
+        STORAGE_KEYS.USER_ID,
+        STORAGE_KEYS.USER_DATA
+      ]);
+      console.log('✅ Tüm token\'lar temizlendi');
+    } catch (error) {
+      console.error('❌ Token temizleme hatası:', error);
+    }
+  }
+
+  // Logout fonksiyonu
+  private async performLogout(): Promise<void> {
+    try {
+      console.log('🚪 Otomatik logout başlatılıyor...');
+      
+      // Tüm auth verilerini temizle
+      await this.clearAllTokens();
+      
+      console.log('✅ Logout tamamlandı');
+    } catch (error) {
+      console.error('❌ Logout hatası:', error);
+    }
+  }
   private async getToken(): Promise<string | null> {
     try {
       const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
       
       if (token) {
         // Token'ın geçerliliğini kontrol et
-        if (this.isTokenValid(token)) {
+        if (isTokenValid(token)) {
           return token;
         } else {
-          await this.clearToken();
-          return null;
+          // Token geçersizse yenilemeyi dene
+          console.log('⚠️ Token geçersiz, yenileme deneniyor...');
+          const newToken = await this.refreshToken();
+          return newToken;
         }
-      } else {
       }
       return null;
     } catch (error) {
+      console.error('❌ Token alma hatası:', error);
       return null;
-    }
-  }
-
-  private async clearToken(): Promise<void> {
-    try {
-      await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-      await AsyncStorage.removeItem(STORAGE_KEYS.USER_ID);
-      await AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA);
-      } catch (error) {
-      }
-  }
-
-  // Token'ın geçerliliğini kontrol et
-  private isTokenValid(token: string): boolean {
-    try {
-      // JWT token formatını kontrol et (3 parça olmalı)
-      const parts = token.split('.');
-      if (parts.length !== 3) {
-        return false;
-      }
-      
-      // Base64 decode edilebilir mi kontrol et (React Native için)
-      const payload = JSON.parse(atob(parts[1]));
-      
-      // Expiration time kontrolü
-      if (payload.exp) {
-        const currentTime = Math.floor(Date.now() / 1000);
-        if (currentTime >= payload.exp) {
-          return false;
-        }
-      }
-      
-      return true;
-    } catch (error) {
-      return false;
     }
   }
 
@@ -183,9 +313,11 @@ class ApiService {
   async logout(): Promise<ApiResponse> {
     try {
       const response = await this.api.post('/auth/logout');
-      await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+      await this.clearAllTokens();
       return response.data;
     } catch (error) {
+      // Logout hatası olsa bile token'ları temizle
+      await this.clearAllTokens();
       return this.handleError(error);
     }
   }
@@ -833,6 +965,8 @@ class ApiService {
     receiverId: string;
     content: string;
     messageType?: 'text' | 'image' | 'file';
+    imageUri?: string;
+    audioUri?: string;
   }): Promise<ApiResponse<Message>> {
     try {
       // Gerçek API endpoint'ini kullan
@@ -1637,6 +1771,332 @@ class ApiService {
   async verifyPhone(code: string): Promise<ApiResponse<any>> {
     try {
       const response = await this.api.post('/users/verify-phone', { code });
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  // ===== CUSTOMER CRM METHODS =====
+  async getMechanicCustomers(search?: string, page = 1, limit = 20): Promise<ApiResponse<any[]>> {
+    try {
+      const params = new URLSearchParams();
+      if (search) params.append('search', search);
+      params.append('page', page.toString());
+      params.append('limit', limit.toString());
+      
+      const response = await this.api.get(`/customers?${params.toString()}`);
+      return response.data as ApiResponse<any[]>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getCustomerDetails(customerId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get(`/customers/${customerId}`);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async addCustomerNote(customerId: string, note: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await this.api.post(`/customers/${customerId}/notes`, { note });
+      return response.data as ApiResponse<void>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async updateCustomerNote(customerId: string, noteId: string, note: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await this.api.put(`/customers/${customerId}/notes/${noteId}`, { note });
+      return response.data as ApiResponse<void>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async deleteCustomerNote(customerId: string, noteId: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await this.api.delete(`/customers/${customerId}/notes/${noteId}`);
+      return response.data as ApiResponse<void>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  // ===== SUPPLIERS METHODS =====
+  async getSuppliers(search?: string, specialty?: string): Promise<ApiResponse<any[]>> {
+    try {
+      const params = new URLSearchParams();
+      if (search) params.append('search', search);
+      if (specialty) params.append('specialty', specialty);
+      
+      const response = await this.api.get(`/suppliers?${params.toString()}`);
+      return response.data as ApiResponse<any[]>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async addSupplier(supplierData: {
+    name: string;
+    phone: string;
+    email?: string;
+    address?: string;
+    specialties?: string[];
+    notes?: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.post('/suppliers', supplierData);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async updateSupplier(supplierId: string, supplierData: {
+    name?: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+    specialties?: string[];
+    notes?: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put(`/suppliers/${supplierId}`, supplierData);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async deleteSupplier(supplierId: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await this.api.delete(`/suppliers/${supplierId}`);
+      return response.data as ApiResponse<void>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getSupplierSpecialties(): Promise<ApiResponse<string[]>> {
+    try {
+      const response = await this.api.get('/suppliers/specialties');
+      return response.data as ApiResponse<string[]>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  // ===== STATUS NOTIFICATION METHODS =====
+  async updateJobStatus(appointmentId: string, status: string, notes?: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put(`/status-notifications/${appointmentId}/status`, {
+        status,
+        notes
+      });
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getStatusHistory(appointmentId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get(`/status-notifications/${appointmentId}/history`);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getAvailableStatuses(): Promise<ApiResponse<any[]>> {
+    try {
+      const response = await this.api.get('/status-notifications/statuses');
+      return response.data as ApiResponse<any[]>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  // ===== END OF DAY REPORT METHODS =====
+  async getEndOfDayReport(date?: string): Promise<ApiResponse<any>> {
+    try {
+      const params = new URLSearchParams();
+      if (date) params.append('date', date);
+      
+      const response = await this.api.get(`/end-of-day/report?${params.toString()}`);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  // ===== LOYAL CUSTOMERS METHODS =====
+  async checkCustomerLoyalty(customerId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get(`/loyal-customers/check/${customerId}`);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getLoyalCustomers(minJobs = 2, sortBy = 'lastVisit'): Promise<ApiResponse<any[]>> {
+    try {
+      const params = new URLSearchParams();
+      params.append('minJobs', minJobs.toString());
+      params.append('sortBy', sortBy);
+      
+      const response = await this.api.get(`/loyal-customers/list?${params.toString()}`);
+      return response.data as ApiResponse<any[]>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getLoyalCustomerStats(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get('/loyal-customers/stats');
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async createLoyalCustomerAlert(appointmentId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.post(`/loyal-customers/alert/${appointmentId}`);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  // ===== VEHICLE HISTORY METHODS =====
+  async getVehicleHistory(vehicleId: string, limit = 20): Promise<ApiResponse<any>> {
+    try {
+      const params = new URLSearchParams();
+      params.append('limit', limit.toString());
+      
+      const response = await this.api.get(`/vehicle-history/${vehicleId}?${params.toString()}`);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async addVehicleHistoryEntry(vehicleId: string, historyData: {
+    serviceType: string;
+    description: string;
+    price: number;
+    mileage: number;
+    date?: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.post(`/vehicle-history/${vehicleId}/add`, historyData);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getMaintenanceReminders(vehicleId: string): Promise<ApiResponse<any[]>> {
+    try {
+      const response = await this.api.get(`/vehicle-history/${vehicleId}/reminders`);
+      return response.data as ApiResponse<any[]>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async addMaintenanceReminder(vehicleId: string, reminderData: {
+    type: 'mileage' | 'date' | 'both';
+    targetMileage?: number;
+    targetDate?: string;
+    description: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.post(`/vehicle-history/${vehicleId}/reminders`, reminderData);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async updateMaintenanceReminder(vehicleId: string, reminderId: string, updateData: {
+    type?: 'mileage' | 'date' | 'both';
+    targetMileage?: number;
+    targetDate?: string;
+    description?: string;
+    isActive?: boolean;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put(`/vehicle-history/${vehicleId}/reminders/${reminderId}`, updateData);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async deleteMaintenanceReminder(vehicleId: string, reminderId: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await this.api.delete(`/vehicle-history/${vehicleId}/reminders/${reminderId}`);
+      return response.data as ApiResponse<void>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  // ===== JOB REFERRALS METHODS =====
+  async referJob(referralData: {
+    appointmentId: string;
+    toMechanicId: string;
+    reason: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.post('/job-referrals/refer', referralData);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getReferralHistory(type = 'all', page = 1, limit = 20): Promise<ApiResponse<any>> {
+    try {
+      const params = new URLSearchParams();
+      params.append('type', type);
+      params.append('page', page.toString());
+      params.append('limit', limit.toString());
+      
+      const response = await this.api.get(`/job-referrals/history?${params.toString()}`);
+      return response.data as ApiResponse<any>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getTrustedMechanics(search?: string, serviceCategory?: string, city?: string): Promise<ApiResponse<any[]>> {
+    try {
+      const params = new URLSearchParams();
+      if (search) params.append('search', search);
+      if (serviceCategory) params.append('serviceCategory', serviceCategory);
+      if (city) params.append('city', city);
+      
+      const response = await this.api.get(`/job-referrals/trusted-mechanics?${params.toString()}`);
+      return response.data as ApiResponse<any[]>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getReferralStats(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get('/job-referrals/stats');
       return response.data as ApiResponse<any>;
     } catch (error) {
       return this.handleError(error);
