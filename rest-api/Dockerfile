@@ -13,7 +13,7 @@ RUN npm install
 # Copy source code
 COPY . .
 
-# Build TypeScript (skip for now due to type definition issues)
+# Skip TypeScript build - use JavaScript directly
 # RUN npm run build
 
 # Production stage
@@ -27,7 +27,7 @@ COPY package*.json ./
 # Install only production dependencies
 RUN npm install --only=production
 
-# Copy source code (since we're skipping TypeScript build)
+# Copy source code (use JavaScript directly)
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/healthcheck.js ./healthcheck.js
 
