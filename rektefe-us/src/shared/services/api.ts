@@ -400,6 +400,15 @@ class ApiService {
     }
   }
 
+  async getMechanicCustomers(): Promise<ApiResponse<any[]>> {
+    try {
+      const response = await this.api.get('/mechanics/customers');
+      return response.data as ApiResponse<any[]>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
   async getTodaySchedule(): Promise<ApiResponse<Appointment[]>> {
     try {
       const response = await this.api.get('/mechanics/appointments/today');
