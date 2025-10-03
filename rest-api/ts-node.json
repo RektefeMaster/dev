@@ -1,0 +1,16 @@
+{
+  "ts-node": {
+    "transpileOnly": true,
+    "skipIgnore": true,
+    "compilerOptions": {
+      "module": "commonjs",
+      "target": "es2016",
+      "skipLibCheck": true,
+      "strict": false,
+      "noImplicitAny": false,
+      "strictNullChecks": false,
+      "esModuleInterop": true,
+      "forceConsistentCasingInFileNames": true
+    }
+  }
+}

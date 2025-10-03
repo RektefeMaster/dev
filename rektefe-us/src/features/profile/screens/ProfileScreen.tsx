@@ -130,25 +130,32 @@ export default function ProfileScreen() {
 
   const capabilities = [
     {
-      id: 'motor',
-      title: 'Motor Tamiri',
+      id: 'tamir-bakim',
+      title: 'Tamir Bakım',
       icon: 'construct',
       color: '#3B82F6',
-      description: 'Motor arızaları ve bakımı'
+      description: 'Genel bakım, ağır bakım, alt takım, üst takım, elektronik elektrik'
     },
     {
-      id: 'fren',
-      title: 'Fren Sistemi',
-      icon: 'car',
-      color: '#EF4444',
-      description: 'Fren balata ve disk değişimi'
+      id: 'arac-yikama',
+      title: 'Araç Yıkama',
+      icon: 'water',
+      color: '#10B981',
+      description: 'Otomatik yıkama, el ile yıkama, iç temizlik, cila ve wax'
     },
     {
       id: 'lastik',
-      title: 'Lastik Hizmetleri',
+      title: 'Lastik',
       icon: 'disc',
       color: '#F59E0B',
-      description: 'Lastik ve yedek parça'
+      description: 'Lastik değişimi, balans ayarı, rot ayarı, lastik oteli'
+    },
+    {
+      id: 'cekici',
+      title: 'Çekici',
+      icon: 'car',
+      color: '#EF4444',
+      description: 'Arızalı araç çekme, yol yardımı, kaza çekici hizmetleri'
     }
   ];
 
