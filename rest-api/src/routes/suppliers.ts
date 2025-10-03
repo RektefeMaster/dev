@@ -315,7 +315,7 @@ router.put('/:supplierId', auth, async (req: Request, res: Response) => {
     }
 
     // Güncellenmiş tedarikçiyi bul
-    const updatedSupplier = updatedUser.suppliers?.find((s: any) => s.name === supplierData.name);
+    const updatedSupplier = updatedUser.suppliers?.find((s: any) => s.name === req.body.name);
 
     res.json({
       success: true,

@@ -548,7 +548,7 @@ router.put('/:vehicleId/reminders/:reminderId', auth, async (req: Request, res: 
 
     // Güncellenmiş hatırlatmayı bul
     const updatedReminder = updatedUser.maintenanceReminders?.find((r: any) => 
-      r.description === reminderData.description && r.vehicleId === vehicleId
+      r.description === req.body.description && r.vehicleId === vehicleId
     );
 
     res.json({
