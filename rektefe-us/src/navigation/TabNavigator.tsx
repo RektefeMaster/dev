@@ -347,16 +347,16 @@ const TabNavigator = () => {
   // Ana hizmeti belirle (öncelik sırasına göre)
   const getPrimaryService = () => {
     // Tamir & Bakım için varsayılan Home ekranını kullan
-    if (userCapabilities.includes('repair') || userCapabilities.includes('Genel Bakım')) {
+    if (userCapabilities.includes('tamir-bakim') || userCapabilities.includes('repair') || userCapabilities.includes('Genel Bakım')) {
       return 'Home';
     }
-    if (userCapabilities.includes('towing') || userCapabilities.includes('Çekici Hizmeti')) {
+    if (userCapabilities.includes('cekici') || userCapabilities.includes('towing') || userCapabilities.includes('Çekici Hizmeti')) {
       return 'TowingService';
     }
-    if (userCapabilities.includes('wash') || userCapabilities.includes('Yıkama Hizmeti')) {
+    if (userCapabilities.includes('arac-yikama') || userCapabilities.includes('wash') || userCapabilities.includes('Yıkama Hizmeti')) {
       return 'WashService';
     }
-    if (userCapabilities.includes('tire') || userCapabilities.includes('Lastik & Parça')) {
+    if (userCapabilities.includes('lastik') || userCapabilities.includes('tire') || userCapabilities.includes('Lastik & Parça')) {
       return 'TireService';
     }
     return 'Home';
@@ -388,7 +388,7 @@ const TabNavigator = () => {
       />
 
       {/* Hizmet kategorilerine göre tab'lar */}
-      {userCapabilities.includes('towing') && (
+      {(userCapabilities.includes('cekici') || userCapabilities.includes('towing')) && (
         <Tab.Screen 
           name="TowingService" 
           component={require('../features/services/screens/TowingServiceScreen').default}
@@ -403,7 +403,7 @@ const TabNavigator = () => {
 
       {/* Tamir & Bakım için RepairService tab'ı yok - varsayılan Home ekranını kullanıyor */}
 
-      {userCapabilities.includes('wash') && (
+      {(userCapabilities.includes('arac-yikama') || userCapabilities.includes('wash')) && (
         <Tab.Screen 
           name="WashService" 
           component={require('../features/services/screens/WashServiceScreen').default}
@@ -416,7 +416,7 @@ const TabNavigator = () => {
         />
       )}
 
-      {userCapabilities.includes('tire') && (
+      {(userCapabilities.includes('lastik') || userCapabilities.includes('tire')) && (
         <Tab.Screen 
           name="TireService" 
           component={require('../features/services/screens/TireServiceScreen').default}

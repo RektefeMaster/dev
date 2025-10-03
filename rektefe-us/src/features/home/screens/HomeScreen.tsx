@@ -234,7 +234,7 @@ const mechanicCapabilities = [
     const capabilityItems = [];
 
     // Hizmet kategorileri - daha detaylı menüler
-    if (userCapabilities.includes('towing') || userCapabilities.includes('Çekici')) {
+    if (userCapabilities.includes('cekici') || userCapabilities.includes('towing') || userCapabilities.includes('Çekici')) {
       capabilityItems.push({
         id: 'towing',
         label: 'Çekici Hizmetleri',
@@ -260,7 +260,7 @@ const mechanicCapabilities = [
       });
     }
 
-    if (userCapabilities.includes('repair')) {
+    if (userCapabilities.includes('tamir-bakim') || userCapabilities.includes('repair')) {
       capabilityItems.push({
         id: 'repair',
         label: 'Tamir Hizmetleri',
@@ -281,7 +281,7 @@ const mechanicCapabilities = [
       });
     }
 
-    if (userCapabilities.includes('wash')) {
+    if (userCapabilities.includes('arac-yikama') || userCapabilities.includes('wash')) {
       capabilityItems.push({
         id: 'wash',
         label: 'Yıkama Hizmetleri',
@@ -302,7 +302,7 @@ const mechanicCapabilities = [
       });
     }
 
-    if (userCapabilities.includes('tire')) {
+    if (userCapabilities.includes('lastik') || userCapabilities.includes('tire')) {
       capabilityItems.push({
         id: 'tire',
         label: 'Lastik Hizmetleri',

@@ -27,8 +27,9 @@ COPY package*.json ./
 # Install only production dependencies
 RUN npm install --only=production
 
-# Copy source code (use JavaScript directly)
+# Copy source code and start script
 COPY --from=builder /app/src ./src
+COPY --from=builder /app/start.sh ./start.sh
 COPY --from=builder /app/healthcheck.js ./healthcheck.js
 
 # Create non-root user
