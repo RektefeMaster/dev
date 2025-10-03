@@ -5,7 +5,7 @@ nixPkgs = ['nodejs_20']
 cmds = ['npm ci --cache /tmp/.npm']
 
 [phases.build]
-cmds = ['npx tsc']
+cmds = ['npm run build']
 
 [start]
 cmd = 'npm start'
