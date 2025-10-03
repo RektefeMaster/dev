@@ -44,16 +44,16 @@ const RoleBasedDashboard: React.FC<RoleBasedDashboardProps> = ({
 
   // Ana rolü belirle (öncelik sırasına göre)
   const getPrimaryRole = () => {
-    if (userCapabilities.includes('towing') || userCapabilities.includes('Çekici Hizmeti')) {
+    if (userCapabilities.includes('cekici') || userCapabilities.includes('towing') || userCapabilities.includes('Çekici Hizmeti')) {
       return 'towing';
     }
-    if (userCapabilities.includes('wash') || userCapabilities.includes('Yıkama Hizmeti')) {
+    if (userCapabilities.includes('arac-yikama') || userCapabilities.includes('wash') || userCapabilities.includes('Yıkama Hizmeti')) {
       return 'wash';
     }
-    if (userCapabilities.includes('tire') || userCapabilities.includes('Lastik & Parça')) {
+    if (userCapabilities.includes('lastik') || userCapabilities.includes('tire') || userCapabilities.includes('Lastik & Parça')) {
       return 'tire';
     }
-    if (userCapabilities.includes('repair') || userCapabilities.includes('Tamir & Bakım')) {
+    if (userCapabilities.includes('tamir-bakim') || userCapabilities.includes('repair') || userCapabilities.includes('Tamir & Bakım')) {
       return 'repair';
     }
     return 'repair'; // Varsayılan
