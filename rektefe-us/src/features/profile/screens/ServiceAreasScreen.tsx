@@ -65,8 +65,8 @@ export default function ServiceAreasScreen() {
   };
 
   const getDefaultCategories = (): ServiceCategory[] => [
-    // ÇEKİCİ HİZMETLERİ
-    { id: '1', name: 'Araç Çekici', description: 'Arızalı araçları çekme hizmeti', icon: 'car-outline', isSelected: false },
+    // TAMİR BAKIM HİZMETLERİ
+    { id: '1', name: 'Tamir Bakım', description: 'Arızalı araçları çekme hizmeti', icon: 'car-outline', isSelected: false },
     { id: '2', name: 'Yol Yardımı', description: 'Yolda kalan araçlara acil müdahale', icon: 'warning-outline', isSelected: false },
     { id: '3', name: 'Kaza Çekici', description: 'Kaza geçiren araçları çekme', icon: 'alert-circle-outline', isSelected: false },
 

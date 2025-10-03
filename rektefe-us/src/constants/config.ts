@@ -9,12 +9,7 @@ export const API_CONFIG = {
   TIMEOUT: 60000,
 };
 
-// Debug log for API configuration
-console.log('🔍 Rektefe-US API Config Debug:');
-console.log('EXPO_PUBLIC_API_BASE_URL:', process.env.EXPO_PUBLIC_API_BASE_URL);
-console.log('API_BASE_URL:', process.env.API_BASE_URL);
-console.log('Final BASE_URL:', API_CONFIG.BASE_URL);
-console.log('Final SOCKET_URL:', API_CONFIG.SOCKET_URL);
+// Debug logs removed for cleaner output
 
 // Doğrudan export edilen API URL'leri
 export const API_URL = API_CONFIG.BASE_URL;

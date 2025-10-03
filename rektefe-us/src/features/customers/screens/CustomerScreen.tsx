@@ -21,6 +21,7 @@ import { colors, spacing, borderRadius, shadows, typography } from '@/shared/the
 import { BackButton } from '@/shared/components';
 import apiService from '@/shared/services';
 import { useAuth } from '@/shared/context';
+import { translateServiceName } from '@/shared/utils/serviceTranslator';
 
 const { width } = Dimensions.get('window');
 
@@ -422,7 +423,11 @@ export default function CustomerScreen() {
           </View>
           
           {selectedCustomer && (
-            <ScrollView style={styles.modalContent}>
+            <ScrollView 
+              style={styles.modalContent}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContentContainer}
+            >
               {loadingDetails ? (
                 <View style={styles.loadingContainer}>
                   <Text style={styles.loadingText}>Müşteri detayları yükleniyor...</Text>
@@ -483,12 +488,18 @@ export default function CustomerScreen() {
                         style={styles.viewAllButton}
                         onPress={() => {
                           // Araç geçmişi ekranına git
-                          if (customerDetails.customer.vehicles && customerDetails.customer.vehicles.length > 0) {
+                          if (customerDetails?.customer?.vehicles && customerDetails.customer.vehicles.length > 0) {
                             const vehicle = customerDetails.customer.vehicles[0]; // İlk araç
-                            (navigation as any).navigate('VehicleHistory', { 
-                              vehicleId: vehicle._id, 
-                              vehicle: vehicle 
-                            });
+                            if (vehicle && vehicle._id) {
+                              (navigation as any).navigate('VehicleHistory', { 
+                                vehicleId: vehicle._id, 
+                                vehicle: vehicle 
+                              });
+                            } else {
+                              Alert.alert('Hata', 'Araç bilgileri bulunamadı.');
+                            }
+                          } else {
+                            Alert.alert('Bilgi', 'Bu müşterinin kayıtlı aracı bulunmuyor.');
                           }
                         }}
                       >
@@ -501,7 +512,7 @@ export default function CustomerScreen() {
                         <View key={job._id} style={styles.vehicleItem}>
                           <View style={styles.vehicleInfo}>
                             <Text style={styles.vehicleName}>
-                              {job.serviceType} - {formatCurrency(job.price)}
+                              {translateServiceName(job.serviceType)} - {formatCurrency(job.price)}
                             </Text>
                             <Text style={styles.vehiclePlate}>{formatDate(job.appointmentDate)}</Text>
                           </View>
@@ -520,13 +531,14 @@ export default function CustomerScreen() {
                     <View style={styles.notesHeader}>
                       <Text style={styles.cardTitle}>Notlar</Text>
                       <TouchableOpacity 
-                        style={styles.addNoteButton}
+                        style={styles.addNoteButtonNew}
                         onPress={() => {
                           setShowCustomerModal(false);
                           setShowNoteModal(true);
                         }}
                       >
-                        <Ionicons name="add" size={20} color={colors.primary.main} />
+                        <Ionicons name="add" size={18} color={colors.text.inverse} />
+                        <Text style={styles.addNoteButtonText}>Not ekle</Text>
                       </TouchableOpacity>
                     </View>
                     
@@ -821,7 +833,10 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     flex: 1,
+  },
+  scrollContentContainer: {
     padding: spacing.lg,
+    paddingBottom: spacing.xl * 2,
   },
 
   // Customer Detail
@@ -951,6 +966,21 @@ const styles = StyleSheet.create({
   },
   addNoteButton: {
     padding: spacing.sm,
+  },
+  addNoteButtonNew: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary.main,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    gap: spacing.sm,
+    minHeight: 48,
+  },
+  addNoteButtonText: {
+    fontSize: typography.body2.fontSize,
+    fontWeight: '600',
+    color: colors.text.inverse,
   },
   noteItem: {
     paddingVertical: spacing.sm,

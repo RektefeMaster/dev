@@ -229,7 +229,7 @@ export default function FinancialTrackingScreen() {
 
       {/* Summary Cards */}
       <View style={styles.summarySection}>
-        {renderSummaryCard('🔧', `${stats.totalJobs}`, 'Toplam İş', '#3B82F6')}
+        {renderSummaryCard('⚙️', `${stats.totalJobs}`, 'Toplam İş', '#3B82F6')}
         {renderSummaryCard('📊', `₺${stats.averageEarnings}`, 'Ortalama', '#10B981')}
         {renderSummaryCard('⏳', `₺${stats.pendingPayments}`, 'Bekleyen', '#F59E0B')}
         {renderSummaryCard('📁', `₺${stats.allTimeTotal}`, 'Toplam', '#8B5CF6')}

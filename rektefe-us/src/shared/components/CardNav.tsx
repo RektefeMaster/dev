@@ -7,7 +7,6 @@ import {
   Dimensions,
   Image,
   ScrollView,
-  BlurView,
   Pressable,
 } from 'react-native';
 // import * as Haptics from 'expo-haptics';
@@ -245,7 +244,7 @@ const CardNav: React.FC<CardNavProps> = ({
       case 'calendar': return 'calendar-today';
       case 'financial': return 'wallet';
       case 'profile': return 'account-cog';
-      case 'towing': return 'car-tow';
+      case 'towing': return 'car';
       case 'repair': return 'wrench';
       case 'wash': return 'water';
       case 'tire': return 'car';

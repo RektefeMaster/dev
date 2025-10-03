@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
-import { CardNav } from './index';
+import CardNav from './CardNav';
 
 const CardNavExample = () => {
   const navItems = [

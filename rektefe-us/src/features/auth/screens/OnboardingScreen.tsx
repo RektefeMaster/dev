@@ -8,6 +8,7 @@ import {
   StatusBar,
   FlatList,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -21,7 +22,7 @@ const onboardingData = [
     title: 'Hoş Geldiniz!',
     subtitle: 'Rektefe Usta uygulamasına hoş geldiniz',
     description: 'Müşterilerinizden gelen iş taleplerini yönetin, randevularınızı organize edin ve kazançlarınızı takip edin.',
-    icon: '🔧',
+    icon: 'wrench',
     color: '#3B82F6',
   },
   {
@@ -80,7 +81,7 @@ export default function OnboardingScreen() {
   const renderOnboardingItem = ({ item, index }: { item: any; index: number }) => (
     <View style={styles.slide}>
       <View style={styles.iconContainer}>
-        <Ionicons name={item.icon as any} size={80} color={item.color} />
+        <MaterialCommunityIcons name={item.icon as any} size={80} color={item.color} />
       </View>
       
       <View style={styles.contentContainer}>

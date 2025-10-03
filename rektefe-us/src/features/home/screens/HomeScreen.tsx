@@ -18,6 +18,7 @@ import { useAuth } from '@/shared/context';
 import apiService from '@/shared/services';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Rating } from '@/shared/types';
+import { translateServiceName } from '@/shared/utils/serviceTranslator';
 import { DrawerActions } from '@react-navigation/native';
 import { CardNav } from '@/shared/components';
 
@@ -151,16 +152,16 @@ const mechanicCapabilities = [
         ],
       },
       {
-        id: 'quickquote',
-        label: 'Hızlı Teklif',
+        id: 'servicecatalog',
+        label: 'Hizmet Kataloğu',
         links: [
           {
-            label: 'Teklif Oluştur',
-            onPress: () => navigation.navigate('QuickQuote'),
+            label: 'Hizmetleri Görüntüle',
+            onPress: () => navigation.navigate('ServiceCatalog'),
           },
           {
-            label: 'Teklif Geçmişi',
-            onPress: () => navigation.navigate('QuickQuote'),
+            label: 'Yeni Hizmet Ekle',
+            onPress: () => navigation.navigate('ServiceCatalog'),
           },
         ],
       },
@@ -823,7 +824,7 @@ const mechanicCapabilities = [
                             }
                           </Text>
                           <Text style={styles.appointmentService}>
-                            {appointment.serviceType}
+                            {translateServiceName(appointment.serviceType)}
                           </Text>
                           {typeof appointment.vehicleId === 'object' && appointment.vehicleId && (
                             <Text style={styles.appointmentVehicle}>
@@ -993,6 +994,19 @@ const mechanicCapabilities = [
               <Text style={styles.quickActionText}>Cüzdan</Text>
               <Text style={styles.quickActionSubtext}>Gelir ve ödemeler</Text>
             </TouchableOpacity>
+
+            {/* Müşteri Defteri - Araç geçmişi dahil */}
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={() => navigation.navigate('Customers')}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.quickActionGradient, { backgroundColor: '#FDF2F8' }]}>
+                <Ionicons name="people" size={28} color="#BE185D" />
+              </View>
+              <Text style={styles.quickActionText}>Müşteri Defteri</Text>
+              <Text style={styles.quickActionSubtext}>Müşteri ve araç bilgileri</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -1016,7 +1030,7 @@ const mechanicCapabilities = [
                         {rating.customer ? `${rating.customer.name} ${rating.customer.surname}` : `Müşteri ${rating.driverId?.slice(-4) || 'XXXX'}`}
                       </Text>
                       <Text style={styles.serviceInfo}>
-                        {rating.appointment?.serviceType || rating.appointmentId || 'Servis'}
+                        {translateServiceName(rating.appointment?.serviceType) || rating.appointmentId || 'Servis'}
                       </Text>
                     </View>
                     <View style={styles.ratingStars}>

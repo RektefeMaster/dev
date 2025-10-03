@@ -54,6 +54,7 @@ const HamburgerMenu = ({ visible, onClose, navigation }: HamburgerMenuProps) => 
     { icon: 'document-text', label: 'Hızlı Teklif', screen: 'QuickQuote' },
     { icon: 'people', label: 'Müşteri Defterim', screen: 'Customers' },
     { icon: 'business', label: 'Parçacılar Rehberi', screen: 'Suppliers' },
+    { icon: 'list', label: 'Hizmet Kataloğu', screen: 'ServiceCatalog' },
     { icon: 'today', label: 'Günlük Rapor', screen: 'EndOfDay' },
     { icon: 'help-circle', label: 'Destek', screen: 'Support' },
     { icon: 'settings', label: 'Ayarlar', screen: 'Settings' },
@@ -366,6 +367,7 @@ const TabNavigator = () => {
   return (
     <>
       <Tab.Navigator
+        id={undefined}
         key={userCapabilities.join(',')} // Force re-render when capabilities change
         tabBar={(props) => <CustomTabBar {...props} />}
         screenOptions={{

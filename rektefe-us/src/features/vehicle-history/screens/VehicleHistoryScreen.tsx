@@ -59,10 +59,35 @@ export default function VehicleHistoryScreen() {
   const route = useRoute();
   const { user } = useAuth();
 
-  const { vehicleId, vehicle } = route.params as { 
-    vehicleId: string; 
-    vehicle: Vehicle;
-  };
+  // Route params'ı güvenli şekilde al
+  const routeParams = route.params as { 
+    vehicleId?: string; 
+    vehicle?: Vehicle;
+  } | undefined;
+
+  const vehicleId = routeParams?.vehicleId;
+  const vehicle = routeParams?.vehicle;
+
+  // Parametreler eksikse hata göster
+  if (!vehicleId) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="warning-outline" size={48} color={colors.error.main} />
+          <Text style={styles.errorTitle}>Hata</Text>
+          <Text style={styles.errorMessage}>
+            Araç bilgileri bulunamadı. Lütfen tekrar deneyin.
+          </Text>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backButtonText}>Geri Dön</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -121,11 +146,15 @@ export default function VehicleHistoryScreen() {
   }, [vehicleId]);
 
   useEffect(() => {
-    fetchVehicleHistory();
-    fetchMaintenanceReminders();
-  }, [fetchVehicleHistory, fetchMaintenanceReminders]);
+    if (vehicleId) {
+      fetchVehicleHistory();
+      fetchMaintenanceReminders();
+    }
+  }, [vehicleId, fetchVehicleHistory, fetchMaintenanceReminders]);
 
   const onRefresh = async () => {
+    if (!vehicleId) return;
+    
     setRefreshing(true);
     await Promise.all([fetchVehicleHistory(), fetchMaintenanceReminders()]);
     setRefreshing(false);
@@ -1120,5 +1149,37 @@ const styles = StyleSheet.create({
     fontSize: typography.body1.fontSize,
     fontWeight: '600',
     color: colors.text.inverse,
+  },
+  // Error container styles
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  errorTitle: {
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.error.main,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  errorMessage: {
+    fontSize: typography.fontSize.md,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: spacing.xl,
+  },
+  backButton: {
+    backgroundColor: colors.primary.main,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+  },
+  backButtonText: {
+    color: colors.white,
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeights.semibold,
   },
 });

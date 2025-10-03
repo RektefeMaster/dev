@@ -11,4 +11,5 @@ export { default as EmptyState } from './EmptyState';
 export { default as BackButton } from './BackButton';
 export { default as CardNav } from './CardNav';
 export { default as ColorPaletteDemo } from './ColorPaletteDemo';
-export { default as CardNavExample } from './CardNavExample';
+// CardNavExample removed to prevent require cycle
+export { default as RoleBasedDashboard } from './RoleBasedDashboard';

@@ -64,72 +64,17 @@ export default function QuickQuoteScreen() {
     try {
       setLoading(true);
       
-      // Simulated data - gerçek API entegrasyonu yapılacak
-      const mockTemplates: QuoteTemplate[] = [
-        {
-          id: '1',
-          name: 'Motor Yağı Değişimi',
-          description: 'Standart motor yağı değişimi paketi',
-          items: [
-            {
-              id: 'i1',
-              service: 'Motor Yağı',
-              description: '5W-30 Sentetik Motor Yağı',
-              price: 150,
-              quantity: 4,
-              total: 600,
-            },
-            {
-              id: 'i2',
-              service: 'Yağ Filtresi',
-              description: 'Orijinal Yağ Filtresi',
-              price: 80,
-              quantity: 1,
-              total: 80,
-            },
-            {
-              id: 'i3',
-              service: 'İşçilik',
-              description: 'Motor yağı değişimi işçiliği',
-              price: 100,
-              quantity: 1,
-              total: 100,
-            },
-          ],
-          totalPrice: 780,
-          createdAt: '2024-01-01',
-        },
-        {
-          id: '2',
-          name: 'Fren Balata Değişimi',
-          description: 'Ön fren balata değişimi',
-          items: [
-            {
-              id: 'i4',
-              service: 'Fren Balatası',
-              description: 'Ön Fren Balatası Seti',
-              price: 300,
-              quantity: 1,
-              total: 300,
-            },
-            {
-              id: 'i5',
-              service: 'İşçilik',
-              description: 'Fren balata değişimi işçiliği',
-              price: 150,
-              quantity: 1,
-              total: 150,
-            },
-          ],
-          totalPrice: 450,
-          createdAt: '2024-01-02',
-        },
-      ];
-
-      setQuoteTemplates(mockTemplates);
-
+      // Gerçek API çağrısı
+      const response = await apiService.getQuoteTemplates();
+      
+      if (response.success && response.data) {
+        setQuoteTemplates(response.data);
+      } else {
+        Alert.alert('Hata', response.message || 'Teklif şablonları yüklenirken bir hata oluştu.');
+      }
     } catch (error: any) {
-      Alert.alert('Hata', 'Şablonlar yüklenirken bir hata oluştu.');
+      console.error('Quote templates fetch error:', error);
+      Alert.alert('Hata', 'Teklif şablonları yüklenirken bir hata oluştu.');
     } finally {
       setLoading(false);
     }

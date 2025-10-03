@@ -537,8 +537,9 @@ export type RootStackParamList = {
   Customers: undefined;
   Reports: undefined;
   EndOfDay: undefined;
-  Suppliers: undefined;
-  VehicleHistory: { vehicleId: string; vehicle: any };
+          Suppliers: undefined;
+          VehicleHistory: { vehicleId: string; vehicle: any };
+          ServiceCatalog: undefined;
   [key: string]: undefined | { conversationId: string; otherParticipant: MechanicProfile } | { appointmentId: string } | { faultReportId: string } | { email: string } | { token: string } | { vehicleId: string; vehicle: any };
 };
 

@@ -172,7 +172,7 @@ router.get('/report', auth, async (req: Request, res: Response) => {
         const jobRating = ratings.find(r => r.appointmentId.toString() === job._id.toString());
         return {
           id: job._id,
-          customerName: `${(job.userId as any)?.name} ${(job.userId as any)?.surname}`,
+          customerName: `${(job.userId as any)?.name || 'Bilinmeyen'} ${(job.userId as any)?.surname || 'Müşteri'}`,
           serviceType: job.serviceType,
           price: job.price,
           appointmentDate: job.appointmentDate,

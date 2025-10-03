@@ -154,7 +154,7 @@ ${formatDate(daySummary.date)}
 • Bitiş: ${daySummary.workingHours.endTime}
 • Toplam Çalışma: ${daySummary.workingHours.totalHours} saat
 
-🔧 EN ÇOK YAPILAN HİZMETLER
+⚙️ EN ÇOK YAPILAN HİZMETLER
 ${daySummary.topServices.map((service, index) => 
   `${index + 1}. ${service.name}: ${service.count} işlem - ${formatCurrency(service.earnings)}`
 ).join('\n')}

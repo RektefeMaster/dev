@@ -54,19 +54,25 @@ const refreshTokenIfNeeded = async (): Promise<string | null> => {
   try {
     const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
     if (!refreshToken) {
-      console.log('⚠️ Refresh token bulunamadı');
+      console.log('❌ Refresh token bulunamadı');
       processQueue(new Error('Refresh token bulunamadı'), null);
       return null;
     }
 
-    console.log('🔄 Token yenileme başlatılıyor...');
-    const response = await axios.post(`${API_CONFIG.BASE_URL}/auth/refresh-token`, {
+    // Refresh token'ın geçerliliğini kontrol et
+    if (isTokenExpired(refreshToken)) {
+      console.log('❌ Refresh token süresi dolmuş');
+      processQueue(new Error('Refresh token süresi dolmuş'), null);
+      return null;
+    }
+
+    const response = await axios.post(`${API_CONFIG.BASE_URL}/auth/refresh`, {
       refreshToken
     });
 
-    if (response.data && response.data.success && response.data.token) {
-      const newToken = response.data.token;
-      const newRefreshToken = response.data.refreshToken || refreshToken;
+    if (response.data && response.data.success && response.data.data?.token) {
+      const newToken = response.data.data.token;
+      const newRefreshToken = response.data.data.refreshToken || refreshToken;
 
       // Yeni token'ları kaydet
       await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, newToken);
@@ -109,43 +115,33 @@ api.interceptors.request.use(
     try {
       // AuthContext ile tutarlı key kullan
       const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-      console.log('🔍 Request interceptor: Token kontrolü - URL:', config.url);
       
       if (token) {
         // Token validation kontrolü
         if (isTokenValid(token)) {
           // Token geçerli, ancak yenilenmesi gerekip gerekmediğini kontrol et
           if (shouldRefreshToken(token)) {
-            console.log('🔄 Token yenilenmesi gerekiyor, yenileme başlatılıyor...');
             try {
               const newToken = await refreshTokenIfNeeded();
               if (newToken) {
                 config.headers.Authorization = `Bearer ${newToken}`;
-                console.log('✅ Token yenilendi ve eklendi');
               } else {
                 config.headers.Authorization = `Bearer ${token}`;
-                console.log('⚠️ Token yenilenemedi, mevcut token kullanılıyor');
               }
             } catch (refreshError) {
-              console.error('❌ Token yenileme hatası:', refreshError);
               config.headers.Authorization = `Bearer ${token}`;
             }
           } else {
             config.headers.Authorization = `Bearer ${token}`;
-            console.log('✅ Request interceptor: Token eklendi, uzunluk:', token.length);
           }
         } else {
           // Geçersiz token'ı temizle
-          console.log('⚠️ Request interceptor: Geçersiz token temizleniyor');
           await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
           await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
         }
-      } else {
-        console.log('⚠️ Request interceptor: Token bulunamadı');
       }
       return config;
     } catch (error) {
-      console.error('❌ Request interceptor: Hata:', error);
       return Promise.reject(error);
     }
   },
@@ -185,12 +181,10 @@ api.interceptors.response.use(
           return api(originalRequest);
         } else {
           // Token yenilenemedi, logout yap
-          console.log('🚪 Token yenilenemedi, otomatik logout yapılıyor...');
           await performLogout();
           return Promise.reject(appError);
         }
       } catch (refreshError) {
-        console.error('❌ Token yenileme hatası:', refreshError);
         // Token yenileme başarısız, logout yap
         await performLogout();
         return Promise.reject(appError);
@@ -199,7 +193,15 @@ api.interceptors.response.use(
     
     // Diğer hatalar için detaylı log
     if (error.response) {
-      }
+      console.error('API Error Details:', {
+        data: error.response.data,
+        message: error.message,
+        method: error.config?.method,
+        status: error.response.status,
+        statusText: error.response.statusText,
+        url: error.config?.url
+      });
+    }
     
     return Promise.reject(error);
   }
@@ -208,7 +210,7 @@ api.interceptors.response.use(
 // Logout fonksiyonu
 const performLogout = async () => {
   try {
-    console.log('🚪 Otomatik logout başlatılıyor...');
+    console.log('🚪 API Service: Logout başlatılıyor...');
     
     // Tüm auth verilerini temizle
     await AsyncStorage.multiRemove([
@@ -217,11 +219,12 @@ const performLogout = async () => {
       STORAGE_KEYS.USER_ID
     ]);
     
-    // AuthContext'i güncelle (eğer mevcut ise)
-    // Bu kısım AuthContext'ten çağrılacak
-    console.log('✅ Logout tamamlandı');
+    console.log('✅ API Service: Logout tamamlandı');
+    
+    // AuthContext'e logout bildirimi gönder (event-based)
+    // Bu şekilde AuthContext otomatik olarak güncellenecek
   } catch (error) {
-    console.error('❌ Logout hatası:', error);
+    console.error('❌ API Service: Logout hatası:', error);
   }
 };
 

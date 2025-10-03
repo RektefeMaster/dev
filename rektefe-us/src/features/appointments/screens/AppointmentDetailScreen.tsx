@@ -18,6 +18,7 @@ import { spacing, borderRadius, shadows, typography, dimensions as themeDimensio
 import { Button, LoadingSpinner } from '@/shared/components';
 import apiService from '@/shared/services';
 import { useAuth } from '@/shared/context';
+import { translateServiceName } from '@/shared/utils/serviceTranslator';
 import { useTheme } from '@/shared/context';
 import { Appointment } from '@/shared/types';
 
@@ -45,6 +46,15 @@ export default function AppointmentDetailScreen() {
   const [referralReason, setReferralReason] = useState('');
   const [trustedMechanics, setTrustedMechanics] = useState<any[]>([]);
   const [loadingMechanics, setLoadingMechanics] = useState(false);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [approvalType, setApprovalType] = useState<'quote' | 'status' | 'completion'>('quote');
+  const [approvalMessage, setApprovalMessage] = useState('');
+  const [approvalAmount, setApprovalAmount] = useState('');
+  const [showJobStoryModal, setShowJobStoryModal] = useState(false);
+  const [jobStoryPhotos, setJobStoryPhotos] = useState<any[]>([]);
+  const [showAddPhotoModal, setShowAddPhotoModal] = useState(false);
+  const [newPhotoDescription, setNewPhotoDescription] = useState('');
+  const [newPhotoStage, setNewPhotoStage] = useState('Başlangıç');
 
   useEffect(() => {
     fetchAppointmentDetails();
@@ -220,6 +230,122 @@ export default function AppointmentDetailScreen() {
     fetchTrustedMechanics();
   };
 
+  const handleCustomerApproval = async () => {
+    if (!approvalMessage.trim()) {
+      Alert.alert('Hata', 'Onay mesajı zorunludur.');
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      const approvalData = {
+        approvalType,
+        message: approvalMessage.trim(),
+        ...(approvalAmount && { amount: parseFloat(approvalAmount) })
+      };
+      
+      const response = await apiService.sendCustomerApproval(appointmentId, approvalData);
+      
+      if (response.success) {
+        Alert.alert('Başarılı', 'Müşteri onayı gönderildi.');
+        setShowApprovalModal(false);
+        setApprovalMessage('');
+        setApprovalAmount('');
+        fetchAppointmentDetails();
+      } else {
+        Alert.alert('Hata', response.message || 'Müşteri onayı gönderilirken bir hata oluştu.');
+      }
+    } catch (error: any) {
+      console.error('Customer approval error:', error);
+      Alert.alert('Hata', 'Müşteri onayı gönderilirken bir hata oluştu.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const openApprovalModal = () => {
+    setShowApprovalModal(true);
+  };
+
+  const fetchJobStory = async () => {
+    try {
+      const response = await apiService.getJobStory(appointmentId);
+      if (response.success && response.data) {
+        setJobStoryPhotos(response.data);
+      }
+    } catch (error: any) {
+      console.error('Job story fetch error:', error);
+    }
+  };
+
+  const handleAddJobStoryPhoto = async (imageUri: string) => {
+    if (!newPhotoDescription.trim()) {
+      Alert.alert('Hata', 'Fotoğraf açıklaması zorunludur.');
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      const response = await apiService.addJobStoryPhoto(appointmentId, {
+        imageUri,
+        description: newPhotoDescription.trim(),
+        stage: newPhotoStage
+      });
+      
+      if (response.success) {
+        Alert.alert('Başarılı', 'Fotoğraf eklendi.');
+        setShowAddPhotoModal(false);
+        setNewPhotoDescription('');
+        setNewPhotoStage('Başlangıç');
+        fetchJobStory();
+      } else {
+        Alert.alert('Hata', response.message || 'Fotoğraf eklenirken bir hata oluştu.');
+      }
+    } catch (error: any) {
+      console.error('Add job story photo error:', error);
+      Alert.alert('Hata', 'Fotoğraf eklenirken bir hata oluştu.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleDeleteJobStoryPhoto = (photoId: string) => {
+    Alert.alert(
+      'Fotoğrafı Sil',
+      'Bu fotoğrafı silmek istediğinizden emin misiniz?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await apiService.deleteJobStoryPhoto(appointmentId, photoId);
+              if (response.success) {
+                Alert.alert('Başarılı', 'Fotoğraf silindi.');
+                fetchJobStory();
+              } else {
+                Alert.alert('Hata', response.message || 'Fotoğraf silinirken bir hata oluştu.');
+              }
+            } catch (error: any) {
+              console.error('Delete job story photo error:', error);
+              Alert.alert('Hata', 'Fotoğraf silinirken bir hata oluştu.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const openJobStoryModal = () => {
+    setShowJobStoryModal(true);
+    fetchJobStory();
+  };
+
+  const openAddPhotoModal = () => {
+    setShowAddPhotoModal(true);
+  };
+
   const getStatusDisplayName = (status: string) => {
     const statusMap: { [key: string]: string } = {
       'queued': 'Sırada',
@@ -267,18 +393,6 @@ export default function AppointmentDetailScreen() {
       Alert.alert('Hata', errorMessage.message);
     } finally {
       setProcessing(false);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return colors.warning;
-      case 'confirmed': return colors.success;
-      case 'rejected': return colors.error;
-      case 'in-progress': return colors.primary;
-      case 'completed': return colors.secondary;
-      case 'cancelled': return colors.text.tertiary;
-      default: return colors.text.tertiary;
     }
   };
 
@@ -380,7 +494,7 @@ export default function AppointmentDetailScreen() {
         <View style={styles.headerContent}>
           <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Randevu Detayları</Text>
           <Text style={[styles.headerSubtitle, { color: colors.text.secondary }]}>
-            {appointment?.serviceType}
+            {translateServiceName(appointment?.serviceType)}
           </Text>
         </View>
         <View style={styles.headerSpacer} />
@@ -414,7 +528,7 @@ export default function AppointmentDetailScreen() {
           <>
             {renderInfoRow('Tarih', formatDate(appointment.appointmentDate as string), 'calendar')}
             {renderInfoRow('Saat', formatTime(appointment.appointmentDate as string), 'time')}
-            {renderInfoRow('Hizmet Türü', appointment.serviceType, 'construct')}
+            {renderInfoRow('Hizmet Türü', translateServiceName(appointment.serviceType), 'construct')}
             {appointment.description && renderInfoRow('Açıklama', appointment.description, 'document-text')}
           </>
         ))}
@@ -495,6 +609,20 @@ export default function AppointmentDetailScreen() {
               onPress={openReferralModal}
               loading={processing}
               style={[styles.actionButton, { backgroundColor: colors.warning }] as any}
+              textStyle={styles.actionButtonText}
+            />
+            <Button
+              title="Müşteri Onayı"
+              onPress={openApprovalModal}
+              loading={processing}
+              style={[styles.actionButton, { backgroundColor: colors.success }] as any}
+              textStyle={styles.actionButtonText}
+            />
+            <Button
+              title="İş Akışı"
+              onPress={openJobStoryModal}
+              loading={processing}
+              style={[styles.actionButton, { backgroundColor: colors.info }] as any}
               textStyle={styles.actionButtonText}
             />
           </View>
@@ -697,6 +825,216 @@ export default function AppointmentDetailScreen() {
               >
                 <Text style={styles.modalButtonPrimaryText}>
                   {processing ? 'Yönlendiriliyor...' : 'Yönlendir'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Customer Approval Modal */}
+      <Modal
+        visible={showApprovalModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowApprovalModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Müşteri Onayı Gönder</Text>
+            
+            {/* Approval Type Selection */}
+            <View style={styles.approvalTypeContainer}>
+              <Text style={styles.approvalTypeLabel}>Onay Türü:</Text>
+              <View style={styles.approvalTypeButtons}>
+                <TouchableOpacity
+                  style={[styles.approvalTypeButton, approvalType === 'quote' && styles.approvalTypeButtonActive]}
+                  onPress={() => setApprovalType('quote')}
+                >
+                  <Text style={[styles.approvalTypeButtonText, approvalType === 'quote' && styles.approvalTypeButtonTextActive]}>
+                    Fiyat Onayı
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.approvalTypeButton, approvalType === 'status' && styles.approvalTypeButtonActive]}
+                  onPress={() => setApprovalType('status')}
+                >
+                  <Text style={[styles.approvalTypeButtonText, approvalType === 'status' && styles.approvalTypeButtonTextActive]}>
+                    Durum Onayı
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.approvalTypeButton, approvalType === 'completion' && styles.approvalTypeButtonActive]}
+                  onPress={() => setApprovalType('completion')}
+                >
+                  <Text style={[styles.approvalTypeButtonText, approvalType === 'completion' && styles.approvalTypeButtonTextActive]}>
+                    Tamamlanma Onayı
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Amount Input (for quote approval) */}
+            {approvalType === 'quote' && (
+              <TextInput
+                style={styles.input}
+                placeholder="Tutar (TL)"
+                placeholderTextColor={colors.text.tertiary}
+                value={approvalAmount}
+                onChangeText={setApprovalAmount}
+                keyboardType="numeric"
+              />
+            )}
+
+            {/* Message */}
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="Onay mesajı yazın..."
+              placeholderTextColor={colors.text.tertiary}
+              value={approvalMessage}
+              onChangeText={setApprovalMessage}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => setShowApprovalModal(false)}
+              >
+                <Text style={styles.modalButtonText}>İptal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonPrimary]}
+                onPress={handleCustomerApproval}
+                disabled={processing || !approvalMessage.trim()}
+              >
+                <Text style={styles.modalButtonPrimaryText}>
+                  {processing ? 'Gönderiliyor...' : 'Gönder'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Job Story Modal */}
+      <Modal
+        visible={showJobStoryModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowJobStoryModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>İş Akışı Foto-Hikayesi</Text>
+            
+            <View style={styles.jobStoryHeader}>
+              <TouchableOpacity
+                style={styles.addPhotoButton}
+                onPress={openAddPhotoModal}
+              >
+                <Ionicons name="camera" size={20} color={colors.text.inverse} />
+                <Text style={styles.addPhotoButtonText}>Fotoğraf Ekle</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.jobStoryScroll} showsVerticalScrollIndicator={false}>
+              {jobStoryPhotos.length > 0 ? (
+                jobStoryPhotos.map((photo, index) => (
+                  <View key={photo._id || index} style={styles.jobStoryPhotoItem}>
+                    <View style={styles.photoHeader}>
+                      <Text style={styles.photoStage}>{photo.stage}</Text>
+                      <TouchableOpacity
+                        onPress={() => handleDeleteJobStoryPhoto(photo._id)}
+                        style={styles.deletePhotoButton}
+                      >
+                        <Ionicons name="trash" size={20} color={colors.error.main} />
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.photoDescription}>{photo.description}</Text>
+                    <Text style={styles.photoDate}>
+                      {new Date(photo.createdAt).toLocaleDateString('tr-TR')} {new Date(photo.createdAt).toLocaleTimeString('tr-TR')}
+                    </Text>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.emptyJobStory}>
+                  <Ionicons name="camera-outline" size={48} color={colors.text.tertiary} />
+                  <Text style={styles.emptyJobStoryText}>Henüz fotoğraf eklenmemiş</Text>
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => setShowJobStoryModal(false)}
+              >
+                <Text style={styles.modalButtonText}>Kapat</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Add Photo Modal */}
+      <Modal
+        visible={showAddPhotoModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAddPhotoModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Fotoğraf Ekle</Text>
+            
+            <View style={styles.photoStageContainer}>
+              <Text style={styles.photoStageLabel}>Aşama:</Text>
+              <View style={styles.photoStageButtons}>
+                {['Başlangıç', 'Devam', 'Son Kontrol', 'Tamamlandı'].map((stage) => (
+                  <TouchableOpacity
+                    key={stage}
+                    style={[styles.photoStageButton, newPhotoStage === stage && styles.photoStageButtonActive]}
+                    onPress={() => setNewPhotoStage(stage)}
+                  >
+                    <Text style={[styles.photoStageButtonText, newPhotoStage === stage && styles.photoStageButtonTextActive]}>
+                      {stage}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="Fotoğraf açıklaması yazın..."
+              placeholderTextColor={colors.text.tertiary}
+              value={newPhotoDescription}
+              onChangeText={setNewPhotoDescription}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => setShowAddPhotoModal(false)}
+              >
+                <Text style={styles.modalButtonText}>İptal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonPrimary]}
+                onPress={() => {
+                  // Burada fotoğraf seçme işlemi yapılacak
+                  Alert.alert('Bilgi', 'Fotoğraf seçme özelliği yakında eklenecek.');
+                }}
+                disabled={processing || !newPhotoDescription.trim()}
+              >
+                <Text style={styles.modalButtonPrimaryText}>
+                  {processing ? 'Ekleniyor...' : 'Fotoğraf Seç'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1091,6 +1429,153 @@ const createStyles = (colors: any) => StyleSheet.create({
     color: colors.text.primary,
     borderWidth: 1,
     borderColor: colors.border.secondary,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  // Customer Approval Modal Styles
+  approvalTypeContainer: {
+    marginBottom: spacing.lg,
+  },
+  approvalTypeLabel: {
+    fontSize: typography.body2.fontSize,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  approvalTypeButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  approvalTypeButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.background.secondary,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
+  },
+  approvalTypeButtonActive: {
+    backgroundColor: colors.primary.ultraLight,
+    borderColor: colors.primary.main,
+  },
+  approvalTypeButtonText: {
+    fontSize: typography.caption.large.fontSize,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  approvalTypeButtonTextActive: {
+    color: colors.primary.main,
+  },
+  // Job Story Modal Styles
+  jobStoryHeader: {
+    marginBottom: spacing.lg,
+  },
+  addPhotoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary.main,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    alignSelf: 'flex-start',
+    gap: spacing.sm,
+  },
+  addPhotoButtonText: {
+    fontSize: typography.body2.fontSize,
+    fontWeight: '600',
+    color: colors.text.inverse,
+  },
+  jobStoryScroll: {
+    maxHeight: 300,
+    marginBottom: spacing.lg,
+  },
+  jobStoryPhotoItem: {
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
+  },
+  photoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  photoStage: {
+    fontSize: typography.caption.large.fontSize,
+    fontWeight: '600',
+    color: colors.primary.main,
+  },
+  deletePhotoButton: {
+    padding: spacing.xs,
+  },
+  photoDescription: {
+    fontSize: typography.body2.fontSize,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  photoDate: {
+    fontSize: typography.caption.small.fontSize,
+    color: colors.text.tertiary,
+  },
+  emptyJobStory: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+  },
+  emptyJobStoryText: {
+    fontSize: typography.body2.fontSize,
+    color: colors.text.tertiary,
+    marginTop: spacing.sm,
+  },
+  photoStageContainer: {
+    marginBottom: spacing.lg,
+  },
+  photoStageLabel: {
+    fontSize: typography.body2.fontSize,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  photoStageButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  photoStageButton: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.background.secondary,
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
+  },
+  photoStageButtonActive: {
+    backgroundColor: colors.primary.ultraLight,
+    borderColor: colors.primary.main,
+  },
+  photoStageButtonText: {
+    fontSize: typography.caption.large.fontSize,
+    color: colors.text.primary,
+  },
+  photoStageButtonTextActive: {
+    color: colors.primary.main,
+    fontWeight: '600',
+  },
+  input: {
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    fontSize: typography.body2.fontSize,
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
+  },
+  textArea: {
     minHeight: 80,
     textAlignVertical: 'top',
   },

@@ -32,7 +32,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Token geçerliliğini kontrol eden fonksiyon - Gerçek validation
+  // Token geçerliliğini kontrol eden fonksiyon - Basitleştirilmiş validation
   const validateToken = async (tokenToValidate: string): Promise<boolean> => {
     try {
       // Önce token'ın formatını kontrol et
@@ -47,18 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return false;
       }
       
-      // Token validation endpoint'ini çağır
-      const response = await api.get('/auth/validate', {
-        headers: { Authorization: `Bearer ${tokenToValidate}` }
-      });
-      
-      const isValid = response.data && response.data.success;
-      if (!isValid) {
-        console.log('❌ Backend token validation başarısız');
-        return false;
-      }
-
-      // Kullanıcı profilini de kontrol et
+      // Sadece profil endpoint'ini kontrol et (auth/validate endpoint'i yok)
       try {
         const profileResponse = await axios.get(`${API_URL}/users/profile`, {
           headers: { Authorization: `Bearer ${tokenToValidate}` }
@@ -133,7 +122,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     loadAuthData();
-  }, []);
+
+    // AsyncStorage değişikliklerini dinle (API service logout için)
+    const checkAuthState = async () => {
+      const currentToken = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      const currentUserId = await AsyncStorage.getItem(STORAGE_KEYS.USER_ID);
+      
+      // Eğer token silinmişse state'i güncelle
+      if (!currentToken && token) {
+        console.log('🔄 AuthContext: Token silinmiş, state güncelleniyor');
+        setToken(null);
+        setUserId(null);
+        setUser(null);
+        setIsAuthenticated(false);
+      }
+    };
+
+    // Her 2 saniyede bir kontrol et (API service logout'u yakalamak için)
+    const interval = setInterval(checkAuthState, 2000);
+    
+    return () => clearInterval(interval);
+  }, [token]);
 
   const setTokenAndUserId = async (newToken: string, newUserId: string) => {
     try {

@@ -230,7 +230,6 @@ export class AuthService {
       
       return { message: 'Başarıyla çıkış yapıldı.' };
     } catch (error) {
-      console.error('Logout hatası:', error);
       return { message: 'Çıkış yapıldı.' };
     }
   }

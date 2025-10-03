@@ -28,10 +28,8 @@ export class TokenBlacklistService {
       const userTokens = await CacheManager.get<string[]>(userTokensKey) || [];
       userTokens.push(token);
       await CacheManager.set(userTokensKey, userTokens, { ttl: expiresIn });
-      
-      console.log(`✅ Token blacklist'e eklendi: ${userId}`);
     } catch (error) {
-      console.error('❌ Token blacklist hatası:', error);
+      // Silent error handling
     }
   }
 
@@ -44,7 +42,6 @@ export class TokenBlacklistService {
       const blacklistData = await CacheManager.get(tokenKey);
       return !!blacklistData;
     } catch (error) {
-      console.error('❌ Token blacklist kontrol hatası:', error);
       return false;
     }
   }
@@ -64,10 +61,8 @@ export class TokenBlacklistService {
       
       // Kullanıcı token listesini temizle
       await CacheManager.del(userTokensKey);
-      
-      console.log(`✅ Kullanıcının tüm token'ları blacklist'e eklendi: ${userId}`);
     } catch (error) {
-      console.error('❌ Kullanıcı token blacklist hatası:', error);
+      // Silent error handling
     }
   }
 
@@ -78,9 +73,8 @@ export class TokenBlacklistService {
     try {
       const tokenKey = `${this.BLACKLIST_PREFIX}${token}`;
       await CacheManager.del(tokenKey);
-      console.log(`✅ Token blacklist'ten kaldırıldı`);
     } catch (error) {
-      console.error('❌ Token blacklist kaldırma hatası:', error);
+      // Silent error handling
     }
   }
 
@@ -99,7 +93,6 @@ export class TokenBlacklistService {
         recentBlacklists: 0
       };
     } catch (error) {
-      console.error('❌ Blacklist stats hatası:', error);
       return {
         totalBlacklistedTokens: 0,
         recentBlacklists: 0

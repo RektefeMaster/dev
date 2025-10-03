@@ -36,6 +36,7 @@ import { CustomerScreen } from '@/features/customers/screens';
 import { QuickQuoteScreen } from '@/features/quotes/screens';
 import { SuppliersScreen } from '@/features/suppliers/screens';
 import { VehicleHistoryScreen } from '@/features/vehicle-history/screens';
+import { ServiceCatalogScreen } from '@/features/service-catalog/screens';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -239,9 +240,16 @@ const AppNavigator = () => {
             headerShown: false,
           }}
         />
-        <Stack.Screen 
-          name="VehicleHistory" 
+        <Stack.Screen
+          name="VehicleHistory"
           component={VehicleHistoryScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="ServiceCatalog"
+          component={ServiceCatalogScreen}
           options={{
             headerShown: false,
           }}

@@ -20,6 +20,7 @@ import { useAuth } from '@/shared/context';
 import apiService from '@/shared/services';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import BackButton from '@/shared/components/BackButton';
+import { translateServiceName } from '@/shared/utils/serviceTranslator';
 
 const { width } = Dimensions.get('window');
 
@@ -140,22 +141,7 @@ const AppointmentsScreen = () => {
 
   const normalizeServiceType = (raw?: string) => {
     if (!raw) return '';
-    const key = raw.toLowerCase().trim();
-    const map: Record<string, string> = {
-      'agir-bakim': 'Ağır Bakım',
-      'ağır bakım': 'Ağır Bakım',
-      'genel-bakim': 'Genel Bakım',
-      'genel bakım': 'Genel Bakım',
-      'motor-bakimi': 'Motor Bakımı',
-      'fren-bakimi': 'Fren Bakımı',
-      'elektrik-bakimi': 'Elektrik Bakımı',
-      'kaporta-bakimi': 'Kaporta Bakımı',
-      'klima-bakimi': 'Klima Bakımı',
-      'lastik': 'Lastik Servisi',
-      'yikama': 'Yıkama',
-      'cekici': 'Çekici',
-    };
-    return map[key] || raw;
+    return translateServiceName(raw);
   };
 
   const fetchRandevular = async (durum: RandevuDurum) => {

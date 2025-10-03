@@ -99,7 +99,7 @@ router.get('/:vehicleId', auth, async (req: Request, res: Response) => {
           date: apt.appointmentDate,
           serviceType: apt.serviceType,
           price: apt.price,
-          customer: `${(apt.userId as any)?.name} ${(apt.userId as any)?.surname}`,
+          customer: `${(apt.userId as any)?.name || 'Bilinmeyen'} ${(apt.userId as any)?.surname || 'Müşteri'}`,
           description: apt.description
         })),
         stats: {
@@ -547,8 +547,8 @@ router.put('/:vehicleId/reminders/:reminderId', auth, async (req: Request, res: 
     }
 
     // Güncellenmiş hatırlatmayı bul
-    const updatedReminder = updatedUser.maintenanceReminders?.find(r => 
-      r._id?.toString() === reminderId && r.vehicleId === vehicleId
+    const updatedReminder = updatedUser.maintenanceReminders?.find((r: any) => 
+      r.description === reminderData.description && r.vehicleId === vehicleId
     );
 
     res.json({

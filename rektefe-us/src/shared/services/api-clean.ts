@@ -151,13 +151,6 @@ class ApiService {
     try {
       const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
       if (!refreshToken) {
-        console.log('❌ Refresh token bulunamadı');
-        return null;
-      }
-
-      // Refresh token'ın geçerliliğini kontrol et
-      if (isTokenExpired(refreshToken)) {
-        console.log('❌ Refresh token süresi dolmuş');
         return null;
       }
 
@@ -171,64 +164,25 @@ class ApiService {
         await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
         await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
         
-        console.log('✅ Token başarıyla yenilendi');
         return token;
       }
 
       return null;
     } catch (error) {
-      console.error('❌ Token yenileme hatası:', error);
-      
-      // Token yenileme başarısızsa tüm token'ları temizle
-      await AsyncStorage.multiRemove([
-        STORAGE_KEYS.AUTH_TOKEN,
-        STORAGE_KEYS.REFRESH_TOKEN,
-        STORAGE_KEYS.USER_ID
-      ]);
-      
+      console.error('Token refresh error:', error);
       return null;
     }
   }
 
-  private handleError(error: any): any {
-    // Detaylı error logging
-    console.error('API Error Details:', {
-      message: error.message,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      url: error.config?.url,
-      method: error.config?.method,
-      data: error.response?.data
-    });
+  private handleError(error: any): ApiResponse {
+    console.error('API Error:', error);
     
     if (error.response) {
       // Server responded with error status
-      const status = error.response.status;
-      let message = 'Server error occurred';
-      
-      // Status code'a göre özel mesajlar
-      switch (status) {
-        case 401:
-          message = 'Yetkilendirme hatası - Lütfen tekrar giriş yapın';
-          break;
-        case 403:
-          message = 'Erişim reddedildi - Bu işlem için yetkiniz yok';
-          break;
-        case 404:
-          message = 'İstenen kaynak bulunamadı';
-          break;
-        case 500:
-          message = 'Sunucu hatası - Lütfen daha sonra tekrar deneyin';
-          break;
-        default:
-          message = error.response.data?.message || `HTTP ${status} hatası`;
-      }
-      
       return {
         success: false,
-        message,
-        data: null,
-        status
+        message: error.response.data?.message || 'Server error occurred',
+        data: null
       };
     } else if (error.request) {
       // Request was made but no response received
@@ -248,13 +202,9 @@ class ApiService {
   }
 
   // ===== AUTH ENDPOINTS =====
-  async login(email: string, password: string, userType: 'mechanic' | 'driver' = 'mechanic'): Promise<ApiResponse<{ user: User; token: string; refreshToken: string }>> {
+  async login(email: string, password: string): Promise<ApiResponse<{ user: User; token: string; refreshToken: string }>> {
     try {
-      const response = await this.api.post('/auth/login', { 
-        email, 
-        password, 
-        userType 
-      });
+      const response = await this.api.post('/auth/login', { email, password });
       return response.data;
     } catch (error) {
       return this.handleError(error);
@@ -263,12 +213,7 @@ class ApiService {
 
   async register(userData: any): Promise<ApiResponse<{ user: User; token: string; refreshToken: string }>> {
     try {
-      // userType'ı otomatik olarak 'mechanic' olarak ayarla
-      const registerData = {
-        ...userData,
-        userType: 'mechanic'
-      };
-      const response = await this.api.post('/auth/register', registerData);
+      const response = await this.api.post('/auth/register', userData);
       return response.data;
     } catch (error) {
       return this.handleError(error);
@@ -277,19 +222,10 @@ class ApiService {
 
   async logout(): Promise<ApiResponse> {
     try {
-      console.log('🚪 API Service: Logout başlatılıyor...');
-      
-      await AsyncStorage.multiRemove([
-        STORAGE_KEYS.AUTH_TOKEN,
-        STORAGE_KEYS.REFRESH_TOKEN,
-        STORAGE_KEYS.USER_ID,
-        STORAGE_KEYS.USER_DATA
-      ]);
-      
-      console.log('✅ API Service: Logout tamamlandı');
+      await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+      await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
       return { success: true, message: 'Logged out successfully' };
     } catch (error) {
-      console.error('❌ API Service: Logout hatası:', error);
       return this.handleError(error);
     }
   }

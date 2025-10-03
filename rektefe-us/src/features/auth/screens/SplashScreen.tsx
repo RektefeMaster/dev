@@ -8,6 +8,7 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
 
@@ -70,7 +71,7 @@ export default function SplashScreen() {
               },
             ]}
           >
-            <Text style={styles.logo}>🔧</Text>
+            <MaterialCommunityIcons name="wrench" size={80} color="#3B82F6" />
           </Animated.View>
 
           {/* App Name */}

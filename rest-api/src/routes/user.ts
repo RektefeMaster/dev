@@ -1306,9 +1306,14 @@ router.get('/security-settings', auth, async (req: Request, res: Response) => {
       return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
     }
 
-    const user = await User.findById(userId).select('securitySettings');
+    const user = await User.findById(userId).select('securitySettings userType');
     if (!user) {
       return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    }
+
+    // UserType kontrolü - sadece mechanic'ler erişebilir
+    if (user.userType !== 'mechanic') {
+      return ResponseHandler.forbidden(res, 'Bu kullanıcının bilgilerini görme yetkiniz yok.');
     }
 
     return ResponseHandler.success(res, user.securitySettings || {

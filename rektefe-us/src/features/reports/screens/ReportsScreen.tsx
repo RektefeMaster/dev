@@ -69,46 +69,44 @@ export default function ReportsScreen() {
     try {
       setLoading(true);
       
-      // Simulated data - gerçek API entegrasyonu yapılacak
-      const mockData: ReportData = {
-        weeklyEarnings: 2500,
-        monthlyEarnings: 12000,
-        yearlyEarnings: 145000,
-        totalAppointments: 45,
-        completedAppointments: 42,
-        averageRating: 4.8,
-        topServices: [
-          { name: 'Motor Revizyonu', count: 15, earnings: 4500 },
-          { name: 'Fren Sistemi', count: 12, earnings: 3200 },
-          { name: 'Klima Bakımı', count: 8, earnings: 1800 },
-          { name: 'Elektrik Arızası', count: 6, earnings: 1200 },
-          { name: 'Lastik Değişimi', count: 4, earnings: 800 },
-        ],
-        customerStats: {
-          newCustomers: 8,
-          returningCustomers: 34,
-          totalCustomers: 42,
-        },
-        earningsByMonth: [
-          { month: 'Ocak', earnings: 8500 },
-          { month: 'Şubat', earnings: 9200 },
-          { month: 'Mart', earnings: 11000 },
-          { month: 'Nisan', earnings: 12000 },
-          { month: 'Mayıs', earnings: 13500 },
-          { month: 'Haziran', earnings: 12000 },
-        ],
-        appointmentsByDay: [
-          { day: 'Pazartesi', count: 8 },
-          { day: 'Salı', count: 6 },
-          { day: 'Çarşamba', count: 7 },
-          { day: 'Perşembe', count: 9 },
-          { day: 'Cuma', count: 10 },
-          { day: 'Cumartesi', count: 5 },
-          { day: 'Pazar', count: 0 },
-        ],
-      };
+      // Placeholder API çağrıları - bu methodlar henüz implement edilmedi
+      const [weeklyResponse, monthlyResponse, yearlyResponse, statsResponse] = await Promise.allSettled([
+        Promise.resolve({ success: true, data: { earnings: 0 } }), // getWeeklyEarnings placeholder
+        Promise.resolve({ success: true, data: { earnings: 0 } }), // getMonthlyEarnings placeholder
+        Promise.resolve({ success: true, data: { earnings: 0 } }), // getYearlyEarnings placeholder
+        Promise.resolve({ success: true, data: { stats: {} } }) // getMechanicStats placeholder
+      ]);
 
-      setReportData(mockData);
+      const weeklyEarnings = weeklyResponse.status === 'fulfilled' && weeklyResponse.value.success 
+        ? weeklyResponse.value.data?.earnings || 0 : 0;
+      
+      const monthlyEarnings = monthlyResponse.status === 'fulfilled' && monthlyResponse.value.success 
+        ? monthlyResponse.value.data?.earnings || 0 : 0;
+      
+      const yearlyEarnings = yearlyResponse.status === 'fulfilled' && yearlyResponse.value.success 
+        ? yearlyResponse.value.data?.earnings || 0 : 0;
+      
+      const stats = statsResponse.status === 'fulfilled' && statsResponse.value.success 
+        ? statsResponse.value.data : null;
+
+      const reportData: ReportData = {
+        weeklyEarnings,
+        monthlyEarnings,
+        yearlyEarnings,
+        totalAppointments: 0, // Placeholder
+        completedAppointments: 0, // Placeholder
+        averageRating: 0, // Placeholder
+        topServices: [], // Placeholder
+        customerStats: {
+          newCustomers: 0, // Placeholder
+          returningCustomers: 0, // Placeholder
+          totalCustomers: 0, // Placeholder
+        },
+        earningsByMonth: [], // Placeholder
+        appointmentsByDay: [], // Placeholder
+      };
+      
+      setReportData(reportData);
 
     } catch (error: any) {
       Alert.alert('Hata', 'Rapor verileri yüklenirken bir hata oluştu.');
