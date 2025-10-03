@@ -500,61 +500,6 @@ router.put('/notifications/read-all', auth, async (req: Request, res: Response) 
 
 /**
  * @swagger
- * /api/users/{userId}:
- *   get:
- *     summary: Kullanıcı bilgilerini ID ile getir
- *     description: Belirli bir kullanıcının bilgilerini ID ile getirir
- *     tags:
- *       - Users
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *         description: Kullanıcı ID'si
- *         example: "507f1f77bcf86cd799439011"
- *     responses:
- *       200:
- *         description: Kullanıcı bilgileri başarıyla getirildi
- *       400:
- *         description: Geçersiz kullanıcı ID
- *       401:
- *         description: Yetkilendirme hatası
- *       404:
- *         description: Kullanıcı bulunamadı
- *       500:
- *         description: Sunucu hatası
- */
-router.get('/:userId', auth, async (req: Request, res: Response) => {
-  try {
-    const { userId } = req.params;
-    const requestingUserId = req.user?.userId;
-    
-    if (!requestingUserId) {
-      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
-    }
-
-    // Sadece kendi profilini veya admin kullanıcılar görebilir
-    if (requestingUserId !== userId) {
-      return ResponseHandler.forbidden(res, 'Bu kullanıcının bilgilerini görme yetkiniz yok.');
-    }
-
-    const user = await User.findById(userId).select('-password');
-    if (!user) {
-      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
-    }
-
-    return ResponseHandler.success(res, user, 'Kullanıcı bilgileri başarıyla getirildi');
-  } catch (error) {
-    return ResponseHandler.error(res, 'Kullanıcı bilgileri getirilirken hata oluştu');
-  }
-});
-
-/**
- * @swagger
  * /api/users/me:
  *   get:
  *     summary: Giriş yapan kullanıcının detaylı bilgilerini getir
@@ -1666,6 +1611,61 @@ router.post('/verify-phone', auth, async (req: Request, res: Response) => {
     }
   } catch (error) {
     return ResponseHandler.error(res, 'Telefon doğrulanamadı');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/{userId}:
+ *   get:
+ *     summary: Kullanıcı bilgilerini ID ile getir
+ *     description: Belirli bir kullanıcının bilgilerini ID ile getirir
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Kullanıcı ID'si
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Kullanıcı bilgileri başarıyla getirildi
+ *       400:
+ *         description: Geçersiz kullanıcı ID
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/:userId', auth, async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const requestingUserId = req.user?.userId;
+    
+    if (!requestingUserId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    // Sadece kendi profilini veya admin kullanıcılar görebilir
+    if (requestingUserId !== userId) {
+      return ResponseHandler.forbidden(res, 'Bu kullanıcının bilgilerini görme yetkiniz yok.');
+    }
+
+    const user = await User.findById(userId).select('-password');
+    if (!user) {
+      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    }
+
+    return ResponseHandler.success(res, user, 'Kullanıcı bilgileri başarıyla getirildi');
+  } catch (error) {
+    return ResponseHandler.error(res, 'Kullanıcı bilgileri getirilirken hata oluştu');
   }
 });
 
