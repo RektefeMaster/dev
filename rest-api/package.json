@@ -4,13 +4,15 @@
   "description": "Rektefe REST API",
   "main": "dist/index.js",
   "scripts": {
-    "build": "npx tsc",
+    "build": "rm -rf dist && npx tsc",
     "start": "node dist/index.js",
     "start:dev": "node -r dotenv/config -r ts-node/register src/index.ts",
     "dev": "ts-node-dev --respawn --transpile-only -r dotenv/config src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "render-postbuild": "npm run build",
-    "update-mongodb-ip": "node scripts/update-mongodb-ip.js"
+    "update-mongodb-ip": "node scripts/update-mongodb-ip.js",
+    "clean": "rm -rf dist node_modules/.cache",
+    "prebuild": "rm -rf dist"
   },
   "keywords": [
     "api",

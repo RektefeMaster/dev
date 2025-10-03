@@ -2,10 +2,14 @@
 nixPkgs = ['nodejs_20']
 
 [phases.install]
-cmds = ['npm ci --cache /tmp/.npm']
+cmds = ['npm install --no-cache --no-optional']
 
 [phases.build]
 cmds = ['npm run build']
 
 [start]
 cmd = 'npm start'
+
+[variables]
+NPM_CONFIG_CACHE = '/tmp/.npm'
+NPM_CONFIG_UPDATE_NOTIFIER = 'false'
