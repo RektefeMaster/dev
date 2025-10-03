@@ -20,10 +20,9 @@ import { ChatScreen, NewMessageScreen, MessagesScreen } from '@/features/message
 import { AppointmentDetailScreen, CalendarScreen } from '@/features/appointments/screens';
 import { WalletScreen, FinancialTrackingScreen } from '@/features/wallet/screens';
 import { SupportScreen } from '@/features/support/screens';
-import { ProfileScreen, EditProfileScreen, SettingsScreen } from '@/features/profile/screens';
+import { ProfileScreen, EditProfileScreen, SettingsScreen, ServiceAreasScreen } from '@/features/profile/screens';
 import WorkingHoursScreen from '@/features/profile/screens/WorkingHoursScreen';
 import SecurityScreen from '@/features/profile/screens/SecurityScreen';
-import ServiceAreasScreen from '@/features/profile/screens/ServiceAreasScreen';
 import HelpCenterScreen from '@/features/profile/screens/HelpCenterScreen';
 import AboutScreen from '@/features/profile/screens/AboutScreen';
 import { FaultReportsScreen, FaultReportDetailScreen } from '@/features/fault-reports/screens';
