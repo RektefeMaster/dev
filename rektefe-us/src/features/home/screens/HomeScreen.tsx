@@ -402,9 +402,16 @@ const mechanicCapabilities = [
     try {
       // Authentication kontrolü
       if (!isAuthenticated || !user) {
+        console.log('⚠️ fetchDashboardData: Authentication kontrolü başarısız');
+        console.log('isAuthenticated:', isAuthenticated);
+        console.log('user exists:', !!user);
         setLoading(false);
         return;
       }
+
+      console.log('🔍 fetchDashboardData: Veri yükleme başlatılıyor...');
+      console.log('User ID:', user._id);
+      console.log('User Type:', user.userType);
 
       if (showLoading) {
         setLoading(true);
@@ -434,6 +441,18 @@ const mechanicCapabilities = [
         apiService.getConversations(),
         apiService.getMechanicAppointments('pending')
       ]);
+
+      console.log('🔍 fetchDashboardData: API çağrıları tamamlandı');
+      console.log('todayAppointmentsRes:', todayAppointmentsRes.status);
+      console.log('todayCompletedRes:', todayCompletedRes.status);
+      console.log('activityRes:', activityRes.status);
+      console.log('ratingsRes:', ratingsRes.status);
+      console.log('ratingStatsRes:', ratingStatsRes.status);
+      console.log('appointmentStatsRes:', appointmentStatsRes.status);
+      console.log('faultReportsRes:', faultReportsRes.status);
+      console.log('notificationsRes:', notificationsRes.status);
+      console.log('conversationsRes:', conversationsRes.status);
+      console.log('pendingAppointmentsRes:', pendingAppointmentsRes.status);
 
       // Bugünkü onaylanan randevular
       if (todayAppointmentsRes.status === 'fulfilled' && todayAppointmentsRes.value.success && todayAppointmentsRes.value.data) {
@@ -569,6 +588,12 @@ const mechanicCapabilities = [
       }
 
     } catch (error) {
+      console.log('❌ fetchDashboardData error:', error);
+      console.log('Error details:', {
+        message: error?.message,
+        stack: error?.stack,
+        name: error?.name
+      });
       Alert.alert('Hata', 'Veriler yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);

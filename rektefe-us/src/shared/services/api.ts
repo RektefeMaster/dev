@@ -44,12 +44,22 @@ class ApiService {
         try {
           const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
           
+          console.log('🔍 Request Interceptor Debug:');
+          console.log('URL:', config.url);
+          console.log('Method:', config.method);
+          console.log('Token exists:', !!token);
+          console.log('Token preview:', token ? `${token.substring(0, 20)}...` : 'null');
+          
           if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+            console.log('✅ Authorization header set:', `Bearer ${token.substring(0, 20)}...`);
+          } else {
+            console.log('❌ No token found, Authorization header not set');
           }
           
           return config;
         } catch (error) {
+          console.log('❌ Request interceptor error:', error);
           return Promise.reject(error);
         }
       },
@@ -454,20 +464,16 @@ class ApiService {
   }
 
   async getAppointmentStats(): Promise<ApiResponse<{
-    total: number;
-    pending: number;
-    inProgress: number;
-    completed: number;
-    cancelled: number;
+    activeJobs: number;
+    todayEarnings: number;
+    rating: number;
   }>> {
     try {
       const response = await this.api.get('/mechanic/dashboard/stats');
       return response.data as ApiResponse<{
-        total: number;
-        pending: number;
-        inProgress: number;
-        completed: number;
-        cancelled: number;
+        activeJobs: number;
+        todayEarnings: number;
+        rating: number;
       }>;
     } catch (error) {
       return this.handleError(error);
@@ -569,6 +575,38 @@ class ApiService {
       const response = await this.api.get('/service-requests/mechanic-requests');
       return response.data as ApiResponse<any[]>;
     } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  // ===== MECHANIC APPOINTMENT ENDPOINTS =====
+  async getMechanicAppointments(status?: string): Promise<ApiResponse<Appointment[]>> {
+    try {
+      console.log('🔍 Frontend API Debug - getMechanicAppointments:');
+      console.log('Status:', status);
+      
+      const url = status ? `/appointments/mechanic?status=${status}` : '/appointments/mechanic';
+      const response = await this.api.get(url);
+      console.log('✅ Frontend API: getMechanicAppointments response:', response.data);
+      return response.data as ApiResponse<Appointment[]>;
+    } catch (error) {
+      console.log('❌ Frontend API: getMechanicAppointments error:', error);
+      return this.handleError(error);
+    }
+  }
+
+  // ===== FAULT REPORT ENDPOINTS =====
+  async getMechanicFaultReports(status?: string): Promise<ApiResponse<any[]>> {
+    try {
+      console.log('🔍 Frontend API Debug - getMechanicFaultReports:');
+      console.log('Status:', status);
+      
+      const url = status ? `/fault-reports/mechanic/reports?status=${status}` : '/fault-reports/mechanic/reports';
+      const response = await this.api.get(url);
+      console.log('✅ Frontend API: getMechanicFaultReports response:', response.data);
+      return response.data as ApiResponse<any[]>;
+    } catch (error) {
+      console.log('❌ Frontend API: getMechanicFaultReports error:', error);
       return this.handleError(error);
     }
   }
