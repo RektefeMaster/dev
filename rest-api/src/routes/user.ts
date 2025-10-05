@@ -1261,11 +1261,6 @@ router.get('/security-settings', auth, async (req: Request, res: Response) => {
       return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
     }
 
-    // UserType kontrolü - sadece mechanic'ler erişebilir
-    if (user.userType !== 'mechanic') {
-      return ResponseHandler.forbidden(res, 'Bu kullanıcının bilgilerini görme yetkiniz yok.');
-    }
-
     return ResponseHandler.success(res, user.securitySettings || {
       twoFactorEnabled: false,
       biometricEnabled: false,
