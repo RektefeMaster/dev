@@ -116,6 +116,10 @@ router.get('/profile', auth, async (req: Request, res: Response) => {
  *               city:
  *                 type: string
  *                 description: Şehir
+ *               userType:
+ *                 type: string
+ *                 enum: [user, mechanic, driver, admin]
+ *                 description: Kullanıcı tipi
  *     responses:
  *       200:
  *         description: Profil başarıyla güncellendi
@@ -137,7 +141,7 @@ router.put('/profile', auth, async (req: Request, res: Response) => {
       return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
     }
 
-    const { name, surname, bio, phone, city, serviceCategories } = req.body;
+    const { name, surname, bio, phone, city, serviceCategories, userType } = req.body;
     const updateData: any = {};
     
     if (name) updateData.name = name;
@@ -146,6 +150,7 @@ router.put('/profile', auth, async (req: Request, res: Response) => {
     if (phone !== undefined) updateData.phone = phone;
     if (city !== undefined) updateData.city = city;
     if (serviceCategories !== undefined) updateData.serviceCategories = serviceCategories;
+    if (userType && ['user', 'mechanic', 'driver', 'admin'].includes(userType)) updateData.userType = userType;
 
     const updatedUser = await User.findByIdAndUpdate(
       userId,
@@ -1666,6 +1671,79 @@ router.get('/:userId', auth, async (req: Request, res: Response) => {
     return ResponseHandler.success(res, user, 'Kullanıcı bilgileri başarıyla getirildi');
   } catch (error) {
     return ResponseHandler.error(res, 'Kullanıcı bilgileri getirilirken hata oluştu');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/profile:
+ *   put:
+ *     summary: Kullanıcı profilini güncelle
+ *     description: Kullanıcının profil bilgilerini günceller
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               userType:
+ *                 type: string
+ *                 enum: [user, mechanic, driver, admin]
+ *               name:
+ *                 type: string
+ *               surname:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               city:
+ *                 type: string
+ *               bio:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Profil başarıyla güncellendi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.put('/profile', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    const updateData = req.body;
+    
+    // Güvenli alanları güncelle
+    const allowedFields = ['userType', 'name', 'surname', 'phone', 'city', 'bio'];
+    const filteredData: any = {};
+    
+    for (const field of allowedFields) {
+      if (updateData[field] !== undefined) {
+        filteredData[field] = updateData[field];
+      }
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      filteredData,
+      { new: true, runValidators: true }
+    );
+
+    if (!user) {
+      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    }
+
+    return ResponseHandler.success(res, user, 'Profil başarıyla güncellendi');
+  } catch (error) {
+    return ResponseHandler.error(res, 'Profil güncellenirken hata oluştu');
   }
 });
 

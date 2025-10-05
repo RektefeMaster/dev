@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '@/shared/services';
+import { useAuth } from './AuthContext';
 import { 
   UserSettings, 
   NotificationSettings, 
@@ -59,6 +60,7 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const SettingsProvider = ({ children }: { children: ReactNode }) => {
+  const { isAuthenticated } = useAuth();
   const [settings, setSettings] = useState<UserSettings>(defaultUserSettings);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +71,22 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     try {
       setLoading(true);
       setError(null);
+
+      // Authentication kontrolü - sadece giriş yapılmışsa API'den yükle
+      if (!isAuthenticated) {
+        console.log('⚠️ Kullanıcı giriş yapmamış - settings API çağrısı atlanıyor');
+        
+        // Sadece local storage'dan yükle
+        try {
+          const localSettings = await AsyncStorage.getItem('user_settings');
+          if (localSettings) {
+            setSettings(JSON.parse(localSettings));
+          }
+        } catch (localError) {
+          console.error('Local settings load error:', localError);
+        }
+        return;
+      }
 
       // Load from API
       const [notificationRes, privacyRes, jobRes, appRes, securityRes] = await Promise.allSettled([
@@ -334,10 +352,10 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Load settings on mount
+  // Load settings on mount and when authentication changes
   useEffect(() => {
     loadSettings();
-  }, []);
+  }, [isAuthenticated]);
 
   const value: SettingsContextType = {
     settings,

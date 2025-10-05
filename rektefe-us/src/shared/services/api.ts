@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL, STORAGE_KEYS } from '@/constants/config';
 import { 
@@ -14,20 +14,15 @@ import {
   ApiResponse,
   User
 } from '@/shared/types';
-import { 
-  isTokenExpired, 
-  shouldRefreshToken, 
-  isTokenValid,
-  getTokenUserInfo 
-} from '@/shared/utils/tokenUtils';
+import { isTokenExpired } from '@/shared/utils/tokenUtils';
 import { translateServiceName } from '@/shared/utils/serviceTranslator';
 
 class ApiService {
   private api: AxiosInstance;
   private isRefreshing = false;
   private failedQueue: Array<{
-    resolve: (value?: any) => void;
-    reject: (error?: any) => void;
+    resolve: (value?: string | null) => void;
+    reject: (error?: Error) => void;
   }> = [];
 
   constructor() {
@@ -43,56 +38,55 @@ class ApiService {
   }
 
   private setupInterceptors() {
-    // Request interceptor - proaktif token yenileme ile
+    // Request interceptor - basit token yönetimi
     this.api.interceptors.request.use(
-      async (config: any) => {
+      async (config: InternalAxiosRequestConfig) => {
         try {
           const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
           
           if (token) {
-            // Token validation kontrolü
-            if (isTokenValid(token)) {
-              // Token geçerli, ancak yenilenmesi gerekip gerekmediğini kontrol et
-              if (shouldRefreshToken(token)) {
-                try {
-                  const newToken = await this.refreshToken();
-                  if (newToken) {
-                    config.headers.Authorization = `Bearer ${newToken}`;
-                  } else {
-                    config.headers.Authorization = `Bearer ${token}`;
-                  }
-                } catch (refreshError) {
-                  config.headers.Authorization = `Bearer ${token}`;
-                }
-              } else {
-                config.headers.Authorization = `Bearer ${token}`;
-              }
-            } else {
-              // Geçersiz token'ı temizle
-              await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-              await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-            }
+            config.headers.Authorization = `Bearer ${token}`;
           }
+          
           return config;
         } catch (error) {
           return Promise.reject(error);
         }
       },
-      (error: any) => {
+      (error: Error) => {
         return Promise.reject(error);
       }
     );
 
     // Response interceptor - token yenileme ve hata yönetimi
     this.api.interceptors.response.use(
-      (response: any) => response,
+      (response: AxiosResponse) => response,
       async (error: any) => {
         const originalRequest = error.config;
         
         // 401 Unauthorized handling - Token yenileme mekanizması
         if (error.response?.status === 401 && !originalRequest._retry) {
+          if (__DEV__) {
+            console.log('🔄 401 hatası - token yenileme deneniyor...');
+          }
+          
+          // Önce mevcut token'ı kontrol et
+          const currentToken = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+          const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+          
+          if (!currentToken || !refreshToken) {
+            if (__DEV__) {
+              console.log('❌ Token veya refresh token bulunamadı - logout yapılıyor');
+            }
+            await this.logout();
+            return Promise.reject(error);
+          }
+
           if (this.isRefreshing) {
             // Token yenileme devam ediyorsa, isteği kuyruğa al
+            if (__DEV__) {
+              console.log('⏳ Token yenileme devam ediyor - istek kuyruğa alınıyor');
+            }
             return new Promise((resolve, reject) => {
               this.failedQueue.push({ resolve, reject });
             }).then(token => {
@@ -107,8 +101,14 @@ class ApiService {
           this.isRefreshing = true;
 
           try {
+            if (__DEV__) {
+              console.log('🔄 Token yenileme başlatılıyor...');
+            }
             const newToken = await this.refreshToken();
             if (newToken) {
+              if (__DEV__) {
+                console.log('✅ Token başarıyla yenilendi');
+              }
               originalRequest.headers.Authorization = `Bearer ${newToken}`;
               
               // Kuyruktaki istekleri işle
@@ -116,12 +116,18 @@ class ApiService {
               
               return this.api(originalRequest);
             } else {
+              if (__DEV__) {
+                console.log('❌ Token yenileme başarısız - logout yapılıyor');
+              }
               // Token yenileme başarısız, logout yap
               this.processQueue(new Error('Token refresh failed'), null);
               await this.logout();
               return Promise.reject(error);
             }
           } catch (refreshError) {
+            if (__DEV__) {
+              console.log('❌ Token yenileme hatası:', refreshError);
+            }
             this.processQueue(refreshError, null);
             await this.logout();
             return Promise.reject(refreshError);
@@ -135,7 +141,7 @@ class ApiService {
     );
   }
 
-  private processQueue(error: any, token: string | null = null) {
+  private processQueue(error: Error | null, token: string | null = null) {
     this.failedQueue.forEach(({ resolve, reject }) => {
       if (error) {
         reject(error);
@@ -151,33 +157,65 @@ class ApiService {
     try {
       const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
       if (!refreshToken) {
-        console.log('❌ Refresh token bulunamadı');
+        if (__DEV__) {
+          console.log('❌ Refresh token bulunamadı - token yenileme atlanıyor');
+        }
         return null;
       }
 
       // Refresh token'ın geçerliliğini kontrol et
       if (isTokenExpired(refreshToken)) {
-        console.log('❌ Refresh token süresi dolmuş');
+        if (__DEV__) {
+          console.log('❌ Refresh token süresi dolmuş');
+        }
+        // Geçersiz refresh token'ı temizle
+        await AsyncStorage.multiRemove([
+          STORAGE_KEYS.AUTH_TOKEN,
+          STORAGE_KEYS.REFRESH_TOKEN,
+          STORAGE_KEYS.USER_ID
+        ]);
         return null;
       }
 
-      const response = await axios.post(`${API_URL}/auth/refresh`, {
+      if (__DEV__) {
+        console.log('🔄 Refresh token ile yeni token alınıyor...');
+      }
+      const response = await axios.post(`${API_URL}/auth/refresh-token`, {
         refreshToken
       });
 
-      if (response.data.success) {
-        const { token, refreshToken: newRefreshToken } = response.data.data;
+      if (response.data && response.data.success) {
+        const { token } = response.data.data;
         
-        await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
-        await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
-        
-        console.log('✅ Token başarıyla yenilendi');
-        return token;
+        if (token) {
+          await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+          if (__DEV__) {
+            console.log('✅ Token başarıyla yenilendi ve kaydedildi');
+          }
+          return token;
+        } else {
+          if (__DEV__) {
+            console.log('❌ Yeni token alınamadı');
+          }
+          return null;
+        }
+      } else {
+        if (__DEV__) {
+          console.log('❌ Token yenileme response başarısız:', response.data);
+        }
+        return null;
       }
-
-      return null;
-    } catch (error) {
-      console.error('❌ Token yenileme hatası:', error);
+    } catch (error: unknown) {
+      if (__DEV__) {
+        console.error('❌ Token yenileme hatası:', error);
+        
+        // Detaylı hata loglama
+        if (error && typeof error === 'object' && 'response' in error) {
+          console.log('❌ Response error:', (error as any).response.status, (error as any).response.data);
+        } else if (error && typeof error === 'object' && 'request' in error) {
+          console.log('❌ Request error:', (error as any).request);
+        }
+      }
       
       // Token yenileme başarısızsa tüm token'ları temizle
       await AsyncStorage.multiRemove([
@@ -190,20 +228,22 @@ class ApiService {
     }
   }
 
-  private handleError(error: any): any {
-    // Detaylı error logging
-    console.error('API Error Details:', {
-      message: error.message,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      url: error.config?.url,
-      method: error.config?.method,
-      data: error.response?.data
-    });
+  private handleError(error: unknown): any {
+    // Detaylı error logging - sadece development'ta
+    if (__DEV__) {
+      console.error('API Error Details:', {
+        message: error && typeof error === 'object' && 'message' in error ? (error as any).message : 'Unknown error',
+        status: error && typeof error === 'object' && 'response' in error ? (error as any).response?.status : undefined,
+        statusText: error && typeof error === 'object' && 'response' in error ? (error as any).response?.statusText : undefined,
+        url: error && typeof error === 'object' && 'config' in error ? (error as any).config?.url : undefined,
+        method: error && typeof error === 'object' && 'config' in error ? (error as any).config?.method : undefined,
+        data: error && typeof error === 'object' && 'response' in error ? (error as any).response?.data : undefined
+      });
+    }
     
-    if (error.response) {
+    if (error && typeof error === 'object' && 'response' in error) {
       // Server responded with error status
-      const status = error.response.status;
+      const status = (error as any).response.status;
       let message = 'Server error occurred';
       
       // Status code'a göre özel mesajlar
@@ -215,13 +255,19 @@ class ApiService {
           message = 'Erişim reddedildi - Bu işlem için yetkiniz yok';
           break;
         case 404:
-          message = 'İstenen kaynak bulunamadı';
+          message = (error as any).response.data?.message || 'İstenen kaynak bulunamadı';
+          // 404 hatası için özel log
+          console.log('⚠️ 404 Hatası:', {
+            url: (error as any).config?.url,
+            message: (error as any).response.data?.message,
+            suggestion: 'Profil oluşturma gerekebilir'
+          });
           break;
         case 500:
           message = 'Sunucu hatası - Lütfen daha sonra tekrar deneyin';
           break;
         default:
-          message = error.response.data?.message || `HTTP ${status} hatası`;
+          message = (error as any).response.data?.message || `HTTP ${status} hatası`;
       }
       
       return {
@@ -230,7 +276,7 @@ class ApiService {
         data: null,
         status
       };
-    } else if (error.request) {
+    } else if (error && typeof error === 'object' && 'request' in error) {
       // Request was made but no response received
       return {
         success: false,
@@ -241,7 +287,7 @@ class ApiService {
       // Something else happened
       return {
         success: false,
-        message: error.message || 'An unexpected error occurred',
+        message: (error && typeof error === 'object' && 'message' in error ? (error as any).message : 'An unexpected error occurred'),
         data: null
       };
     }
@@ -277,7 +323,9 @@ class ApiService {
 
   async logout(): Promise<ApiResponse> {
     try {
-      console.log('🚪 API Service: Logout başlatılıyor...');
+      if (__DEV__) {
+        console.log('🚪 API Service: Logout başlatılıyor...');
+      }
       
       await AsyncStorage.multiRemove([
         STORAGE_KEYS.AUTH_TOKEN,
@@ -286,10 +334,14 @@ class ApiService {
         STORAGE_KEYS.USER_DATA
       ]);
       
-      console.log('✅ API Service: Logout tamamlandı');
+      if (__DEV__) {
+        console.log('✅ API Service: Logout tamamlandı');
+      }
       return { success: true, message: 'Logged out successfully' };
     } catch (error) {
-      console.error('❌ API Service: Logout hatası:', error);
+      if (__DEV__) {
+        console.error('❌ API Service: Logout hatası:', error);
+      }
       return this.handleError(error);
     }
   }
@@ -297,7 +349,7 @@ class ApiService {
   // ===== MECHANIC PROFILE ENDPOINTS =====
   async getMechanicProfile(): Promise<ApiResponse<MechanicProfile>> {
     try {
-      const response = await this.api.get('/mechanics/profile');
+      const response = await this.api.get('/mechanic/me');
       return response.data as ApiResponse<MechanicProfile>;
     } catch (error) {
       return this.handleError(error);
@@ -306,8 +358,17 @@ class ApiService {
 
   async updateMechanicProfile(profileData: Partial<MechanicProfile>): Promise<ApiResponse<MechanicProfile>> {
     try {
-      const response = await this.api.put('/mechanics/profile', profileData);
+      const response = await this.api.put('/mechanic/me', profileData);
       return response.data as ApiResponse<MechanicProfile>;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async updateUserProfile(profileData: { userType?: 'user' | 'mechanic' | 'driver' | 'admin'; [key: string]: any }): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put('/users/profile', profileData);
+      return response.data as ApiResponse<any>;
     } catch (error) {
       return this.handleError(error);
     }
@@ -322,7 +383,7 @@ class ApiService {
         name: 'profile.jpg',
       } as any);
 
-      const response = await this.api.post('/mechanics/profile/image', formData, {
+      const response = await this.api.post('/mechanic/profile/image', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -336,7 +397,7 @@ class ApiService {
 
   async getMechanicAppointmentCounts(): Promise<ApiResponse<any>> {
     try {
-      const response = await this.api.get('/mechanics/appointments/counts');
+      const response = await this.api.get('/mechanic/appointments/counts');
       return response.data as ApiResponse<any>;
     } catch (error) {
       return this.handleError(error);
@@ -351,7 +412,7 @@ class ApiService {
       params.append('page', page.toString());
       params.append('limit', limit.toString());
 
-      const response = await this.api.get(`/mechanics/appointments?${params.toString()}`);
+      const response = await this.api.get(`/appointments/mechanic?${params.toString()}`);
       return response.data as ApiResponse<Appointment[]>;
     } catch (error) {
       return this.handleError(error);
@@ -360,7 +421,7 @@ class ApiService {
 
   async getAppointmentById(appointmentId: string): Promise<ApiResponse<Appointment>> {
     try {
-      const response = await this.api.get(`/mechanics/appointments/${appointmentId}`);
+      const response = await this.api.get(`/appointments/${appointmentId}`);
       return response.data as ApiResponse<Appointment>;
     } catch (error) {
       return this.handleError(error);
@@ -369,7 +430,7 @@ class ApiService {
 
   async updateAppointmentStatus(appointmentId: string, status: string, notes?: string): Promise<ApiResponse<Appointment>> {
     try {
-      const response = await this.api.put(`/mechanics/appointments/${appointmentId}/status`, {
+      const response = await this.api.put(`/appointments/${appointmentId}/status`, {
         status,
         notes
       });
@@ -387,7 +448,7 @@ class ApiService {
     cancelled: number;
   }>> {
     try {
-      const response = await this.api.get('/mechanics/appointments/stats');
+      const response = await this.api.get('/mechanic/dashboard/stats');
       return response.data as ApiResponse<{
         total: number;
         pending: number;
@@ -400,9 +461,11 @@ class ApiService {
     }
   }
 
-  async getMechanicCustomers(): Promise<ApiResponse<any[]>> {
+  async getMechanicCustomers(searchQuery?: string): Promise<ApiResponse<any[]>> {
     try {
-      const response = await this.api.get('/mechanics/customers');
+      // Usta uygulaması için doğru endpoint - müşteri listesi
+      const params = searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : '';
+      const response = await this.api.get(`/customers${params}`);
       return response.data as ApiResponse<any[]>;
     } catch (error) {
       return this.handleError(error);
@@ -411,7 +474,7 @@ class ApiService {
 
   async getTodaySchedule(): Promise<ApiResponse<Appointment[]>> {
     try {
-      const response = await this.api.get('/mechanics/appointments/today');
+      const response = await this.api.get('/mechanic/dashboard/today-schedule');
       return response.data as ApiResponse<Appointment[]>;
     } catch (error) {
       return this.handleError(error);
@@ -420,7 +483,7 @@ class ApiService {
 
   async getRecentActivity(): Promise<ApiResponse<any[]>> {
     try {
-      const response = await this.api.get('/mechanics/activity/recent');
+      const response = await this.api.get('/mechanic/dashboard/recent-activity');
       const data = response.data as ApiResponse<any[]>;
       
       // Translate service names in activity data
@@ -442,7 +505,7 @@ class ApiService {
   // ===== WALLET ENDPOINTS =====
   async getWalletBalance(): Promise<ApiResponse<{ balance: number }>> {
     try {
-      const response = await this.api.get('/mechanics/wallet/balance');
+      const response = await this.api.get('/mechanic/wallet');
       return response.data as ApiResponse<{ balance: number }>;
     } catch (error) {
       return this.handleError(error);
@@ -481,7 +544,7 @@ class ApiService {
 
   async getMechanicEarnings(): Promise<ApiResponse<any>> {
     try {
-      const response = await this.api.get('/mechanics/earnings');
+      const response = await this.api.get('/mechanic-earnings');
       return response.data as ApiResponse<any>;
     } catch (error) {
       return this.handleError(error);
@@ -490,7 +553,7 @@ class ApiService {
 
   async getMechanicServiceRequests(): Promise<ApiResponse<any[]>> {
     try {
-      const response = await this.api.get('/mechanics/service-requests');
+      const response = await this.api.get('/service-requests/mechanic-requests');
       return response.data as ApiResponse<any[]>;
     } catch (error) {
       return this.handleError(error);
@@ -500,7 +563,8 @@ class ApiService {
   // ===== RATING ENDPOINTS =====
   async getRecentRatings(): Promise<ApiResponse<Rating[]>> {
     try {
-      const response = await this.api.get('/mechanic/ratings/recent');
+      // Yeni endpoint kullan - direkt userId ile
+      const response = await this.api.get('/appointment-ratings/current/recent');
       const data = response.data as ApiResponse<Rating[]>;
       
       // Translate service names in rating data
@@ -521,7 +585,8 @@ class ApiService {
 
   async getRatingStats(): Promise<ApiResponse<any>> {
     try {
-      const response = await this.api.get('/mechanic/ratings/stats');
+      // Yeni endpoint kullan - direkt userId ile
+      const response = await this.api.get('/appointment-ratings/current/stats');
       return response.data as ApiResponse<any>;
     } catch (error) {
       return this.handleError(error);
@@ -531,7 +596,7 @@ class ApiService {
   // ===== MESSAGE ENDPOINTS =====
   async getConversations(): Promise<ApiResponse<Conversation[]>> {
     try {
-      const response = await this.api.get('/mechanics/conversations');
+      const response = await this.api.get('/message/conversations');
       return response.data as ApiResponse<Conversation[]>;
     } catch (error) {
       return this.handleError(error);
@@ -540,27 +605,24 @@ class ApiService {
 
   async getMessages(conversationId: string, page = 1, limit = 50): Promise<ApiResponse<Message[]>> {
     try {
-      const response = await this.api.get(`/mechanics/conversations/${conversationId}/messages?page=${page}&limit=${limit}`);
+      const response = await this.api.get(`/message/conversations/${conversationId}/messages?page=${page}&limit=${limit}`);
       return response.data as ApiResponse<Message[]>;
     } catch (error) {
       return this.handleError(error);
     }
   }
 
-  async sendMessage(conversationId: string, content: string, type: 'text' | 'image' | 'audio' = 'text', attachment?: any): Promise<ApiResponse<Message>> {
-    try {
-      const formData = new FormData();
-      formData.append('content', content);
-      formData.append('type', type);
-      
-      if (attachment) {
-        formData.append('attachment', attachment);
-      }
+  // getConversationMessages - getMessages ile aynı işlevi görür
+  async getConversationMessages(conversationId: string, page = 1, limit = 50): Promise<ApiResponse<Message[]>> {
+    return this.getMessages(conversationId, page, limit);
+  }
 
-      const response = await this.api.post(`/mechanics/conversations/${conversationId}/messages`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+  async sendMessage(messageData: { receiverId: string, content: string, messageType?: string }): Promise<ApiResponse<Message>> {
+    try {
+      const response = await this.api.post('/message/send', {
+        receiverId: messageData.receiverId,
+        content: messageData.content,
+        messageType: messageData.messageType || 'text'
       });
 
       return response.data as ApiResponse<Message>;
@@ -581,7 +643,7 @@ class ApiService {
   // ===== SERVICE CATEGORY ENDPOINTS =====
   async getWashJobs(): Promise<ApiResponse<any[]>> {
     try {
-      const response = await this.api.get('/mechanics/services/wash');
+      const response = await this.api.get('/service-categories/wash');
       return response.data as ApiResponse<any[]>;
     } catch (error) {
       return this.handleError(error);
@@ -590,7 +652,7 @@ class ApiService {
 
   async getTireJobs(): Promise<ApiResponse<any[]>> {
     try {
-      const response = await this.api.get('/mechanics/services/tire');
+      const response = await this.api.get('/service-categories/tire');
       return response.data as ApiResponse<any[]>;
     } catch (error) {
       return this.handleError(error);
@@ -599,7 +661,7 @@ class ApiService {
 
   async getTowingJobs(): Promise<ApiResponse<any[]>> {
     try {
-      const response = await this.api.get('/mechanics/services/towing');
+      const response = await this.api.get('/service-categories/towing');
       return response.data as ApiResponse<any[]>;
     } catch (error) {
       return this.handleError(error);
@@ -645,60 +707,44 @@ class ApiService {
 
   // ===== SERVICE CATEGORIES =====
   async getServiceCategories(): Promise<ApiResponse<ServiceCategory[]>> {
-    return { success: true, message: 'No categories', data: [] } as any;
+    try {
+      // Backend'de service categories endpoint'i mevcut değil
+      // Gelecekte /api/service-categories endpoint'i eklenebilir
+      console.log('⚠️ getServiceCategories: Endpoint mevcut değil');
+      return { 
+        success: true, 
+        message: 'Service categories endpoint mevcut değil', 
+        data: [] 
+      };
+    } catch (error) {
+      return this.handleError(error);
+    }
   }
 
   // ===== VEHICLE ENDPOINTS =====
   async getCustomerVehicles(customerId: string): Promise<ApiResponse<Vehicle[]>> {
     try {
-      // Şimdilik boş array döndür, vehicle endpoint'i mevcut değil
+      // Backend'de customer vehicles endpoint'i mevcut değil
+      // Gelecekte /api/customers/{id}/vehicles endpoint'i eklenebilir
+      console.log('⚠️ getCustomerVehicles: Endpoint mevcut değil');
       return {
         success: true,
-        message: 'No vehicles available',
+        message: 'Customer vehicles endpoint mevcut değil',
         data: []
-      } as ApiResponse<Vehicle[]>;
+      };
     } catch (error) {
       return this.handleError(error);
     }
   }
 
   // ===== SERVICE MANAGEMENT ENDPOINTS =====
-  async getServices(): Promise<ApiResponse<any[]>> {
-    return { success: true, message: 'No services', data: [] };
-  }
-
-  async getServicePackages(): Promise<ApiResponse<any[]>> {
-    return { success: true, message: 'No packages', data: [] };
-  }
-
-  async addService(serviceData: any): Promise<ApiResponse<any>> {
-    return { success: false, message: 'Service management disabled' } as any;
-  }
-
-  async createServicePackage(packageData: any): Promise<ApiResponse<any>> {
-    return { success: false, message: 'Service management disabled' } as any;
-  }
-
-  async updateService(serviceId: string, serviceData: any): Promise<ApiResponse<any>> {
-    return { success: false, message: 'Service management disabled' } as any;
-  }
-
-  async deleteService(serviceId: string): Promise<ApiResponse<any>> {
-    return { success: false, message: 'Service management disabled' } as any;
-  }
-
-  async updateServicePackage(packageId: string, packageData: any): Promise<ApiResponse<any>> {
-    return { success: false, message: 'Service management disabled' } as any;
-  }
-
-  async deleteServicePackage(packageId: string): Promise<ApiResponse<any>> {
-    return { success: false, message: 'Service management disabled' } as any;
-  }
+  // Service management endpoint'leri backend'de mevcut değil
+  // Gerekirse gelecekte /api/services endpoint'leri eklenebilir
 
   // ===== EMERGENCY TOWING ENDPOINTS =====
   async getEmergencyTowingRequests(): Promise<ApiResponse<any>> {
     try {
-      const response = await this.api.get('/emergency/mechanic/requests');
+      const response = await this.api.get('/emergency/mechanic/emergency-requests');
       return response.data;
     } catch (error) {
       return this.handleError(error);
@@ -726,7 +772,7 @@ class ApiService {
   // ===== SETTINGS ENDPOINTS =====
   async getUserSettings(): Promise<ApiResponse<any>> {
     try {
-      const response = await this.api.get('/users/settings');
+      const response = await this.api.get('/mechanic/settings');
       return response.data as ApiResponse<any>;
     } catch (error) {
       return this.handleError(error);
@@ -735,7 +781,7 @@ class ApiService {
 
   async updateUserSettings(settings: any): Promise<ApiResponse<any>> {
     try {
-      const response = await this.api.put('/users/settings', settings);
+      const response = await this.api.put('/mechanic/settings', settings);
       return response.data as ApiResponse<any>;
     } catch (error) {
       return this.handleError(error);
@@ -744,7 +790,8 @@ class ApiService {
 
   async getNotificationSettings(): Promise<ApiResponse<any>> {
     try {
-      const response = await this.api.get('/users/notification-settings');
+      // Backend'de /push-notifications/notification-settings endpoint'i var
+      const response = await this.api.get('/push-notifications/notification-settings');
       return response.data as ApiResponse<any>;
     } catch (error) {
       return this.handleError(error);
@@ -753,7 +800,8 @@ class ApiService {
 
   async updateNotificationSettings(settings: any): Promise<ApiResponse<any>> {
     try {
-      const response = await this.api.put('/users/notification-settings', settings);
+      // Backend'de /push-notifications/notification-settings endpoint'i var
+      const response = await this.api.put('/push-notifications/notification-settings', settings);
       return response.data as ApiResponse<any>;
     } catch (error) {
       return this.handleError(error);
@@ -846,7 +894,7 @@ class ApiService {
 
   async updateServiceCategories(categories: string[]): Promise<ApiResponse<any>> {
     try {
-      const response = await this.api.put('/users/service-categories', { categories });
+      const response = await this.api.put('/mechanic/service-categories', { categories });
       return response.data as ApiResponse<any>;
     } catch (error) {
       return this.handleError(error);

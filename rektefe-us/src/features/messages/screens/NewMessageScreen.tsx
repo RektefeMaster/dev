@@ -16,20 +16,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius, shadows } from '@/shared/theme';
 import apiService from '@/shared/services';
 
-type Driver = {
+type Customer = {
   _id: string;
   name: string;
   surname: string;
+  email: string;
+  phone: string;
   avatar?: string;
-  city: string;
-  rating: number;
-  experience: number;
-  isAvailable: boolean;
+  totalJobs: number;
+  totalSpent: number;
+  lastVisit: string;
+  firstVisit: string;
+  loyaltyScore: 'low' | 'medium' | 'high';
 };
 
 const NewMessageScreen = ({ navigation, route }: any) => {
   const { token } = useAuth();
-  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
@@ -39,37 +42,43 @@ const NewMessageScreen = ({ navigation, route }: any) => {
     if (route.params?.selectedUser) {
       setSelectedUser(route.params.selectedUser);
     }
-    fetchDrivers();
+    fetchCustomers();
   }, [route.params]);
 
-  const fetchDrivers = async () => {
+  const fetchCustomers = async () => {
     try {
       setLoading(true);
-      // Not: Backend'de driver list endpoint'i yok, bu yüzden geçici olarak boş array kullanıyoruz
-      // Gerçek uygulamada bu endpoint eklenmelidir
-      setDrivers([]);
+      // Ustanın müşterilerini getir - sadece iş yapmış müşteriler
+      const response = await apiService.getMechanicCustomers();
+      
+      if (response.success && response.data) {
+        setCustomers(response.data);
+      } else {
+        setCustomers([]);
+      }
     } catch (error) {
-      setDrivers([]);
+      console.error('Müşteri listesi yüklenirken hata:', error);
+      setCustomers([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredDrivers = drivers.filter(driver =>
-    driver.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    driver.surname.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    driver.city.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredCustomers = customers.filter(customer =>
+    customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    customer.surname.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    customer.phone.includes(searchQuery)
   );
 
-  const startConversation = (driver: Driver) => {
+  const startConversation = (customer: Customer) => {
     navigation.navigate('ChatScreen', {
-      conversationId: `temp_${driver._id}`,
+      conversationId: `temp_${customer._id}`,
       otherParticipant: {
-        _id: driver._id,
-        name: driver.name,
-        surname: driver.surname,
-        avatar: driver.avatar,
-        userType: 'driver' // ✅ Şöför olarak işaretli
+        _id: customer._id,
+        name: customer.name,
+        surname: customer.surname,
+        avatar: customer.avatar,
+        userType: 'driver' // ✅ Müşteri şöför olarak işaretli
       }
     });
   };
@@ -84,7 +93,7 @@ const NewMessageScreen = ({ navigation, route }: any) => {
     }
   };
 
-  const renderDriverItem = ({ item }: { item: Driver }) => (
+  const renderCustomerItem = ({ item }: { item: Customer }) => (
     <TouchableOpacity
       style={styles.driverItem}
       onPress={() => startConversation(item)}
@@ -93,7 +102,7 @@ const NewMessageScreen = ({ navigation, route }: any) => {
         {item.avatar ? (
           <Image source={{ uri: item.avatar }} style={styles.avatar} />
         ) : (
-          <View style={[styles.defaultAvatar, { backgroundColor: colors.primary }]}>
+          <View style={[styles.defaultAvatar, { backgroundColor: colors.primary.main }]}>
             <Text style={styles.defaultAvatarText}>
               {item.name.charAt(0).toUpperCase()}
             </Text>
@@ -105,16 +114,16 @@ const NewMessageScreen = ({ navigation, route }: any) => {
         <Text style={styles.driverName}>
           {item.name} {item.surname}
         </Text>
-        <Text style={styles.driverCity}>{item.city}</Text>
+        <Text style={styles.driverCity}>{item.phone}</Text>
         <View style={styles.driverStats}>
-                          <View style={styles.ratingContainer}>
-                  <Ionicons name="star" size={16} color="#F59E0B" />
-                  <Text style={styles.driverRating}>{item.rating}</Text>
-                </View>
-                      <View style={styles.experienceContainer}>
-              <Ionicons name="car" size={16} color="#6B7280" />
-              <Text style={styles.driverExperience}>{item.experience} yıl</Text>
-            </View>
+          <View style={styles.ratingContainer}>
+            <Ionicons name="briefcase" size={16} color="#10B981" />
+            <Text style={styles.driverRating}>{item.totalJobs} iş</Text>
+          </View>
+          <View style={styles.experienceContainer}>
+            <Ionicons name="cash" size={16} color="#6B7280" />
+            <Text style={styles.driverExperience}>{item.totalSpent}₺</Text>
+          </View>
         </View>
       </View>
 
@@ -122,7 +131,7 @@ const NewMessageScreen = ({ navigation, route }: any) => {
         style={styles.messageButton}
         onPress={() => startConversation(item)}
       >
-                        <Ionicons name="chatbubbles" size={20} color="#FFFFFF" />
+        <Ionicons name="chatbubbles" size={20} color="#FFFFFF" />
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -130,9 +139,9 @@ const NewMessageScreen = ({ navigation, route }: any) => {
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <Ionicons name="people" size={64} color={colors.text.secondary} />
-      <Text style={styles.emptyTitle}>Sürücü Bulunamadı</Text>
+      <Text style={styles.emptyTitle}>Müşteri Bulunamadı</Text>
       <Text style={styles.emptySubtitle}>
-        Arama kriterlerinize uygun sürücü bulunamadı
+        Henüz iş yaptığınız müşteri bulunmuyor veya arama kriterlerinize uygun müşteri bulunamadı
       </Text>
     </View>
   );
@@ -163,8 +172,8 @@ const NewMessageScreen = ({ navigation, route }: any) => {
         <View style={[styles.searchInputContainer, { backgroundColor: colors.background.card }]}>
           <Ionicons name="search" size={20} color={colors.text.secondary} />
           <TextInput
-            style={[styles.searchInput, { color: colors.text.primary.main }]}
-            placeholder="Sürücü ara..."
+            style={[styles.searchInput, { color: colors.text.primary }]}
+            placeholder="Müşteri ara..."
             placeholderTextColor={colors.text.secondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -178,8 +187,8 @@ const NewMessageScreen = ({ navigation, route }: any) => {
       </View>
 
       <FlatList
-        data={filteredDrivers}
-        renderItem={renderDriverItem}
+        data={filteredCustomers}
+        renderItem={renderCustomerItem}
         keyExtractor={(item) => item._id}
         contentContainerStyle={styles.driversList}
         showsVerticalScrollIndicator={false}
@@ -278,7 +287,7 @@ const styles = StyleSheet.create({
   driverName: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text.primary.main,
+    color: colors.text.primary,
     marginBottom: 4,
   },
   driverCity: {
@@ -292,7 +301,7 @@ const styles = StyleSheet.create({
   },
   driverRating: {
     fontSize: 12,
-    color: colors.warning,
+    color: colors.warning.main,
     fontWeight: '500',
   },
   ratingContainer: {
@@ -314,7 +323,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primary.main,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.small,
@@ -332,7 +341,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: colors.text.primary.main,
+    color: colors.text.primary,
     marginBottom: 8,
   },
   emptySubtitle: {

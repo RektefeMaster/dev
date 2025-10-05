@@ -12,12 +12,7 @@ import {
   Mechanic
 } from '@/shared/types/common';
 import { handleApiError } from '@/shared/utils/errorHandler';
-import { 
-  isTokenExpired, 
-  shouldRefreshToken, 
-  isTokenValid,
-  getTokenUserInfo 
-} from '@/shared/utils/tokenUtils';
+// Token utils kullanılmıyor, kaldırıldı
 
 if (!API_CONFIG.BASE_URL) {
   throw new Error('API_URL tanımsız!');
@@ -26,11 +21,11 @@ if (!API_CONFIG.BASE_URL) {
 // Token yenileme fonksiyonu
 let isRefreshing = false;
 let failedQueue: Array<{
-  resolve: (value: any) => void;
-  reject: (error: any) => void;
+  resolve: (value: string | null) => void;
+  reject: (error: Error) => void;
 }> = [];
 
-const processQueue = (error: any, token: string | null = null) => {
+const processQueue = (error: Error | null, token: string | null = null) => {
   failedQueue.forEach(({ resolve, reject }) => {
     if (error) {
       reject(error);
@@ -59,24 +54,15 @@ const refreshTokenIfNeeded = async (): Promise<string | null> => {
       return null;
     }
 
-    // Refresh token'ın geçerliliğini kontrol et
-    if (isTokenExpired(refreshToken)) {
-      console.log('❌ Refresh token süresi dolmuş');
-      processQueue(new Error('Refresh token süresi dolmuş'), null);
-      return null;
-    }
-
-    const response = await axios.post(`${API_CONFIG.BASE_URL}/auth/refresh`, {
+    const response = await axios.post(`${API_CONFIG.BASE_URL}/auth/refresh-token`, {
       refreshToken
     });
 
     if (response.data && response.data.success && response.data.data?.token) {
       const newToken = response.data.data.token;
-      const newRefreshToken = response.data.data.refreshToken || refreshToken;
-
-      // Yeni token'ları kaydet
+      
+      // Yeni token'ı kaydet
       await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, newToken);
-      await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
 
       console.log('✅ Token başarıyla yenilendi');
       processQueue(null, newToken);
@@ -113,33 +99,13 @@ const api = axios.create({
 api.interceptors.request.use(
   async (config) => {
     try {
-      // AuthContext ile tutarlı key kullan
+      // Token'ı al ve ekle - validation'ı response interceptor'da yap
       const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
       
       if (token) {
-        // Token validation kontrolü
-        if (isTokenValid(token)) {
-          // Token geçerli, ancak yenilenmesi gerekip gerekmediğini kontrol et
-          if (shouldRefreshToken(token)) {
-            try {
-              const newToken = await refreshTokenIfNeeded();
-              if (newToken) {
-                config.headers.Authorization = `Bearer ${newToken}`;
-              } else {
-                config.headers.Authorization = `Bearer ${token}`;
-              }
-            } catch (refreshError) {
-              config.headers.Authorization = `Bearer ${token}`;
-            }
-          } else {
-            config.headers.Authorization = `Bearer ${token}`;
-          }
-        } else {
-          // Geçersiz token'ı temizle
-          await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-          await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-        }
+        config.headers.Authorization = `Bearer ${token}`;
       }
+      
       return config;
     } catch (error) {
       return Promise.reject(error);
@@ -158,11 +124,9 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     
-    // Hata işleme
-    const appError = handleApiError(error);
-    
     // Network error handling
     if (!error.response) {
+      const appError = handleApiError(error);
       console.error('Network Error:', appError.message);
       return Promise.reject(appError);
     }
@@ -182,11 +146,13 @@ api.interceptors.response.use(
         } else {
           // Token yenilenemedi, logout yap
           await performLogout();
+          const appError = handleApiError(error);
           return Promise.reject(appError);
         }
       } catch (refreshError) {
         // Token yenileme başarısız, logout yap
         await performLogout();
+        const appError = handleApiError(error);
         return Promise.reject(appError);
       }
     }
@@ -336,21 +302,10 @@ class ApiService {
       const response = await this.api.get(endpoint);
       console.log('✅ getAppointments: Başarılı yanıt:', response.data);
       return response.data;
-    } catch (error: any) {
-      console.error('❌ getAppointments: Detaylı hata:', {
-        message: error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        config: {
-          url: error.config?.url,
-          method: error.config?.method,
-          headers: error.config?.headers
-        }
-      });
-      
-      // Hata detaylarını kullanıcıya göster
-      throw new Error(`Randevular getirilemedi: ${error.response?.data?.message || error.message}`);
+    } catch (error: unknown) {
+      console.error('❌ getAppointments: Hata:', error);
+      const appError = handleApiError(error);
+      throw new Error(`Randevular getirilemedi: ${appError.message}`);
     }
   }
 
@@ -495,10 +450,11 @@ class ApiService {
 
   async checkFavoriteMechanic(mechanicId: string) {
     try {
-      // Favori endpoint'i mevcut değil, şimdilik false döndür
-      console.log('⚠️ checkFavoriteMechanic: Endpoint mevcut değil, false döndürülüyor');
+      // Backend'de mechanic favorite endpoint'i mevcut değil
+      // Gelecekte /api/mechanic/{id}/favorite endpoint'i eklenebilir
+      console.log('⚠️ checkFavoriteMechanic: Endpoint mevcut değil');
       return { success: true, data: { isFavorite: false } };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ checkFavoriteMechanic: Hata:', error);
       return { success: true, data: { isFavorite: false } };
     }
@@ -506,10 +462,11 @@ class ApiService {
 
   async toggleFavoriteMechanic(mechanicId: string) {
     try {
-      // Favori toggle endpoint'i mevcut değil, şimdilik local state'i toggle et
-      console.log('⚠️ toggleFavoriteMechanic: Endpoint mevcut değil, local toggle yapılıyor');
-      return { success: true, data: { isFavorite: true } };
-    } catch (error: any) {
+      // Backend'de mechanic favorite endpoint'i mevcut değil
+      // Gelecekte /api/mechanic/{id}/favorite endpoint'i eklenebilir
+      console.log('⚠️ toggleFavoriteMechanic: Endpoint mevcut değil');
+      return { success: true, data: { isFavorite: false } };
+    } catch (error: unknown) {
       console.error('❌ toggleFavoriteMechanic: Hata:', error);
       return { success: true, data: { isFavorite: false } };
     }
@@ -853,17 +810,15 @@ class ApiService {
   // ===== DRIVER ENDPOINTS =====
   async getDriverVehicles() {
     try {
-      const response = await this.api.get('/vehicles/driver');
+      // Backend'de user'ın araçlarını almak için doğru endpoint
+      const response = await this.api.get('/vehicles');
       return response.data;
     } catch (error) {
-      // Geçici olarak mock response döndür
+      const appError = handleApiError(error);
       return {
-        success: true,
-        data: [{
-          brand: 'Toyota',
-          model: 'Corolla',
-          plateNumber: '34 ABC 123'
-        }]
+        success: false,
+        data: [],
+        message: appError.message
       };
     }
   }

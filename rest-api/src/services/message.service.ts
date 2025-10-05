@@ -108,7 +108,7 @@ export class MessageService {
         
         const customerIds = await Appointment.distinct('userId', {
           mechanicId: userId,
-          status: { $in: ['accepted', 'completed', 'paid'] }
+          status: { $in: ['accepted', 'completed', 'paid', 'TAMAMLANDI', 'PLANLANDI', 'SERVISTE'] }
         });
         
         // Bu müşterilerle olan conversation'ları getir

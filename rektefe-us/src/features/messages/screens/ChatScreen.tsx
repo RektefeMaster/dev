@@ -328,11 +328,9 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
       setSending(true);
       
       const messageData = {
-        content: 'Ses kaydı',
-        messageType: 'file' as const,
         receiverId: otherParticipant._id,
-        conversationId: conversationId.startsWith('temp_') ? undefined : conversationId,
-        audioUri: audioUri
+        content: 'Ses kaydı',
+        messageType: 'audio'
       };
 
       const response = await apiService.sendMessage(messageData);
@@ -403,11 +401,9 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
       setSending(true);
       
       const messageData = {
-        content: 'Fotoğraf',
-        messageType: 'image' as const,
         receiverId: otherParticipant._id,
-        conversationId: conversationId.startsWith('temp_') ? undefined : conversationId,
-        imageUri: imageUri
+        content: 'Fotoğraf',
+        messageType: 'image'
       };
 
       const response = await apiService.sendMessage(messageData);
@@ -481,10 +477,9 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
       }, 100);
 
       const messageData = {
-        content: messageContent,
-        messageType: 'text' as const,
         receiverId: otherParticipant._id,
-        conversationId: conversationId.startsWith('temp_') ? undefined : conversationId
+        content: messageContent,
+        messageType: 'text'
       };
 
       // API service kullanarak mesaj gönder

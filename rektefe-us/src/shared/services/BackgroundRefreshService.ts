@@ -8,7 +8,7 @@ import { STORAGE_KEYS } from '@/constants/config';
 import { shouldRefreshToken, getTokenTimeToExpiry } from '@/shared/utils/tokenUtils';
 
 export class BackgroundRefreshService {
-  private static refreshInterval: NodeJS.Timeout | null = null;
+  private static refreshInterval: ReturnType<typeof setInterval> | null = null;
   private static isActive = false;
   private static lastActivityTime = Date.now();
   private static readonly ACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 dakika

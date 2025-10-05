@@ -115,6 +115,41 @@ export const SharedAuthProvider = ({
     }
   };
 
+  // Storage migration - eski key formatından yeni key formatına geçiş
+  const migrateStorageKeys = async () => {
+    try {
+      // Eski key formatları
+      const oldKeys = {
+        AUTH_TOKEN: 'auth_token',
+        REFRESH_TOKEN: 'refresh_token', 
+        USER_ID: 'user_id',
+        USER_DATA: 'user_data'
+      };
+
+      // Yeni key formatları
+      const newKeys = {
+        AUTH_TOKEN: 'authToken',
+        REFRESH_TOKEN: 'refreshToken',
+        USER_ID: 'userId', 
+        USER_DATA: 'userData'
+      };
+
+      // Migration işlemi
+      for (const [key, oldKey] of Object.entries(oldKeys)) {
+        const oldValue = await AsyncStorage.getItem(oldKey);
+        if (oldValue) {
+          // Eski değeri yeni key ile kaydet
+          await AsyncStorage.setItem(newKeys[key as keyof typeof newKeys], oldValue);
+          // Eski key'i sil
+          await AsyncStorage.removeItem(oldKey);
+          console.log(`✅ SharedAuth Storage key migrated: ${oldKey} -> ${newKeys[key as keyof typeof newKeys]}`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ SharedAuth Storage migration hatası:', error);
+    }
+  };
+
   // Auth data'yı temizle
   const clearAuthData = async (): Promise<void> => {
     try {
@@ -123,7 +158,12 @@ export const SharedAuthProvider = ({
         config.storageKeys.REFRESH_TOKEN,
         config.storageKeys.USER_ID,
         config.storageKeys.USER_DATA,
-        ...(config.storageKeys.ONBOARDING_COMPLETED ? [config.storageKeys.ONBOARDING_COMPLETED] : [])
+        ...(config.storageKeys.ONBOARDING_COMPLETED ? [config.storageKeys.ONBOARDING_COMPLETED] : []),
+        // Eski key formatlarını da temizle
+        'auth_token',
+        'refresh_token',
+        'user_id',
+        'user_data'
       ]);
       setToken(null);
       setUserId(null);
@@ -135,7 +175,8 @@ export const SharedAuthProvider = ({
         config.onAuthFailure();
       }
     } catch (error) {
-      }
+      console.error('❌ Clear auth data hatası:', error);
+    }
   };
 
   // User data'yı API'den yükle
@@ -173,6 +214,9 @@ export const SharedAuthProvider = ({
         
         setIsLoading(true);
         
+        // Önce storage migration yap
+        await migrateStorageKeys();
+        
         const storedToken = await AsyncStorage.getItem(config.storageKeys.AUTH_TOKEN);
         const storedUserId = await AsyncStorage.getItem(config.storageKeys.USER_ID);
         const storedUserData = await AsyncStorage.getItem(config.storageKeys.USER_DATA);
@@ -208,6 +252,8 @@ export const SharedAuthProvider = ({
               }
           }
         } else {
+          // Token yok veya geçersiz, logout yap
+          console.log('❌ Token bulunamadı veya geçersiz, logout yapılıyor...');
           authState = {
             token: null,
             userId: null,

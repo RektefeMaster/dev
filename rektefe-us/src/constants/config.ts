@@ -31,10 +31,10 @@ export const NAVIGATION_CONFIG = {
 
 // Depolama Konfigürasyonu
 export const STORAGE_KEYS = {
-  AUTH_TOKEN: 'auth_token',
-  REFRESH_TOKEN: 'refresh_token',
-  USER_ID: 'user_id',
-  USER_DATA: 'user_data',
+  AUTH_TOKEN: 'authToken',
+  REFRESH_TOKEN: 'refreshToken',
+  USER_ID: 'userId',
+  USER_DATA: 'userData',
   THEME: 'app_theme',
   ONBOARDING_COMPLETED: 'onboardingCompleted',
   ERROR_LOGS: 'error_logs',
