@@ -803,8 +803,8 @@ class ApiService {
 
   async getNotificationSettings(): Promise<ApiResponse<any>> {
     try {
-      // Backend'de /push-notifications/notification-settings endpoint'i var
-      const response = await this.api.get('/push-notifications/notification-settings');
+      // Rektefe-DV ile aynı endpoint kullanıyoruz: /users/notification-settings
+      const response = await this.api.get('/users/notification-settings');
       return response.data as ApiResponse<any>;
     } catch (error) {
       return this.handleError(error);
@@ -813,8 +813,8 @@ class ApiService {
 
   async updateNotificationSettings(settings: any): Promise<ApiResponse<any>> {
     try {
-      // Backend'de /push-notifications/notification-settings endpoint'i var
-      const response = await this.api.put('/push-notifications/notification-settings', settings);
+      // Rektefe-DV ile aynı endpoint kullanıyoruz: /users/notification-settings
+      const response = await this.api.put('/users/notification-settings', settings);
       return response.data as ApiResponse<any>;
     } catch (error) {
       return this.handleError(error);

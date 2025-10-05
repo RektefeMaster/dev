@@ -1742,4 +1742,114 @@ router.put('/profile', auth, async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/users/notification-settings:
+ *   get:
+ *     summary: Bildirim ayarlarını al
+ *     description: Kullanıcının bildirim ayarlarını getirir
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Bildirim ayarları başarıyla getirildi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/notification-settings', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    
+    if (!userId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    const user = await User.findById(userId).select('notificationSettings');
+    if (!user) {
+      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    }
+
+    return ResponseHandler.success(res, user.notificationSettings || {
+      pushNotifications: true,
+      appointmentNotifications: true,
+      paymentNotifications: true,
+      messageNotifications: true,
+      systemNotifications: true,
+      marketingNotifications: false,
+      soundEnabled: true,
+      vibrationEnabled: true
+    }, 'Bildirim ayarları başarıyla getirildi');
+  } catch (error) {
+    return ResponseHandler.error(res, 'Bildirim ayarları getirilirken hata oluştu');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/notification-settings:
+ *   put:
+ *     summary: Bildirim ayarlarını güncelle
+ *     description: Kullanıcının bildirim ayarlarını günceller
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               pushNotifications:
+ *                 type: boolean
+ *               appointmentNotifications:
+ *                 type: boolean
+ *               paymentNotifications:
+ *                 type: boolean
+ *               messageNotifications:
+ *                 type: boolean
+ *               systemNotifications:
+ *                 type: boolean
+ *               marketingNotifications:
+ *                 type: boolean
+ *               soundEnabled:
+ *                 type: boolean
+ *               vibrationEnabled:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Bildirim ayarları başarıyla güncellendi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.put('/notification-settings', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { notificationSettings: req.body },
+      { new: true, runValidators: true }
+    ).select('notificationSettings');
+
+    if (!updatedUser) {
+      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    }
+
+    return ResponseHandler.success(res, updatedUser.notificationSettings, 'Bildirim ayarları başarıyla güncellendi');
+  } catch (error) {
+    return ResponseHandler.error(res, 'Bildirim ayarları güncellenirken hata oluştu');
+  }
+});
+
 export default router; 
