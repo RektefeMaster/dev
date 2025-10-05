@@ -58,8 +58,14 @@ export class PushNotificationController {
   static async getNotificationSettings(req: Request, res: Response) {
     try {
       const userId = req.user?.userId;
+      
+      console.log('🔍 Backend Debug - getNotificationSettings:');
+      console.log('req.user:', req.user);
+      console.log('userId:', userId);
+      console.log('Authorization header:', req.header('Authorization'));
 
       if (!userId) {
+        console.log('❌ Backend: userId bulunamadı');
         return res.status(401).json({
           success: false,
           message: 'Kullanıcı doğrulanamadı'
@@ -84,8 +90,8 @@ export class PushNotificationController {
           messageNotifications: true,
           systemNotifications: true,
           marketingNotifications: false,
-          soundEnabled: true,
-          vibrationEnabled: true
+          soundEnabled: user.notificationSettings?.soundAlerts ?? true,
+          vibrationEnabled: user.notificationSettings?.vibrationAlerts ?? true
         }
       });
     } catch (error) {
@@ -111,9 +117,21 @@ export class PushNotificationController {
         });
       }
 
+      // Frontend'den gelen field isimlerini backend schema'ya uyarla
+      const mappedSettings = {
+        ...settings,
+        // Frontend'den gelen soundEnabled -> backend'deki soundAlerts
+        soundAlerts: settings.soundEnabled,
+        // Frontend'den gelen vibrationEnabled -> backend'deki vibrationAlerts  
+        vibrationAlerts: settings.vibrationEnabled,
+        // Gereksiz field'ları temizle
+        soundEnabled: undefined,
+        vibrationEnabled: undefined
+      };
+
       const user = await User.findByIdAndUpdate(
         userId,
-        { notificationSettings: settings },
+        { notificationSettings: mappedSettings },
         { new: true }
       );
 

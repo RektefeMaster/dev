@@ -8,8 +8,8 @@ export interface NotificationSettings {
   messageNotifications: boolean;
   systemNotifications: boolean;
   marketingNotifications: boolean;
-  soundAlerts: boolean;
-  vibrationAlerts: boolean;
+  soundEnabled: boolean;
+  vibrationEnabled: boolean;
 }
 
 export interface PrivacySettings {
@@ -69,8 +69,8 @@ export const defaultNotificationSettings: NotificationSettings = {
   messageNotifications: true,
   systemNotifications: true,
   marketingNotifications: false,
-  soundAlerts: true,
-  vibrationAlerts: true,
+  soundEnabled: true,
+  vibrationEnabled: true,
 };
 
 export const defaultPrivacySettings: PrivacySettings = {

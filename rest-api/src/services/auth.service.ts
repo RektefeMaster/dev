@@ -196,12 +196,20 @@ export class AuthService {
   // Token yenileme
   static async refreshToken(refreshToken: string) {
     try {
+      console.log('🔍 AuthService.refreshToken Debug:');
+      console.log('refreshToken preview:', refreshToken.substring(0, 20) + '...');
+      
       const decoded = jwt.verify(refreshToken, JWT_SECRET) as any;
+      console.log('✅ Refresh token geçerli, decoded:', decoded);
+      
       const user = await User.findById(decoded.userId);
       
       if (!user) {
+        console.log('❌ Refresh token geçerli ama kullanıcı bulunamadı:', decoded.userId);
         throw new CustomError('Kullanıcı bulunamadı.', 401);
       }
+
+      console.log('✅ Kullanıcı bulundu:', user.email);
 
       // Yeni token oluştur - Optimized duration
       const newToken = jwt.sign(
@@ -210,11 +218,14 @@ export class AuthService {
         { expiresIn: '1h' } // Optimized: 1h duration
       );
 
+      console.log('✅ Yeni token oluşturuldu, preview:', newToken.substring(0, 20) + '...');
+
       return {
         token: newToken,
         user
       };
     } catch (error) {
+      console.log('❌ Refresh token hatası:', error);
       throw new CustomError('Geçersiz refresh token.', 401);
     }
   }

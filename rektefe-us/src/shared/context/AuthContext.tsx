@@ -109,9 +109,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (storedToken && storedUserId) {
           // Token'ı test et - Otomatik logout devre dışı
           try {
+            console.log('🔍 AuthContext Debug: Token test ediliyor...');
+            console.log('storedToken preview:', storedToken.substring(0, 20) + '...');
+            console.log('storedUserId:', storedUserId);
             
             const testResponse = await apiService.getMechanicProfile();
+            console.log('🔍 API test response:', testResponse);
+            
             if (testResponse.success) {
+              console.log('✅ Token geçerli, authentication başarılı');
               setToken(storedToken);
               setUserId(storedUserId);
               setIsAuthenticated(true);
@@ -135,6 +141,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             } else {
               // Token geçersiz, logout yap ve login ekranına yönlendir
               console.log('❌ Token geçersiz, logout yapılıyor...');
+              console.log('API Error:', testResponse.message);
               await clearStoredData();
               
               // Login ekranına yönlendir
@@ -199,19 +206,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const setTokenAndUserId = async (newToken: string, newUserId: string) => {
     try {
+      console.log('🔍 setTokenAndUserId Debug:');
+      console.log('newToken preview:', newToken.substring(0, 20) + '...');
+      console.log('newUserId:', newUserId);
       
       // AsyncStorage'a kaydet
       await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, newToken);
       await AsyncStorage.setItem(STORAGE_KEYS.USER_ID, newUserId);
       await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'true');
       
+      console.log('✅ Token ve userId kaydedildi');
+      
       // State'i güncelle
       setToken(newToken);
       setUserId(newUserId);
       setIsAuthenticated(true);
       
+      console.log('✅ Auth state güncellendi');
+      
     } catch (error) {
-      }
+      console.error('❌ setTokenAndUserId hatası:', error);
+    }
   };
 
   const login = async (email: string, password: string): Promise<ApiResponse<MechanicProfile>> => {
@@ -234,9 +249,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Token ve userId'yi kaydet
         await setTokenAndUserId(token, userId);
         
-        // Refresh token'ı kaydet
+        // Refresh token'ı kaydet - KRİTİK!
         if (refreshToken) {
           await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+          console.log('✅ Refresh token kaydedildi:', refreshToken.substring(0, 20) + '...');
+        } else {
+          console.log('❌ Refresh token bulunamadı!');
         }
         
         // User data'yı kaydet

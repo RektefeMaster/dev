@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '@/shared/services';
 import { useAuth } from './AuthContext';
+import { STORAGE_KEYS } from '@/constants/config';
 import { 
   UserSettings, 
   NotificationSettings, 
@@ -72,9 +73,15 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       setError(null);
 
-      // Authentication kontrolü - sadece giriş yapılmışsa API'den yükle
-      if (!isAuthenticated) {
-        console.log('⚠️ Kullanıcı giriş yapmamış - settings API çağrısı atlanıyor');
+      // Authentication kontrolü - token varsa API'den yükle
+      const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      console.log('🔍 SettingsContext Debug:');
+      console.log('isAuthenticated:', isAuthenticated);
+      console.log('token exists:', !!token);
+      console.log('token preview:', token ? `${token.substring(0, 20)}...` : 'null');
+      
+      if (!isAuthenticated || !token) {
+        console.log('⚠️ Kullanıcı giriş yapmamış veya token yok - settings API çağrısı atlanıyor');
         
         // Sadece local storage'dan yükle
         try {

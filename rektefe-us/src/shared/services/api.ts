@@ -156,6 +156,10 @@ class ApiService {
   private async refreshToken(): Promise<string | null> {
     try {
       const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+      console.log('🔍 Refresh Token Debug:');
+      console.log('refreshToken exists:', !!refreshToken);
+      console.log('refreshToken preview:', refreshToken ? `${refreshToken.substring(0, 20)}...` : 'null');
+      
       if (!refreshToken) {
         if (__DEV__) {
           console.log('❌ Refresh token bulunamadı - token yenileme atlanıyor');
@@ -180,9 +184,18 @@ class ApiService {
       if (__DEV__) {
         console.log('🔄 Refresh token ile yeni token alınıyor...');
       }
+      
+      console.log('🔍 API Refresh Request:');
+      console.log('URL:', `${API_URL}/auth/refresh-token`);
+      console.log('refreshToken preview:', refreshToken.substring(0, 20) + '...');
+      
       const response = await axios.post(`${API_URL}/auth/refresh-token`, {
         refreshToken
       });
+
+      console.log('🔍 API Refresh Response:');
+      console.log('status:', response.status);
+      console.log('data:', response.data);
 
       if (response.data && response.data.success) {
         const { token } = response.data.data;

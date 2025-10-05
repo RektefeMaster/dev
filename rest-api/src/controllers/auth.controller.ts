@@ -24,11 +24,18 @@ export class AuthController {
   static refreshToken = asyncHandler(async (req: Request, res: Response) => {
     const { refreshToken } = req.body;
     
+    console.log('🔍 AuthController.refreshToken Debug:');
+    console.log('refreshToken exists:', !!refreshToken);
+    console.log('refreshToken preview:', refreshToken ? refreshToken.substring(0, 20) + '...' : 'null');
+    
     if (!refreshToken) {
+      console.log('❌ Refresh token bulunamadı');
       return ResponseHandler.badRequest(res, 'Refresh token gerekli');
     }
     
     const result = await AuthService.refreshToken(refreshToken);
+    
+    console.log('✅ Refresh token başarılı, yeni token preview:', result.token.substring(0, 20) + '...');
     
     return ResponseHandler.success(res, result, 'Token yenilendi');
   });
