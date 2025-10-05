@@ -298,7 +298,7 @@ app.use('/api/mechanic-jobs', mechanicJobsRoutes);
 app.use('/api/mechanic-earnings', mechanicEarningsRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/push-notifications', pushNotificationRoutes);
+app.use('/api/users', pushNotificationRoutes);
 
 app.use('/api/message', messageRoutes);
 app.use('/api/wallet', walletRoutes);
