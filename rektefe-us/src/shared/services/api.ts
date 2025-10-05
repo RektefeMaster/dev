@@ -803,10 +803,16 @@ class ApiService {
 
   async getNotificationSettings(): Promise<ApiResponse<any>> {
     try {
+      console.log('🔍 Frontend API Debug - getNotificationSettings:');
+      console.log('API base URL:', this.api.defaults.baseURL);
+      console.log('Authorization header:', this.api.defaults.headers.Authorization);
+      
       // Rektefe-DV ile aynı endpoint kullanıyoruz: /users/notification-settings
       const response = await this.api.get('/users/notification-settings');
+      console.log('✅ Frontend API: notification-settings response:', response.data);
       return response.data as ApiResponse<any>;
     } catch (error) {
+      console.log('❌ Frontend API: notification-settings error:', error);
       return this.handleError(error);
     }
   }

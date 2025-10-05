@@ -36,68 +36,7 @@ const router = Router();
  */
 router.post('/push-token', auth, PushNotificationController.updatePushToken);
 
-/**
- * @swagger
- * /api/users/notification-settings:
- *   get:
- *     summary: Bildirim ayarlarını al
- *     description: Kullanıcının bildirim ayarlarını getirir
- *     tags:
- *       - Push Notifications
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Bildirim ayarları başarıyla getirildi
- *       401:
- *         description: Yetkilendirme hatası
- *       500:
- *         description: Sunucu hatası
- */
-router.get('/notification-settings', auth, PushNotificationController.getNotificationSettings);
-
-/**
- * @swagger
- * /api/users/notification-settings:
- *   put:
- *     summary: Bildirim ayarlarını güncelle
- *     description: Kullanıcının bildirim ayarlarını günceller
- *     tags:
- *       - Push Notifications
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               pushNotifications:
- *                 type: boolean
- *               appointmentNotifications:
- *                 type: boolean
- *               paymentNotifications:
- *                 type: boolean
- *               messageNotifications:
- *                 type: boolean
- *               systemNotifications:
- *                 type: boolean
- *               marketingNotifications:
- *                 type: boolean
- *               soundEnabled:
- *                 type: boolean
- *               vibrationEnabled:
- *                 type: boolean
- *     responses:
- *       200:
- *         description: Bildirim ayarları başarıyla güncellendi
- *       401:
- *         description: Yetkilendirme hatası
- *       500:
- *         description: Sunucu hatası
- */
-router.put('/notification-settings', auth, PushNotificationController.updateNotificationSettings);
+// notification-settings endpoint'i user.ts'de tanımlı, burada çakışma olmaması için kaldırıldı
 
 /**
  * @swagger

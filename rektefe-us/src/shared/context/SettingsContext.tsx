@@ -80,8 +80,8 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       console.log('token exists:', !!token);
       console.log('token preview:', token ? `${token.substring(0, 20)}...` : 'null');
       
-      if (!isAuthenticated || !token) {
-        console.log('⚠️ Kullanıcı giriş yapmamış veya token yok - settings API çağrısı atlanıyor');
+      if (!token) {
+        console.log('⚠️ Token yok - settings API çağrısı atlanıyor');
         
         // Sadece local storage'dan yükle
         try {

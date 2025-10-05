@@ -1644,30 +1644,7 @@ router.post('/verify-phone', auth, async (req: Request, res: Response) => {
  *       500:
  *         description: Sunucu hatası
  */
-router.get('/:userId', auth, async (req: Request, res: Response) => {
-  try {
-    const { userId } = req.params;
-    const requestingUserId = req.user?.userId;
-    
-    if (!requestingUserId) {
-      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
-    }
-
-    // Sadece kendi profilini veya admin kullanıcılar görebilir
-    if (requestingUserId !== userId) {
-      return ResponseHandler.forbidden(res, 'Bu kullanıcının bilgilerini görme yetkiniz yok.');
-    }
-
-    const user = await User.findById(userId).select('-password');
-    if (!user) {
-      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
-    }
-
-    return ResponseHandler.success(res, user, 'Kullanıcı bilgileri başarıyla getirildi');
-  } catch (error) {
-    return ResponseHandler.error(res, 'Kullanıcı bilgileri getirilirken hata oluştu');
-  }
-});
+// Bu route notification-settings'den sonra taşındı - route çakışmasını önlemek için
 
 /**
  * @swagger
@@ -1764,14 +1741,23 @@ router.get('/notification-settings', auth, async (req: Request, res: Response) =
   try {
     const userId = req.user?.userId;
     
+    console.log('🔍 User.ts notification-settings Debug:');
+    console.log('req.user:', req.user);
+    console.log('userId:', userId);
+    console.log('Authorization header:', req.header('Authorization'));
+    
     if (!userId) {
+      console.log('❌ User.ts: userId bulunamadı');
       return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
     }
 
     const user = await User.findById(userId).select('notificationSettings');
     if (!user) {
+      console.log('❌ User.ts: Kullanıcı bulunamadı, userId:', userId);
       return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
     }
+
+    console.log('✅ User.ts: Kullanıcı bulundu, notificationSettings:', user.notificationSettings);
 
     return ResponseHandler.success(res, user.notificationSettings || {
       pushNotifications: true,
@@ -1784,6 +1770,7 @@ router.get('/notification-settings', auth, async (req: Request, res: Response) =
       vibrationEnabled: true
     }, 'Bildirim ayarları başarıyla getirildi');
   } catch (error) {
+    console.log('❌ User.ts notification-settings error:', error);
     return ResponseHandler.error(res, 'Bildirim ayarları getirilirken hata oluştu');
   }
 });
@@ -1849,6 +1836,61 @@ router.put('/notification-settings', auth, async (req: Request, res: Response) =
     return ResponseHandler.success(res, updatedUser.notificationSettings, 'Bildirim ayarları başarıyla güncellendi');
   } catch (error) {
     return ResponseHandler.error(res, 'Bildirim ayarları güncellenirken hata oluştu');
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/{userId}:
+ *   get:
+ *     summary: Kullanıcı bilgilerini ID ile getir
+ *     description: Belirli bir kullanıcının bilgilerini ID ile getirir
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Kullanıcı ID'si
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Kullanıcı bilgileri başarıyla getirildi
+ *       400:
+ *         description: Geçersiz kullanıcı ID
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/:userId', auth, async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const requestingUserId = req.user?.userId;
+    
+    if (!requestingUserId) {
+      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    // Sadece kendi profilini veya admin kullanıcılar görebilir
+    if (requestingUserId !== userId) {
+      return ResponseHandler.forbidden(res, 'Bu kullanıcının bilgilerini görme yetkiniz yok.');
+    }
+
+    const user = await User.findById(userId).select('-password');
+    if (!user) {
+      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    }
+
+    return ResponseHandler.success(res, user, 'Kullanıcı bilgileri başarıyla getirildi');
+  } catch (error) {
+    return ResponseHandler.error(res, 'Kullanıcı bilgileri getirilirken hata oluştu');
   }
 });
 

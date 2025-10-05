@@ -30,6 +30,8 @@ export const auth: RequestHandler = async (req: Request, res: Response, next: Ne
       const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; userType: 'driver' | 'mechanic' };
       console.log('✅ Auth Middleware: Token geçerli');
       console.log('decoded user:', decoded);
+      console.log('decoded userId:', decoded.userId);
+      console.log('decoded userType:', decoded.userType);
       req.user = decoded;
       next();
     } catch (jwtError) {
