@@ -2,9 +2,9 @@
 nixPkgs = ['nodejs_20']
 
 [phases.install]
-# Copy shared directory and install dependencies
+# Copy shared directory to local scope and install dependencies
 cmds = [
-  'cp -r ../shared . || echo "shared already exists"',
+  'cp -r ../shared . 2>/dev/null || echo "shared directory copied or already exists"',
   'npm install --no-cache --no-optional --omit=dev'
 ]
 

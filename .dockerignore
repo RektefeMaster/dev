@@ -1,0 +1,23 @@
+# Frontend uygulamalarını ignore et
+rektefe-dv/node_modules
+rektefe-dv/ios/build
+rektefe-dv/ios/Pods
+rektefe-dv/android/build
+rektefe-dv/android/.gradle
+
+rektefe-us/node_modules
+rektefe-us/ios/build
+rektefe-us/ios/Pods
+rektefe-us/android/build
+rektefe-us/android/.gradle
+
+# Documentation
+docs/
+
+# Root level
+node_modules/
+.git/
+*.log
+.DS_Store
+.env.local
+
