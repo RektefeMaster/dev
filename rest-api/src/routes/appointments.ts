@@ -97,7 +97,38 @@ router.get('/mechanic', auth, async (req: Request, res: Response) => {
     res.json({ success: true, data: appointments });
   } catch (error: any) {
     console.error('❌ Get mechanic appointments error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    
+    // Detaylı hata bilgisi
+    if (error.name === 'CastError') {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Geçersiz kullanıcı ID formatı',
+        error: error.message 
+      });
+    }
+    
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Veri doğrulama hatası',
+        error: error.message 
+      });
+    }
+    
+    // MongoDB connection error
+    if (error.name === 'MongoNetworkError' || error.name === 'MongoTimeoutError') {
+      return res.status(503).json({ 
+        success: false, 
+        message: 'Veritabanı bağlantı hatası. Lütfen daha sonra tekrar deneyin.',
+        error: 'DATABASE_CONNECTION_ERROR' 
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      message: 'Sunucu hatası oluştu',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'INTERNAL_SERVER_ERROR'
+    });
   }
 });
 

@@ -7,7 +7,7 @@ if (!process.env.JWT_SECRET) {
 }
 
 // MongoDB connection string (env override, fallback to localhost)
-export const MONGODB_URI: string = process.env.MONGODB_URI || 'mongodb+srv://rektefekadnur09:rektefekadnur09@cluster0.agf6m9t.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+export const MONGODB_URI: string = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/rektefe';
 export const MONGODB_OPTIONS = {
   serverSelectionTimeoutMS: 30000,
   connectTimeoutMS: 30000,
@@ -29,5 +29,5 @@ export const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || process.env.
 
 // CORS origin - Security fix: No wildcard in production
 export const CORS_ORIGIN = process.env.NODE_ENV === 'production' 
-  ? process.env.CORS_ORIGIN || 'https://rektefe.com,https://app.rektefe.com'
+  ? process.env.CORS_ORIGIN || 'https://rektefe.com,https://app.rektefe.com,https://dev-production-8a3d.up.railway.app'
   : 'http://localhost:3000,http://192.168.1.36:3000,http://192.168.1.36:8081,http://192.168.1.36:8082,http://192.168.1.36:8083,http://192.168.1.36:8084,http://localhost:8081,http://localhost:8082,http://localhost:8083,http://localhost:8084';

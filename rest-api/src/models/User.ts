@@ -204,7 +204,8 @@ const userSchema = new Schema<IUser>({
   userType: {
     type: String,
     enum: Object.values(UserType),
-    default: UserType.DRIVER
+    default: UserType.DRIVER,
+    required: true
   },
   // Google OAuth alanları
   googleId: {

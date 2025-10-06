@@ -410,7 +410,8 @@ export class AppointmentService {
 
       // Frontend formatına çevir
       const formattedAppointments = appointments.map(appointment => {
-        const obj = appointment.toObject();
+        // lean() kullanıldığı için obj zaten plain object, toObject() gerekmez
+        const obj = appointment as any;
         
         // customer field'ını ekle (userId'den)
         if (obj.userId) {
