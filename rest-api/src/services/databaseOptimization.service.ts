@@ -23,28 +23,39 @@ export class DatabaseOptimizationService {
   static async createOptimizedIndexes(): Promise<void> {
     console.log('🚀 Database optimization başlatılıyor...');
 
+    // Her koleksiyon için index'leri ayrı ayrı oluştur
+    // Hata olursa devam et (idempotent operation)
+    
     try {
       // ===== USER COLLECTION INDEXES =====
-      await User.collection.createIndexes([
+      await this.createIndexesSafe(User.collection, 'users', [
         { key: { email: 1 }, unique: true, background: true },
         { key: { userType: 1 }, background: true },
         { key: { isActive: 1, userType: 1 }, background: true },
-        { key: { phone: 1 }, background: true, sparse: true },
+        { key: { phone: 1 }, name: 'phone_sparse_1', background: true, sparse: true },
         { key: { createdAt: -1 }, background: true }
       ]);
+    } catch (error) {
+      console.warn('⚠️ User index hatası (devam ediliyor)');
+    }
 
+    try {
       // ===== MECHANIC COLLECTION INDEXES =====
-      await Mechanic.collection.createIndexes([
+      await this.createIndexesSafe(Mechanic.collection, 'mechanics', [
         { key: { 'location.coordinates': '2dsphere' }, background: true },
         { key: { availability: 1, rating: -1 }, background: true },
         { key: { serviceCategories: 1 }, background: true },
         { key: { experience: -1 }, background: true },
-        { key: { 'location.coordinates': '2dsphere', availability: 1 }, background: true },
+        { key: { 'location.coordinates': '2dsphere', availability: 1 }, name: 'location_availability_idx', background: true },
         { key: { rating: -1 }, background: true }
       ]);
+    } catch (error) {
+      console.warn('⚠️ Mechanic index hatası (devam ediliyor)');
+    }
 
+    try {
       // ===== APPOINTMENT COLLECTION INDEXES =====
-      await Appointment.collection.createIndexes([
+      await this.createIndexesSafe(Appointment.collection, 'appointments', [
         { key: { userId: 1 }, background: true },
         { key: { mechanicId: 1 }, background: true },
         { key: { status: 1 }, background: true },
@@ -53,15 +64,19 @@ export class DatabaseOptimizationService {
         { key: { mechanicId: 1, status: 1 }, background: true },
         { key: { appointmentDate: 1, status: 1 }, background: true },
         { key: { serviceType: 1 }, background: true },
-        { key: { vehicleId: 1 }, background: true, sparse: true },
+        { key: { vehicleId: 1 }, name: 'vehicleId_sparse_1', background: true, sparse: true },
         { key: { paymentStatus: 1 }, background: true },
         { key: { createdAt: -1 }, background: true },
         { key: { userId: 1, appointmentDate: -1, status: 1 }, background: true },
         { key: { mechanicId: 1, appointmentDate: -1, status: 1 }, background: true }
       ]);
+    } catch (error) {
+      console.warn('⚠️ Appointment index hatası (devam ediliyor)');
+    }
 
+    try {
       // ===== VEHICLE COLLECTION INDEXES =====
-      await Vehicle.collection.createIndexes([
+      await this.createIndexesSafe(Vehicle.collection, 'vehicles', [
         { key: { userId: 1 }, background: true },
         { key: { plateNumber: 1 }, unique: true, background: true },
         { key: { brand: 1, model: 1 }, background: true },
@@ -69,9 +84,13 @@ export class DatabaseOptimizationService {
         { key: { isActive: 1 }, background: true },
         { key: { userId: 1, isActive: 1 }, background: true }
       ]);
+    } catch (error) {
+      console.warn('⚠️ Vehicle index hatası (devam ediliyor)');
+    }
 
+    try {
       // ===== NOTIFICATION COLLECTION INDEXES =====
-      await Notification.collection.createIndexes([
+      await this.createIndexesSafe(Notification.collection, 'notifications', [
         { key: { recipientId: 1 }, background: true },
         { key: { recipientType: 1 }, background: true },
         { key: { isRead: 1 }, background: true },
@@ -81,9 +100,13 @@ export class DatabaseOptimizationService {
         { key: { createdAt: -1 }, background: true },
         { key: { recipientId: 1, type: 1, isRead: 1 }, background: true }
       ]);
+    } catch (error) {
+      console.warn('⚠️ Notification index hatası (devam ediliyor)');
+    }
 
+    try {
       // ===== MESSAGE COLLECTION INDEXES =====
-      await Message.collection.createIndexes([
+      await this.createIndexesSafe(Message.collection, 'messages', [
         { key: { senderId: 1 }, background: true },
         { key: { receiverId: 1 }, background: true },
         { key: { conversationId: 1 }, background: true },
@@ -93,11 +116,37 @@ export class DatabaseOptimizationService {
         { key: { senderId: 1, receiverId: 1 }, background: true },
         { key: { createdAt: -1 }, background: true }
       ]);
-
-      console.log('✅ Tüm index\'ler başarıyla oluşturuldu');
     } catch (error) {
-      console.error('❌ Index oluşturma hatası:', error);
-      throw error;
+      console.warn('⚠️ Message index hatası (devam ediliyor)');
+    }
+
+    console.log('✅ Index oluşturma işlemi tamamlandı');
+  }
+
+  /**
+   * Index'leri güvenli bir şekilde oluşturur
+   * Eğer index zaten varsa ve conflict varsa, hatayı yakalar ve devam eder
+   */
+  private static async createIndexesSafe(
+    collection: any,
+    collectionName: string,
+    indexes: any[]
+  ): Promise<void> {
+    for (const indexSpec of indexes) {
+      try {
+        await collection.createIndex(indexSpec.key, {
+          ...indexSpec,
+          key: undefined // key'i options'tan çıkar
+        });
+      } catch (error: any) {
+        // Index zaten varsa veya conflict varsa devam et
+        if (error.code === 85 || error.code === 86) {
+          // 85: IndexOptionsConflict, 86: IndexKeySpecsConflict
+          console.log(`ℹ️ Index zaten mevcut (${collectionName}):`, JSON.stringify(indexSpec.key));
+        } else {
+          console.warn(`⚠️ Index oluşturma hatası (${collectionName}):`, error.message);
+        }
+      }
     }
   }
 
