@@ -4,8 +4,7 @@
   "private": true,
   "workspaces": [
     "rektefe-dv",
-    "rektefe-us",
-    "shared"
+    "rektefe-us"
   ],
   "scripts": {
     "start": "cd rest-api && npm start",
