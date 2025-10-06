@@ -2,13 +2,13 @@
 nixPkgs = ['nodejs_20']
 
 [phases.install]
-cmds = ['npm install --no-cache --no-optional --omit=dev']
+cmds = ['cd rest-api && npm install --no-cache --no-optional --omit=dev']
 
 [phases.build]
-cmds = ['npm run build']
+cmds = ['cd rest-api && npm run build']
 
 [start]
-cmd = 'npm start'
+cmd = 'cd rest-api && npm start'
 
 [variables]
 NPM_CONFIG_CACHE = '/tmp/.npm'

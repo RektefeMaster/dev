@@ -138,16 +138,24 @@ export const getUserTypeDescription = (userType: UserType): string => {
  * Service type'ı Türkçe açıklamaya çevirir
  */
 export const getServiceTypeDescription = (serviceType: ServiceType): string => {
-  const descriptions: Record<ServiceType, string> = {
+  const descriptions: Partial<Record<ServiceType, string>> = {
     [ServiceType.OIL_CHANGE]: 'Yağ Değişimi',
     [ServiceType.BRAKE_SERVICE]: 'Fren Servisi',
     [ServiceType.ENGINE_REPAIR]: 'Motor Tamiri',
     [ServiceType.TIRE_CHANGE]: 'Lastik Değişimi',
     [ServiceType.BATTERY_SERVICE]: 'Akü Servisi',
     [ServiceType.EMERGENCY_TOWING]: 'Acil Çekici',
-    [ServiceType.GENERAL_MAINTENANCE]: 'Genel Bakım'
+    [ServiceType.GENERAL_MAINTENANCE]: 'Genel Bakım',
+    [ServiceType.TOWING]: 'Çekici',
+    [ServiceType.REPAIR]: 'Tamir',
+    [ServiceType.WASH]: 'Yıkama',
+    [ServiceType.CEKICI]: 'Çekici',
+    [ServiceType.CEKICI_CAPS]: 'Çekici',
+    [ServiceType.TAMIR_BAKIM]: 'Tamir Bakım',
+    [ServiceType.ARAC_YIKAMA]: 'Araç Yıkama',
+    [ServiceType.LASTIK]: 'Lastik'
   };
-  return descriptions[serviceType];
+  return descriptions[serviceType] || serviceType;
 };
 
 /**
