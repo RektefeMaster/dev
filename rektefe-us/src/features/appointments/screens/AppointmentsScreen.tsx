@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/shared/context';
 import { useAuth } from '@/shared/context';
 import apiService from '@/shared/services';
@@ -129,6 +130,15 @@ const AppointmentsScreen = () => {
     }
   }, [isAuthenticated, selectedDurum]);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated) {
+        fetchRandevular(selectedDurum);
+        fetchCounts();
+      }
+    }, [isAuthenticated, selectedDurum])
+  );
+
   const mapTRtoEN = (d: RandevuDurum): string => ({
     TALEP_EDILDI: 'pending',
     PLANLANDI: 'confirmed',
@@ -217,10 +227,15 @@ const AppointmentsScreen = () => {
       }
   };
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchRandevular(selectedDurum);
-    fetchCounts();
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await Promise.all([fetchRandevular(selectedDurum), fetchCounts()]);
+    } catch (error) {
+      console.log('❌ onRefresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const getDurumColor = (durum: RandevuDurum) => {

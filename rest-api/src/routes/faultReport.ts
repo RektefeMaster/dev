@@ -1,6 +1,7 @@
 import express from 'express';
 import { auth } from '../middleware/auth';
 import { requireRole } from '../middleware/roleAuth';
+import { UserType } from '../../../shared/types/enums';
 // Dynamic import to avoid circular dependency issues
 const faultReportController = require('../controllers/faultReport.controller');
 const {
@@ -24,91 +25,91 @@ const router = express.Router();
 // Arıza bildirimi oluştur (Sadece şöförler)
 router.post('/', 
   auth,
-  requireRole(['driver']),
+  requireRole([UserType.DRIVER]),
   createFaultReport
 );
 
 // Kullanıcının arıza bildirimlerini getir (Sadece şöförler)
 router.get('/my-reports',
   auth,
-  requireRole(['driver']),
+  requireRole([UserType.DRIVER]),
   getUserFaultReports
 );
 
 // Arıza bildirimi detayını getir (Sadece şöförler)
 router.get('/:id',
   auth,
-  requireRole(['driver']),
+  requireRole([UserType.DRIVER]),
   getFaultReportById
 );
 
 // Usta yanıtı ver (Sadece ustalar)
 router.post('/:id/response',
   auth,
-  requireRole(['mechanic']),
+  requireRole([UserType.MECHANIC]),
   submitMechanicResponse
 );
 
 // Fiyat teklifi ver (Sadece ustalar)
 router.post('/:id/quote',
   auth,
-  requireRole(['mechanic']),
+  requireRole([UserType.MECHANIC]),
   submitQuote
 );
 
 // Teklif seç ve randevu oluştur (Sadece şöförler)
 router.post('/:id/select-quote',
   auth,
-  requireRole(['driver']),
+  requireRole([UserType.DRIVER]),
   selectQuote
 );
 
 // Ustaların arıza bildirimlerini getir (Sadece ustalar)
 router.get('/mechanic/reports',
   auth,
-  requireRole(['mechanic']),
+  requireRole([UserType.MECHANIC]),
   getMechanicFaultReports
 );
 
 // Usta için arıza bildirimi detayını getir (Sadece ustalar)
 router.get('/mechanic/:id',
   auth,
-  requireRole(['mechanic']),
+  requireRole([UserType.MECHANIC]),
   getMechanicFaultReportById
 );
 
 // Yarın bakarım yanıtını onayla/reddet (Sadece şöförler)
 router.post('/:id/tomorrow-response',
   auth,
-  requireRole(['driver']),
+  requireRole([UserType.DRIVER]),
   handleTomorrowResponse
 );
 
 // İletişime geç - mesaj gönderme (Sadece şöförler)
 router.post('/:id/contact',
   auth,
-  requireRole(['driver']),
+  requireRole([UserType.DRIVER]),
   initiateContact
 );
 
 // Ödeme oluştur (Sadece şöförler)
 router.post('/:id/payment',
   auth,
-  requireRole(['driver']),
+  requireRole([UserType.DRIVER]),
   createPayment
 );
 
 // Ödeme onayla (Sadece şöförler)
 router.post('/:id/confirm-payment',
   auth,
-  requireRole(['driver']),
+  requireRole([UserType.DRIVER]),
   confirmPayment
 );
 
 // İşi finalize et (Sadece ustalar)
 router.post('/:id/finalize',
   auth,
-  requireRole(['mechanic']),
+  requireRole([UserType.MECHANIC]),
   finalizeWork
 );
 

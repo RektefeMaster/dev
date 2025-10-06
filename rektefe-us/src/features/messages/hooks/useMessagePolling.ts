@@ -37,22 +37,22 @@ export const useMessagePolling = (conversationId: string) => {
           setIsPolling(false);
           return response.data;
         } else {
-          // Yeni mesaj yoksa 5 saniye sonra tekrar dene
+          // Yeni mesaj yoksa 15 saniye sonra tekrar dene (daha az sıklıkta)
           pollTimeoutRef.current = setTimeout(() => {
             isPollingRef.current = false;
             setIsPolling(false);
             startPolling();
-          }, 5000);
+          }, 15000);
         }
       }
     } catch (error) {
       isPollingRef.current = false;
       setIsPolling(false);
       
-      // Hata durumunda 10 saniye sonra tekrar dene
+      // Hata durumunda 30 saniye sonra tekrar dene (daha az sıklıkta)
       pollTimeoutRef.current = setTimeout(() => {
         startPolling();
-      }, 10000);
+      }, 30000);
     }
   }, [lastMessageId]); // ✅ Sadece lastMessageId değiştiğinde çalışsın
   

@@ -3,13 +3,7 @@ import { MechanicService } from '../services/mechanic.service';
 import { ResponseHandler } from '../utils/response';
 import { asyncHandler } from '../middleware/errorHandler';
 import { requireMechanic } from '../middleware/roleAuth';
-
-interface AuthRequest extends Request {
-  user?: {
-    userId: string;
-    userType: 'driver' | 'mechanic';
-  };
-}
+import { AuthRequest } from '../types/express';
 
 export class MechanicController {
   /**

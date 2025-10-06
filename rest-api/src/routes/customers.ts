@@ -559,4 +559,152 @@ router.delete('/:customerId/notes/:noteId', auth, async (req: Request, res: Resp
   }
 });
 
+/**
+ * @swagger
+ * /api/customers/{customerId}/loyalty:
+ *   get:
+ *     summary: Müşteri sadakat durumunu kontrol et
+ *     description: Belirli bir müşterinin sadakat durumunu ve istatistiklerini getirir
+ *     tags:
+ *       - Customers
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: customerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Müşteri ID'si
+ *     responses:
+ *       200:
+ *         description: Müşteri sadakat durumu başarıyla getirildi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       404:
+ *         description: Müşteri bulunamadı
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/:customerId/loyalty', auth, async (req: Request, res: Response) => {
+  try {
+    const mechanicId = (req as any).user?.userId;
+    const { customerId } = req.params;
+
+    if (!mechanicId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Kullanıcı ID bulunamadı'
+      });
+    }
+
+    // Müşteri bilgilerini getir
+    const customer = await User.findById(customerId);
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Müşteri bulunamadı'
+      });
+    }
+
+    // Müşterinin bu usta ile yaptığı işleri getir ve sadakat hesapla
+    const loyaltyStats = await Appointment.aggregate([
+      {
+        $match: {
+          userId: new Types.ObjectId(customerId),
+          mechanicId: new Types.ObjectId(mechanicId)
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalJobs: { $sum: 1 },
+          totalSpent: { $sum: '$price' },
+          averageSpending: { $avg: '$price' },
+          lastVisit: { $max: '$appointmentDate' },
+          firstVisit: { $min: '$appointmentDate' },
+          completedJobs: {
+            $sum: {
+              $cond: [{ $eq: ['$status', 'TAMAMLANDI'] }, 1, 0]
+            }
+          }
+        }
+      }
+    ]);
+
+    const stats = loyaltyStats[0] || {
+      totalJobs: 0,
+      totalSpent: 0,
+      averageSpending: 0,
+      lastVisit: null,
+      firstVisit: null,
+      completedJobs: 0
+    };
+
+    // Sadakat seviyesini hesapla
+    let loyaltyLevel = 'low';
+    let isLoyal = false;
+    
+    if (stats.completedJobs >= 5) {
+      loyaltyLevel = 'high';
+      isLoyal = true;
+    } else if (stats.completedJobs >= 3) {
+      loyaltyLevel = 'medium';
+      isLoyal = true;
+    }
+
+    // Son ziyaretten bu yana geçen süreyi hesapla
+    let daysSinceLastVisit = null;
+    if (stats.lastVisit) {
+      const lastVisitDate = new Date(stats.lastVisit);
+      const today = new Date();
+      daysSinceLastVisit = Math.floor((today.getTime() - lastVisitDate.getTime()) / (1000 * 60 * 60 * 24));
+    }
+
+    const loyaltyData = {
+      customer: {
+        _id: customer._id,
+        name: customer.name,
+        surname: customer.surname,
+        phone: customer.phone,
+        email: customer.email
+      },
+      loyalty: {
+        level: loyaltyLevel,
+        isLoyal: isLoyal,
+        visitCount: stats.completedJobs,
+        totalSpent: stats.totalSpent,
+        averageSpending: stats.averageSpending,
+        lastVisit: stats.lastVisit,
+        firstVisit: stats.firstVisit,
+        daysSinceLastVisit: daysSinceLastVisit
+      },
+      recommendations: []
+    };
+
+    // Sadakat önerileri ekle
+    if (stats.completedJobs >= 3 && stats.completedJobs < 5) {
+      loyaltyData.recommendations.push('Bu müşteri sadık müşteri seviyesine yakın. Ekstra hizmet önerileri sunabilirsiniz.');
+    } else if (stats.completedJobs >= 5) {
+      loyaltyData.recommendations.push('Bu sadık bir müşteriniz! Özel indirimler ve öncelikli hizmet sunabilirsiniz.');
+    }
+
+    if (daysSinceLastVisit && daysSinceLastVisit > 90) {
+      loyaltyData.recommendations.push('Bu müşteri uzun süredir gelmiyor. Yeniden hizmet alması için teşvik edebilirsiniz.');
+    }
+
+    res.json({
+      success: true,
+      data: loyaltyData,
+      message: 'Müşteri sadakat durumu başarıyla getirildi'
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: 'Müşteri sadakat durumu getirilirken hata oluştu',
+      error: error.message
+    });
+  }
+});
+
 export default router;

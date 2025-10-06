@@ -21,10 +21,33 @@ import { useAuth } from '@/shared/context';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, typography, spacing, borderRadius, shadows, dimensions as themeDimensions } from '@/shared/theme';
-import { Message } from '@/shared/types';
 import apiService from '@/shared/services';
 import { Ionicons } from '@expo/vector-icons';
 import { useMessagePolling } from '@/features/messages/hooks';
+
+// Local Message type with populated user fields
+interface Message {
+  _id: string;
+  senderId: {
+    _id: string;
+    name: string;
+    surname: string;
+    avatar?: string;
+  } | string;
+  receiverId: {
+    _id: string;
+    name: string;
+    surname: string;
+    avatar?: string;
+  } | string;
+  conversationId: string;
+  content: string;
+  messageType: string;
+  isRead: boolean;
+  readAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
 
 type ChatScreenProps = {
   route: {
@@ -327,13 +350,12 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
     try {
       setSending(true);
       
-      const messageData = {
-        receiverId: otherParticipant._id,
-        content: 'Ses kaydı',
-        messageType: 'audio'
-      };
-
-      const response = await apiService.sendMessage(messageData);
+      const response = await apiService.sendMessage(
+        conversationId,
+        otherParticipant._id,
+        'Ses kaydı',
+        { messageType: 'audio' }
+      );
       
       if (response.success) {
         // Başarılı gönderim
@@ -400,13 +422,12 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
     try {
       setSending(true);
       
-      const messageData = {
-        receiverId: otherParticipant._id,
-        content: 'Fotoğraf',
-        messageType: 'image'
-      };
-
-      const response = await apiService.sendMessage(messageData);
+      const response = await apiService.sendMessage(
+        conversationId,
+        otherParticipant._id,
+        'Fotoğraf',
+        { messageType: 'image' }
+      );
       
       if (response.success) {
         setTimeout(() => {
@@ -476,14 +497,13 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
 
-      const messageData = {
-        receiverId: otherParticipant._id,
-        content: messageContent,
-        messageType: 'text'
-      };
-
       // API service kullanarak mesaj gönder
-      const response = await apiService.sendMessage(messageData);
+      const response = await apiService.sendMessage(
+        conversationId,
+        otherParticipant._id,
+        messageContent,
+        { messageType: 'text' }
+      );
 
       if (response.success) {
         // Eğer temp conversation ise, gerçek conversation ID'yi al
@@ -587,13 +607,13 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
     ]).start();
   }, [isAuthenticated, conversationId]); // conversationId değiştiğinde de çalışsın
 
-  // Mesajları düzenli olarak yenile (3 saniyede bir)
+  // Mesajları düzenli olarak yenile (15 saniyede bir - daha az sıklıkta)
   useEffect(() => {
     if (!isAuthenticated || conversationId.startsWith('temp_')) return;
 
     const interval = setInterval(() => {
       fetchMessages();
-    }, 3000);
+    }, 15000); // 15 saniye
 
     return () => clearInterval(interval);
   }, [isAuthenticated, conversationId, fetchMessages]);
@@ -626,12 +646,14 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
     
   }, [isAuthenticated, conversationId]); // onNewMessages dependency'sini kaldırdım
 
-  // useFocusEffect'i kaldır - infinite loop'a neden oluyor
-  // useFocusEffect(
-  //   useCallback(() => {
-  //     fetchMessages();
-  //   }, [fetchMessages])
-  // );
+  // useFocusEffect - akıllı yenileme
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated && conversationId && !conversationId.startsWith('temp_')) {
+        fetchMessages();
+      }
+    }, [isAuthenticated, conversationId])
+  );
 
   const formatMessageTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -642,7 +664,8 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
   };
 
   const renderMessage = ({ item, index }: { item: Message; index: number }) => {
-    const isOwnMessage = item.senderId._id === userId;
+    const senderIdValue = typeof item.senderId === 'string' ? item.senderId : item.senderId._id;
+    const isOwnMessage = senderIdValue === userId;
     
     
     return (

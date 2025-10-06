@@ -209,8 +209,8 @@ const CustomTabBar = ({ state, descriptors, navigation }: TabBarProps) => {
 
     fetchUnreadCount();
     
-    // Her 30 saniyede bir güncelle
-    const interval = setInterval(fetchUnreadCount, 30000);
+    // Her 2 dakikada bir güncelle (daha az sıklıkta)
+    const interval = setInterval(fetchUnreadCount, 120000); // 2 dakika
     
     return () => clearInterval(interval);
   }, []);

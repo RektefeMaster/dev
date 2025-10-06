@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   Dimensions,
   ScrollView,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -43,14 +43,25 @@ export default function WalletScreen() {
     }
   }, [isAuthenticated]);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated) {
+        fetchWalletData();
+      }
+    }, [isAuthenticated])
+  );
+
   const fetchWalletData = async () => {
     try {
       setLoading(true);
       
-      const [walletRes, transactionsRes] = await Promise.all([
+      const [walletRes, transactionsRes, debugRes] = await Promise.all([
         apiService.getMechanicWallet(),
         apiService.getRecentTransactions(),
+        apiService.getWalletDebugInfo(),
       ]);
+
+      console.log('🔍 WalletScreen: Debug bilgisi:', debugRes);
 
       if (walletRes.success) {
         setWalletData({

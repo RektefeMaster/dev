@@ -2,13 +2,7 @@ import { Request, Response } from 'express';
 import { VehicleService } from '../services/vehicle.service';
 import { ResponseHandler } from '../utils/response';
 import { asyncHandler } from '../middleware/errorHandler';
-
-interface AuthRequest extends Request {
-  user?: {
-    userId: string;
-    userType: 'driver' | 'mechanic';
-  };
-}
+import { AuthRequest } from '../types/express';
 
 export class VehicleController {
   /**

@@ -1,15 +1,16 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { ResponseHandler } from '../utils/response';
+import { UserType } from '../../../shared/types/enums';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
     userId: string;
-    userType: 'driver' | 'mechanic';
+    userType: UserType;
   };
 }
 
 // Role-based authorization middleware
-export const requireRole = (allowedRoles: ('driver' | 'mechanic')[]) => {
+export const requireRole = (allowedRoles: UserType[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
       ResponseHandler.unauthorized(res, 'Yetkilendirme gerekli');
@@ -29,13 +30,13 @@ export const requireRole = (allowedRoles: ('driver' | 'mechanic')[]) => {
 };
 
 // Sadece driver'lar için
-export const requireDriver: RequestHandler = requireRole(['driver']);
+export const requireDriver: RequestHandler = requireRole([UserType.DRIVER]);
 
 // Sadece mechanic'ler için
-export const requireMechanic: RequestHandler = requireRole(['mechanic']);
+export const requireMechanic: RequestHandler = requireRole([UserType.MECHANIC]);
 
 // Driver veya mechanic olabilir
-export const requireAnyUser: RequestHandler = requireRole(['driver', 'mechanic']);
+export const requireAnyUser: RequestHandler = requireRole([UserType.DRIVER, UserType.MECHANIC]);
 
 // Resource ownership check middleware
 export const requireOwnership = (resourceModel: any, resourceIdParam: string = 'id') => {

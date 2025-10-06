@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { UserType } from '../../../shared/types/enums';
 
 export interface IUser extends Document {
   email: string;
@@ -11,7 +12,7 @@ export interface IUser extends Document {
   bio?: string;
   phone?: string;
   city?: string;
-  userType: 'user' | 'mechanic' | 'driver' | 'admin';
+  userType: UserType;
   // Google OAuth alanları
   googleId?: string;
   emailVerified?: boolean;
@@ -202,8 +203,8 @@ const userSchema = new Schema<IUser>({
   },
   userType: {
     type: String,
-    enum: ['user', 'mechanic', 'driver', 'admin'],
-    default: 'user'
+    enum: Object.values(UserType),
+    default: UserType.DRIVER
   },
   // Google OAuth alanları
   googleId: {

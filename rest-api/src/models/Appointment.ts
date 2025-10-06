@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { AppointmentStatus, ServiceType, PaymentStatus } from '../../../shared/types/enums';
 
 interface INotificationSettings {
   oneHourBefore: boolean;
@@ -10,10 +11,10 @@ interface INotificationSettings {
 export interface IAppointment extends Document {
   userId: mongoose.Types.ObjectId; // Şöför/Müşteri ID'si
   mechanicId?: mongoose.Types.ObjectId; // Usta/Dükkan ID'si (opsiyonel - talep aşamasında)
-  serviceType: string; // Hizmet tipi
+  serviceType: ServiceType; // Hizmet tipi
   appointmentDate: Date; // Randevu tarihi
   timeSlot: string; // Randevu saati
-  status: 'TALEP_EDILDI' | 'PLANLANDI' | 'SERVISTE' | 'ODEME_BEKLIYOR' | 'TAMAMLANDI' | 'IPTAL' | 'NO_SHOW';
+  status: AppointmentStatus;
   description: string; // Randevu açıklaması
   mechanicNotes?: string; // Usta notları
   rejectionReason?: string; // Red gerekçesi
@@ -24,7 +25,7 @@ export interface IAppointment extends Document {
   quotedPrice?: number; // Arıza bildiriminden gelen fiyat
   finalPrice?: number; // Nihai fiyat (ek fiyatlar dahil)
   priceSource: 'mechanic_quoted' | 'fault_report_quoted' | 'to_be_determined'; // Fiyat kaynağı
-  paymentStatus: 'pending' | 'paid' | 'completed'; // Ödeme durumu
+  paymentStatus: PaymentStatus; // Ödeme durumu
   paymentDate?: Date; // Ödeme tarihi
   transactionId?: string; // İşlem ID'si
   completionDate?: Date; // İş tamamlanma tarihi
@@ -120,6 +121,7 @@ const AppointmentSchema: Schema = new Schema({
   },
   serviceType: { 
     type: String, 
+    enum: Object.values(ServiceType),
     required: true 
   },
   appointmentDate: { 
@@ -133,8 +135,8 @@ const AppointmentSchema: Schema = new Schema({
   },
   status: { 
     type: String, 
-    enum: ['TALEP_EDILDI', 'PLANLANDI', 'SERVISTE', 'ODEME_BEKLIYOR', 'TAMAMLANDI', 'IPTAL', 'NO_SHOW'],
-    default: 'TALEP_EDILDI'
+    enum: Object.values(AppointmentStatus),
+    default: AppointmentStatus.REQUESTED
   },
   description: { 
     type: String, 
@@ -174,8 +176,8 @@ const AppointmentSchema: Schema = new Schema({
   },
   paymentStatus: {
     type: String,
-    enum: ['pending', 'paid', 'completed'],
-    default: 'pending'
+    enum: Object.values(PaymentStatus),
+    default: PaymentStatus.PENDING
   },
   paymentDate: {
     type: Date

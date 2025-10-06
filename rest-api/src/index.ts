@@ -12,6 +12,15 @@ import swaggerSpec from './config/swagger';
 import { errorHandler, notFound } from './middleware/errorHandler';
 import helmet from 'helmet';
 import compression from 'compression';
+import { DatabaseOptimizationService } from './services/databaseOptimization.service';
+import { securityHeaders, requestId } from './middleware/optimizedAuth';
+import { 
+  initializeMonitoring, 
+  requestLogger, 
+  monitoringMiddleware,
+  healthCheckHandler,
+  metricsHandler 
+} from './utils/monitoring';
 
 // Route'ları import et
 import authRoutes from './routes/auth';
@@ -45,6 +54,7 @@ import customersRoutes from './routes/customers';
 import suppliersRoutes from './routes/suppliers';
 import statusNotificationsRoutes from './routes/statusNotifications';
 import endOfDayRoutes from './routes/endOfDay';
+import reportsRoutes from './routes/reports';
 import loyalCustomersRoutes from './routes/loyalCustomers';
 import vehicleHistoryRoutes from './routes/vehicleHistory';
 import jobReferralsRoutes from './routes/jobReferrals';
@@ -57,6 +67,12 @@ const app = express();
 // Security & performance middleware
 app.use(helmet());
 app.use(compression());
+
+// Custom middleware'ler
+app.use(requestId);
+app.use(securityHeaders);
+app.use(monitoringMiddleware);
+app.use(requestLogger);
 
 // CORS configuration
 import { MONGODB_URI, MONGODB_OPTIONS, PORT as CONFIG_PORT, CORS_ORIGIN, JWT_SECRET } from './config';
@@ -312,11 +328,16 @@ app.use('/api/customers', customersRoutes);
 app.use('/api/suppliers', suppliersRoutes);
 app.use('/api/status-notifications', statusNotificationsRoutes);
 app.use('/api/end-of-day', endOfDayRoutes);
+app.use('/api/reports', reportsRoutes);
 app.use('/api/loyal-customers', loyalCustomersRoutes);
 app.use('/api/vehicle-history', vehicleHistoryRoutes);
 app.use('/api/job-referrals', jobReferralsRoutes);
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Monitoring endpoints
+app.get('/health', healthCheckHandler);
+app.get('/metrics', metricsHandler);
 
 // Error handling middleware (en sonda olmalı)
 app.use(notFound);
@@ -329,10 +350,29 @@ async function startServer() {
     await mongoose.connect(MONGODB_URI, MONGODB_OPTIONS);
     console.log('✅ MongoDB bağlantısı başarılı');
     
+    // Database optimization'ı başlat
+    console.log('🚀 Database optimization başlatılıyor...');
+    try {
+      await DatabaseOptimizationService.createOptimizedIndexes();
+      console.log('✅ Database optimization tamamlandı');
+    } catch (optimizationError) {
+      console.warn('⚠️ Database optimization hatası (devam ediliyor):', optimizationError);
+    }
+    
+    // Monitoring sistemini başlat
+    console.log('📊 Monitoring sistemi başlatılıyor...');
+    try {
+      initializeMonitoring();
+      console.log('✅ Monitoring sistemi başlatıldı');
+    } catch (monitoringError) {
+      console.warn('⚠️ Monitoring sistemi hatası (devam ediliyor):', monitoringError);
+    }
+    
     // MongoDB bağlantısı başarılı olduktan sonra server'ı başlat
     httpServer.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server ${PORT} portunda çalışıyor`);
       console.log('✅ MongoDB bağlantısı ve server hazır');
+      console.log(`📚 API Documentation: http://localhost:${PORT}/docs`);
     });
   } catch (err) {
     console.error('❌ MongoDB bağlantı hatası:', err);
@@ -342,4 +382,7 @@ async function startServer() {
 }
 
 // Server'ı başlat
+export { app };
+
+// Start server
 startServer();

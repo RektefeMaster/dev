@@ -8,6 +8,7 @@ import { Wallet } from '../models/Wallet';
 import { Mechanic } from '../models/Mechanic'; // Added missing import
 import { AppointmentRating } from '../models/AppointmentRating'; // Added missing import
 import { User } from '../models/User'; // Added User import for wash packages
+import { AppointmentStatus, PaymentStatus } from '../../../shared/types/enums';
 import { ResponseHandler } from '../utils/response';
 
 const router = Router();
@@ -132,16 +133,26 @@ router.get('/wallet', auth, async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, message: 'Kullanıcı ID bulunamadı' });
     }
 
+    console.log('🔍 Wallet endpoint: UserId:', userId);
+    
     const wallet = await Wallet.findOne({ userId });
+    console.log('💰 Wallet bulundu:', wallet ? 'Evet' : 'Hayır');
+    
     if (!wallet) {
       // Cüzdan yoksa oluştur
+      console.log('🆕 Yeni wallet oluşturuluyor...');
       const newWallet = new Wallet({ userId, balance: 0 });
       await newWallet.save();
+      console.log('✅ Yeni wallet oluşturuldu:', newWallet._id);
       return res.json({ success: true, data: newWallet });
     }
 
+    console.log('💰 Mevcut wallet balance:', wallet.balance);
+    console.log('📊 Transaction sayısı:', wallet.transactions.length);
+    
     res.json({ success: true, data: wallet });
   } catch (error: any) {
+    console.error('❌ Wallet endpoint hatası:', error);
     res.status(500).json({ success: false, message: 'Cüzdan bilgileri alınamadı' });
   }
 });
@@ -486,8 +497,8 @@ router.get('/dashboard/stats', auth, async (req: Request, res: Response) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayAppointments = appointments.filter(a => 
-      a.status === 'TAMAMLANDI' && 
-      a.paymentStatus === 'paid' &&
+      a.status === AppointmentStatus.COMPLETED && 
+      a.paymentStatus === PaymentStatus.COMPLETED &&
       new Date(a.updatedAt) >= today
     );
     const todayEarnings = todayAppointments.reduce((sum, a) => sum + (a.price || 0), 0);
@@ -1555,6 +1566,69 @@ router.get('/:mechanicId/wash-packages', async (req: Request, res: Response) => 
     return ResponseHandler.success(res, washData, 'Yıkama paketleri başarıyla getirildi.');
   } catch (error) {
     return ResponseHandler.error(res, 'Yıkama paketleri getirilirken bir hata oluştu.');
+  }
+});
+
+/**
+ * @swagger
+ * /api/mechanic/wallet/debug:
+ *   get:
+ *     summary: Wallet debug bilgileri
+ *     description: Wallet ve işlem bilgilerini debug için getirir
+ *     tags:
+ *       - Mechanic
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Debug bilgileri başarıyla getirildi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/wallet/debug', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Kullanıcı ID bulunamadı' });
+    }
+
+    // Wallet bilgileri
+    const wallet = await Wallet.findOne({ userId });
+    
+    // Appointment bilgileri (bu kullanıcının ustası olduğu)
+    const appointments = await Appointment.find({ mechanicId: userId });
+    
+    // Tamamlanan appointment'lar
+    const completedAppointments = await Appointment.find({ 
+      mechanicId: userId, 
+      status: 'TAMAMLANDI' 
+    });
+
+    res.json({
+      success: true,
+      data: {
+        userId,
+        wallet: wallet ? {
+          balance: wallet.balance,
+          transactionCount: wallet.transactions.length,
+          transactions: wallet.transactions
+        } : null,
+        totalAppointments: appointments.length,
+        completedAppointments: completedAppointments.length,
+        appointments: appointments.map(apt => ({
+          id: apt._id,
+          status: apt.status,
+          price: apt.price,
+          finalPrice: apt.finalPrice,
+          createdAt: apt.createdAt
+        }))
+      }
+    });
+  } catch (error: any) {
+    console.error('❌ Wallet debug hatası:', error);
+    res.status(500).json({ success: false, message: 'Debug bilgileri alınamadı' });
   }
 });
 

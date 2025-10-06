@@ -170,10 +170,13 @@ const FaultReportDetailScreen = () => {
   const fetchFaultReportDetail = async () => {
     try {
       setLoading(true);
+      console.log('🔍 API çağrısı yapılıyor:', `${API_URL}/fault-reports/${faultReportId}`);
+      console.log('🔍 Token:', token ? 'Mevcut' : 'Yok');
       const response = await axios.get(`${API_URL}/fault-reports/${faultReportId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
+      console.log('🔍 API Response:', response.data);
       if (response.data && response.data.success) {
         const newFaultReport = response.data.data;
         
@@ -190,7 +193,9 @@ const FaultReportDetailScreen = () => {
         setFaultReport(newFaultReport);
       }
     } catch (error) {
-      Alert.alert('Hata', 'Arıza bildirimi detayı getirilirken bir hata oluştu');
+      console.error('Arıza bildirimi detayı getirme hatası:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Arıza bildirimi detayı getirilirken bir hata oluştu';
+      Alert.alert('Hata', errorMessage);
     } finally {
       setLoading(false);
     }

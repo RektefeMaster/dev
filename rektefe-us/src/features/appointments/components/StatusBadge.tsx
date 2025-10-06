@@ -6,7 +6,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, borderRadius, spacing } from '@/shared/theme';
+import { colors, colorStrings, typography, borderRadius, spacing } from '@/shared/theme';
 
 export interface StatusBadgeProps {
   status: 'success' | 'warning' | 'error' | 'info' | 'neutral';
@@ -29,39 +29,39 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({
     switch (status) {
       case 'success':
         return {
-          color: colors.success,
-          backgroundColor: colors.success.background,
-          borderColor: colors.success,
+          color: colorStrings.success,
+          backgroundColor: colorStrings.background.tertiary,
+          borderColor: colorStrings.success,
         };
       case 'warning':
         return {
-          color: colors.warning,
-          backgroundColor: colors.warning.background,
-          borderColor: colors.warning,
+          color: colorStrings.warning,
+          backgroundColor: colorStrings.background.tertiary,
+          borderColor: colorStrings.warning,
         };
       case 'error':
         return {
-          color: colors.error,
-          backgroundColor: colors.error.background,
-          borderColor: colors.error,
+          color: colorStrings.error,
+          backgroundColor: colorStrings.background.tertiary,
+          borderColor: colorStrings.error,
         };
       case 'info':
         return {
-          color: colors.info.main,
-          backgroundColor: colors.info.background,
-          borderColor: colors.info.main,
+          color: colorStrings.info,
+          backgroundColor: colorStrings.background.tertiary,
+          borderColor: colorStrings.info,
         };
       case 'neutral':
         return {
-          color: colors.text.tertiary,
-          backgroundColor: colors.background.quaternary,
-          borderColor: colors.border.primary,
+          color: colorStrings.text.tertiary,
+          backgroundColor: colorStrings.background.tertiary,
+          borderColor: colorStrings.border.primary,
         };
       default:
         return {
-          color: colors.text.tertiary,
-          backgroundColor: colors.background.quaternary,
-          borderColor: colors.border.primary,
+          color: colorStrings.text.tertiary,
+          backgroundColor: colorStrings.background.tertiary,
+          borderColor: colorStrings.border.primary,
         };
     }
   };

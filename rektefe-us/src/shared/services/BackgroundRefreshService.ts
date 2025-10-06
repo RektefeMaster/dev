@@ -12,7 +12,7 @@ export class BackgroundRefreshService {
   private static isActive = false;
   private static lastActivityTime = Date.now();
   private static readonly ACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 dakika
-  private static readonly REFRESH_CHECK_INTERVAL = 5 * 60 * 1000; // 5 dakika
+  private static readonly REFRESH_CHECK_INTERVAL = 15 * 60 * 1000; // 15 dakika (daha az sıklıkta)
 
   /**
    * Background refresh'i başlat
@@ -25,7 +25,7 @@ export class BackgroundRefreshService {
     this.isActive = true;
     console.log('🔄 Background token refresh başlatıldı');
 
-    // Her 5 dakikada bir kontrol et
+    // Her 15 dakikada bir kontrol et (daha az sıklıkta)
     this.refreshInterval = setInterval(async () => {
       try {
         await this.checkAndRefreshToken(refreshTokenCallback);

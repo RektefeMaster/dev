@@ -17,7 +17,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '@/shared/context';
 import apiService from '@/shared/services';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Rating } from '@/shared/types';
+import { Rating, RatingItem } from '@/shared/types';
 import { translateServiceName } from '@/shared/utils/serviceTranslator';
 import { DrawerActions } from '@react-navigation/native';
 import { CardNav } from '@/shared/components';
@@ -76,7 +76,7 @@ export default function HomeScreen() {
   });
   const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
-  const [recentRatings, setRecentRatings] = useState<Rating[]>([]);
+  const [recentRatings, setRecentRatings] = useState<RatingItem[]>([]);
   const [faultReportsCount, setFaultReportsCount] = useState(0);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
@@ -342,13 +342,13 @@ const mechanicCapabilities = [
     };
   }, [isAuthenticated, user?._id]); // Sadece user ID'si değiştiğinde tetikle
 
-  // Arıza bildirimleri için özel polling
+  // Arıza bildirimleri için özel polling - daha az sıklıkta
   useEffect(() => {
     if (isAuthenticated && user) {
-      // Her 30 saniyede bir arıza bildirimlerini kontrol et
+      // Her 5 dakikada bir arıza bildirimlerini kontrol et
       const faultReportInterval = setInterval(() => {
         checkFaultReports();
-      }, 30000); // 30 saniye
+      }, 300000); // 5 dakika (300 saniye)
 
       return () => clearInterval(faultReportInterval);
     }
@@ -370,13 +370,13 @@ const mechanicCapabilities = [
     }
   }, [loading, spinValue]);
 
-  // Sayfa odaklandığında veri yenile
+  // Sayfa odaklandığında veri yenile - ama sadece gerektiğinde
   useFocusEffect(
     useCallback(() => {
       if (isAuthenticated && user) {
         fetchDashboardData();
       }
-    }, [isAuthenticated, user?._id]) // Sadece user ID'si değiştiğinde tetikle
+    }, [isAuthenticated, user?._id])
   );
 
   const handleAppStateChange = (nextAppState: AppStateStatus) => {
@@ -390,28 +390,21 @@ const mechanicCapabilities = [
   };
 
   const startAutoRefresh = () => {
-    // Her 30 saniyede bir veri yenile
+    // Her 2 dakikada bir veri yenile (daha az sıklıkta)
     intervalRef.current = setInterval(() => {
       if (isAuthenticated && user && appState.current === 'active') {
         fetchDashboardData(false); // Loading gösterme
       }
-    }, 30000); // 30 saniyeye çıkardım
+    }, 120000); // 2 dakika (120 saniye)
   };
 
   const fetchDashboardData = async (showLoading = true) => {
     try {
       // Authentication kontrolü
       if (!isAuthenticated || !user) {
-        console.log('⚠️ fetchDashboardData: Authentication kontrolü başarısız');
-        console.log('isAuthenticated:', isAuthenticated);
-        console.log('user exists:', !!user);
         setLoading(false);
         return;
       }
-
-      console.log('🔍 fetchDashboardData: Veri yükleme başlatılıyor...');
-      console.log('User ID:', user._id);
-      console.log('User Type:', user.userType);
 
       if (showLoading) {
         setLoading(true);
@@ -441,18 +434,6 @@ const mechanicCapabilities = [
         apiService.getConversations(),
         apiService.getMechanicAppointments('pending')
       ]);
-
-      console.log('🔍 fetchDashboardData: API çağrıları tamamlandı');
-      console.log('todayAppointmentsRes:', todayAppointmentsRes.status);
-      console.log('todayCompletedRes:', todayCompletedRes.status);
-      console.log('activityRes:', activityRes.status);
-      console.log('ratingsRes:', ratingsRes.status);
-      console.log('ratingStatsRes:', ratingStatsRes.status);
-      console.log('appointmentStatsRes:', appointmentStatsRes.status);
-      console.log('faultReportsRes:', faultReportsRes.status);
-      console.log('notificationsRes:', notificationsRes.status);
-      console.log('conversationsRes:', conversationsRes.status);
-      console.log('pendingAppointmentsRes:', pendingAppointmentsRes.status);
 
       // Bugünkü onaylanan randevular
       if (todayAppointmentsRes.status === 'fulfilled' && todayAppointmentsRes.value.success && todayAppointmentsRes.value.data) {
@@ -498,16 +479,27 @@ const mechanicCapabilities = [
 
       // Son aktiviteler
       if (activityRes.status === 'fulfilled' && activityRes.value.success && activityRes.value.data) {
-        const activities = Array.isArray(activityRes.value.data) 
-          ? activityRes.value.data 
-          : [];
+        // Backend'den gelen veri formatını kontrol et
+        let activities = [];
+        const data = activityRes.value.data;
+        if ('activities' in data && data.activities) {
+          // Eğer data.activities varsa (mechanic/dashboard/recent-activity endpoint'i)
+          activities = Array.isArray(data.activities) 
+            ? data.activities 
+            : [];
+        } else if (Array.isArray(data)) {
+          // Eğer data direkt array ise (activity/recent endpoint'i)
+          activities = data;
+        }
+        
+        // Debug log removed - data format issue resolved
         
         // Mevcut activity formatını yeni formata dönüştür
-        const formattedActivities = activities.map((activity: any) => ({
+        const formattedActivities = activities.map((activity) => ({
           _id: activity.id || activity._id,
           type: activity.type || 'appointment_created',
           description: activity.title || activity.description || getActivityDescription(activity.type || 'appointment_created'),
-          createdAt: activity.time ? new Date(activity.time) : new Date(),
+          createdAt: activity.time ? new Date(activity.time) : activity.date ? new Date(activity.date) : new Date(),
           appointmentId: activity.id || activity._id,
           amount: activity.amount,
           status: activity.status
@@ -554,11 +546,22 @@ const mechanicCapabilities = [
 
       // Okunmamış bildirim sayısı
       if (notificationsRes.status === 'fulfilled' && notificationsRes.value.success && notificationsRes.value.data) {
-        const notifications = Array.isArray(notificationsRes.value.data) 
-          ? notificationsRes.value.data 
-          : [];
+        // Backend'den gelen veri formatını kontrol et
+        let notifications = [];
+        const data = notificationsRes.value.data;
+        if ('notifications' in data && data.notifications) {
+          // Eğer data.notifications varsa (notifications/mechanic endpoint'i)
+          notifications = Array.isArray(data.notifications) 
+            ? data.notifications 
+            : [];
+        } else if (Array.isArray(data)) {
+          // Eğer data direkt array ise
+          notifications = data;
+        }
         
-        const unreadCount = notifications.filter((notification: any) => 
+        // Debug log removed - data format issue resolved
+        
+        const unreadCount = notifications.filter((notification) => 
           !notification.read && !notification.isRead
         ).length;
         
@@ -601,9 +604,14 @@ const mechanicCapabilities = [
   };
 
   const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchDashboardData(false); // Loading gösterme
-    setRefreshing(false);
+    try {
+      setRefreshing(true);
+      await fetchDashboardData(false); // Loading gösterme
+    } catch (error) {
+      console.log('❌ onRefresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   // Arıza bildirimlerini kontrol et (polling için)

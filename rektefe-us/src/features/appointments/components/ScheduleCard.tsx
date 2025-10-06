@@ -7,7 +7,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, borderRadius, spacing, shadows } from '@/shared/theme';
+import { colors, colorStrings, typography, borderRadius, spacing, shadows } from '@/shared/theme';
 
 export interface ScheduleCardProps {
   time: string;
@@ -34,36 +34,36 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
     switch (status) {
       case 'pending':
         return {
-          color: colors.warning,
-          backgroundColor: colors.warning.background,
+          color: colorStrings.warning,
+          backgroundColor: colorStrings.background.tertiary,
           icon: 'time' as const,
           text: 'Bekliyor',
         };
       case 'in-progress':
         return {
-          color: colors.primary,
-          backgroundColor: colors.info.background,
+          color: colorStrings.primary,
+          backgroundColor: colorStrings.background.tertiary,
           icon: 'refresh' as const,
           text: 'Devam Ediyor',
         };
       case 'completed':
         return {
-          color: colors.success,
-          backgroundColor: colors.success.background,
+          color: colorStrings.success,
+          backgroundColor: colorStrings.background.tertiary,
           icon: 'checkmark-circle' as const,
           text: 'Tamamlandı',
         };
       case 'cancelled':
         return {
-          color: colors.error,
-          backgroundColor: colors.error.background,
+          color: colorStrings.error,
+          backgroundColor: colorStrings.background.tertiary,
           icon: 'close-circle' as const,
           text: 'İptal Edildi',
         };
       default:
         return {
-          color: colors.text.tertiary,
-          backgroundColor: colors.background.quaternary,
+          color: colorStrings.text.tertiary,
+          backgroundColor: colorStrings.background.tertiary,
           icon: 'help-circle' as const,
           text: 'Bilinmiyor',
         };
@@ -74,20 +74,20 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
     switch (priority) {
       case 'high':
         return {
-          color: colors.error,
-          backgroundColor: colors.error.background,
+          color: colorStrings.error,
+          backgroundColor: colorStrings.background.tertiary,
           text: 'Yüksek',
         };
       case 'medium':
         return {
-          color: colors.warning,
-          backgroundColor: colors.warning.background,
+          color: colorStrings.warning,
+          backgroundColor: colorStrings.background.tertiary,
           text: 'Orta',
         };
       case 'low':
         return {
-          color: colors.success,
-          backgroundColor: colors.success.background,
+          color: colorStrings.success,
+          backgroundColor: colorStrings.background.tertiary,
           text: 'Düşük',
         };
       default:
@@ -107,7 +107,7 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
       activeOpacity={0.8}
     >
       {/* Time Badge */}
-      <View style={[styles.timeContainer, { backgroundColor: colors.primary }]}>
+      <View style={[styles.timeContainer, { backgroundColor: colorStrings.primary }]}>
         <Text style={styles.timeText}>{time}</Text>
       </View>
 
@@ -145,7 +145,7 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
       {/* Action Button */}
       {onPress && (
         <View style={styles.actionButton}>
-          <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
+          <Ionicons name="chevron-forward" size={20} color={colorStrings.text.tertiary} />
         </View>
       )}
     </CardComponent>
@@ -155,7 +155,7 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: colors.background.card,
+    backgroundColor: colorStrings.background.secondary,
     borderRadius: borderRadius.card,
     padding: spacing.md,
     marginBottom: spacing.sm,
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   timeText: {
-    color: colors.text.inverse,
+    color: colorStrings.text.inverse,
     fontWeight: '700',
     fontSize: typography.caption.large.fontSize,
   },
@@ -179,13 +179,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   serviceType: {
-    color: colors.text.primary,
+    color: colorStrings.text.primary,
     fontWeight: '600',
     fontSize: typography.body2.fontSize,
     marginBottom: spacing.xs,
   },
   details: {
-    color: colors.text.tertiary,
+    color: colorStrings.text.tertiary,
     fontSize: typography.caption.large.fontSize,
     marginBottom: spacing.sm,
   },

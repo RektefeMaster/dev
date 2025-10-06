@@ -6,6 +6,7 @@ import { Mechanic } from '../models/Mechanic';
 import { User } from '../models/User';
 import { sendNotificationToUser } from '../utils/socketNotifications';
 import { sendResponse } from '../utils/response';
+import { AppointmentStatus } from '../../../shared/types/enums';
 
 export class AppointmentRatingController {
   /**
@@ -89,7 +90,7 @@ export class AppointmentRatingController {
       // Ödeme sonrası başarı bildirimi ve randevu işaretleme
       try {
         // Randevu durumunu güncelle
-        appointment.status = 'TAMAMLANDI'; // Tamamlandı olarak işaretle
+        appointment.status = AppointmentStatus.COMPLETED; // Tamamlandı olarak işaretle
         await appointment.save();
 
         // Ustaya bildirim gönder

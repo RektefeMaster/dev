@@ -23,7 +23,9 @@ export const MONGODB_OPTIONS = {
 
 // Server port
 export const PORT: number = Number(process.env.PORT) || 3000;
+// JWT secrets
 export const JWT_SECRET = process.env.JWT_SECRET;
+export const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
 
 // CORS origin - Security fix: No wildcard in production
 export const CORS_ORIGIN = process.env.NODE_ENV === 'production' 

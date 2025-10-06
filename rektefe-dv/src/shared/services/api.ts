@@ -1,3 +1,10 @@
+/**
+ * REKTEFE DRIVER APP - API SERVICE
+ * 
+ * Bu dosya, driver uygulaması için optimize edilmiş API servislerini içerir.
+ * Tüm API çağrıları type-safe ve error handling ile yapılır.
+ */
+
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG, STORAGE_KEYS } from '@/constants/config';
@@ -11,921 +18,475 @@ import {
   Driver,
   Mechanic
 } from '@/shared/types/common';
-import { handleApiError } from '@/shared/utils/errorHandler';
-// Token utils kullanılmıyor, kaldırıldı
+import { 
+  AppointmentStatus, 
+  ServiceType, 
+  UserType,
+  createSuccessResponse,
+  createErrorResponse,
+  ErrorCode
+} from '../../../../shared/types';
 
-if (!API_CONFIG.BASE_URL) {
-  throw new Error('API_URL tanımsız!');
-}
+// ===== API CLIENT CONFIGURATION =====
 
-// Token yenileme fonksiyonu
-let isRefreshing = false;
-let failedQueue: Array<{
-  resolve: (value: string | null) => void;
-  reject: (error: Error) => void;
-}> = [];
-
-const processQueue = (error: Error | null, token: string | null = null) => {
-  failedQueue.forEach(({ resolve, reject }) => {
-    if (error) {
-      reject(error);
-    } else {
-      resolve(token);
-    }
-  });
-  
-  failedQueue = [];
-};
-
-const refreshTokenIfNeeded = async (): Promise<string | null> => {
-  if (isRefreshing) {
-    return new Promise((resolve, reject) => {
-      failedQueue.push({ resolve, reject });
-    });
-  }
-
-  isRefreshing = true;
-
-  try {
-    const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
-    if (!refreshToken) {
-      console.log('❌ Refresh token bulunamadı');
-      processQueue(new Error('Refresh token bulunamadı'), null);
-      return null;
-    }
-
-    const response = await axios.post(`${API_CONFIG.BASE_URL}/auth/refresh-token`, {
-      refreshToken
-    });
-
-    if (response.data && response.data.success && response.data.data?.token) {
-      const newToken = response.data.data.token;
-      
-      // Yeni token'ı kaydet
-      await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, newToken);
-
-      console.log('✅ Token başarıyla yenilendi');
-      processQueue(null, newToken);
-      return newToken;
-    } else {
-      throw new Error('Token yenileme başarısız');
-    }
-  } catch (error) {
-    console.error('❌ Token yenileme hatası:', error);
-    
-    // Token yenileme başarısızsa tüm token'ları temizle
-    await AsyncStorage.multiRemove([
-      STORAGE_KEYS.AUTH_TOKEN,
-      STORAGE_KEYS.REFRESH_TOKEN,
-      STORAGE_KEYS.USER_ID
-    ]);
-    
-    processQueue(error, null);
-    return null;
-  } finally {
-    isRefreshing = false;
-  }
-};
-
-const api = axios.create({
-  baseURL: API_CONFIG.BASE_URL, // Use config instead of hardcoded URL
+const apiClient = axios.create({
+  baseURL: API_CONFIG.BASE_URL,
   timeout: API_CONFIG.TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor
-api.interceptors.request.use(
+// ===== REQUEST INTERCEPTOR =====
+
+apiClient.interceptors.request.use(
   async (config) => {
     try {
-      // Token'ı al ve ekle - validation'ı response interceptor'da yap
       const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-      
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
       
+      // Request ID ekle
+      config.headers['X-Request-ID'] = `req-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      
       return config;
     } catch (error) {
-      return Promise.reject(error);
+      console.error('Request interceptor error:', error);
+      return config;
     }
   },
   (error) => {
+    console.error('Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
 
-// Response interceptor
-api.interceptors.response.use(
+// ===== RESPONSE INTERCEPTOR =====
+
+apiClient.interceptors.response.use(
   (response) => {
+    // Success response'ları logla
+    console.log(`API Success: ${response.config.method?.toUpperCase()} ${response.config.url} - ${response.status}`);
     return response;
   },
   async (error) => {
-    const originalRequest = error.config;
+    // Error response'ları logla
+    console.error(`API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${error.response?.status}`);
     
-    // Network error handling
-    if (!error.response) {
-      const appError = handleApiError(error);
-      console.error('Network Error:', appError.message);
-      return Promise.reject(appError);
-    }
-    
-    // 401 Unauthorized handling - Gerçek logout mekanizması
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      
-      try {
-        // Token yenileme dene
-        const newToken = await refreshTokenIfNeeded();
-        
-        if (newToken) {
-          // Yeni token ile isteği tekrar gönder
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          return api(originalRequest);
-        } else {
-          // Token yenilenemedi, logout yap
-          await performLogout();
-          const appError = handleApiError(error);
-          return Promise.reject(appError);
-        }
-      } catch (refreshError) {
-        // Token yenileme başarısız, logout yap
-        await performLogout();
-        const appError = handleApiError(error);
-        return Promise.reject(appError);
-      }
-    }
-    
-    // Diğer hatalar için detaylı log
-    if (error.response) {
-      console.error('API Error Details:', {
-        data: error.response.data,
-        message: error.message,
-        method: error.config?.method,
-        status: error.response.status,
-        statusText: error.response.statusText,
-        url: error.config?.url
-      });
+    // 401 Unauthorized - token'ı temizle ve login'e yönlendir
+    if (error.response?.status === 401) {
+      await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+      await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+      // Navigation to login screen would be handled by the app
     }
     
     return Promise.reject(error);
   }
 );
 
-// Logout fonksiyonu
-const performLogout = async () => {
-  try {
-    console.log('🚪 API Service: Logout başlatılıyor...');
-    
-    // Tüm auth verilerini temizle
-    await AsyncStorage.multiRemove([
-      STORAGE_KEYS.AUTH_TOKEN,
-      STORAGE_KEYS.REFRESH_TOKEN,
-      STORAGE_KEYS.USER_ID
-    ]);
-    
-    console.log('✅ API Service: Logout tamamlandı');
-    
-    // AuthContext'e logout bildirimi gönder (event-based)
-    // Bu şekilde AuthContext otomatik olarak güncellenecek
-  } catch (error) {
-    console.error('❌ API Service: Logout hatası:', error);
-  }
-};
+// ===== AUTHENTICATION SERVICES =====
 
-// Profil fotoğrafı güncelleme (sadece backend'e yükleme)
-export const updateProfilePhoto = async (uri: string) => {
-  try {
-    const formData = new FormData();
-    formData.append('image', {
-      uri,
-      type: 'image/jpeg',
-      name: 'photo.jpg',
-    } as unknown as Blob);
-    
-    // 1. Resmi Cloudinary'ye yükle
-    const uploadResponse = await api.post('/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    
-    if (!uploadResponse.data || !uploadResponse.data.url) {
-      throw new Error('Resim yüklenemedi');
-    }
-    
-    const imageUrl = uploadResponse.data.url;
-    // 2. Profil fotoğrafını güncelle
-    const profileResponse = await api.post('/users/profile-photo', { photoUrl: imageUrl });
-    
-    // API response formatı kontrol et
-    if (profileResponse.data && profileResponse.data.success) {
-      return profileResponse.data;
-    } else {
-      throw new Error('Profil fotoğrafı güncellenemedi');
-    }
-  } catch (error) {
-    throw error;
-  }
-};
-
-// Kapak fotoğrafı güncelleme (sadece backend'e yükleme)
-export const updateCoverPhoto = async (uri: string) => {
-  try {
-    const formData = new FormData();
-    formData.append('image', {
-      uri,
-      type: 'image/jpeg',
-      name: 'photo.jpg',
-    } as unknown as Blob);
-    const response = await api.post('/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    const imageUrl = response.data.url;
-    const res = await api.post('/users/cover-photo', { photoUrl: imageUrl });
-    return res.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-// Kullanıcı bilgilerini getirme
-export const getUserProfile = async (userId: string) => {
-  try {
-    // Kendi profilini getirmek için /users/profile kullan
-    const response = await api.get('/users/profile');
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-// ===== ORTAK API SERVICE =====
-// Tüm frontend uygulamaları için standart API service
-
-class ApiService {
-  private api = api;
-
-  // ===== AUTH ENDPOINTS =====
-  async login(email: string, password: string) {
-    const response = await this.api.post('/auth/login', { 
-      email, 
-      password, 
-      userType: 'driver' // Şoför uygulaması için userType ekle
-    });
-    return response.data;
-  }
-
-  async register(userData: RegisterData): Promise<ApiResponse<Driver>> {
-    const registerData = {
-      ...userData,
-      userType: 'driver' as const // Şoför uygulaması için userType ekle
-    };
-    const response = await this.api.post('/auth/register', registerData);
-    return response.data;
-  }
-
-  async refreshToken() {
-    const response = await this.api.post('/auth/refresh-token');
-    return response.data;
-  }
-
-  async logout() {
-    const response = await this.api.post('/auth/logout');
-    return response.data;
-  }
-
-  // ===== APPOINTMENT ENDPOINTS (ORTAK) =====
-  async getAppointments(userType: 'driver' | 'mechanic' = 'driver') {
+export const AuthService = {
+  /**
+   * Kullanıcı kaydı
+   */
+  async register(data: RegisterData): Promise<ApiResponse<{ user: Driver; token: string }>> {
     try {
-      console.log('🔍 getAppointments: API çağrısı başlatılıyor...', userType);
-      const endpoint = userType === 'driver' ? '/appointments/driver' : '/appointments/mechanic';
-      const response = await this.api.get(endpoint);
-      console.log('✅ getAppointments: Başarılı yanıt:', response.data);
-      return response.data;
-    } catch (error: unknown) {
-      console.error('❌ getAppointments: Hata:', error);
-      const appError = handleApiError(error);
-      throw new Error(`Randevular getirilemedi: ${appError.message}`);
-    }
-  }
-
-  async createAppointment(appointmentData: AppointmentData): Promise<ApiResponse> {
-    try {
-      console.log('🔍 createAppointment: Gönderilen veri:', appointmentData);
-      
-      // Veriyi temizle ve doğru formatta gönder
-      const cleanData = {
-        userId: appointmentData.userId,
-        vehicleId: appointmentData.vehicleId,
-        serviceType: appointmentData.serviceType,
-        appointmentDate: appointmentData.appointmentDate,
-        timeSlot: appointmentData.timeSlot,
-        description: appointmentData.description,
-        mechanicId: appointmentData.mechanicId,
-        ...(appointmentData.price && { price: appointmentData.price })
-      };
-      
-      console.log('🔍 createAppointment: Temizlenmiş veri:', cleanData);
-      
-      const response = await this.api.post('/appointments', cleanData);
-      console.log('✅ createAppointment: Başarılı yanıt:', response.data);
-      return response.data;
-    } catch (error: any) {
-      console.error('❌ createAppointment: Detaylı hata:', {
-        message: error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        config: {
-          url: error.config?.url,
-          method: error.config?.method,
-          headers: error.config?.headers
-        }
+      const response = await apiClient.post('/api/auth/register', {
+        ...data,
+        userType: UserType.DRIVER
       });
       
-      // Hata detaylarını kullanıcıya göster
-      throw new Error(`Randevu oluşturulamadı: ${error.response?.data?.message || error.message}`);
-    }
-  }
-
-  async getAppointmentById(appointmentId: string) {
-    const response = await this.api.get(`/appointments/${appointmentId}`);
-    return response.data;
-  }
-
-  async updateAppointmentStatus(appointmentId: string, status: string, notes?: string) {
-    const response = await this.api.put(`/appointments/${appointmentId}/status`, { status, notes });
-    return response.data;
-  }
-
-  async cancelAppointment(appointmentId: string) {
-    const response = await this.api.put(`/appointments/${appointmentId}/cancel`);
-    return response.data;
-  }
-
-  async getTodaysAppointments() {
-    const response = await this.api.get('/appointments/today');
-    return response.data;
-  }
-
-  async searchAppointments(query: string) {
-    const response = await this.api.get(`/appointments/search?q=${encodeURIComponent(query)}`);
-    return response.data;
-  }
-
-  // ===== VEHICLE ENDPOINTS =====
-  async getVehicles() {
-    const response = await this.api.get('/vehicles');
-    return response.data;
-  }
-
-  async createVehicle(vehicleData: VehicleData): Promise<ApiResponse> {
-    const response = await this.api.post('/vehicles', vehicleData);
-    return response.data;
-  }
-
-  async updateVehicle(vehicleId: string, vehicleData: Partial<VehicleData>): Promise<ApiResponse> {
-    const response = await this.api.put(`/vehicles/${vehicleId}`, vehicleData);
-    return response.data;
-  }
-
-  async deleteVehicle(vehicleId: string) {
-    const response = await this.api.delete(`/vehicles/${vehicleId}`);
-    return response.data;
-  }
-
-  // ===== MECHANIC ENDPOINTS =====
-  async getMechanics() {
-    try {
-      console.log('🔍 getMechanics: API çağrısı başlatılıyor...');
-      const response = await this.api.get('/mechanic-services/mechanics');
-      console.log('✅ getMechanics: Başarılı yanıt:', response.data);
+      // Token'ları storage'a kaydet
+      if (response.data.success && response.data.data.token) {
+        await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, response.data.data.token);
+        if (response.data.data.refreshToken) {
+          await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, response.data.data.refreshToken);
+        }
+      }
+      
       return response.data;
     } catch (error: any) {
-      console.error('❌ getMechanics: Detaylı hata:', {
-        message: error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        config: {
-          url: error.config?.url,
-          method: error.config?.method,
-          headers: error.config?.headers
-        }
+      console.error('Register error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Kayıt işlemi sırasında bir hata oluştu',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Kullanıcı girişi
+   */
+  async login(email: string, password: string): Promise<ApiResponse<{ user: Driver; token: string }>> {
+    try {
+      const response = await apiClient.post('/api/auth/login', {
+        email,
+        password,
+        userType: UserType.DRIVER
       });
       
-      // Hata detaylarını kullanıcıya göster
-      throw new Error(`Ustalar getirilemedi: ${error.response?.data?.message || error.message}`);
-    }
-  }
-
-  async getMechanicById(mechanicId: string) {
-    try {
-      console.log('🔍 getMechanicById: API çağrısı başlatılıyor...', mechanicId);
-      const response = await this.api.get(`/mechanic/details/${mechanicId}`);
-      console.log('✅ getMechanicById: Başarılı yanıt:', response.data);
+      // Token'ları storage'a kaydet
+      if (response.data.success && response.data.data.token) {
+        await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, response.data.data.token);
+        if (response.data.data.refreshToken) {
+          await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, response.data.data.refreshToken);
+        }
+      }
+      
       return response.data;
     } catch (error: any) {
-      console.error('❌ getMechanicById: Detaylı hata:', {
-        message: error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        config: {
-          url: error.config?.url,
-          method: error.config?.method,
-          headers: error.config?.headers
-        }
+      console.error('Login error:', error);
+      return createErrorResponse(
+        ErrorCode.INVALID_CREDENTIALS,
+        'Giriş bilgileri hatalı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Token yenileme
+   */
+  async refreshToken(): Promise<ApiResponse<{ token: string }>> {
+    try {
+      const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+      if (!refreshToken) {
+        throw new Error('Refresh token not found');
+      }
+      
+      const response = await apiClient.post('/api/auth/refresh', {
+        refreshToken
       });
       
-      // Hata detaylarını kullanıcıya göster
-      throw new Error(`Usta detayları getirilemedi: ${error.response?.data?.message || error.message}`);
-    }
-  }
-
-  async getMechanicDetails(mechanicId: string) {
-    const response = await this.api.get(`/mechanic/details/${mechanicId}`);
-    return response.data;
-  }
-
-  async checkFavoriteMechanic(mechanicId: string) {
-    try {
-      // Backend'de mechanic favorite endpoint'i mevcut değil
-      // Gelecekte /api/mechanic/{id}/favorite endpoint'i eklenebilir
-      console.log('⚠️ checkFavoriteMechanic: Endpoint mevcut değil');
-      return { success: true, data: { isFavorite: false } };
-    } catch (error: unknown) {
-      console.error('❌ checkFavoriteMechanic: Hata:', error);
-      return { success: true, data: { isFavorite: false } };
-    }
-  }
-
-  async toggleFavoriteMechanic(mechanicId: string) {
-    try {
-      // Backend'de mechanic favorite endpoint'i mevcut değil
-      // Gelecekte /api/mechanic/{id}/favorite endpoint'i eklenebilir
-      console.log('⚠️ toggleFavoriteMechanic: Endpoint mevcut değil');
-      return { success: true, data: { isFavorite: false } };
-    } catch (error: unknown) {
-      console.error('❌ toggleFavoriteMechanic: Hata:', error);
-      return { success: true, data: { isFavorite: false } };
-    }
-  }
-
-  async getMechanicProfile() {
-    const response = await this.api.get('/mechanic/me');
-    return response.data;
-  }
-
-  async updateMechanicProfile(profileData: any) {
-    const response = await this.api.put('/mechanic/me', profileData);
-    return response.data;
-  }
-
-  async searchMechanics(query: string, city?: string, specialization?: string) {
-    let url = `/mechanic/search?q=${encodeURIComponent(query)}`;
-    if (city) url += `&city=${encodeURIComponent(city)}`;
-    if (specialization) url += `&specialization=${encodeURIComponent(specialization)}`;
-    const response = await this.api.get(url);
-    return response.data;
-  }
-
-  async getMechanicsByCity(city: string) {
-    const response = await this.api.get(`/mechanic/city/${encodeURIComponent(city)}`);
-    return response.data;
-  }
-
-  async getMechanicsBySpecialization(specialization: string) {
-    const response = await this.api.get(`/mechanic/specialization/${encodeURIComponent(specialization)}`);
-    return response.data;
-  }
-
-  async getMechanicRatingStats(mechanicId: string) {
-    const response = await this.api.get(`/appointment-ratings/mechanic/${mechanicId}/rating`);
-    return response.data;
-  }
-
-  async getMechanicReviews(mechanicId: string, options: { limit?: number } = {}) {
-    try {
-      const { limit = 20 } = options;
-      const response = await this.api.get(`/appointment-ratings/mechanic/${mechanicId}/ratings?limit=${limit}`);
+      // Yeni token'ı storage'a kaydet
+      if (response.data.success && response.data.data.token) {
+        await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, response.data.data.token);
+        if (response.data.data.refreshToken) {
+          await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, response.data.data.refreshToken);
+        }
+      }
+      
       return response.data;
     } catch (error: any) {
-      console.error('❌ getMechanicReviews: Hata:', error);
-      // Hata durumunda boş array döndür
-      return { success: true, data: [] };
+      console.error('Refresh token error:', error);
+      return createErrorResponse(
+        ErrorCode.REFRESH_TOKEN_EXPIRED,
+        'Token yenileme başarısız',
+        error.response?.data?.error?.details
+      );
     }
-  }
+  },
 
-  async getMainCategories() {
-    const response = await this.api.get('/service-categories/main-categories');
-    return response.data;
-  }
-
-  // ===== SERVICES ENDPOINTS =====
-  async getServices() {
-    const response = await this.api.get('/services');
-    return response.data;
-  }
-
-  async updateMechanicAvailability(availabilityData: any) {
-    const response = await this.api.put('/mechanic/availability', availabilityData);
-    return response.data;
-  }
-
-  // ===== CAMPAIGN ENDPOINTS =====
-  async getCampaigns() {
-    const response = await this.api.get('/campaigns');
-    return response.data;
-  }
-
-  // ===== MESSAGE ENDPOINTS =====
-  async getConversations() {
-    const response = await this.api.get('/message/conversations');
-    return response.data;
-  }
-
-  async getMessages(conversationId: string) {
-    const response = await this.api.get(`/message/conversations/${conversationId}/messages`);
-    return response.data;
-  }
-
-  async sendMessage(messageData: MessageData): Promise<ApiResponse> {
-    const response = await this.api.post('/message/send', messageData);
-    return response.data;
-  }
-
-  async markMessagesAsRead(conversationId: string) {
-    const response = await this.api.put(`/message/mark-read`, { conversationId });
-    return response.data;
-  }
-
-  async deleteMessage(messageId: string): Promise<ApiResponse> {
-    console.log(`[ApiService] DELETE /message/${messageId}`);
-    const response = await this.api.delete(`/message/${messageId}`);
-    console.log(`[ApiService] Delete response:`, response.data);
-    return response.data;
-  }
-
-  async deleteConversation(conversationId: string): Promise<ApiResponse> {
-    console.log(`[ApiService] DELETE /message/conversations/${conversationId}`);
-    const response = await this.api.delete(`/message/conversations/${conversationId}`);
-    console.log(`[ApiService] Delete conversation response:`, response.data);
-    return response.data;
-  }
-
-  async findConversation(otherUserId: string) {
-    const response = await this.api.get(`/message/conversation/find/${otherUserId}`);
-    return response.data;
-  }
-
-  // ===== NOTIFICATION ENDPOINTS =====
-  async getNotifications() {
-    console.log('🔍 getNotifications: API çağrısı başlıyor...');
+  /**
+   * Çıkış yapma
+   */
+  async logout(): Promise<void> {
     try {
-      const response = await this.api.get('/notifications/driver');
-      console.log('✅ getNotifications: API başarılı:', response.status);
-      return response.data;
+      await apiClient.post('/api/auth/logout');
     } catch (error) {
-      console.error('❌ getNotifications: API hatası:', error);
-      throw error;
+      console.error('Logout error:', error);
+    } finally {
+      // Token'ları temizle
+      await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+      await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
     }
   }
+};
 
-  async createNotification(notificationData: NotificationData): Promise<ApiResponse> {
-    const response = await this.api.post('/notifications', notificationData);
-    return response.data;
-  }
+// ===== VEHICLE SERVICES =====
 
-  async createTestNotification() {
-    const response = await this.api.post('/notifications/test');
-    return response.data;
-  }
-
-  async markNotificationAsRead(notificationId: string) {
-    const response = await this.api.put(`/notifications/${notificationId}/read`);
-    return response.data;
-  }
-
-  async markAllNotificationsAsRead() {
-    const response = await this.api.put('/notifications/driver/mark-all-read');
-    return response.data;
-  }
-
-  async deleteNotification(notificationId: string) {
-    const response = await this.api.delete(`/notifications/${notificationId}`);
-    return response.data;
-  }
-
-  // ===== PUSH NOTIFICATION ENDPOINTS =====
-  async updatePushToken(token: string) {
-    const response = await this.api.post('/users/push-token', { token });
-    return response.data;
-  }
-
-  async getNotificationSettings() {
-    const response = await this.api.get('/users/notification-settings');
-    return response.data;
-  }
-
-  async updateNotificationSettings(settings: any) {
-    const response = await this.api.put('/users/notification-settings', settings);
-    return response.data;
-  }
-
-  // ===== USER ENDPOINTS =====
-  async getUserProfile() {
-    const response = await this.api.get('/users/profile');
-    return response.data;
-  }
-
-  async updateUserProfile(profileData: Record<string, unknown>): Promise<ApiResponse> {
-    const response = await this.api.put('/users/profile', profileData);
-    return response.data;
-  }
-
-  async updateProfilePhoto(photoUrl: string) {
-    const response = await this.api.post('/users/profile-photo', { photoUrl });
-    return response.data;
-  }
-
-  // ===== YENİ HİZMET TALEPLERİ - Usta verilerine entegre =====
-  async createTowingRequest(requestData: Record<string, unknown>): Promise<ApiResponse> {
-    const response = await this.api.post('/service-requests/towing', {
-      ...requestData,
-      emergencyLevel: requestData.emergencyLevel || 'medium',
-      towingType: requestData.towingType || 'flatbed',
-      requestType: 'immediate'
-    });
-    return response.data;
-  }
-
-  // ===== ACİL ÇEKİCİ SİSTEMİ =====
-  async createEmergencyTowingRequest(requestData: Record<string, unknown>): Promise<ApiResponse> {
-    const response = await this.api.post('/service-requests/towing', {
-      ...requestData,
-      requestType: 'emergency',
-      priority: 'critical',
-      emergencyLevel: 'critical',
-      timestamp: new Date().toISOString()
-    });
-    return response.data;
-  }
-
-  async getEmergencyTowingRequest(requestId: string): Promise<ApiResponse> {
-    const response = await this.api.get(`/service-requests/towing/${requestId}`);
-    return response.data;
-  }
-
-  async cancelEmergencyTowingRequest(requestId: string): Promise<ApiResponse> {
-    const response = await this.api.post(`/emergency/towing-request/${requestId}/cancel`);
-    return response.data;
-  }
-
-  async getEmergencyTowingStatus(requestId: string): Promise<ApiResponse> {
-    const response = await this.api.get(`/emergency/towing-request/${requestId}/status`);
-    return response.data;
-  }
-
-  async createWashBooking(bookingData: Record<string, unknown>): Promise<ApiResponse> {
-    const response = await this.api.post('/service-requests/wash', {
-      ...bookingData,
-      serviceType: 'wash',
-      packageType: bookingData.packageType || 'basic',
-      appointmentDate: bookingData.appointmentDate || new Date().toISOString(),
-      timeSlot: bookingData.timeSlot || '09:00-10:00'
-    });
-    return response.data;
-  }
-
-  async createTirePartsRequest(requestData: Record<string, unknown>): Promise<ApiResponse> {
-    const response = await this.api.post('/service-requests/tire-parts', {
-      ...requestData,
-      serviceType: 'tire-parts',
-      partType: requestData.partType || 'tire_change',
-      tireSize: requestData.tireSize || '',
-      tireBrand: requestData.tireBrand || '',
-      season: requestData.season || 'all-season'
-    });
-    return response.data;
-  }
-
-  async getMechanicsByService(serviceType: string) {
-    const response = await this.api.get(`/service-requests/mechanics-by-service/${serviceType}`);
-    return response.data;
-  }
-
-  async getMechanicWashPackages(mechanicId: string) {
-    const response = await this.api.get(`/mechanic/${mechanicId}/wash-packages`);
-    return response.data;
-  }
-
-  async getMainServiceCategories() {
-    const response = await this.api.get('/service-categories/main-categories');
-    return response.data;
-  }
-
-  async updateCoverPhoto(photoUrl: string) {
-    const response = await this.api.post('/users/cover-photo', { photoUrl });
-    return response.data;
-  }
-
-  async getUserById(userId: string) {
-    const response = await this.api.get(`/users/${userId}`);
-    return response.data;
-  }
-
-  // ===== CUSTOMER SYSTEM ENDPOINTS =====
-  async becomeCustomer(mechanicId: string) {
-    const response = await this.api.post(`/users/become-customer/${mechanicId}`);
-    return response.data;
-  }
-
-  async removeCustomer(mechanicId: string) {
-    const response = await this.api.delete(`/users/remove-customer/${mechanicId}`);
-    return response.data;
-  }
-
-  async getMyMechanics() {
-    const response = await this.api.get('/users/my-mechanics');
-    return response.data;
-  }
-
-  // ===== VEHICLE SEARCH ENDPOINTS =====
-  async searchVehicles(query: string, brand?: string, model?: string, plateNumber?: string) {
-    let url = `/vehicles/search?q=${encodeURIComponent(query)}`;
-    if (brand) url += `&brand=${encodeURIComponent(brand)}`;
-    if (model) url += `&model=${encodeURIComponent(model)}`;
-    if (plateNumber) url += `&plateNumber=${encodeURIComponent(plateNumber)}`;
-    const response = await this.api.get(url);
-    return response.data;
-  }
-
-  async getAllVehicles(page: number = 1, limit: number = 20, brand?: string, year?: number) {
-    let url = `/vehicles/all?page=${page}&limit=${limit}`;
-    if (brand) url += `&brand=${encodeURIComponent(brand)}`;
-    if (year) url += `&year=${year}`;
-    const response = await this.api.get(url);
-    return response.data;
-  }
-
-  // ===== WALLET ENDPOINTS =====
-  async getWalletBalance() {
-    const response = await this.api.get('/wallet/balance');
-    return response.data;
-  }
-
-  async getWalletTransactions() {
-    const response = await this.api.get('/wallet/transactions');
-    return response.data;
-  }
-
-  async withdrawFromWallet(amount: number) {
-    const response = await this.api.post('/wallet/withdraw', { amount });
-    return response.data;
-  }
-
-  // ===== ADS ENDPOINTS =====
-  async getAds() {
-    const response = await this.api.get('/ads');
-    return response.data;
-  }
-
-  // ===== ACTIVITY ENDPOINTS =====
-  async getRecentActivity() {
-    const response = await this.api.get('/activity/recent');
-    return response.data;
-  }
-
-  async getMechanicEarningsStats() {
-    const response = await this.api.get('/mechanic-earnings/stats');
-    return response.data;
-  }
-
-  async getMechanicMonthlyEarnings() {
-    const response = await this.api.get('/mechanic-earnings/monthly');
-    return response.data;
-  }
-
-  // ===== DRIVER ENDPOINTS =====
-  async getDriverVehicles() {
+export const VehicleService = {
+  /**
+   * Araç listesi
+   */
+  async getVehicles(): Promise<ApiResponse<{ vehicles: any[] }>> {
     try {
-      // Backend'de user'ın araçlarını almak için doğru endpoint
-      const response = await this.api.get('/vehicles');
-      return response.data;
-    } catch (error) {
-      const appError = handleApiError(error);
-      return {
-        success: false,
-        data: [],
-        message: appError.message
-      };
-    }
-  }
-
-  // ===== FAULT REPORT ENDPOINTS =====
-  async createFaultReport(faultReportData: Record<string, unknown>): Promise<ApiResponse> {
-    try {
-      console.log('🔍 createFaultReport: Gönderilen veri:', faultReportData);
-      
-      // Frontend'den gelen serviceCategory'yi backend formatına çevir
-      // Çekici, Araç Yıkama ve Lastik hariç tüm hizmetler "Tamir ve Bakım" altında
-      const serviceCategoryMapping: { [key: string]: string } = {
-        'Tamir ve Bakım': 'Genel Bakım', // Tüm tamir/bakım hizmetleri Genel Bakım olarak gönderilir
-        'Araç Yıkama': 'Araç Yıkama',
-        'Lastik': 'Lastik', 
-        'Çekici': 'Çekici'
-      };
-      
-      const mappedServiceCategory = serviceCategoryMapping[faultReportData.serviceCategory as string] || faultReportData.serviceCategory;
-      
-      // Veriyi temizle ve doğru formatta gönder
-      const cleanData = {
-        vehicleId: faultReportData.vehicleId,
-        serviceCategory: mappedServiceCategory,
-        faultDescription: faultReportData.faultDescription,
-        priority: faultReportData.priority || 'medium',
-        photos: faultReportData.photos || [],
-        videos: faultReportData.videos || [],
-        // vehicleInfo backend'de kabul edilmiyor, sadece vehicleId yeterli
-        ...(faultReportData.location && { location: faultReportData.location })
-      };
-      
-      console.log('🔍 createFaultReport: Temizlenmiş veri:', cleanData);
-      
-      const response = await this.api.post('/fault-reports', cleanData);
-      console.log('✅ createFaultReport: Başarılı yanıt:', response.data);
+      const response = await apiClient.get('/api/vehicles');
       return response.data;
     } catch (error: any) {
-      console.error('❌ createFaultReport: Detaylı hata:', {
-        message: error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        config: {
-          url: error.config?.url,
-          method: error.config?.method,
-          headers: error.config?.headers
-        }
-      });
-      
-      // Hata detaylarını kullanıcıya göster
-      throw new Error(`Arıza bildirimi gönderilemedi: ${error.response?.data?.message || error.message}`);
+      console.error('Get vehicles error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Araç listesi alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Yeni araç ekleme
+   */
+  async addVehicle(data: VehicleData): Promise<ApiResponse<{ vehicle: any }>> {
+    try {
+      const response = await apiClient.post('/api/vehicles', data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Add vehicle error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Araç eklenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Araç güncelleme
+   */
+  async updateVehicle(id: string, data: Partial<VehicleData>): Promise<ApiResponse<{ vehicle: any }>> {
+    try {
+      const response = await apiClient.put(`/api/vehicles/${id}`, data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Update vehicle error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Araç güncellenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Araç silme
+   */
+  async deleteVehicle(id: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await apiClient.delete(`/api/vehicles/${id}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Delete vehicle error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Araç silinemedi',
+        error.response?.data?.error?.details
+      );
     }
   }
+};
 
-  async getUserFaultReports(params?: { status?: string; page?: number; limit?: number }) {
-    const response = await this.api.get('/fault-reports/my-reports', { params });
-    return response.data;
+// ===== APPOINTMENT SERVICES =====
+
+export const AppointmentService = {
+  /**
+   * Randevu listesi
+   */
+  async getAppointments(status?: AppointmentStatus): Promise<ApiResponse<{ appointments: any[] }>> {
+    try {
+      const params = status ? { status } : {};
+      const response = await apiClient.get('/api/appointments', { params });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get appointments error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Randevu listesi alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Yeni randevu oluşturma
+   */
+  async createAppointment(data: AppointmentData): Promise<ApiResponse<{ appointment: any }>> {
+    try {
+      const response = await apiClient.post('/api/appointments', data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Create appointment error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Randevu oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Randevu güncelleme
+   */
+  async updateAppointment(id: string, data: Partial<AppointmentData>): Promise<ApiResponse<{ appointment: any }>> {
+    try {
+      const response = await apiClient.put(`/api/appointments/${id}`, data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Update appointment error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Randevu güncellenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Randevu iptal etme
+   */
+  async cancelAppointment(id: string): Promise<ApiResponse<{ appointment: any }>> {
+    try {
+      const response = await apiClient.put(`/api/appointments/${id}`, {
+        status: AppointmentStatus.CANCELLED
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Cancel appointment error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Randevu iptal edilemedi',
+        error.response?.data?.error?.details
+      );
+    }
   }
+};
 
-  async getFaultReportById(faultReportId: string) {
-    const response = await this.api.get(`/fault-reports/${faultReportId}`);
-    return response.data;
+// ===== MECHANIC SERVICES =====
+
+export const MechanicService = {
+  /**
+   * Usta listesi
+   */
+  async getMechanics(filters?: any): Promise<ApiResponse<{ mechanics: Mechanic[] }>> {
+    try {
+      const response = await apiClient.get('/api/mechanics', { params: filters });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get mechanics error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Usta listesi alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Yakındaki ustalar
+   */
+  async getNearbyMechanics(location: { latitude: number; longitude: number }, maxDistance: number = 10): Promise<ApiResponse<{ mechanics: Mechanic[] }>> {
+    try {
+      const response = await apiClient.get('/api/mechanics/nearby', {
+        params: {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          maxDistance
+        }
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get nearby mechanics error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Yakındaki ustalar alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Usta detayları
+   */
+  async getMechanicDetails(id: string): Promise<ApiResponse<{ mechanic: Mechanic }>> {
+    try {
+      const response = await apiClient.get(`/api/mechanics/${id}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Get mechanic details error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Usta detayları alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
   }
+};
 
-  async submitQuote(faultReportId: string, quoteData: any) {
-    const response = await this.api.post(`/fault-reports/${faultReportId}/quote`, quoteData);
-    return response.data;
+// ===== MESSAGE SERVICES =====
+
+export const MessageService = {
+  /**
+   * Mesaj listesi
+   */
+  async getMessages(conversationId: string): Promise<ApiResponse<{ messages: MessageData[] }>> {
+    try {
+      const response = await apiClient.get(`/api/messages/${conversationId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Get messages error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Mesaj listesi alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Mesaj gönderme
+   */
+  async sendMessage(data: MessageData): Promise<ApiResponse<{ message: MessageData }>> {
+    try {
+      const response = await apiClient.post('/api/messages', data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Send message error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Mesaj gönderilemedi',
+        error.response?.data?.error?.details
+      );
+    }
   }
+};
 
-  async selectQuote(faultReportId: string, quoteIndex: number) {
-    const response = await this.api.post(`/fault-reports/${faultReportId}/select-quote`, { quoteIndex });
-    return response.data;
+// ===== NOTIFICATION SERVICES =====
+
+export const NotificationService = {
+  /**
+   * Bildirim listesi
+   */
+  async getNotifications(): Promise<ApiResponse<{ notifications: NotificationData[] }>> {
+    try {
+      const response = await apiClient.get('/api/notifications');
+      return response.data;
+    } catch (error: any) {
+      console.error('Get notifications error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Bildirim listesi alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Bildirim okundu olarak işaretleme
+   */
+  async markAsRead(id: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await apiClient.put(`/api/notifications/${id}/read`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Mark notification as read error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Bildirim okundu olarak işaretlenemedi',
+        error.response?.data?.error?.details
+      );
+    }
   }
+};
 
-  async getMechanicFaultReports(params?: { status?: string; page?: number; limit?: number }) {
-    const response = await this.api.get('/fault-reports/mechanic/reports', { params });
-    return response.data;
-  }
+// ===== EXPORT ALL SERVICES =====
 
-
-  // ===== GENERIC METHODS =====
-  async post(endpoint: string, data?: any) {
-    const response = await this.api.post(endpoint, data);
-    return response.data;
-  }
-
-  async get(endpoint: string, params?: any) {
-    const response = await this.api.get(endpoint, { params });
-    return response.data;
-  }
-
-  async put(endpoint: string, data?: any) {
-    const response = await this.api.put(endpoint, data);
-    return response.data;
-  }
-
-  async delete(endpoint: string) {
-    const response = await this.api.delete(endpoint);
-    return response.data;
-  }
-}
-
-// Singleton instance
-const apiService = new ApiService();
-
-// Driver API alias for backward compatibility
-export const driverApi = apiService;
-
-export { api, apiService }; 
+export default {
+  AuthService,
+  VehicleService,
+  AppointmentService,
+  MechanicService,
+  MessageService,
+  NotificationService
+};

@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { UserType } from '../../../shared/types/enums';
 import { IUser } from './User';
 
 export interface IMechanic extends IUser {
@@ -69,7 +70,7 @@ const mechanicSchema = new Schema<IMechanic>({
   cover: { type: String, default: null },
   bio: { type: String, default: '' },
   city: { type: String, default: null },
-  userType: { type: String, enum: ['user', 'mechanic'], default: 'mechanic' },
+  userType: { type: String, enum: [UserType.MECHANIC], default: UserType.MECHANIC },
   // Google OAuth alanları
   googleId: { type: String, sparse: true, unique: true },
   emailVerified: { type: Boolean, default: false },

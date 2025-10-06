@@ -87,10 +87,10 @@ const FaultReportsScreen: React.FC = () => {
       }
       
       // Backend'e status filtresi gönder
-      const response = await apiService.getMechanicFaultReports(statusFilter);
+      const response = await apiService.FaultReportService.getMechanicFaultReports(statusFilter);
       
       if (response.success && response.data) {
-        setFaultReports(response.data);
+        setFaultReports(response.data.faultReports || []);
       } else {
         setFaultReports([]);
       }
@@ -109,13 +109,20 @@ const FaultReportsScreen: React.FC = () => {
     }, [isAuthenticated, user, filter])
   );
 
-  // Arıza bildirimleri için otomatik yenileme (polling)
+  // İlk veri yükleme
   useEffect(() => {
     if (isAuthenticated && user) {
-      // Her 30 saniyede bir arıza bildirimlerini yenile
+      fetchFaultReports(true, filter === 'all' ? undefined : filter);
+    }
+  }, [isAuthenticated, user, filter]);
+
+  // Arıza bildirimleri için otomatik yenileme (polling) - daha az sıklıkta
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      // Her 2 dakikada bir arıza bildirimlerini yenile
       const interval = setInterval(() => {
         fetchFaultReports(false, filter === 'all' ? undefined : filter);
-      }, 30000); // 30 saniye
+      }, 120000); // 2 dakika (120 saniye)
 
       return () => clearInterval(interval);
     }
@@ -192,7 +199,7 @@ const FaultReportsScreen: React.FC = () => {
     setSubmittingQuote(true);
 
     try {
-      const response = await apiService.submitQuote(selectedFaultReport._id, {
+      const response = await apiService.FaultReportService.submitQuote(selectedFaultReport._id, {
         quoteAmount: Number(quoteAmount),
         estimatedDuration: estimatedDuration.trim(),
         notes: quoteNotes.trim() || 'Detaylı inceleme sonrası kesin süre belirlenecek'

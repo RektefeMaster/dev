@@ -1,595 +1,482 @@
-// Kullanıcı tipleri
-export interface User {
-  _id: string;
-  name: string;
-  surname: string;
-  email: string;
-  phone: string;
-  userType: 'mechanic' | 'driver';
-  avatar?: string;
-  createdAt: string;
-  updatedAt: string;
+/**
+ * REKTEFE MECHANIC APP - SHARED TYPES
+ * 
+ * Bu dosya, mechanic uygulaması için gerekli tüm type tanımlarını içerir.
+ * Shared types'ları import eder ve mechanic app'e özel type'ları ekler.
+ */
+
+import {
+  UserType,
+  AppointmentStatus,
+  ServiceType,
+  BaseUser,
+  Driver as SharedDriver,
+  Mechanic as SharedMechanic,
+  Vehicle as SharedVehicle,
+  Appointment as SharedAppointment,
+  Location,
+  ApiResponse,
+  Notification as SharedNotification,
+  Message as SharedMessage,
+  Conversation as SharedConversation,
+  Rating as RatingEnum,
+  RatingItem,
+  FaultReport as SharedFaultReport,
+  User,
+  CreateAppointmentItemRequest,
+  UpdateAppointmentItemRequest,
+  ExtraApprovalRequestData,
+  WithdrawalRequestData,
+  EarningsResponse,
+  WalletResponse,
+  FaultReportListResponse,
+  ServicePricingFormData as SharedServicePricingFormData,
+  DashboardStats,
+  TodaySchedule,
+  AppointmentItem,
+  ExtraApprovalRequest
+} from '../../../../shared/types/index';
+
+// ===== RE-EXPORT SHARED TYPES =====
+export type {
+  BaseUser,
+  SharedDriver as Driver,
+  SharedMechanic as Mechanic,
+  SharedVehicle as Vehicle,
+  SharedAppointment as Appointment,
+  Location,
+  ApiResponse,
+  SharedNotification as Notification,
+  SharedMessage as Message,
+  SharedConversation as Conversation,
+  SharedFaultReport as FaultReport,
+  User,
+  RatingItem,
+  CreateAppointmentItemRequest,
+  UpdateAppointmentItemRequest,
+  ExtraApprovalRequestData,
+  WithdrawalRequestData,
+  EarningsResponse,
+  WalletResponse,
+  FaultReportListResponse,
+  DashboardStats,
+  TodaySchedule,
+  AppointmentItem,
+  ExtraApprovalRequest
+};
+
+// Re-export enums as values
+export { UserType, AppointmentStatus, ServiceType };
+export { RatingEnum as Rating };
+
+// Export ServicePricingFormData with alias
+export type ServicePricingFormData = SharedServicePricingFormData;
+
+// ===== MECHANIC APP SPECIFIC TYPES =====
+
+export interface MechanicProfile extends Omit<SharedMechanic, 'availability'> {
+  // Mechanic app'e özel alanlar
+  businessHours: BusinessHours[];
+  serviceCategories: ServiceType[];
+  certifications: Certification[];
+  equipment: Equipment[];
+  workingAreas: WorkingArea[];
+  pricing: ServicePricing[];
+  availability: AvailabilityStatus;
+  notificationSettings: MechanicNotificationSettings;
+  earnings: EarningsSummary;
+  performance: PerformanceMetrics;
 }
 
-// Usta özel bilgileri
-export interface MechanicProfile extends User {
-  userType: 'mechanic';
-  experience: number; // yıl
-  specialties: string[];
-  city: string;
-  address: string;
+export interface BusinessHours {
+  dayOfWeek: 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
+  startTime: string; // HH:MM format
+  endTime: string; // HH:MM format
+  isWorking: boolean;
+  breakStartTime?: string;
+  breakEndTime?: string;
+}
+
+export interface Certification {
+  id: string;
+  name: string;
+  issuingOrganization: string;
+  issueDate: Date;
+  expiryDate?: Date;
+  certificateNumber: string;
+  isVerified: boolean;
+  documentUrl?: string;
+}
+
+export interface Equipment {
+  id: string;
+  name: string;
+  type: 'DIAGNOSTIC' | 'REPAIR' | 'MAINTENANCE' | 'TOWING' | 'OTHER';
+  brand?: string;
+  model?: string;
+  isPortable: boolean;
   isAvailable: boolean;
-  rating: number;
-  totalJobs: number;
-  totalEarnings: number;
-  bio?: string;
-  workingHours?: string;
-  services: ServiceCategory[];
-  shopName?: string;
-  vehicleBrands?: string[];
-  serviceCategories?: string[];
-  location?: {
-    city: string;
-    district: string;
-    neighborhood: string;
-    street: string;
-    building: string;
-    floor: string;
-    apartment: string;
-    description: string;
-    coordinates: {
-      latitude: number;
-      longitude: number;
-    };
-  };
+  lastMaintenanceDate?: Date;
+  nextMaintenanceDate?: Date;
 }
 
-// ===== SERVİS KATEGORİLERİ VE HİZMETLER =====
-
-export interface ServiceCategory {
-  _id: string;
+export interface WorkingArea {
+  id: string;
   name: string;
-  description: string;
-  icon: string;
-  color: string;
+  center: Location;
+  radius: number; // km
   isActive: boolean;
-  parentCategory?: string;
-  subCategories?: ServiceCategory[];
-  createdAt: string;
-  updatedAt: string;
+  serviceTypes: ServiceType[];
 }
 
-export interface Service {
-  _id: string;
-  name: string;
-  description: string;
-  categoryId: string;
-  price: number;
-  duration: number; // dakika cinsinden
-  isActive: boolean;
-  mechanicId: string;
-  createdAt: string;
-  updatedAt: string;
+export interface ServicePricing {
+  serviceType: ServiceType;
+  basePrice: number;
+  hourlyRate?: number;
+  minimumPrice: number;
+  maximumPrice?: number;
+  currency: string;
+  isNegotiable: boolean;
+  discounts?: PricingDiscount[];
 }
 
-export interface ServicePackage {
-  _id: string;
-  name: string;
-  description: string;
-  services: string[]; // service ID'leri
-  totalPrice: number;
-  discount: number;
-  isActive: boolean;
-  mechanicId: string;
-  createdAt: string;
-  updatedAt: string;
+export interface PricingDiscount {
+  type: 'QUANTITY' | 'LOYALTY' | 'SEASONAL' | 'EMERGENCY';
+  percentage?: number;
+  fixedAmount?: number;
+  conditions: string;
+  validFrom?: Date;
+  validTo?: Date;
 }
 
-// ===== MÜŞTERİ YÖNETİMİ =====
-
-export interface Customer {
-  _id: string;
-  name: string;
-  surname: string;
-  email: string;
-  phone: string;
-  avatar?: string;
-  vehicles: string[]; // vehicle ID'leri
-  totalSpent: number;
-  lastVisit: string;
-  notes: CustomerNote[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CustomerNote {
-  _id: string;
-  content: string;
-  mechanicId: string;
-  createdAt: string;
-}
-
-// ===== RANDEVU YÖNETİMİ =====
-
-export interface Appointment {
-  _id: string;
-  serviceType: string;
-  appointmentDate: string | Date;
-  timeSlot: string;
-  status: 'pending' | 'confirmed' | 'rejected' | 'in-progress' | 'completed' | 'cancelled';
-  price?: number;
-  mechanicId: string;
-  userId: string;
-  vehicleId?: string;
-  description: string;
-  estimatedDuration?: number;
-  actualDuration?: number;
-  mechanicNotes?: string;
-  rejectionReason?: string;
-  createdAt: string | Date;
-  updatedAt: string | Date;
-  
-  // Populated fields
-  customer?: {
-    _id: string;
-    name: string;
-    surname: string;
-    email: string;
-    phone: string;
-  };
-  
-  vehicle?: {
-    _id: string;
-    brand: string;
-    modelName: string;
-    year: number;
-    plateNumber: string;
-    fuelType: string;
-    engineType: string;
-    transmission: string;
-    package: string;
-    color?: string;
-    mileage?: number;
-    lastMaintenanceDate?: string | Date;
-    nextMaintenanceDate?: string | Date;
-  };
-  
-  // Additional fields for API responses
-  completionDate?: string | Date;
-  paymentStatus?: 'pending' | 'completed' | 'failed';
-  customerName?: string;
-  vehicleInfo?: string;
-}
-
-export interface ServicedVehicle {
-  _id: string;
-  brand: string;
-  model: string;
-  plateNumber: string;
-  customerId: string;
-  customerName: string;
-  lastServiceDate: string;
-  lastServiceType: string;
-  totalServices: number;
-  totalSpent: number;
-}
-
-// ===== DETAYLI FİNANSAL YÖNETİM =====
-
-export interface DetailedEarnings {
-  totalEarnings: number;
-  totalServices: number;
-  averageServicePrice: number;
-  earningsByCategory: {
-    category: string;
-    amount: number;
-    count: number;
-  }[];
-  earningsByDate: {
-    date: string;
-    amount: number;
-    count: number;
-  }[];
-  topCustomers: {
-    customerId: string;
-    customerName: string;
-    amount: number;
-    count: number;
-  }[];
-}
-
-export interface MonthlyEarnings {
-  month: number;
-  year: number;
-  totalEarnings: number;
-  totalServices: number;
-  averageServicePrice: number;
-  earningsByDay: {
-    day: number;
-    amount: number;
-    count: number;
-  }[];
-}
-
-export interface YearlyEarnings {
-  year: number;
-  totalEarnings: number;
-  totalServices: number;
-  averageServicePrice: number;
-  earningsByMonth: {
-    month: number;
-    amount: number;
-    count: number;
-  }[];
-}
-
-export interface WithdrawalRequest {
-  _id: string;
-  amount: number;
-  status: 'pending' | 'approved' | 'rejected' | 'completed';
-  bankInfo: {
-    bankName: string;
-    accountNumber: string;
-    accountHolder: string;
-  };
-  requestedAt: string;
-  processedAt?: string;
-  notes?: string;
-}
-
-// ===== İSTATİSTİKLER VE RAPORLAR =====
-
-export interface DashboardStats {
-  todayEarnings: number;
-  todayServices: number;
-  monthlyEarnings: number;
-  monthlyServices: number;
-  totalCustomers: number;
-  averageRating: number;
-  pendingAppointments: number;
-  activeJobs: number;
-  recentActivity: {
-    type: string;
-    description: string;
-    amount?: number;
-    timestamp: string;
-  }[];
-}
-
-export interface CustomerSatisfactionStats {
-  averageRating: number;
-  totalRatings: number;
-  ratingDistribution: {
-    rating: number;
-    count: number;
-    percentage: number;
-  }[];
-  recentReviews: {
-    customerName: string;
-    rating: number;
-    comment: string;
-    date: string;
-  }[];
-}
-
-export interface ServicePerformanceStats {
-  totalServices: number;
-  averageServiceTime: number;
-  servicesByCategory: {
-    category: string;
-    count: number;
-    averagePrice: number;
-    averageRating: number;
-  }[];
-  topPerformingServices: {
-    serviceName: string;
-    count: number;
-    totalRevenue: number;
-    averageRating: number;
-  }[];
-}
-
-export interface RevenueAnalysis {
-  totalRevenue: number;
-  revenueGrowth: number; // yüzde
-  revenueByPeriod: {
-    period: string;
-    amount: number;
-    growth: number;
-  }[];
-  revenueByService: {
-    serviceName: string;
-    amount: number;
-    percentage: number;
-  }[];
-  revenueByCustomer: {
-    customerName: string;
-    amount: number;
-    percentage: number;
-  }[];
-}
-
-// ===== GELİŞMİŞ ÖZELLİKLER =====
-
-export interface WorkCalendar {
-  date: string;
-  appointments: Appointment[];
-  availableSlots: {
-    startTime: string;
-    endTime: string;
-    isAvailable: boolean;
-  }[];
-  totalBookedHours: number;
-  totalAvailableHours: number;
-}
-
-export interface AvailabilitySchedule {
-  _id: string;
-  mechanicId: string;
-  dayOfWeek: number; // 0-6 (Pazar-Cumartesi)
-  startTime: string;
-  endTime: string;
+export interface AvailabilityStatus {
+  isOnline: boolean;
   isAvailable: boolean;
-  breakTimes: {
-    startTime: string;
-    endTime: string;
-  }[];
+  currentLocation?: Location;
+  estimatedArrivalTime?: Date;
+  maxDistance: number; // km
+  workingHours: BusinessHours[];
+  breakTime?: {
+    startTime: Date;
+    endTime: Date;
+    reason: string;
+  };
 }
 
-export interface NotificationSettings {
+export interface MechanicNotificationSettings {
   pushNotifications: boolean;
   emailNotifications: boolean;
   smsNotifications: boolean;
-  appointmentReminders: boolean;
+  appointmentRequests: boolean;
+  appointmentUpdates: boolean;
   paymentNotifications: boolean;
-  marketingNotifications: boolean;
-  reminderTime: number; // dakika cinsinden
+  ratingNotifications: boolean;
+  systemUpdates: boolean;
+  promotionalOffers: boolean;
 }
 
-// ===== RAPORLAMA =====
+export interface EarningsSummary {
+  today: number;
+  thisWeek: number;
+  thisMonth: number;
+  thisYear: number;
+  totalEarnings: number;
+  pendingPayments: number;
+  currency: string;
+  lastPaymentDate?: Date;
+  averagePerService: number;
+  topEarningService: ServiceType;
+}
 
-export interface Report {
-  _id: string;
-  type: string;
-  title: string;
-  dateRange: {
-    start: string;
-    end: string;
+export interface PerformanceMetrics {
+  totalJobs: number;
+  completedJobs: number;
+  cancelledJobs: number;
+  averageRating: number;
+  totalRatings: number;
+  responseTime: number; // minutes
+  completionRate: number; // percentage
+  customerSatisfaction: number; // percentage
+  repeatCustomers: number;
+  newCustomers: number;
+  lastUpdated: Date;
+}
+
+export interface MechanicAppointment extends SharedAppointment {
+  // Mechanic app'e özel appointment alanları
+  estimatedDuration: number; // dakika
+  actualDuration?: number; // dakika
+  serviceNotes?: string;
+  partsUsed: ServicePart[];
+  laborCost: number;
+  partsCost: number;
+  totalCost: number;
+  paymentStatus: 'PENDING' | 'PAID' | 'PARTIAL' | 'REFUNDED';
+  customerRating?: number;
+  customerFeedback?: string;
+  followUpRequired: boolean;
+  followUpDate?: Date;
+}
+
+export interface ServicePart {
+  id: string;
+  name: string;
+  partNumber?: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  supplier?: string;
+  warranty?: {
+    duration: number; // months
+    startDate: Date;
   };
-  status: 'generating' | 'completed' | 'failed';
-  downloadUrl?: string;
-  createdAt: string;
-  completedAt?: string;
 }
 
-// Araç bilgileri
-export interface Vehicle {
-  _id: string;
+export interface ServiceRequest {
+  id: string;
   driverId: string;
-  brand: string;
-  model: string;
-  year: number;
-  plateNumber: string;
-  color: string;
-  engineSize: string;
-  fuelType: 'gasoline' | 'diesel' | 'electric' | 'hybrid';
-  mileage: number;
-  lastMaintenance?: string;
-  transmission?: 'manual' | 'automatic';
-  bodyType?: string;
+  vehicleId: string;
+  serviceType: ServiceType;
+  description: string;
+  urgency: 'LOW' | 'MEDIUM' | 'HIGH' | 'EMERGENCY';
+  preferredDate?: Date;
+  preferredTime?: string;
+  location: Location;
+  estimatedCost?: number;
+  status: 'PENDING' | 'ACCEPTED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// Mesajlaşma
-export interface Message {
-  _id: string;
-  conversationId: string;
-  senderId: {
-    _id: string;
-    name: string;
-    surname: string;
-    avatar?: string;
-  };
-  receiverId: {
-    _id: string;
-    name: string;
-    surname: string;
-    avatar?: string;
-  };
-  content: string;
-  messageType: 'text' | 'image' | 'file';
-  isRead: boolean;
-  createdAt: string;
+export interface EmergencyTowingRequest {
+  id: string;
+  driverId: string;
+  vehicleId: string;
+  location: Location;
+  description: string;
+  urgency: 'HIGH' | 'EMERGENCY';
+  estimatedArrival?: Date;
+  towDestination?: Location;
+  status: 'REQUESTED' | 'ACCEPTED' | 'EN_ROUTE' | 'ARRIVED' | 'COMPLETED' | 'CANCELLED';
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface Conversation {
-  _id: string;
-  otherParticipant: {
-    _id: string;
-    name: string;
-    surname: string;
-    avatar?: string;
-    userType: string;
-  };
-  lastMessage?: {
-    content: string;
-    messageType: string;
-    createdAt: string;
-  };
-  lastMessageAt?: string;
-  unreadCount: number;
-  createdAt: string;
+export interface PaymentMethod {
+  id: string;
+  mechanicId: string;
+  type: 'BANK_ACCOUNT' | 'DIGITAL_WALLET' | 'CASH' | 'CHECK';
+  provider: string;
+  accountNumber?: string;
+  routingNumber?: string;
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt: Date;
 }
 
-// Değerlendirme ve yorumlar
-export interface Rating {
-  _id: string;
-  id?: string; // Backend'den gelen alternatif id
+export interface PaymentHistory {
+  id: string;
+  mechanicId: string;
   appointmentId: string;
+  amount: number;
+  currency: string;
+  paymentMethod: string;
+  status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
+  transactionId?: string;
+  description: string;
+  createdAt: Date;
+}
+
+export interface MechanicRating {
+  id: string;
   driverId: string;
   mechanicId: string;
+  appointmentId: string;
   rating: number; // 1-5
   comment?: string;
-  createdAt: string;
-  // Backend'den gelen populate edilmiş veriler
-  customer?: {
-    name: string;
-    surname: string;
+  categories: {
+    professionalism: number;
+    quality: number;
+    timeliness: number;
+    communication: number;
+    cleanliness: number;
   };
-  appointment?: {
-    serviceType: string;
-    date: string | Date;
+  createdAt: Date;
+}
+
+export interface MechanicSearchFilters {
+  location?: Location;
+  maxDistance?: number; // km
+  serviceTypes?: ServiceType[];
+  minRating?: number;
+  maxPrice?: number;
+  availability?: 'NOW' | 'TODAY' | 'THIS_WEEK' | 'ANYTIME';
+  sortBy?: 'RATING' | 'DISTANCE' | 'PRICE' | 'AVAILABILITY';
+  sortOrder?: 'ASC' | 'DESC';
+}
+
+export interface MechanicSearchResult {
+  mechanic: SharedMechanic;
+  distance: number; // km
+  estimatedArrival?: Date;
+  averageRating: number;
+  totalReviews: number;
+  isAvailable: boolean;
+  estimatedCost?: number;
+  specialties: ServiceType[];
+}
+
+// ===== API REQUEST/RESPONSE TYPES =====
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+  userType: UserType;
+  deviceInfo?: {
+    platform: 'IOS' | 'ANDROID';
+    version: string;
+    deviceId: string;
   };
 }
 
-// Bildirimler
-export interface Notification {
-  _id: string;
-  recipientId: string;
-  recipientType: 'mechanic' | 'driver';
-  title: string;
-  message: string;
-  type: string;
-  read: boolean;
-  isRead: boolean;
-  data?: Record<string, unknown>;
-  createdAt: string;
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  userType: UserType;
+  phone: string;
+  name: string;
+  surname: string;
+  deviceInfo?: {
+    platform: 'IOS' | 'ANDROID';
+    version: string;
+    deviceId: string;
+  };
 }
 
-// Ödeme bilgileri
-export interface Payment {
-  _id: string;
-  appointmentId: string;
-  amount: number;
-  status: 'pending' | 'completed' | 'failed' | 'refunded';
-  paymentMethod: 'cash' | 'card' | 'wallet';
-  transactionId?: string;
-  createdAt: string;
-}
-
-// İş bilgileri
-export interface MechanicJob {
-  _id: string;
+export interface CreateAppointmentRequest {
+  vehicleId: string;
   mechanicId: string;
-  appointmentId: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
-  price: number;
+  serviceType: ServiceType;
+  appointmentDate: Date;
+  timeSlot: string;
   description?: string;
-  startTime?: string;
-  endTime?: string;
-  createdAt: string;
-  updatedAt: string;
+  location: Location;
+  estimatedDuration?: number;
+  specialInstructions?: string;
 }
 
-// Kazanç bilgileri
-export interface MechanicEarning {
-  _id: string;
-  mechanicId: string;
+export interface UpdateAppointmentRequest {
   appointmentId: string;
-  amount: number;
-  type: 'appointment' | 'tip' | 'bonus';
-  status: 'pending' | 'completed' | 'withdrawn';
-  createdAt: string;
+  status?: AppointmentStatus;
+  appointmentDate?: Date;
+  timeSlot?: string;
+  description?: string;
+  specialInstructions?: string;
 }
 
-// API Response tipleri
-export interface ApiResponse<T = unknown> {
+export interface CreateEmergencyRequest {
+  vehicleId: string;
+  location: Location;
+  description: string;
+  urgency: 'HIGH' | 'EMERGENCY';
+  towDestination?: Location;
+}
+
+export interface LoginResponse {
   success: boolean;
-  message: string;
-  data?: T;
-  error?: string;
-}
-
-// Navigasyon parametreleri
-export type RootStackParamList = {
-  Onboarding: undefined;
-  Auth: undefined;
-  Main: undefined;
-  EmailVerification: { email: string };
-  ForgotPassword: undefined;
-  ResetPassword: { token: string };
-  Chat: { conversationId: string; otherParticipant: MechanicProfile };
-  NewMessage: undefined;
-  AppointmentDetail: { appointmentId: string };
-  Appointments: undefined;
-  Notifications: undefined;
-  Messages: undefined;
-  Wallet: undefined;
-  Support: undefined;
-  FinancialTracking: undefined;
-  Calendar: undefined;
-  Profile: undefined;
-  EditProfile: undefined;
-  WorkingHours: undefined;
-  Settings: undefined;
-  Security: undefined;
-  ServiceAreas: undefined;
-  HelpCenter: undefined;
-  About: undefined;
-  FaultReports: undefined;
-  FaultReportDetail: { faultReportId: string };
-  TowingService: undefined;
-  RepairService: undefined;
-  WashService: undefined;
-  EmergencyNotification: undefined;
-  TireService: undefined;
-  // Yeni eklenen ekranlar
-  QuickQuote: undefined;
-  Customers: undefined;
-  Reports: undefined;
-  EndOfDay: undefined;
-          Suppliers: undefined;
-          VehicleHistory: { vehicleId: string; vehicle: any };
-          ServiceCatalog: undefined;
-  [key: string]: undefined | { conversationId: string; otherParticipant: MechanicProfile } | { appointmentId: string } | { faultReportId: string } | { email: string } | { token: string } | { vehicleId: string; vehicle: any };
-};
-
-export type DrawerParamList = {
-  MainTabs: undefined;
-  Messages: undefined;
-  Calendar: undefined;
-  FaultReports: undefined;
-  Wallet: undefined;
-  FinancialTracking: undefined;
-  Profile: undefined;
-  WorkingHours: undefined;
-  Support: undefined;
-  Settings: undefined;
-  [key: string]: undefined;
-};
-
-export type TabParamList = {
-  Home: undefined;
-  TowingService: undefined;
-  RepairService: undefined;
-  WashService: undefined;
-  TireService: undefined;
-  Messages: undefined;
-  Reports: undefined;
-  Wallet: undefined;
-  Profile: undefined;
-  [key: string]: undefined;
-};
-
-// ===== GENEL TİP TANIMLARI =====
-
-export interface DateRange {
-  start: string;
-  end: string;
-}
-
-export interface PaginationParams {
-  page: number;
-  limit: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
+  data: {
+    user: MechanicProfile;
+    token: string;
+    refreshToken: string;
+    expiresIn: number;
   };
+  message: string;
 }
+
+export interface RegisterResponse {
+  success: boolean;
+  data: {
+    user: MechanicProfile;
+    token: string;
+    refreshToken: string;
+    expiresIn: number;
+  };
+  message: string;
+}
+
+export interface AppointmentListResponse {
+  success: boolean;
+  data: {
+    appointments: MechanicAppointment[];
+    totalCount: number;
+    hasMore: boolean;
+  };
+  message: string;
+}
+
+export interface MechanicListResponse {
+  success: boolean;
+  data: {
+    mechanics: MechanicSearchResult[];
+    totalCount: number;
+    hasMore: boolean;
+  };
+  message: string;
+}
+
+export interface VehicleListResponse {
+  success: boolean;
+  data: {
+    vehicles: SharedVehicle[];
+    totalCount: number;
+  };
+  message: string;
+}
+
+// ===== FORM DATA TYPES =====
+
+export interface MechanicProfileFormData {
+  name: string;
+  surname: string;
+  email: string;
+  phone: string;
+  profilePicture?: string;
+  businessHours: Omit<BusinessHours, 'id'>[];
+  serviceCategories: ServiceType[];
+  certifications: Omit<Certification, 'id'>[];
+  equipment: Omit<Equipment, 'id'>[];
+  workingAreas: Omit<WorkingArea, 'id'>[];
+  pricing: Omit<ServicePricing, 'id'>[];
+  notificationSettings: MechanicNotificationSettings;
+}
+
+export interface ServiceFormData {
+  serviceType: ServiceType;
+  description: string;
+  estimatedDuration: number;
+  basePrice: number;
+  hourlyRate?: number;
+  minimumPrice: number;
+  maximumPrice?: number;
+  isNegotiable: boolean;
+  requiredEquipment: string[];
+  requiredCertifications: string[];
+}
+
+// ===== UTILITY TYPES =====
+
+export interface CreateEntity<T> {
+  data: Omit<T, 'id' | 'createdAt' | 'updatedAt'>;
+}
+
+export interface UpdateEntity<T> {
+  id: string;
+  data: Partial<Omit<T, 'id' | 'createdAt' | 'updatedAt'>>;
+}
+
+// ===== LEGACY TYPE ALIASES =====
+export type RegisterData = RegisterRequest;
+export type VehicleData = MechanicProfileFormData;
+export type AppointmentData = CreateAppointmentRequest;
+export type MessageData = SharedMessage;
+export type NotificationData = SharedNotification;

@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { UserType } from '../../../shared/types/enums';
 import { IUser } from './User';
 
 export interface IDriver extends IUser {
@@ -17,7 +18,7 @@ const driverSchema = new Schema<IDriver>({
   bio: { type: String, default: '' },
   phone: { type: String, default: null },
   city: { type: String, default: null },
-  userType: { type: String, enum: ['user', 'driver'], default: 'driver' },
+  userType: { type: String, enum: [UserType.DRIVER], default: UserType.DRIVER },
   followers: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   following: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   favoriteVehicle: { type: Schema.Types.ObjectId, ref: 'Vehicle', default: null },

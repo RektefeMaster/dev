@@ -5,6 +5,7 @@ import { User } from '../models/User';
 import { Mechanic } from '../models/Mechanic';
 import { ResponseHandler } from '../utils/response';
 import { CustomError } from '../middleware/errorHandler';
+import { ErrorCode } from '../../../shared/types/apiResponse';
 import { JWT_SECRET } from '../config';
 
 export class AuthService {
@@ -44,7 +45,7 @@ export class AuthService {
     // Kullanıcı var mı kontrol et
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
-      throw new CustomError('Bu e-posta zaten kayıtlı.', 400);
+      throw new CustomError('Bu e-posta zaten kayıtlı.', 400, ErrorCode.ALREADY_EXISTS);
     }
 
     // Şifreyi hash'le
@@ -141,22 +142,22 @@ export class AuthService {
     // Kullanıcıyı bul
     const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
-      throw new CustomError('Kullanıcı bulunamadı.', 400);
+      throw new CustomError('Kullanıcı bulunamadı.', 400, ErrorCode.USER_NOT_FOUND);
     }
 
     // Şifreyi kontrol et
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      throw new CustomError('Geçersiz şifre.', 400);
+      throw new CustomError('Geçersiz şifre.', 400, ErrorCode.INVALID_CREDENTIALS);
     }
 
     // UserType kontrolü - ZORUNLU
     if (!userType) {
-      throw new CustomError('userType parametresi zorunludur.', 400);
+      throw new CustomError('userType parametresi zorunludur.', 400, ErrorCode.BAD_REQUEST);
     }
     
     if (user.userType !== userType) {
-      throw new CustomError(`Bu endpoint sadece ${userType} kullanıcılar için. Mevcut kullanıcı tipi: ${user.userType}`, 400);
+      throw new CustomError(`Bu endpoint sadece ${userType} kullanıcılar için. Mevcut kullanıcı tipi: ${user.userType}`, 400, ErrorCode.USERTYPE_MISMATCH);
     }
 
     // Mechanic ise Mechanic model'inden ek bilgileri de çek
@@ -206,7 +207,7 @@ export class AuthService {
       
       if (!user) {
         console.log('❌ Refresh token geçerli ama kullanıcı bulunamadı:', decoded.userId);
-        throw new CustomError('Kullanıcı bulunamadı.', 401);
+        throw new CustomError('Kullanıcı bulunamadı.', 401, ErrorCode.USER_NOT_FOUND);
       }
 
       console.log('✅ Kullanıcı bulundu:', user.email);
@@ -226,7 +227,7 @@ export class AuthService {
       };
     } catch (error) {
       console.log('❌ Refresh token hatası:', error);
-      throw new CustomError('Geçersiz refresh token.', 401);
+      throw new CustomError('Geçersiz refresh token.', 401, ErrorCode.INVALID_TOKEN);
     }
   }
 

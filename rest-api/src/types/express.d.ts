@@ -1,12 +1,13 @@
 import { Request } from 'express';
 import { JwtPayload } from 'jsonwebtoken';
+import { UserType } from '../../../shared/types/enums';
 
 declare global {
   namespace Express {
     interface Request {
       user?: {
         userId: string;
-        userType: 'driver' | 'mechanic';
+        userType: UserType;
         name?: string;
         email?: string;
       };
@@ -18,7 +19,7 @@ declare global {
 export interface AuthRequest extends Request {
   user?: {
     userId: string;
-    userType: 'driver' | 'mechanic';
+    userType: UserType;
     name?: string;
     email?: string;
   };

@@ -1,12 +1,13 @@
 import { Request } from 'express';
 import mongoose from 'mongoose';
+import { UserType } from '../../../shared/types/enums';
 
 declare global {
   namespace Express {
     interface Request {
       user?: {
         userId: string;
-        userType: 'driver' | 'mechanic';
+        userType: UserType;
       };
     }
   }
@@ -21,12 +22,12 @@ export interface IBaseUser {
 }
 
 export interface IAuthUser extends IBaseUser {
-  userType: 'driver' | 'mechanic';
+  userType: UserType;
 }
 
 export type AuthRequest = Request & {
   user?: {
     userId: string;
-    userType: 'driver' | 'mechanic';
+    userType: UserType;
   };
 };

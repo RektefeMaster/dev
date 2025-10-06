@@ -13,7 +13,7 @@ import { useAuth } from '@/shared/context';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing, borderRadius, shadows, dimensions as themeDimensions } from '@/shared/theme';
+import { colors, colorStrings, typography, spacing, borderRadius, shadows, dimensions as themeDimensions } from '@/shared/theme';
 import { Button, Card, LoadingSpinner, EmptyState, Input, BackButton } from '@/shared/components';
 import apiService from '@/shared/services';
 
@@ -46,10 +46,10 @@ const MessagesScreen = ({ navigation }: any) => {
   const fetchConversations = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await apiService.getConversations();
+      const response = await apiService.MessageService.getConversations();
 
       if (response.success) {
-        setConversations(response.data || []);
+        setConversations(response.data?.conversations || []);
       } else {
         setConversations([]);
       }
@@ -81,13 +81,13 @@ const MessagesScreen = ({ navigation }: any) => {
     }, [isAuthenticated, fetchConversations])
   );
 
-  // Her 5 saniyede bir conversation'ları yenile
+  // Her 30 saniyede bir conversation'ları yenile (daha az sıklıkta)
   useEffect(() => {
     if (!isAuthenticated) return;
     
     const interval = setInterval(() => {
       fetchConversations();
-    }, 5000);
+    }, 30000); // 30 saniye
     
     return () => clearInterval(interval);
   }, [isAuthenticated, fetchConversations]);
@@ -144,7 +144,7 @@ const MessagesScreen = ({ navigation }: any) => {
               />
             ) : (
               <View style={styles.defaultAvatar}>
-                <Ionicons name="person" size={20} color={colors.text.tertiary} />
+                <Ionicons name="person" size={20} color={colorStrings.text.tertiary} />
               </View>
             )}
             {hasUnread && <View style={styles.unreadIndicator} />}
@@ -195,7 +195,7 @@ const MessagesScreen = ({ navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background.primary} />
+      <StatusBar barStyle="dark-content" backgroundColor={colorStrings.background.primary} />
       
       {/* Header */}
       <View style={styles.header}>
@@ -208,7 +208,7 @@ const MessagesScreen = ({ navigation }: any) => {
             style={styles.newMessageButton}
             onPress={() => navigation.navigate('NewMessage')}
           >
-            <Ionicons name="add" size={24} color={colors.primary} />
+            <Ionicons name="add" size={24} color={colorStrings.primary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -236,8 +236,8 @@ const MessagesScreen = ({ navigation }: any) => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
+            colors={[colorStrings.primary]}
+            tintColor={colorStrings.primary}
             />
           }
         />
@@ -263,7 +263,7 @@ const MessagesScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: colorStrings.background.primary,
   },
   loadingContainer: {
     flex: 1,
@@ -272,15 +272,15 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: typography.body2.fontSize,
-    color: colors.text.secondary,
+    color: colorStrings.text.secondary,
     marginTop: spacing.md,
   },
   header: {
     paddingHorizontal: themeDimensions.screenPadding,
     paddingVertical: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.primary,
-    backgroundColor: colors.background.primary,
+    borderBottomColor: colorStrings.border.primary,
+    backgroundColor: colorStrings.background.primary,
   },
   headerTop: {
     flexDirection: 'row',
@@ -294,22 +294,22 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: typography.h1.fontSize,
     fontWeight: '700',
-    color: colors.text.primary.main,
+    color: colorStrings.text.primary,
   },
   newMessageButton: {
     width: 44,
     height: 44,
     borderRadius: borderRadius.round,
-    backgroundColor: colors.primary.ultraLight,
+    backgroundColor: colorStrings.background.secondary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colorStrings.primary,
   },
   searchContainer: {
     paddingHorizontal: themeDimensions.screenPadding,
     paddingVertical: spacing.md,
-    backgroundColor: colors.background.primary,
+    backgroundColor: colorStrings.background.primary,
   },
   searchInput: {
     marginBottom: 0,
@@ -319,14 +319,14 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
   },
   conversationCard: {
-    backgroundColor: colors.background.secondary,
+    backgroundColor: colorStrings.background.secondary,
     borderRadius: borderRadius.md,
     padding: spacing.md,
     marginBottom: spacing.sm,
     marginHorizontal: themeDimensions.screenPadding,
     borderWidth: 1,
-    borderColor: colors.border.secondary,
-    shadowColor: colors.shadow.primary,
+    borderColor: colorStrings.border.secondary,
+    shadowColor: colorStrings.shadow.primary,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -349,11 +349,11 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: borderRadius.avatar,
-    backgroundColor: colors.background.tertiary,
+    backgroundColor: colorStrings.background.tertiary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: colors.border.primary,
+    borderColor: colorStrings.border.primary,
   },
   unreadIndicator: {
     position: 'absolute',
@@ -362,9 +362,9 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: colors.primary,
+    backgroundColor: colorStrings.primary,
     borderWidth: 2,
-    borderColor: colors.background.primary,
+    borderColor: colorStrings.background.primary,
   },
   contentContainer: {
     flex: 1,
@@ -379,24 +379,24 @@ const styles = StyleSheet.create({
   participantName: {
     fontSize: typography.body2.fontSize,
     fontWeight: '600',
-    color: colors.text.primary.main,
+    color: colorStrings.text.primary,
     flex: 1,
   },
   lastMessageTime: {
     fontSize: typography.caption.large.fontSize,
-    color: colors.text.tertiary,
+    color: colorStrings.text.tertiary,
   },
   lastMessage: {
     fontSize: typography.body3.fontSize,
-    color: colors.text.secondary,
+    color: colorStrings.text.secondary,
     lineHeight: 20,
   },
   unreadMessage: {
-    color: colors.text.primary.main,
+    color: colorStrings.text.primary,
     fontWeight: '500',
   },
   unreadCountContainer: {
-    backgroundColor: colors.primary,
+    backgroundColor: colorStrings.primary,
     borderRadius: borderRadius.round,
     minWidth: 20,
     height: 20,
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
   unreadCountText: {
     fontSize: typography.caption.small.fontSize,
     fontWeight: '700',
-    color: colors.text.inverse,
+    color: colorStrings.text.inverse,
   },
   emptyContainer: {
     flex: 1,

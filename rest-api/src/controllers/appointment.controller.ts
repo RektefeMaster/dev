@@ -5,6 +5,8 @@ import { Appointment } from '../models/Appointment';
 import { User } from '../models/User';
 import { TefePointService } from '../services/tefePoint.service';
 import { Wallet } from '../models/Wallet';
+import { AppointmentStatus, ServiceType, PaymentStatus } from '../../../shared/types/enums';
+import { createSuccessResponse, createErrorResponse, ErrorCode } from '../../../shared/types/apiResponse';
 
 import { sendAppointmentRequestNotification, sendAppointmentStatusNotification } from '../utils/notifications';
 import { CustomError } from '../utils/response';
@@ -21,7 +23,13 @@ export class AppointmentController {
       const userId = req.user?.userId;
 
       if (!userId) {
-        throw new CustomError('Kullanıcı bilgisi bulunamadı', 401);
+        const errorResponse = createErrorResponse(
+          ErrorCode.UNAUTHORIZED,
+          'Kullanıcı bilgisi bulunamadı',
+          null,
+          req.headers['x-request-id'] as string
+        );
+        return res.status(401).json(errorResponse);
       }
 
       const appointment = await AppointmentService.createAppointment({
@@ -66,23 +74,30 @@ export class AppointmentController {
         // Bildirim hatası randevu oluşturmayı engellemesin
       }
 
-      res.status(201).json({
-        success: true,
-        message: 'Randevu talebi başarıyla oluşturuldu',
-        data: { appointment }
-      });
+      const successResponse = createSuccessResponse(
+        { appointment },
+        'Randevu talebi başarıyla oluşturuldu',
+        req.headers['x-request-id'] as string
+      );
+      res.status(201).json(successResponse);
     } catch (error) {
       if (error instanceof CustomError) {
-        res.status(error.statusCode).json({
-          success: false,
-          message: error.message
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          message: 'Randevu oluşturulurken bir hata oluştu'
-        });
+        const errorResponse = createErrorResponse(
+          ErrorCode.INTERNAL_SERVER_ERROR,
+          error.message,
+          null,
+          req.headers['x-request-id'] as string
+        );
+        return res.status(error.statusCode).json(errorResponse);
       }
+      
+      const errorResponse = createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Randevu oluşturulurken bir hata oluştu',
+        process.env.NODE_ENV === 'development' ? { stack: (error as Error).stack } : null,
+        req.headers['x-request-id'] as string
+      );
+      res.status(500).json(errorResponse);
     }
   }
 
@@ -784,8 +799,8 @@ export class AppointmentController {
       }
 
       // Ödeme bilgilerini güncelle
-      appointment.paymentStatus = 'pending';
-      appointment.status = 'ODEME_BEKLIYOR';
+      appointment.paymentStatus = PaymentStatus.PENDING;
+      appointment.status = AppointmentStatus.PAYMENT_PENDING;
 
       await appointment.save();
 
@@ -865,8 +880,8 @@ export class AppointmentController {
       }
 
       // Ödeme bilgilerini güncelle
-      appointment.paymentStatus = 'completed';
-      appointment.status = 'PLANLANDI'; // Ödeme tamamlandıktan sonra planlandı durumuna geç
+      appointment.paymentStatus = PaymentStatus.COMPLETED;
+      appointment.status = AppointmentStatus.SCHEDULED; // Ödeme tamamlandıktan sonra planlandı durumuna geç
       appointment.paymentDate = new Date();
       appointment.transactionId = transactionId;
       
@@ -909,14 +924,16 @@ export class AppointmentController {
       // Wallet'a transaction ekle - RACE CONDITION FIX
       try {
         const walletAmount = appointment.finalPrice || appointment.price || 0;
+        const mechanicId = appointment.mechanicId;
+        
         // MongoDB transaction kullanarak race condition'ı önle
         const session = await mongoose.startSession();
         
         try {
           session.startTransaction();
           
-          // Yeni transaction object'i
-          const walletTransaction = {
+          // Müşteriden para düş (debit)
+          const customerTransaction = {
             type: 'debit' as const,
             amount: walletAmount,
             description: `Randevu ödemesi - ${appointment.serviceType || 'genel-bakım'}`,
@@ -924,13 +941,37 @@ export class AppointmentController {
             status: 'completed' as const
           };
           
-          // Atomic upsert operation - race condition safe
-          const wallet = await Wallet.findOneAndUpdate(
+          // Müşteri cüzdanından para düş
+          await Wallet.findOneAndUpdate(
             { userId },
             {
               $inc: { balance: -walletAmount }, // Balance'ı atomik olarak azalt
-              $push: { transactions: walletTransaction }, // Transaction'ı atomik olarak ekle
+              $push: { transactions: customerTransaction }, // Transaction'ı atomik olarak ekle
               $setOnInsert: { userId, createdAt: new Date() } // Eğer yeni wallet ise initial values
+            },
+            { 
+              new: true, 
+              upsert: true, // Yoksa oluştur
+              session // Transaction session
+            }
+          );
+          
+          // Ustaya para ekle (credit)
+          const mechanicTransaction = {
+            type: 'credit' as const,
+            amount: walletAmount,
+            description: `Randevu kazancı - ${appointment.serviceType || 'genel-bakım'} (${(appointment.userId as any).name})`,
+            date: new Date(),
+            status: 'completed' as const
+          };
+          
+          // Usta cüzdanına para ekle
+          await Wallet.findOneAndUpdate(
+            { userId: mechanicId },
+            {
+              $inc: { balance: walletAmount }, // Balance'ı atomik olarak artır
+              $push: { transactions: mechanicTransaction }, // Transaction'ı atomik olarak ekle
+              $setOnInsert: { userId: mechanicId, createdAt: new Date() } // Eğer yeni wallet ise initial values
             },
             { 
               new: true, 
@@ -948,7 +989,8 @@ export class AppointmentController {
         }
         
       } catch (walletError) {
-        // Wallet hatası ödeme işlemini durdurmaz
+        console.error('❌ Wallet güncelleme hatası:', walletError);
+        // Wallet hatası ödeme işlemini durdurmaz ama log'la
       }
 
       // Ustaya bildirim gönder

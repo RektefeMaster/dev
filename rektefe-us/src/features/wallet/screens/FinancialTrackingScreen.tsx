@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   StatusBar,
   Dimensions,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -42,6 +42,14 @@ export default function FinancialTrackingScreen() {
       fetchFinancialData();
     }
   }, [isAuthenticated, activePeriod]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated) {
+        fetchFinancialData();
+      }
+    }, [isAuthenticated, activePeriod])
+  );
 
   const fetchFinancialData = async () => {
     try {

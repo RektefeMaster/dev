@@ -4,6 +4,7 @@ import { User } from '../models/User';
 import { Mechanic } from '../models/Mechanic';
 import { CustomError } from '../utils/response';
 import { Vehicle } from '../models/Vehicle';
+import { AppointmentStatus, PaymentStatus } from '../../../shared/types/enums';
 
 export interface CreateAppointmentData {
   userId?: string;
@@ -760,10 +761,10 @@ export class AppointmentService {
       }
 
       // Randevuyu ödeme bekliyor durumuna al
-      appointment.status = 'ODEME_BEKLIYOR';
+      appointment.status = AppointmentStatus.PAYMENT_PENDING;
       appointment.mechanicNotes = completionNotes;
       appointment.price = price;
-      appointment.paymentStatus = 'pending'; // Ödeme bekleniyor
+      appointment.paymentStatus = PaymentStatus.PENDING; // Ödeme bekleniyor
       
       // Usta tahmini süreyi belirler
       if (estimatedDuration && estimatedDuration > 0) {

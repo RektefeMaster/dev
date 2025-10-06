@@ -445,4 +445,33 @@ export const borderRadius = theme.borderRadius;
 export const shadows = theme.shadows;
 export const dimensions = theme.dimensions;
 
+// String color exports for React Native compatibility
+export const colorStrings = {
+  primary: theme.colors.primary.main,
+  secondary: theme.colors.secondary.main,
+  accent: theme.colors.accent.main,
+  success: theme.colors.success.main,
+  warning: theme.colors.warning.main,
+  error: theme.colors.error.main,
+  info: theme.colors.info.main,
+  text: {
+    primary: theme.colors.text.primary.main,
+    secondary: theme.colors.text.secondary,
+    tertiary: theme.colors.text.tertiary,
+    inverse: theme.colors.text.inverse,
+  },
+  background: {
+    primary: theme.colors.background.primary,
+    secondary: theme.colors.background.secondary,
+    tertiary: theme.colors.background.tertiary,
+  },
+  border: {
+    primary: theme.colors.border.primary,
+    secondary: theme.colors.border.secondary,
+  },
+  shadow: {
+    primary: '#000000',
+  }
+};
+
 export default theme;

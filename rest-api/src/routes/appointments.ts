@@ -5,6 +5,7 @@ import { createAppointmentSchema, updateAppointmentSchema } from '../validators/
 import { AppointmentService } from '../services/appointment.service';
 import { Appointment } from '../models/Appointment';
 import { AppointmentController } from '../controllers/appointment.controller';
+import { AppointmentStatus } from '../../../shared/types/enums';
 
 const router = Router();
 
@@ -27,7 +28,20 @@ router.get('/debug-user/:userId', async (req: Request, res: Response) => {
   }
 });
 
-// Ana endpoint'ler
+// Basit GET endpoint'i (test için)
+router.get('/', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Kullanıcı doğrulanamadı' });
+    }
+    
+    const appointments = await AppointmentService.getAppointmentsByUserId(userId);
+    res.json({ success: true, data: appointments });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 router.post('/', auth, validate(createAppointmentSchema), async (req: Request, res: Response) => {
   try {
     // req.user'dan userId'yi al ve req.body'ye ekle
@@ -664,21 +678,23 @@ router.put('/migrate-status', auth, async (req: Request, res: Response) => {
 
     // Eski durumları yeni durumlara çevir
     const statusMapping = {
-      'pending': 'TALEP_EDILDI',
-      'confirmed': 'PLANLANDI',
-      'in-progress': 'SERVISTE',
-      'completed': 'TAMAMLANDI',
-      'cancelled': 'IPTAL',
-      'rejected': 'IPTAL'
+      'pending': AppointmentStatus.REQUESTED,
+      'confirmed': AppointmentStatus.SCHEDULED,
+      'in-progress': AppointmentStatus.IN_SERVICE,
+      'completed': AppointmentStatus.COMPLETED,
+      'cancelled': AppointmentStatus.CANCELLED,
+      'rejected': AppointmentStatus.CANCELLED
     };
 
     const appointments = await Appointment.find({ mechanicId });
     let updatedCount = 0;
 
     for (const appointment of appointments) {
-      const newStatus = statusMapping[appointment.status as keyof typeof statusMapping];
+      // Eski string değerleri kontrol et ve enum değerleri ile değiştir
+      const oldStatus = appointment.status as string;
+      const newStatus = statusMapping[oldStatus as keyof typeof statusMapping];
       if (newStatus && newStatus !== appointment.status) {
-        appointment.status = newStatus as any;
+        appointment.status = newStatus;
         await appointment.save();
         updatedCount++;
       }

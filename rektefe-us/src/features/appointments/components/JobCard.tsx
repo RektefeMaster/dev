@@ -7,7 +7,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, borderRadius, spacing, shadows } from '@/shared/theme';
+import { colors, colorStrings, typography, borderRadius, spacing, shadows } from '@/shared/theme';
 
 export interface JobCardProps {
   serviceType: string;
@@ -34,29 +34,29 @@ const JobCard: React.FC<JobCardProps> = ({
     switch (status) {
       case 'completed':
         return {
-          color: colors.success,
-          backgroundColor: colors.success.background,
+          color: colorStrings.success,
+          backgroundColor: colorStrings.background.tertiary,
           icon: 'checkmark-circle' as const,
           text: 'Tamamlandı',
         };
       case 'in-progress':
         return {
-          color: colors.primary,
-          backgroundColor: colors.info.background,
+          color: colorStrings.primary,
+          backgroundColor: colorStrings.background.tertiary,
           icon: 'refresh' as const,
           text: 'Devam Ediyor',
         };
       case 'cancelled':
         return {
-          color: colors.error,
-          backgroundColor: colors.error.background,
+          color: colorStrings.error,
+          backgroundColor: colorStrings.background.tertiary,
           icon: 'close-circle' as const,
           text: 'İptal Edildi',
         };
       default:
         return {
-          color: colors.text.tertiary,
-          backgroundColor: colors.background.quaternary,
+          color: colorStrings.text.tertiary,
+          backgroundColor: colorStrings.background.tertiary,
           icon: 'help-circle' as const,
           text: 'Bilinmiyor',
         };
@@ -75,7 +75,7 @@ const JobCard: React.FC<JobCardProps> = ({
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.jobIconContainer}>
-          <Ionicons name="checkmark-circle" size={24} color={colors.success} />
+          <Ionicons name="checkmark-circle" size={24} color={colorStrings.success} />
         </View>
         
         <View style={styles.jobInfo}>
@@ -104,7 +104,7 @@ const JobCard: React.FC<JobCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.background.card,
+    backgroundColor: colorStrings.background.secondary,
     borderRadius: borderRadius.card,
     padding: spacing.md,
     marginBottom: spacing.sm,
@@ -123,25 +123,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   jobTitle: {
-    color: colors.text.primary,
+    color: colorStrings.text.primary,
     fontWeight: '600',
     fontSize: typography.body2.fontSize,
     marginBottom: spacing.xs,
   },
   jobCustomer: {
-    color: colors.text.tertiary,
+    color: colorStrings.text.tertiary,
     fontSize: typography.caption.large.fontSize,
     marginBottom: spacing.xs,
   },
   jobDateTime: {
-    color: colors.text.quaternary,
+    color: colorStrings.text.tertiary,
     fontSize: typography.caption.small.fontSize,
   },
   jobEarnings: {
     alignItems: 'flex-end',
   },
   jobEarningsText: {
-    color: colors.success,
+    color: colorStrings.success,
     fontSize: typography.body2.fontSize,
     fontWeight: '700',
   },

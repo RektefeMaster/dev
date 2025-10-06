@@ -2,6 +2,7 @@ import { Request, Response, NextFunction, RequestHandler } from 'express';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config';
 import { TokenBlacklistService } from '../services/tokenBlacklist.service';
+import { UserType } from '../../../shared/types/enums';
 
 export const auth: RequestHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -27,7 +28,7 @@ export const auth: RequestHandler = async (req: Request, res: Response, next: Ne
     }
 
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; userType: 'driver' | 'mechanic' };
+      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; userType: UserType };
       console.log('✅ Auth Middleware: Token geçerli');
       console.log('decoded user:', decoded);
       console.log('decoded userId:', decoded.userId);

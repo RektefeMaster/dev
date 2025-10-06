@@ -13,7 +13,7 @@ import { useAuth } from '@/shared/context';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing, borderRadius, shadows } from '@/shared/theme';
+import { colors, typography, spacing, borderRadius, shadows, colorStrings } from '@/shared/theme';
 import apiService from '@/shared/services';
 
 type Customer = {
@@ -49,10 +49,10 @@ const NewMessageScreen = ({ navigation, route }: any) => {
     try {
       setLoading(true);
       // Ustanın müşterilerini getir - sadece iş yapmış müşteriler
-      const response = await apiService.getMechanicCustomers();
+      const response = await apiService.CustomerService.getMechanicCustomers();
       
       if (response.success && response.data) {
-        setCustomers(response.data);
+        setCustomers(response.data.customers || []);
       } else {
         setCustomers([]);
       }
@@ -102,7 +102,7 @@ const NewMessageScreen = ({ navigation, route }: any) => {
         {item.avatar ? (
           <Image source={{ uri: item.avatar }} style={styles.avatar} />
         ) : (
-          <View style={[styles.defaultAvatar, { backgroundColor: colors.primary.main }]}>
+          <View style={[styles.defaultAvatar, { backgroundColor: colorStrings.primary }]}>
             <Text style={styles.defaultAvatarText}>
               {item.name.charAt(0).toUpperCase()}
             </Text>
@@ -169,18 +169,18 @@ const NewMessageScreen = ({ navigation, route }: any) => {
       </LinearGradient>
 
       <View style={styles.searchContainer}>
-        <View style={[styles.searchInputContainer, { backgroundColor: colors.background.card }]}>
-          <Ionicons name="search" size={20} color={colors.text.secondary} />
+        <View style={[styles.searchInputContainer, { backgroundColor: colorStrings.background.secondary }]}>
+          <Ionicons name="search" size={20} color={colorStrings.text.secondary} />
           <TextInput
-            style={[styles.searchInput, { color: colors.text.primary }]}
+            style={[styles.searchInput, { color: colorStrings.text.primary }]}
             placeholder="Müşteri ara..."
-            placeholderTextColor={colors.text.secondary}
+            placeholderTextColor={colorStrings.text.secondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close" size={20} color={colors.text.secondary} />
+              <Ionicons name="close" size={20} color={colorStrings.text.secondary} />
             </TouchableOpacity>
           )}
         </View>
@@ -201,7 +201,7 @@ const NewMessageScreen = ({ navigation, route }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: colorStrings.background.primary,
   },
   header: {
     paddingTop: 20,
@@ -287,12 +287,12 @@ const styles = StyleSheet.create({
   driverName: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: colorStrings.text.primary,
     marginBottom: 4,
   },
   driverCity: {
     fontSize: 14,
-    color: colors.text.secondary,
+    color: colorStrings.text.secondary,
     marginBottom: 8,
   },
   driverStats: {
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   },
   driverRating: {
     fontSize: 12,
-    color: colors.warning.main,
+    color: colorStrings.warning,
     fontWeight: '500',
   },
   ratingContainer: {
@@ -341,12 +341,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: colorStrings.text.primary,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 16,
-    color: colors.text.secondary,
+    color: colorStrings.text.secondary,
     textAlign: 'center',
     paddingHorizontal: 32,
     lineHeight: 24,
