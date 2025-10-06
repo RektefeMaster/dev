@@ -35,3 +35,4 @@ ENV NODE_ENV=production
 
 # Debug: Check what's actually in the container
 CMD ["sh", "-c", "echo '=== PWD ===' && pwd && echo '=== /app contents ===' && ls -la /app && echo '=== /app/rest-api contents ===' && ls -la /app/rest-api && echo '=== /app/rest-api/dist contents ===' && ls -la /app/rest-api/dist && echo '=== Starting app ===' && node /app/rest-api/dist/index.js"]
+# Trigger clean build
