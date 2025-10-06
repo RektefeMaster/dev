@@ -139,10 +139,28 @@ export class DatabaseOptimizationService {
           key: undefined // key'i options'tan çıkar
         });
       } catch (error: any) {
-        // Index zaten varsa veya conflict varsa devam et
+        // Index zaten varsa veya conflict varsa
         if (error.code === 85 || error.code === 86) {
           // 85: IndexOptionsConflict, 86: IndexKeySpecsConflict
-          console.log(`ℹ️ Index zaten mevcut (${collectionName}):`, JSON.stringify(indexSpec.key));
+          console.log(`ℹ️ Index conflict (${collectionName}), eski index drop ediliyor...`);
+          try {
+            // Eski index'i drop et
+            const indexName = indexSpec.name || Object.keys(indexSpec.key).map(k => `${k}_1`).join('_');
+            await collection.dropIndex(indexName);
+            console.log(`✅ Eski index drop edildi: ${indexName}`);
+            // Yeniden oluştur
+            await collection.createIndex(indexSpec.key, {
+              ...indexSpec,
+              key: undefined
+            });
+            console.log(`✅ Yeni index oluşturuldu: ${indexName}`);
+          } catch (dropError: any) {
+            console.warn(`⚠️ Index drop/recreate hatası (${collectionName}):`, dropError.message);
+          }
+        } else if (error.code === 11000) {
+          // E11000: Duplicate key error - veritabanında duplicate data var
+          console.warn(`⚠️ Duplicate key hatası (${collectionName}):`, error.message);
+          console.warn(`ℹ️ Veritabanında duplicate değerler var, index oluşturulamadı`);
         } else {
           console.warn(`⚠️ Index oluşturma hatası (${collectionName}):`, error.message);
         }
