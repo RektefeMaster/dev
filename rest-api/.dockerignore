@@ -19,5 +19,4 @@ dist
 node_modules/.cache
 .npm
 .npmrc
-package-lock.json
 yarn.lock
