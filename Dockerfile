@@ -33,5 +33,5 @@ EXPOSE 3000
 # Set environment
 ENV NODE_ENV=production
 
-# Start application from absolute path
-CMD ["node", "/app/rest-api/dist/index.js"]
+# Debug: Check what's actually in the container
+CMD ["sh", "-c", "echo '=== PWD ===' && pwd && echo '=== /app contents ===' && ls -la /app && echo '=== /app/rest-api contents ===' && ls -la /app/rest-api && echo '=== /app/rest-api/dist contents ===' && ls -la /app/rest-api/dist && echo '=== Starting app ===' && node /app/rest-api/dist/index.js"]
