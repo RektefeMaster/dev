@@ -944,7 +944,7 @@ export const FaultReportService = {
    */
   async getMechanicFaultReports(statusFilter?: string): Promise<ApiResponse<{ faultReports: any[] }>> {
     try {
-      const url = statusFilter ? `/api/fault-reports/mechanic?status=${statusFilter}` : '/api/fault-reports/mechanic';
+      const url = statusFilter ? `/api/fault-reports/mechanic/reports?status=${statusFilter}` : '/api/fault-reports/mechanic/reports';
       const response = await apiClient.get(url);
       return response.data;
     } catch (error: any) {

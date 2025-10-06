@@ -649,17 +649,17 @@ router.get('/ratings/stats', auth, async (req: Request, res: Response) => {
 
 router.get('/ratings/recent', auth, async (req: Request, res: Response) => {
   try {
-    const mechanicId = req.user?.userId;
+    const userId = req.user?.userId;
     
-    if (!mechanicId) {
+    if (!userId) {
       return res.status(401).json({
         success: false,
         message: 'Yetkilendirme hatası'
       });
     }
 
-    // Önce ustanın bilgilerini al - User ID ile email üzerinden bul
-    const user = await User.findById(mechanicId);
+    // User'ı al ve userType kontrolü yap
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -667,12 +667,17 @@ router.get('/ratings/recent', auth, async (req: Request, res: Response) => {
       });
     }
 
-    // User'ın email'i ile Mechanic tablosunda ara
-    const mechanic = await Mechanic.findOne({ email: user.email });
+    // Mechanic profili olup olmadığını kontrol et
+    let mechanic = await Mechanic.findOne({ email: user.email });
+    
+    // Eğer Mechanic profili yoksa, boş array döndür
     if (!mechanic) {
-      return res.status(404).json({
-        success: false,
-        message: 'Usta bulunamadı'
+      return res.json({
+        success: true,
+        data: {
+          ratings: []
+        },
+        message: 'Henüz değerlendirme yok'
       });
     }
 
