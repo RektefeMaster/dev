@@ -30,5 +30,5 @@ EXPOSE 3000
 # Set environment
 ENV NODE_ENV=production
 
-# Start application
-CMD ["node", "dist/index.js"]
+# Start application from absolute path
+CMD ["node", "/app/rest-api/dist/index.js"]
