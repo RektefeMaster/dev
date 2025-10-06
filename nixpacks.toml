@@ -1,0 +1,21 @@
+[phases.setup]
+nixPkgs = ['nodejs_20']
+
+[phases.install]
+cmds = [
+  'cp -r shared rest-api/ || echo "shared directory copied"',
+  'cd rest-api && npm install --no-cache --no-optional --omit=dev'
+]
+
+[phases.build]
+cmds = [
+  'cd rest-api && npm run build'
+]
+
+[start]
+cmd = 'cd rest-api && npm start'
+
+[variables]
+NPM_CONFIG_CACHE = '/tmp/.npm'
+NPM_CONFIG_UPDATE_NOTIFIER = 'false'
+
