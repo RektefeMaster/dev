@@ -1,15 +1,6 @@
-# Frontend uygulamalarını ignore et
-rektefe-dv/node_modules
-rektefe-dv/ios/build
-rektefe-dv/ios/Pods
-rektefe-dv/android/build
-rektefe-dv/android/.gradle
-
-rektefe-us/node_modules
-rektefe-us/ios/build
-rektefe-us/ios/Pods
-rektefe-us/android/build
-rektefe-us/android/.gradle
+# Frontend uygulamalarını ignore et - tamamen
+rektefe-dv/
+rektefe-us/
 
 # Documentation
 docs/
@@ -20,4 +11,18 @@ node_modules/
 *.log
 .DS_Store
 .env.local
+.env.development
+.env.test
+
+# REST API development files
+rest-api/node_modules
+rest-api/dist
+rest-api/.env.local
+rest-api/.env.development
+rest-api/coverage
+rest-api/.nyc_output
+
+# Config files (Railway will use Dockerfile)
+nixpacks.toml
+railway.json
 
