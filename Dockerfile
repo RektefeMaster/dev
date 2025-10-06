@@ -55,3 +55,4 @@ ENV NODE_ENV=production
 # Start the application
 CMD ["node", "dist/index.js"]
 
+# Railway trigger
