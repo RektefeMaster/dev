@@ -1,7 +1,7 @@
-# Use Node.js 20 Alpine
+# Use Node.js 20 Alpine  
 FROM node:20-alpine
 
-# Install build dependencies
+# Install build dependencies for native modules
 RUN apk add --no-cache python3 make g++
 
 # Set working directory
