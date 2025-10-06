@@ -12,7 +12,9 @@ export const MONGODB_OPTIONS = {
   serverSelectionTimeoutMS: 30000,
   connectTimeoutMS: 30000,
   socketTimeoutMS: 30000,
-  maxPoolSize: 10,
+  maxPoolSize: 20, // Connection pool'u artır
+  minPoolSize: 5,  // Minimum connection pool
+  maxIdleTimeMS: 30000, // Idle connection timeout
   bufferCommands: false,
   retryWrites: true,
   w: 'majority' as const,

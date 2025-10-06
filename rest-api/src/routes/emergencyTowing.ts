@@ -114,10 +114,21 @@ router.post('/towing-request', auth, async (req: AuthRequest, res: Response) => 
       });
     }
     
+    console.error('❌ Emergency towing request error:', errorObj);
+    
+    // MongoDB connection error
+    if (errorObj.name === 'MongoNetworkError' || errorObj.name === 'MongoTimeoutError') {
+      return res.status(503).json({ 
+        success: false, 
+        message: 'Veritabanı bağlantı hatası. Lütfen daha sonra tekrar deneyin.',
+        error: 'DATABASE_CONNECTION_ERROR' 
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Acil çekici talebi oluşturulurken hata oluştu.',
-      error: errorObj.message,
+      error: process.env.NODE_ENV === 'development' ? errorObj.message : 'INTERNAL_SERVER_ERROR',
       details: process.env.NODE_ENV === 'development' ? errorObj.stack : undefined
     });
   }

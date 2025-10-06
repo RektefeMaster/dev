@@ -266,7 +266,8 @@ router.get('/mechanics-by-service/:serviceType', async (req: Request, res: Respo
       isAvailable: true
     })
     .select('name surname shopName rating ratingCount experience city serviceCategories location avatar')
-    .sort({ rating: -1 });
+    .sort({ rating: -1 })
+    .lean(); // Performans için lean() ekle
 
     // Eğer usta yoksa mock data döndür
     let formattedMechanics;
@@ -317,10 +318,39 @@ router.get('/mechanics-by-service/:serviceType', async (req: Request, res: Respo
       success: true,
       data: formattedMechanics
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Ustalar getirilirken hata oluştu'
+  } catch (error: any) {
+    console.error('❌ Get mechanics by service error:', error);
+    
+    // Detaylı hata bilgisi
+    if (error.name === 'CastError') {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Geçersiz servis türü formatı',
+        error: error.message 
+      });
+    }
+    
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Veri doğrulama hatası',
+        error: error.message 
+      });
+    }
+    
+    // MongoDB connection error
+    if (error.name === 'MongoNetworkError' || error.name === 'MongoTimeoutError') {
+      return res.status(503).json({ 
+        success: false, 
+        message: 'Veritabanı bağlantı hatası. Lütfen daha sonra tekrar deneyin.',
+        error: 'DATABASE_CONNECTION_ERROR' 
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      message: 'Sunucu hatası oluştu',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'INTERNAL_SERVER_ERROR'
     });
   }
 });
