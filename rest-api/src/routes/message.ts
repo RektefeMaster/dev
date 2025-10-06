@@ -37,7 +37,11 @@ router.get('/conversations', auth, async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, message: 'Kullanıcı ID bulunamadı' });
     }
     
+    console.log(`🔍 GET /message/conversations - userId: ${userId}`);
+    
     const conversations = await MessageService.getConversations(userId);
+    
+    console.log(`📊 Found ${Array.isArray(conversations) ? conversations.length : 'N/A'} conversations`);
     
     res.json({
       success: true,
@@ -45,6 +49,7 @@ router.get('/conversations', auth, async (req: Request, res: Response) => {
       message: 'Conversations başarıyla getirildi'
     });
   } catch (error: any) {
+    console.error('❌ Get conversations error:', error);
     res.status(500).json({
       success: false,
       message: 'Conversations getirilirken hata oluştu',

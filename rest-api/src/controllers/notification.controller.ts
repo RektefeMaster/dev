@@ -16,12 +16,16 @@ export class NotificationController {
         });
       }
 
+      console.log(`🔍 GET /notifications/mechanic - userId: ${mechanicId}`);
+
       const notifications = await Notification.find({ 
         recipientId: mechanicId,
         recipientType: 'mechanic'
       })
       .sort({ createdAt: -1 })
       .limit(50);
+
+      console.log(`📊 Found ${notifications.length} notifications for mechanic`);
 
       res.json({
         success: true,
@@ -30,6 +34,7 @@ export class NotificationController {
         }
       });
     } catch (error) {
+      console.error('❌ Get mechanic notifications error:', error);
       res.status(500).json({
         success: false,
         message: 'Bildirimler getirilirken hata oluştu'

@@ -85,9 +85,18 @@ router.get('/mechanic', auth, async (req: Request, res: Response) => {
   try {
     const mechanicId = (req.user as any)?.userId;
     const statusFilter = req.query.status as string;
+    console.log(`🔍 GET /appointments/mechanic - userId: ${mechanicId}, status: ${statusFilter}`);
+    
     const appointments = await AppointmentService.getMechanicAppointments(mechanicId, statusFilter, req.query);
+    
+    console.log(`📊 Found ${Array.isArray(appointments) ? appointments.length : 'N/A'} appointments`);
+    if (appointments && Array.isArray(appointments) && appointments.length > 0) {
+      console.log(`📝 Sample appointment:`, JSON.stringify(appointments[0], null, 2).substring(0, 200));
+    }
+    
     res.json({ success: true, data: appointments });
   } catch (error: any) {
+    console.error('❌ Get mechanic appointments error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

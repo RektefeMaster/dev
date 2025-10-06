@@ -1777,7 +1777,7 @@ router.get('/debug/data', auth, async (req: Request, res: Response) => {
           })),
           messages: messages.map(m => ({
             _id: m._id,
-            content: (m as any).content?.substring(0, 50),
+            content: m.content?.substring(0, 50),
             createdAt: m.createdAt
           })),
           notifications: notifications.map(n => ({
