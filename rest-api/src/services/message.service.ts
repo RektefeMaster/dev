@@ -101,38 +101,13 @@ export class MessageService {
 
       let conversations;
       
-      if (user.userType === 'mechanic') {
-        // Usta ise: Sadece kendisinden hizmet almış müşterileri göster
-        // Appointment modelinden bu ustaya hizmet almış müşterileri bul
-        const { Appointment } = await import('../models/Appointment');
-        
-        const customerIds = await Appointment.distinct('userId', {
-          mechanicId: userId,
-          status: { $in: ['accepted', 'completed', 'paid', 'TAMAMLANDI', 'PLANLANDI', 'SERVISTE'] }
-        });
-        
-        // Bu müşterilerle olan conversation'ları getir
-        conversations = await Conversation.find({
-          participants: { $in: [userId, ...customerIds] },
-          $expr: {
-            $and: [
-              { $in: [userId, '$participants'] },
-              { $in: [{ $arrayElemAt: ['$participants', 1] }, customerIds] }
-            ]
-          }
-        })
-        .populate('participants', 'name surname profileImage avatar userType')
-        .populate('lastMessage')
-        .sort({ lastMessageAt: -1 });
-      } else {
-        // Şoför ise: Tüm conversation'ları göster
-        conversations = await Conversation.find({
-          participants: userId
-        })
-        .populate('participants', 'name surname profileImage avatar userType')
-        .populate('lastMessage')
-        .sort({ lastMessageAt: -1 });
-      }
+      // Tüm kullanıcı tipleri için: Tüm conversation'ları göster
+      conversations = await Conversation.find({
+        participants: userId
+      })
+      .populate('participants', 'name surname profileImage avatar userType')
+      .populate('lastMessage')
+      .sort({ lastMessageAt: -1 });
 
       const result = await Promise.all(conversations.map(async (conv) => {
         // Eğer participants array'inde sadece 1 kişi varsa, düzelt
