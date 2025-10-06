@@ -28,8 +28,8 @@ FROM node:20-alpine
 
 WORKDIR /app/rest-api
 
-# Copy package files
-COPY rest-api/package*.json ./
+# Copy package files from builder
+COPY --from=builder /app/rest-api/package*.json ./
 
 # Install only production dependencies
 RUN npm ci --only=production --no-cache
@@ -37,8 +37,14 @@ RUN npm ci --only=production --no-cache
 # Copy built files from builder
 COPY --from=builder /app/rest-api/dist ./dist
 
+# Copy node_modules from builder (in case we need some native modules)
+# COPY --from=builder /app/rest-api/node_modules ./node_modules
+
 # Copy shared directory (for runtime if needed)
 COPY --from=builder /app/shared ../shared
+
+# Verify dist exists
+RUN ls -la dist && echo "Production image ready!"
 
 # Expose port
 EXPOSE 3000
