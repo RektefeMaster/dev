@@ -5,10 +5,5 @@
   "workspaces": [
     "rektefe-dv",
     "rektefe-us"
-  ],
-  "scripts": {
-    "start": "cd rest-api && npm start",
-    "build": "cd rest-api && npm run build",
-    "install:all": "cd rest-api && npm ci"
-  }
+  ]
 }
