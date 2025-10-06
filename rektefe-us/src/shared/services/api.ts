@@ -349,7 +349,7 @@ export const AppointmentService = {
       if (status) params.status = status;
       if (filters) Object.assign(params, filters);
       
-      const response = await apiClient.get('/api/mechanic/appointments', { params });
+      const response = await apiClient.get('/api/appointments/mechanic', { params });
       return response.data;
     } catch (error: any) {
       console.error('Get mechanic appointments error:', error);
@@ -507,7 +507,7 @@ export const AppointmentService = {
 
   async getRecentActivity(): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get('/api/mechanic/recent-activity');
+      const response = await apiClient.get('/api/mechanic/dashboard/recent-activity');
       return response.data;
     } catch (error: any) {
       console.error('Get recent activity error:', error);
@@ -517,7 +517,7 @@ export const AppointmentService = {
 
   async getRecentRatings(): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get('/api/mechanic/recent-ratings');
+      const response = await apiClient.get('/api/mechanic/ratings/recent');
       return response.data;
     } catch (error: any) {
       console.error('Get recent ratings error:', error);
@@ -527,7 +527,7 @@ export const AppointmentService = {
 
   async getRatingStats(): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get('/api/mechanic/rating-stats');
+      const response = await apiClient.get('/api/mechanic/ratings/stats');
       return response.data;
     } catch (error: any) {
       console.error('Get rating stats error:', error);
@@ -537,7 +537,7 @@ export const AppointmentService = {
 
   async getAppointmentStats(): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get('/api/mechanic/appointment-stats');
+      const response = await apiClient.get('/api/mechanic/dashboard/stats');
       return response.data;
     } catch (error: any) {
       console.error('Get appointment stats error:', error);
@@ -554,7 +554,7 @@ export const ProfileService = {
    */
   async getProfile(): Promise<ApiResponse<{ profile: Mechanic }>> {
     try {
-      const response = await apiClient.get('/api/mechanics/profile');
+      const response = await apiClient.get('/api/mechanic/me');
       return response.data;
     } catch (error: any) {
       console.error('Get profile error:', error);
@@ -578,7 +578,7 @@ export const ProfileService = {
    */
   async updateProfile(data: Partial<Mechanic>): Promise<ApiResponse<{ profile: Mechanic }>> {
     try {
-      const response = await apiClient.put('/api/mechanics/profile', data);
+      const response = await apiClient.put('/api/mechanic/me', data);
       return response.data;
     } catch (error: any) {
       console.error('Update profile error:', error);
@@ -629,7 +629,7 @@ export const ProfileService = {
    */
   async updateUserProfile(data: Partial<Mechanic>): Promise<ApiResponse<Mechanic>> {
     try {
-      const response = await apiClient.put('/api/mechanics/profile', data);
+      const response = await apiClient.put('/api/mechanic/me', data);
       return response.data;
     } catch (error: any) {
       console.error('Update user profile error:', error);
@@ -714,7 +714,7 @@ export const EarningsService = {
    */
   async getEarningsSummary(): Promise<ApiResponse<{ earnings: any }>> {
     try {
-      const response = await apiClient.get('/api/mechanics/earnings');
+      const response = await apiClient.get('/api/mechanic-earnings/summary');
       return response.data;
     } catch (error: any) {
       console.error('Get earnings summary error:', error);
@@ -731,7 +731,7 @@ export const EarningsService = {
    */
   async getPaymentHistory(): Promise<ApiResponse<{ payments: any[] }>> {
     try {
-      const response = await apiClient.get('/api/mechanics/payments');
+      const response = await apiClient.get('/api/mechanic-earnings/transactions');
       return response.data;
     } catch (error: any) {
       console.error('Get payment history error:', error);
@@ -865,7 +865,7 @@ export const NotificationService = {
    */
   async getNotifications(): Promise<ApiResponse<{ notifications: NotificationData[] }>> {
     try {
-      const response = await apiClient.get('/api/notifications');
+      const response = await apiClient.get('/api/notifications/mechanic');
       return response.data;
     } catch (error: any) {
       console.error('Get notifications error:', error);
