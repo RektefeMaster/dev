@@ -8,6 +8,8 @@ import { Wallet } from '../models/Wallet';
 import { Mechanic } from '../models/Mechanic'; // Added missing import
 import { AppointmentRating } from '../models/AppointmentRating'; // Added missing import
 import { User } from '../models/User'; // Added User import for wash packages
+import { Message } from '../models/Message'; // Added Message import for debug
+import { Notification } from '../models/Notification'; // Added Notification import for debug
 import { AppointmentStatus, PaymentStatus } from '../../../shared/types/enums';
 import { ResponseHandler } from '../utils/response';
 
@@ -1696,6 +1698,101 @@ router.get('/customers', auth, async (req: Request, res: Response) => {
     res.status(500).json({ 
       success: false, 
       message: 'Müşteri listesi getirilirken hata oluştu',
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * Debug endpoint - Ustanın tüm verilerini kontrol et
+ */
+router.get('/debug/data', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Yetkilendirme hatası' });
+    }
+
+    const user = await User.findById(userId);
+    const mechanic = await Mechanic.findOne({ email: user?.email });
+    
+    // Appointments
+    const appointmentsAsMechanic = await Appointment.find({ mechanicId: userId }).limit(5);
+    const appointmentsAsUser = await Appointment.find({ userId: userId }).limit(5);
+    
+    // Ratings
+    let ratings = [];
+    if (mechanic) {
+      ratings = await AppointmentRating.find({ mechanicId: mechanic._id }).limit(5);
+    }
+    
+    // Messages
+    const messages = await Message.find({
+      $or: [{ senderId: userId }, { receiverId: userId }]
+    }).limit(5);
+    
+    // Notifications
+    const notifications = await Notification.find({ recipientId: userId }).limit(5);
+
+    res.json({
+      success: true,
+      data: {
+        userId: userId,
+        user: user ? {
+          email: user.email,
+          name: user.name,
+          userType: user.userType
+        } : null,
+        mechanic: mechanic ? {
+          _id: mechanic._id,
+          shopName: mechanic.shopName,
+          rating: mechanic.rating
+        } : null,
+        counts: {
+          appointmentsAsMechanic: await Appointment.countDocuments({ mechanicId: userId }),
+          appointmentsAsUser: await Appointment.countDocuments({ userId: userId }),
+          ratings: mechanic ? await AppointmentRating.countDocuments({ mechanicId: mechanic._id }) : 0,
+          messages: await Message.countDocuments({ $or: [{ senderId: userId }, { receiverId: userId }] }),
+          notifications: await Notification.countDocuments({ recipientId: userId })
+        },
+        sampleData: {
+          appointmentsAsMechanic: appointmentsAsMechanic.map(a => ({
+            _id: a._id,
+            userId: a.userId,
+            status: a.status,
+            serviceType: a.serviceType,
+            createdAt: a.createdAt
+          })),
+          appointmentsAsUser: appointmentsAsUser.map(a => ({
+            _id: a._id,
+            mechanicId: a.mechanicId,
+            status: a.status,
+            serviceType: a.serviceType,
+            createdAt: a.createdAt
+          })),
+          ratings: ratings.map(r => ({
+            _id: r._id,
+            rating: r.rating,
+            comment: r.comment
+          })),
+          messages: messages.map(m => ({
+            _id: m._id,
+            content: (m as any).content?.substring(0, 50),
+            createdAt: m.createdAt
+          })),
+          notifications: notifications.map(n => ({
+            _id: n._id,
+            title: n.title,
+            type: n.type
+          }))
+        }
+      }
+    });
+  } catch (error: any) {
+    console.error('Debug data error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Debug data error',
       error: error.message 
     });
   }
