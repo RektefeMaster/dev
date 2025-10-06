@@ -1,5 +1,7 @@
 [phases.setup]
 nixPkgs = ['nodejs_20']
+nixOverlays = []
+nixLibs = []
 
 [phases.install]
 cmds = [
@@ -9,11 +11,12 @@ cmds = [
 
 [phases.build]
 cmds = [
-  'cd rest-api && npm run build'
+  'cd rest-api && npm run build',
+  'ls -la rest-api/dist || echo "dist not found"'
 ]
 
 [start]
-cmd = 'cd rest-api && npm start'
+cmd = 'NODE_ENV=production node rest-api/dist/index.js'
 
 [variables]
 NPM_CONFIG_CACHE = '/tmp/.npm'

@@ -5,7 +5,6 @@
     "nixpacksPath": "nixpacks.toml"
   },
   "deploy": {
-    "startCommand": "cd rest-api && npm start",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
