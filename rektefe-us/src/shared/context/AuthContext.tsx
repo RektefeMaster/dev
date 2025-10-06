@@ -107,7 +107,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log('storedUserData:', storedUserData ? 'exists' : 'null');
 
         if (storedToken && storedUserId) {
-          // Token'ı test et - Otomatik logout devre dışı
+          // Token'ı test et - API çağrısı ile validation
           try {
             console.log('🔍 AuthContext Debug: Token test ediliyor...');
             console.log('storedToken preview:', storedToken.substring(0, 20) + '...');
@@ -148,7 +148,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'false');
             }
           } catch (error) {
-            // Token hatası, logout yap ve login ekranına yönlendir
+            // Token validation hatası, logout yap ve login ekranına yönlendir
             console.log('❌ Token validation hatası, logout yapılıyor...', error);
             await clearStoredData();
             

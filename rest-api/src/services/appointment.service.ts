@@ -221,17 +221,17 @@ export class AppointmentService {
         'in_progress': 'SERVISTE',
         'payment-pending': 'ODEME_BEKLIYOR',
         'completed': 'TAMAMLANDI',
-        'cancelled': 'IPTAL',
-        'no-show': 'TALEP_EDILDI', // no-show'u da pending olarak göster
+        'cancelled': 'IPTAL_EDILDI',
+        'no-show': 'NO_SHOW',
       };
       const legacyMap: Record<string, string[]> = {
-        'TALEP_EDILDI': ['pending', 'no-show'], // no-show'u da TALEP_EDILDI'ye ekle
+        'TALEP_EDILDI': ['pending'],
         'PLANLANDI': ['confirmed', 'approved'],
         'SERVISTE': ['in-progress', 'in_progress'],
         'ODEME_BEKLIYOR': ['payment-pending', 'payment_pending'],
         'TAMAMLANDI': ['completed', 'paid'],
-        'IPTAL': ['cancelled', 'rejected']
-        // NO_SHOW kaldırıldı - artık TALEP_EDILDI kategorisinde
+        'IPTAL_EDILDI': ['cancelled', 'rejected'],
+        'NO_SHOW': ['no-show']
       };
 
       const query: any = { mechanicId: mechanicId };
@@ -246,10 +246,7 @@ export class AppointmentService {
           statusValues.push(...legacyMap[turkishStatus]);
         }
         
-        // Özel durum: pending için no-show'u da ekle
-        if (statusFilter === 'pending') {
-          statusValues.push('no-show');
-        }
+        // No-show artık ayrı bir status olduğu için özel durum kaldırıldı
         
         query.status = { $in: statusValues };
         
@@ -307,7 +304,7 @@ export class AppointmentService {
         'SERVISTE': 'in-progress',
         'ODEME_BEKLIYOR': 'payment-pending',
         'TAMAMLANDI': 'completed',
-        'IPTAL': 'cancelled',
+        'IPTAL_EDILDI': 'cancelled',
         'NO_SHOW': 'no-show',
       };
 
@@ -342,7 +339,8 @@ export class AppointmentService {
           };
         }
 
-        const raw = obj.toObject();
+        // lean() kullanıldığı için obj zaten plain object, toObject() gerekmez
+        const raw = obj as any;
         // Basit arama filtresi (q) - populate sonrası filtreleme
         const q = (filters?.q || '').toString().toLowerCase();
         if (q) {
@@ -685,9 +683,9 @@ export class AppointmentService {
         'in-progress': 'SERVISTE',
         'payment-pending': 'ODEME_BEKLIYOR',
         'completed': 'TAMAMLANDI',
-        'cancelled': 'IPTAL',
+        'cancelled': 'IPTAL_EDILDI',
         'no-show': 'NO_SHOW',
-        'rejected': 'IPTAL',
+        'rejected': 'IPTAL_EDILDI',
       };
       if (status && mapENtoTR[status]) {
         status = mapENtoTR[status];
@@ -700,13 +698,13 @@ export class AppointmentService {
 
       // Yeni durum geçiş kuralları
       const validTransitions: { [key: string]: string[] } = {
-        'pending': ['PLANLANDI', 'IPTAL'],
-        'TALEP_EDILDI': ['PLANLANDI', 'IPTAL'],
-        'PLANLANDI': ['SERVISTE', 'IPTAL', 'NO_SHOW'],
+        'pending': ['PLANLANDI', 'IPTAL_EDILDI'],
+        'TALEP_EDILDI': ['PLANLANDI', 'IPTAL_EDILDI'],
+        'PLANLANDI': ['SERVISTE', 'IPTAL_EDILDI', 'NO_SHOW'],
         'SERVISTE': ['ODEME_BEKLIYOR'],
-        'ODEME_BEKLIYOR': ['TAMAMLANDI', 'IPTAL'],
+        'ODEME_BEKLIYOR': ['TAMAMLANDI', 'IPTAL_EDILDI'],
         'TAMAMLANDI': [], // Tamamlandı'dan başka duruma geçilemez
-        'IPTAL': [], // İptal'dan başka duruma geçilemez
+        'IPTAL_EDILDI': [], // İptal'dan başka duruma geçilemez
         'NO_SHOW': [] // No-show'dan başka duruma geçilemez
       };
 
@@ -736,7 +734,7 @@ export class AppointmentService {
       // Durum güncellemesi
       appointment.status = status as any;
       
-      if (status === 'IPTAL' && rejectionReason) {
+      if (status === 'IPTAL_EDILDI' && rejectionReason) {
         appointment.rejectionReason = rejectionReason;
       }
 
