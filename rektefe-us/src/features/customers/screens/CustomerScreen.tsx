@@ -85,7 +85,8 @@ export default function CustomerScreen() {
       
       if (response.success && response.data) {
         // API'den gelen veriyi Customer interface'ine uygun hale getir
-        const apiCustomers = response.data.map((customer: any) => ({
+        const customersArray = response.data.customers || [];
+        const apiCustomers = customersArray.map((customer: any) => ({
           _id: customer._id,
           name: customer.name || '',
           surname: customer.surname || '',
@@ -96,7 +97,7 @@ export default function CustomerScreen() {
           totalServices: customer.totalJobs || 0,
           vehicles: [], // Araç bilgileri şimdilik boş
           notes: [], // Notlar ayrı endpoint'ten gelecek
-          createdAt: customer.firstVisit ? new Date(customer.firstVisit).toISOString() : new Date().toISOString()
+          createdAt: customer.firstVisit || customer.firstAppointmentDate ? new Date(customer.firstVisit || customer.firstAppointmentDate).toISOString() : new Date().toISOString()
         }));
 
         setCustomers(apiCustomers);
