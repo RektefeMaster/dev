@@ -78,7 +78,7 @@ export class DatabaseOptimizationService {
       // ===== VEHICLE COLLECTION INDEXES =====
       await this.createIndexesSafe(Vehicle.collection, 'vehicles', [
         { key: { userId: 1 }, background: true },
-        { key: { plateNumber: 1 }, unique: true, background: true },
+        { key: { plateNumber: 1 }, name: 'plateNumber_unique_sparse_1', unique: true, background: true, sparse: true },
         { key: { brand: 1, model: 1 }, background: true },
         { key: { year: -1 }, background: true },
         { key: { isActive: 1 }, background: true },
