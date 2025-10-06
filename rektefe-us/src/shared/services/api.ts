@@ -903,7 +903,7 @@ export const CustomerService = {
    */
   async getMechanicCustomers(filters?: any): Promise<ApiResponse<{ customers: any[] }>> {
     try {
-      const response = await apiClient.get('/api/mechanics/customers', { params: filters });
+      const response = await apiClient.get('/api/mechanic/customers', { params: filters });
       return response.data;
     } catch (error: any) {
       console.error('Get mechanic customers error:', error);

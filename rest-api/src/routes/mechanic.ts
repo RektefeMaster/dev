@@ -1637,4 +1637,68 @@ router.get('/wallet/debug', auth, async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/mechanic/customers:
+ *   get:
+ *     summary: Ustanın müşterilerini getir
+ *     description: Ustanın hizmet verdiği müşterileri listeler
+ *     tags:
+ *       - Mechanic
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Müşteri listesi başarıyla getirildi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/customers', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Yetkilendirme hatası' });
+    }
+
+    // Bu ustaya randevu veren müşterileri bul (unique)
+    const appointments = await Appointment.find({ mechanicId: userId })
+      .populate('userId', 'name surname email phone avatar')
+      .select('userId createdAt');
+
+    // Unique müşterileri çıkar
+    const uniqueCustomersMap = new Map();
+    appointments.forEach(apt => {
+      const customer = apt.userId as any;
+      if (customer && customer._id && !uniqueCustomersMap.has(customer._id.toString())) {
+        uniqueCustomersMap.set(customer._id.toString(), {
+          _id: customer._id,
+          name: customer.name,
+          surname: customer.surname,
+          email: customer.email,
+          phone: customer.phone,
+          avatar: customer.avatar,
+          firstAppointmentDate: apt.createdAt
+        });
+      }
+    });
+
+    const customers = Array.from(uniqueCustomersMap.values());
+
+    res.json({
+      success: true,
+      data: { customers },
+      message: 'Müşteri listesi başarıyla getirildi'
+    });
+  } catch (error: any) {
+    console.error('Get mechanic customers error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Müşteri listesi getirilirken hata oluştu',
+      error: error.message 
+    });
+  }
+});
+
 export default router; 
