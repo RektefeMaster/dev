@@ -64,6 +64,20 @@ apiClient.interceptors.request.use(
 
 // ===== RESPONSE INTERCEPTOR =====
 
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 apiClient.interceptors.response.use(
   (response) => {
     // Success response'ları logla
@@ -74,11 +88,74 @@ apiClient.interceptors.response.use(
     // Error response'ları logla
     console.error(`API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${error.response?.status}`);
     
-    // 401 Unauthorized - token'ı temizle ve login'e yönlendir
-    if (error.response?.status === 401) {
-      await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-      await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-      // Navigation to login screen would be handled by the app
+    const originalRequest = error.config;
+    
+    // 401 Unauthorized - token refresh dene
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // Başka bir request zaten refresh yapıyorsa bekle
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(token => {
+          originalRequest.headers['Authorization'] = 'Bearer ' + token;
+          return apiClient(originalRequest);
+        }).catch(err => {
+          return Promise.reject(err);
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+        
+        if (!refreshToken) {
+          throw new Error('No refresh token');
+        }
+
+        console.log('🔄 Token yenileniyor...');
+        
+        // Refresh token endpoint'ini çağır
+        const response = await axios.post(
+          `${API_CONFIG.BASE_URL}/api/auth/refresh`,
+          { refreshToken }
+        );
+
+        if (response.data.success && response.data.data?.token) {
+          const newToken = response.data.data.token;
+          const newRefreshToken = response.data.data.refreshToken;
+
+          // Yeni token'ları kaydet
+          await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, newToken);
+          if (newRefreshToken) {
+            await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
+          }
+
+          // Header'ı güncelle
+          apiClient.defaults.headers.common['Authorization'] = 'Bearer ' + newToken;
+          originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
+
+          console.log('✅ Token yenilendi');
+          
+          processQueue(null, newToken);
+          isRefreshing = false;
+
+          // Original request'i yeniden dene
+          return apiClient(originalRequest);
+        }
+      } catch (refreshError) {
+        console.error('❌ Token yenileme başarısız, logout yapılıyor');
+        processQueue(refreshError, null);
+        isRefreshing = false;
+        
+        // Refresh başarısız, logout yap
+        await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+        await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+        await AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA);
+        
+        return Promise.reject(refreshError);
+      }
     }
     
     return Promise.reject(error);
