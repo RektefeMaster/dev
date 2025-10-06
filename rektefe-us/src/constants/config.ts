@@ -6,7 +6,7 @@
 export const API_CONFIG = {
   BASE_URL: 'https://dev-production-8a3d.up.railway.app',
   SOCKET_URL: 'https://dev-production-8a3d.up.railway.app',
-  TIMEOUT: 60000,
+  TIMEOUT: 120000, // 2 dakika (60 saniye yeterli değildi)
 };
 
 // Debug logs removed for cleaner output

@@ -109,16 +109,44 @@ export interface Driver extends BaseUser {
 
 export interface Mechanic extends BaseUser {
   userType: 'mechanic';
-  experience: number;
-  specialties: string[];
-  serviceCategories: string[];
-  location?: Location;
-  rating: number;
-  totalRatings: number;
-  availability: boolean;
-  workingHours?: WorkingHours;
+  experience?: number;
+  specialties?: string[];
+  serviceCategories?: string[];
+  location?: {
+    city?: string;
+    district?: string;
+    neighborhood?: string;
+    street?: string;
+    building?: string;
+    floor?: string;
+    apartment?: string;
+    description?: string;
+    coordinates?: {
+      latitude: number;
+      longitude: number;
+    };
+  };
+  rating?: number;
+  totalRatings?: number;
+  ratingCount?: number; // Alias for totalRatings
+  availability?: boolean;
+  isAvailable?: boolean; // Alias for availability
+  workingHours?: string; // JSON string
   priceRange?: PriceRange;
   pushToken?: string;
+  // Usta özel alanlar
+  shopName?: string;
+  bio?: string;
+  avatar?: string;
+  cover?: string;
+  vehicleBrands?: string[];
+  engineTypes?: string[];
+  transmissionTypes?: string[];
+  customBrands?: string[];
+  washPackages?: any[];
+  washOptions?: any[];
+  totalServices?: number;
+  city?: string;
 }
 
 // ===== VEHICLE INTERFACES =====

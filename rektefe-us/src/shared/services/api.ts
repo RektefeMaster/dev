@@ -629,7 +629,7 @@ export const ProfileService = {
   /**
    * Profil bilgilerini getir
    */
-  async getProfile(): Promise<ApiResponse<{ profile: Mechanic }>> {
+  async getProfile(): Promise<ApiResponse<Mechanic>> {
     try {
       const response = await apiClient.get('/api/mechanic/me');
       return response.data;
@@ -646,14 +646,14 @@ export const ProfileService = {
   /**
    * Usta profilini getir (alias)
    */
-  async getMechanicProfile(): Promise<ApiResponse<{ profile: Mechanic }>> {
+  async getMechanicProfile(): Promise<ApiResponse<Mechanic>> {
     return this.getProfile();
   },
 
   /**
    * Profil güncelleme
    */
-  async updateProfile(data: Partial<Mechanic>): Promise<ApiResponse<{ profile: Mechanic }>> {
+  async updateProfile(data: Partial<Mechanic>): Promise<ApiResponse<Mechanic>> {
     try {
       const response = await apiClient.put('/api/mechanic/me', data);
       return response.data;

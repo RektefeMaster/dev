@@ -1,19 +1,19 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS, API_URL } from '@/constants/config';
-import { User, MechanicProfile, ApiResponse } from '@/shared/types';
+import { User, Mechanic, ApiResponse } from '@/shared/types';
 import apiService from '@/shared/services';
 
 interface AuthContextType {
   token: string | null;
   userId: string | null;
-  user: MechanicProfile | null;
+  user: Mechanic | null;
   setToken: (token: string | null) => void;
   setUserId: (userId: string | null) => void;
-  setUser: (user: MechanicProfile | null) => void;
-  updateUser: (updates: Partial<MechanicProfile>) => void;
+  setUser: (user: Mechanic | null) => void;
+  updateUser: (updates: Partial<Mechanic>) => void;
   setTokenAndUserId: (token: string, userId: string) => Promise<void>;
-  login: (email: string, password: string) => Promise<ApiResponse<MechanicProfile>>;
+  login: (email: string, password: string) => Promise<ApiResponse<any>>;
   register: (userData: {
     name: string;
     surname: string;
@@ -25,7 +25,7 @@ interface AuthContextType {
     city?: string;
     specialties?: string[];
     serviceCategories?: string[];
-  }) => Promise<ApiResponse<MechanicProfile>>;
+  }) => Promise<ApiResponse<any>>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -36,7 +36,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [user, setUser] = useState<MechanicProfile | null>(null);
+  const [user, setUser] = useState<Mechanic | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -156,9 +156,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'false');
           }
         } else {
+          console.log('ℹ️ Token veya UserId bulunamadı - kullanıcı giriş yapmamış');
+          await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'false');
         }
       } catch (error) {
-        } finally {
+        console.error('❌ Auth data yükleme hatası:', error);
+        await clearStoredData();
+      } finally {
         setIsLoading(false);
       }
     };
@@ -169,15 +173,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // User data'yı API'den yükle
   const loadUserDataFromAPI = async () => {
     try {
+      console.log('🔍 API\'den user data yükleniyor...');
       const userResponse = await apiService.getMechanicProfile();
+      console.log('📦 User response:', userResponse);
+      
       if (userResponse.success && userResponse.data) {
+        console.log('✅ User data başarıyla yüklendi:', userResponse.data);
         setUser(userResponse.data);
         await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userResponse.data));
         await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'true');
       } else {
+        console.error('❌ User data yüklenemedi:', userResponse.message);
       }
     } catch (error) {
-      }
+      console.error('❌ User data yükleme hatası:', error);
+    }
   };
 
   // Stored data'yı temizle
@@ -229,7 +239,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const login = async (email: string, password: string): Promise<ApiResponse<MechanicProfile>> => {
+  const login = async (email: string, password: string): Promise<ApiResponse<any>> => {
     try {
       // Gerçek API çağrısı yap
       console.log('🔍 Rektefe-US AuthContext Login Debug:');
@@ -287,7 +297,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             console.log('🔍 Login sonrası profil kontrolü yapılıyor...');
             const profileResponse = await apiService.getMechanicProfile();
             if (profileResponse.success && profileResponse.data) {
-              console.log('✅ Usta profili bulundu');
+              console.log('✅ Usta profili bulundu:', profileResponse.data);
               setUser(profileResponse.data);
               await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(profileResponse.data));
             } else {
@@ -297,7 +307,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             console.log('⚠️ Profil kontrolü hatası:', profileError);
           }
         }
-        return response as ApiResponse<MechanicProfile>;
+        return response as ApiResponse<any>;
       } else {
         return { success: false, message: response.message || 'Giriş başarısız', data: undefined };
       }
@@ -323,6 +333,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     try {
+      console.log('🚪 Logout başlatılıyor...');
       
       // AsyncStorage'ı temizle - hem eski hem yeni key formatlarını temizle
       await AsyncStorage.multiRemove([
@@ -338,18 +349,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         'user_data'
       ]);
       
+      console.log('✅ Storage temizlendi');
+      
       // State'i temizle
       setToken(null);
       setUserId(null);
       setUser(null);
       setIsAuthenticated(false);
       
+      console.log('✅ Auth state temizlendi');
+      
     } catch (error) {
       console.error('❌ Logout hatası:', error);
     }
   };
 
-  const updateUser = (updates: Partial<MechanicProfile>) => {
+  const updateUser = (updates: Partial<Mechanic>) => {
     if (user) {
       const updatedUser = { ...user, ...updates };
       setUser(updatedUser);

@@ -284,6 +284,10 @@ export class AppointmentService {
         query.status = { $in: ['ODEME_BEKLIYOR', ...(legacyMap['ODEME_BEKLIYOR'] || [])] };
       }
 
+      // Pagination ve limit ekle
+      const limit = parseInt(filters?.limit as string) || 100; // Maksimum 100
+      const skip = parseInt(filters?.skip as string) || 0;
+
       const appointments = await Appointment.find(query)
       .populate({
         path: 'userId',
@@ -291,7 +295,10 @@ export class AppointmentService {
         options: { lean: true }
       })
       .populate('vehicleId')
-      .sort({ appointmentDate: -1 });
+      .sort({ appointmentDate: -1 })
+      .limit(limit)
+      .skip(skip)
+      .lean(); // Memory optimization
 
       // Randevuları frontend formatına çevir
       const mapTRtoEN: Record<string, string> = {
