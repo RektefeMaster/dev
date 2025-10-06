@@ -595,7 +595,7 @@ export const ProfileService = {
    */
   async updateWorkingHours(hours: any[]): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.put('/api/mechanics/working-hours', { hours });
+      const response = await apiClient.put('/api/users/working-hours', { hours });
       return response.data;
     } catch (error: any) {
       console.error('Update working hours error:', error);
@@ -612,7 +612,7 @@ export const ProfileService = {
    */
   async updateServiceCategories(categories: ServiceType[]): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.put('/api/mechanics/service-categories', { categories });
+      const response = await apiClient.put('/api/users/service-categories', { categories });
       return response.data;
     } catch (error: any) {
       console.error('Update service categories error:', error);
@@ -752,7 +752,7 @@ export const MessageService = {
    */
   async getMessages(conversationId: string): Promise<ApiResponse<{ messages: MessageData[] }>> {
     try {
-      const response = await apiClient.get(`/api/messages/${conversationId}`);
+      const response = await apiClient.get(`/api/message/conversations/${conversationId}/messages`);
       return response.data;
     } catch (error: any) {
       console.error('Get messages error:', error);
@@ -769,7 +769,7 @@ export const MessageService = {
    */
   async getConversationMessages(conversationId: string, page: number = 1, limit: number = 50): Promise<ApiResponse<MessageData[]>> {
     try {
-      const response = await apiClient.get(`/api/messages/${conversationId}`, {
+      const response = await apiClient.get(`/api/message/conversations/${conversationId}/messages`, {
         params: { page, limit }
       });
       return response.data;
@@ -788,7 +788,7 @@ export const MessageService = {
    */
   async sendMessage(conversationId: string, recipientId: string, text: string, metadata?: any): Promise<ApiResponse<MessageData>> {
     try {
-      const response = await apiClient.post('/api/messages', {
+      const response = await apiClient.post('/api/message/send', {
         conversationId,
         recipientId,
         text,
@@ -810,7 +810,7 @@ export const MessageService = {
    */
   async getConversations(): Promise<ApiResponse<{ conversations: any[] }>> {
     try {
-      const response = await apiClient.get('/api/messages/conversations');
+      const response = await apiClient.get('/api/message/conversations');
       return response.data;
     } catch (error: any) {
       console.error('Get conversations error:', error);
@@ -827,7 +827,7 @@ export const MessageService = {
    */
   async deleteConversation(conversationId: string): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.delete(`/api/messages/conversations/${conversationId}`);
+      const response = await apiClient.delete(`/api/message/conversations/${conversationId}`);
       return response.data;
     } catch (error: any) {
       console.error('Delete conversation error:', error);
@@ -844,7 +844,7 @@ export const MessageService = {
    */
   async getUnreadMessageCount(): Promise<ApiResponse<{ count: number }>> {
     try {
-      const response = await apiClient.get('/api/messages/unread-count');
+      const response = await apiClient.get('/api/message/unread-count');
       return response.data;
     } catch (error: any) {
       console.error('Get unread message count error:', error);
@@ -1056,7 +1056,7 @@ export const SettingsService = {
    */
   async getNotificationSettings(): Promise<ApiResponse<{ settings: any }>> {
     try {
-      const response = await apiClient.get('/api/settings/notifications');
+      const response = await apiClient.get('/api/users/notification-settings');
       return response.data;
     } catch (error: any) {
       console.error('Get notification settings error:', error);
@@ -1073,7 +1073,7 @@ export const SettingsService = {
    */
   async getPrivacySettings(): Promise<ApiResponse<{ settings: any }>> {
     try {
-      const response = await apiClient.get('/api/settings/privacy');
+      const response = await apiClient.get('/api/users/privacy-settings');
       return response.data;
     } catch (error: any) {
       console.error('Get privacy settings error:', error);
@@ -1090,7 +1090,7 @@ export const SettingsService = {
    */
   async getJobSettings(): Promise<ApiResponse<{ settings: any }>> {
     try {
-      const response = await apiClient.get('/api/settings/job');
+      const response = await apiClient.get('/api/users/job-settings');
       return response.data;
     } catch (error: any) {
       console.error('Get job settings error:', error);
@@ -1107,7 +1107,7 @@ export const SettingsService = {
    */
   async getAppSettings(): Promise<ApiResponse<{ settings: any }>> {
     try {
-      const response = await apiClient.get('/api/settings/app');
+      const response = await apiClient.get('/api/users/app-settings');
       return response.data;
     } catch (error: any) {
       console.error('Get app settings error:', error);
@@ -1124,7 +1124,7 @@ export const SettingsService = {
    */
   async getSecuritySettings(): Promise<ApiResponse<{ settings: any }>> {
     try {
-      const response = await apiClient.get('/api/settings/security');
+      const response = await apiClient.get('/api/users/security-settings');
       return response.data;
     } catch (error: any) {
       console.error('Get security settings error:', error);
@@ -1141,7 +1141,7 @@ export const SettingsService = {
    */
   async updateNotificationSettings(settings: any): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.put('/api/settings/notifications', settings);
+      const response = await apiClient.put('/api/users/notification-settings', settings);
       return response.data;
     } catch (error: any) {
       console.error('Update notification settings error:', error);
@@ -1158,7 +1158,7 @@ export const SettingsService = {
    */
   async updatePrivacySettings(settings: any): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.put('/api/settings/privacy', settings);
+      const response = await apiClient.put('/api/users/privacy-settings', settings);
       return response.data;
     } catch (error: any) {
       console.error('Update privacy settings error:', error);
@@ -1175,7 +1175,7 @@ export const SettingsService = {
    */
   async updateJobSettings(settings: any): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.put('/api/settings/job', settings);
+      const response = await apiClient.put('/api/users/job-settings', settings);
       return response.data;
     } catch (error: any) {
       console.error('Update job settings error:', error);
@@ -1192,7 +1192,7 @@ export const SettingsService = {
    */
   async updateAppSettings(settings: any): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.put('/api/settings/app', settings);
+      const response = await apiClient.put('/api/users/app-settings', settings);
       return response.data;
     } catch (error: any) {
       console.error('Update app settings error:', error);
@@ -1209,7 +1209,7 @@ export const SettingsService = {
    */
   async updateSecuritySettings(settings: any): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.put('/api/settings/security', settings);
+      const response = await apiClient.put('/api/users/security-settings', settings);
       return response.data;
     } catch (error: any) {
       console.error('Update security settings error:', error);

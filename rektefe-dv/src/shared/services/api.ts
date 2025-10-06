@@ -412,7 +412,7 @@ export const MessageService = {
    */
   async getMessages(conversationId: string): Promise<ApiResponse<{ messages: MessageData[] }>> {
     try {
-      const response = await apiClient.get(`/api/messages/${conversationId}`);
+      const response = await apiClient.get(`/api/message/conversations/${conversationId}/messages`);
       return response.data;
     } catch (error: any) {
       console.error('Get messages error:', error);
@@ -429,7 +429,7 @@ export const MessageService = {
    */
   async sendMessage(data: MessageData): Promise<ApiResponse<{ message: MessageData }>> {
     try {
-      const response = await apiClient.post('/api/messages', data);
+      const response = await apiClient.post('/api/message/send', data);
       return response.data;
     } catch (error: any) {
       console.error('Send message error:', error);
