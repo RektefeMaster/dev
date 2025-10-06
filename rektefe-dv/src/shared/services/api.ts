@@ -277,7 +277,7 @@ export const AppointmentService = {
   async getAppointments(status?: AppointmentStatus): Promise<ApiResponse<{ appointments: any[] }>> {
     try {
       const params = status ? { status } : {};
-      const response = await apiClient.get('/api/appointments', { params });
+      const response = await apiClient.get('/api/appointments/driver', { params });
       return response.data;
     } catch (error: any) {
       console.error('Get appointments error:', error);
@@ -450,7 +450,7 @@ export const NotificationService = {
    */
   async getNotifications(): Promise<ApiResponse<{ notifications: NotificationData[] }>> {
     try {
-      const response = await apiClient.get('/api/notifications');
+      const response = await apiClient.get('/api/notifications/driver');
       return response.data;
     } catch (error: any) {
       console.error('Get notifications error:', error);
