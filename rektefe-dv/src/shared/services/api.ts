@@ -17,15 +17,17 @@ import {
   ApiResponse,
   Driver,
   Mechanic
-} from '@/shared/types/common';
+} from '../types/common';
 import { 
   AppointmentStatus, 
   ServiceType, 
-  UserType,
+  UserType
+} from '../types/common';
+import { 
   createSuccessResponse,
   createErrorResponse,
   ErrorCode
-} from '../../../../shared/types';
+} from '../../../../shared/types/index';
 
 // ===== API CLIENT CONFIGURATION =====
 

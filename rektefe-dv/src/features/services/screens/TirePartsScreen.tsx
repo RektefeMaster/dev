@@ -16,13 +16,13 @@ import { useTheme } from '@/context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/navigation/AppNavigator';
-import Background from '@/shared/components/Background';
-import { BackButton } from '@/shared/components';
-import Button from '@/shared/components/Button';
-import Card from '@/shared/components/Card';
-import Input from '@/shared/components/Input';
-import { apiService } from '@/shared/services/api';
-import LocationService, { UserLocation } from '@/shared/services/locationService';
+import Background from '../../../shared/components/Background';
+import { BackButton } from '../../../shared/components';
+import Button from '../../../shared/components/Button';
+import Card from '../../../shared/components/Card';
+import Input from '../../../shared/components/Input';
+import { apiService } from '../../../shared/services/api';
+import LocationService, { UserLocation } from '../../../shared/services/locationService';
 
 type TirePartsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'TireParts'>;
 
