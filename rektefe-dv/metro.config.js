@@ -21,6 +21,7 @@ config.resolver.platforms = ['ios', 'android', 'native', 'web'];
 // Babel runtime için alias ayarları
 config.resolver.alias = {
   '@babel/runtime': path.resolve(__dirname, 'node_modules/@babel/runtime'),
+  '@babel/runtime/helpers/interopRequireDefault': path.resolve(__dirname, 'node_modules/@babel/runtime/helpers/interopRequireDefault'),
 };
 
 module.exports = config;
