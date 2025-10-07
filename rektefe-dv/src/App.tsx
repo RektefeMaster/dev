@@ -2,12 +2,12 @@ import React, { useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import AppNavigator from '@/navigation/AppNavigator';
-import { AuthProvider } from '@/context/AuthContext';
-import { ThemeProvider, useTheme } from '@/shared/context/ThemeContext';
-import ErrorBoundary from '@/shared/components/ErrorBoundary';
-import notificationService from '@/features/notifications/services/notificationService';
-import { apiService } from '@/shared/services/api';
+import AppNavigator from './navigation/AppNavigator';
+import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider, useTheme } from '../shared/context/ThemeContext';
+import ErrorBoundary from '../shared/components/ErrorBoundary';
+import notificationService from './features/notifications/services/notificationService';
+import { apiService } from '../shared/services/api';
 
 function App() {
   return (

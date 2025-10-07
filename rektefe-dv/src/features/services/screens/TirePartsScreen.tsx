@@ -12,10 +12,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTheme } from '@/context/ThemeContext';
+import { useTheme } from '../../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '@/navigation/AppNavigator';
+import { RootStackParamList } from '../../../navigation/AppNavigator';
 import Background from '../../../shared/components/Background';
 import { BackButton } from '../../../shared/components';
 import Button from '../../../shared/components/Button';
