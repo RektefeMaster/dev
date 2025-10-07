@@ -1,9 +1,5 @@
 {
   "name": "rektefe-monorepo",
   "version": "1.0.0",
-  "private": true,
-  "workspaces": [
-    "rektefe-dv",
-    "rektefe-us"
-  ]
+  "private": true
 }
