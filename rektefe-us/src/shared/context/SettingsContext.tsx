@@ -334,15 +334,24 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   // Update service categories
   const updateServiceCategories = async (categories: string[]) => {
     try {
+      console.log('🎯 SettingsContext updateServiceCategories called with:', categories);
+      setError(null);
       setServiceCategories(categories);
       
+      console.log('📡 Calling API service...');
       const response = await apiService.updateServiceCategories(categories);
+      console.log('📡 API response:', response);
+      
       if (!response.success) {
+        console.error('❌ API returned success: false');
         throw new Error(response.message || 'Hizmet kategorileri güncellenemedi');
       }
 
+      console.log('✅ Service categories updated successfully');
     } catch (error: any) {
+      console.error('❌ SettingsContext error:', error);
       setError(error.message || 'Hizmet kategorileri güncellenirken hata oluştu');
+      throw error; // Re-throw to let the calling component handle it
     }
   };
 

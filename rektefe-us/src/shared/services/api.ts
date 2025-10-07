@@ -44,6 +44,15 @@ apiClient.interceptors.request.use(
     try {
       const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
       
+      // Token yoksa ve auth gerektiren endpoint ise isteği iptal et
+      if (!token && config.url && !config.url.includes('/api/auth/')) {
+        // Silent cancellation - no logging
+        const cancelToken = axios.CancelToken.source();
+        cancelToken.cancel('No authentication token');
+        config.cancelToken = cancelToken.token;
+        return config;
+      }
+      
       // Sadece önemli endpoint'ler için debug log
       if (config.url?.includes('/api/auth/') || config.url?.includes('/api/mechanic/me')) {
         console.log('🔍 Request interceptor - URL:', config.url);
@@ -94,6 +103,12 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error) => {
+    // Cancel edilen istekleri handle et (error logging yapma)
+    if (axios.isCancel(error)) {
+      // Silent cancellation - no logging
+      return Promise.reject(error);
+    }
+    
     // Error response'ları logla
     console.error(`❌ API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${error.response?.status}`);
     console.error(`❌ API Error Response:`, error.response?.data);
@@ -337,6 +352,10 @@ export const AppointmentService = {
       const response = await apiClient.get('/api/appointments/mechanic', { params });
       return response.data;
     } catch (error: any) {
+      // Cancel edilen istekleri handle et (error logging yapma)
+      if (axios.isCancel(error)) {
+        return createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, 'Request cancelled', undefined);
+      }
       console.error('❌ Get appointments error:', error);
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -441,6 +460,10 @@ export const AppointmentService = {
       const response = await apiClient.get('/api/appointments/mechanic', { params });
       return response.data;
     } catch (error: any) {
+      // Cancel edilen istekleri handle et (error logging yapma)
+      if (axios.isCancel(error)) {
+        return createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, 'Request cancelled', undefined);
+      }
       console.error('Get mechanic appointments error:', error);
       return createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, 'Randevular alınamadı', error.response?.data?.error?.details);
     }
@@ -609,6 +632,10 @@ export const AppointmentService = {
       const response = await apiClient.get('/api/mechanic/ratings/recent');
       return response.data;
     } catch (error: any) {
+      // Cancel edilen istekleri handle et (error logging yapma)
+      if (axios.isCancel(error)) {
+        return createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, 'Request cancelled', undefined);
+      }
       console.error('Get recent ratings error:', error);
       return createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, 'Son değerlendirmeler alınamadı', error.response?.data?.error?.details);
     }
@@ -619,6 +646,10 @@ export const AppointmentService = {
       const response = await apiClient.get('/api/mechanic/ratings/stats');
       return response.data;
     } catch (error: any) {
+      // Cancel edilen istekleri handle et (error logging yapma)
+      if (axios.isCancel(error)) {
+        return createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, 'Request cancelled', undefined);
+      }
       console.error('Get rating stats error:', error);
       return createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, 'Değerlendirme istatistikleri alınamadı', error.response?.data?.error?.details);
     }
@@ -699,12 +730,21 @@ export const ProfileService = {
   /**
    * Servis kategorileri güncelleme
    */
-  async updateServiceCategories(categories: ServiceType[]): Promise<ApiResponse<void>> {
+  async updateServiceCategories(categories: string[]): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.put('/api/users/service-categories', { categories });
+      console.log('🔧 updateServiceCategories called with:', categories);
+      
+      const requestBody = { categories };
+      console.log('📤 Request body:', requestBody);
+      
+      const response = await apiClient.put('/api/users/service-categories', requestBody);
+      console.log('📥 Response:', response.data);
+      
       return response.data;
     } catch (error: any) {
-      console.error('Update service categories error:', error);
+      console.error('❌ Update service categories error:', error);
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error status:', error.response?.status);
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Servis kategorileri güncellenemedi',
@@ -938,6 +978,10 @@ export const MessageService = {
       const response = await apiClient.get('/api/message/unread-count');
       return response.data;
     } catch (error: any) {
+      // Cancel edilen istekleri handle et (error logging yapma)
+      if (axios.isCancel(error)) {
+        return createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, 'Request cancelled', undefined);
+      }
       console.error('Get unread message count error:', error);
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1001,6 +1045,13 @@ export const NotificationService = {
         error.response?.data?.error?.details
       );
     }
+  },
+
+  /**
+   * Bildirim okundu olarak işaretleme (alternatif isim)
+   */
+  async markNotificationAsRead(id: string): Promise<ApiResponse<void>> {
+    return this.markAsRead(id);
   }
 };
 
@@ -1342,6 +1393,10 @@ export const WalletService = {
       const response = await apiClient.get('/api/wallet/balance');
       return response.data;
     } catch (error: any) {
+      // Cancel edilen istekleri handle et (error logging yapma)
+      if (axios.isCancel(error)) {
+        return createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, 'Request cancelled', undefined);
+      }
       console.error('Get mechanic wallet error:', error);
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,

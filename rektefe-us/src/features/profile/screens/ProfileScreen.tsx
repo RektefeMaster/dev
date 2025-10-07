@@ -275,12 +275,7 @@ export default function ProfileScreen() {
             <View style={styles.headerCenter}>
               <Text style={styles.headerTitle}>Profil</Text>
             </View>
-            <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={handleLogout}
-            >
-              <Ionicons name="log-out-outline" size={24} color={colors.text.inverse} />
-            </TouchableOpacity>
+            <View style={styles.headerPlaceholder} />
           </View>
         </View>
       </View>
@@ -497,6 +492,20 @@ export default function ProfileScreen() {
             <Ionicons name="people" size={20} color={colors.primary.main} />
             <Text style={styles.actionButtonText}>Müşteri Defterim</Text>
             <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Çıkış Yap Butonu */}
+        <View style={styles.logoutSection}>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            activeOpacity={0.7}
+          >
+            <View style={styles.logoutButtonContent}>
+              <Ionicons name="log-out-outline" size={24} color="#EF4444" />
+              <Text style={styles.logoutButtonText}>Çıkış Yap</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -759,14 +768,44 @@ const styles = StyleSheet.create({
     fontWeight: typography.h2.fontWeight,
     color: colors.text.inverse,
   },
-  logoutButton: {
-    padding: spacing.sm,
+  headerPlaceholder: {
+    width: 40,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingBottom: spacing.xl,
+  },
+  logoutSection: {
+    marginHorizontal: spacing.lg,
+    marginVertical: spacing.md,
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    ...shadows.small,
+  },
+  logoutButton: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    ...shadows.small,
+  },
+  logoutButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutButtonText: {
+    fontSize: typography.body1.fontSize,
+    fontWeight: '600',
+    color: '#EF4444',
+    marginLeft: spacing.sm,
+    fontFamily: 'System',
   },
   loadingContainer: {
     flex: 1,

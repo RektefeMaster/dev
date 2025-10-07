@@ -402,6 +402,7 @@ const mechanicCapabilities = [
     try {
       // Authentication kontrolü
       if (!isAuthenticated || !user) {
+        console.log('❌ Not authenticated, skipping dashboard data fetch');
         setLoading(false);
         return;
       }
@@ -591,6 +592,12 @@ const mechanicCapabilities = [
       }
 
     } catch (error) {
+      // Cancel edilen istekleri handle et (error logging yapma)
+      if (error?.name === 'CanceledError' || error?.message?.includes('No authentication token')) {
+        // Silent cancellation - no logging
+        return;
+      }
+      
       console.log('❌ fetchDashboardData error:', error);
       console.log('Error details:', {
         message: error?.message,
@@ -781,15 +788,23 @@ const mechanicCapabilities = [
           {/* Enhanced Stats Row */}
           <View style={styles.statsContainer}>
             <View style={styles.statsRow}>
-              <View style={styles.statCard}>
+              <TouchableOpacity 
+                style={styles.statCard}
+                onPress={() => navigation.navigate('Appointments')}
+                activeOpacity={0.7}
+              >
                 <View style={styles.statIconContainer}>
                   <Ionicons name="briefcase" size={24} color="#3B82F6" />
                 </View>
                 <Text style={styles.statNumber}>{stats.activeJobs}</Text>
                 <Text style={styles.statLabel}>Aktif İş</Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={styles.statCard}>
+              <TouchableOpacity 
+                style={styles.statCard}
+                onPress={() => navigation.navigate('FinancialTracking')}
+                activeOpacity={0.7}
+              >
                 <View style={styles.statIconContainer}>
                   <Ionicons name="cash" size={24} color="#10B981" />
                 </View>
@@ -805,15 +820,19 @@ const mechanicCapabilities = [
                   }
                 </Text>
                 <Text style={styles.statLabel}>Bugün Kazanç</Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={styles.statCard}>
+              <TouchableOpacity 
+                style={styles.statCard}
+                onPress={() => navigation.navigate('Reviews')}
+                activeOpacity={0.7}
+              >
                 <View style={styles.statIconContainer}>
                   <Ionicons name="star" size={24} color="#F59E0B" />
                 </View>
                 <Text style={styles.statNumber}>{stats.averageRating.toFixed(1)}</Text>
                 <Text style={styles.statLabel}>Ortalama Puan</Text>
-              </View>
+              </TouchableOpacity>
             </View>
           </View>
         </View>

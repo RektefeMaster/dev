@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS, API_URL } from '@/constants/config';
 import { User, Mechanic, ApiResponse } from '@/shared/types';
 import apiService from '@/shared/services';
+import { CommonActions } from '@react-navigation/native';
 
 interface AuthContextType {
   token: string | null;
@@ -341,7 +342,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         STORAGE_KEYS.REFRESH_TOKEN,
         STORAGE_KEYS.USER_ID,
         STORAGE_KEYS.USER_DATA,
-        STORAGE_KEYS.ONBOARDING_COMPLETED,
+        // ONBOARDING_COMPLETED'i silme - kullanıcı bir kez onboarding'i tamamladıysa tekrar görmesine gerek yok
         // Eski key formatlarını da temizle
         'auth_token',
         'refresh_token',
@@ -358,6 +359,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsAuthenticated(false);
       
       console.log('✅ Auth state temizlendi');
+      
+      // Navigation'ı Auth ekranına reset et
+      // Bu işlem AppNavigator'da useEffect ile handle edilecek
       
     } catch (error) {
       console.error('❌ Logout hatası:', error);

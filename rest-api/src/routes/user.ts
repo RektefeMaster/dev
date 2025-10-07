@@ -1363,17 +1363,27 @@ router.put('/security-settings', auth, async (req: Request, res: Response) => {
  */
 router.put('/service-categories', auth, async (req: Request, res: Response) => {
   try {
+    console.log('🔧 Backend: service-categories endpoint called');
+    console.log('🔧 Request body:', req.body);
+    console.log('🔧 Request headers:', req.headers);
+    
     const userId = req.user?.userId;
+    console.log('🔧 User ID:', userId);
+    
     if (!userId) {
+      console.log('❌ No user ID found');
       return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
     }
 
     const { categories } = req.body;
+    console.log('🔧 Categories received:', categories);
     
     if (!Array.isArray(categories)) {
+      console.log('❌ Categories is not an array:', typeof categories);
       return ResponseHandler.badRequest(res, 'Kategoriler listesi gerekli.');
     }
 
+    console.log('🔧 Updating user with categories:', categories);
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { serviceCategories: categories },
@@ -1381,11 +1391,14 @@ router.put('/service-categories', auth, async (req: Request, res: Response) => {
     ).select('serviceCategories');
 
     if (!updatedUser) {
+      console.log('❌ User not found');
       return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
     }
 
+    console.log('✅ User updated successfully:', updatedUser.serviceCategories);
     return ResponseHandler.updated(res, updatedUser.serviceCategories, 'Hizmet kategorileri başarıyla güncellendi');
   } catch (error) {
+    console.error('❌ Backend error:', error);
     return ResponseHandler.error(res, 'Hizmet kategorileri güncellenirken hata oluştu');
   }
 });

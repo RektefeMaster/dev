@@ -97,11 +97,21 @@ export default function ServiceAreasScreen() {
 
   const saveCategories = async () => {
     try {
+      console.log('💾 ServiceAreasScreen saveCategories called');
+      console.log('📋 Selected categories:', selectedCategories);
+      
       setLoading(true);
+      
+      console.log('🔄 Calling updateServiceCategories...');
       await updateServiceCategories(selectedCategories);
+      
+      console.log('✅ Categories updated successfully');
       Alert.alert('Başarılı', 'Hizmet alanlarınız güncellendi');
       navigation.goBack();
     } catch (error: any) {
+      console.error('❌ ServiceAreasScreen error:', error);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error stack:', error.stack);
       Alert.alert('Hata', error.message || 'Hizmet alanları güncellenemedi');
     } finally {
       setLoading(false);

@@ -525,6 +525,7 @@ export type RootStackParamList = {
   Suppliers: undefined;
   VehicleHistory: undefined;
   ServiceCatalog: undefined;
+  Reviews: undefined;
 };
 
 // ===== LEGACY TYPE ALIASES =====

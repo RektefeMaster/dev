@@ -36,6 +36,7 @@ import { QuickQuoteScreen } from '@/features/quotes/screens';
 import { SuppliersScreen } from '@/features/suppliers/screens';
 import { VehicleHistoryScreen } from '@/features/vehicle-history/screens';
 import { ServiceCatalogScreen } from '@/features/service-catalog/screens';
+import { ReviewsScreen } from '@/features/reviews/screens';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -45,44 +46,47 @@ const AppNavigator = () => {
   const [isCheckingRoute, setIsCheckingRoute] = useState(true);
   const navigationRef = useRef<any>(null);
 
+  const checkInitialRoute = async () => {
+    try {
+      const onboardingCompleted = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETED);
+      const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+
+      // Token varsa ana ekrana git
+      if (token) {
+        setInitialRoute('Main');
+      } else {
+        // Token yoksa her zaman Auth'a git (onboarding'i atla)
+        setInitialRoute('Auth');
+      }
+    } catch (error) {
+      setInitialRoute('Auth'); // Hata durumunda da Auth'a git
+    } finally {
+      setIsCheckingRoute(false);
+    }
+  };
+
   useEffect(() => {
     checkInitialRoute();
   }, []);
 
   // isAuthenticated değişikliğini dinle
   useEffect(() => {
-    
     if (!isLoading && !isAuthenticated) {
+      console.log('🔄 User logged out, navigating to Auth screen');
       setInitialRoute('Auth');
+      
+      // Navigation stack'i reset et
+      if (navigationRef.current) {
+        navigationRef.current.reset({
+          index: 0,
+          routes: [{ name: 'Auth' }],
+        });
+      }
     }
   }, [isAuthenticated, isLoading]);
 
-  const checkInitialRoute = async () => {
-    try {
-      const onboardingCompleted = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETED);
-      const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-
-      // Test için onboarding her zaman göster
-      if (token) {
-        setInitialRoute('Main');
-      } else {
-        setInitialRoute('Onboarding');
-      }
-    } catch (error) {
-      setInitialRoute('Onboarding');
-    } finally {
-      setIsCheckingRoute(false);
-    }
-  };
-
-  // Debug için log
-
-  if (isLoading || isCheckingRoute || !initialRoute) {
-    return <SplashScreen />;
-  }
-
-  // Logout durumunda Auth ekranını göster
-  if (!isAuthenticated && initialRoute === 'Main') {
+  // Logout durumunda direkt Auth ekranını göster
+  if (!isAuthenticated && !isLoading) {
     return (
       <NavigationContainer ref={navigationRef}>
         <Stack.Navigator
@@ -95,6 +99,13 @@ const AppNavigator = () => {
       </NavigationContainer>
     );
   }
+
+  // Debug için log
+
+  if (isLoading || isCheckingRoute || !initialRoute) {
+    return <SplashScreen />;
+  }
+
 
   return (
     <NavigationContainer ref={navigationRef}>
@@ -249,6 +260,13 @@ const AppNavigator = () => {
         <Stack.Screen
           name="ServiceCatalog"
           component={ServiceCatalogScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="Reviews"
+          component={ReviewsScreen}
           options={{
             headerShown: false,
           }}

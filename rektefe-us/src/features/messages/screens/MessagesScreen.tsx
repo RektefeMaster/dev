@@ -45,6 +45,13 @@ const MessagesScreen = ({ navigation }: any) => {
 
   const fetchConversations = useCallback(async () => {
     try {
+      if (!isAuthenticated) {
+        console.log('❌ Not authenticated, skipping conversations fetch');
+        setConversations([]);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       console.log('🔍 Fetching conversations...');
       const response = await apiService.MessageService.getConversations();
@@ -58,6 +65,13 @@ const MessagesScreen = ({ navigation }: any) => {
         setConversations([]);
       }
     } catch (error) {
+      // Cancel edilen istekleri handle et (error logging yapma)
+      if (error?.name === 'CanceledError' || error?.message?.includes('No authentication token')) {
+        // Silent cancellation - no logging
+        setConversations([]);
+        return;
+      }
+      
       console.log('💥 Error fetching conversations:', error);
       setConversations([]);
     } finally {
