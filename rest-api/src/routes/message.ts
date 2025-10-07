@@ -45,7 +45,9 @@ router.get('/conversations', auth, async (req: Request, res: Response) => {
     
     res.json({
       success: true,
-      data: conversations,
+      data: {
+        conversations: conversations
+      },
       message: 'Conversations başarıyla getirildi'
     });
   } catch (error: any) {

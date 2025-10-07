@@ -25,7 +25,7 @@ export const useNetworkStatus = () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 saniye timeout
 
-      const response = await fetch('https://www.google.com/favicon.ico', {
+      const response = await fetch('https://dev-production-8a3d.up.railway.app/health', {
         method: 'HEAD',
         signal: controller.signal,
         cache: 'no-cache',

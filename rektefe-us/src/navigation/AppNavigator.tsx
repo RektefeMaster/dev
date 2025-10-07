@@ -111,7 +111,7 @@ const AppNavigator = () => {
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
         <Stack.Screen name="Main" component={TabNavigator} />
-        <Stack.Screen name="Chat" component={ChatScreen} />
+        <Stack.Screen name="ChatScreen" component={ChatScreen} />
         <Stack.Screen name="NewMessage" component={NewMessageScreen} />
         <Stack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} />
         <Stack.Screen name="Appointments" component={AppointmentsScreen} />

@@ -46,14 +46,19 @@ const MessagesScreen = ({ navigation }: any) => {
   const fetchConversations = useCallback(async () => {
     try {
       setLoading(true);
+      console.log('🔍 Fetching conversations...');
       const response = await apiService.MessageService.getConversations();
+      console.log('📱 Frontend response:', response);
 
       if (response.success) {
+        console.log('✅ Response success, conversations:', response.data?.conversations);
         setConversations(response.data?.conversations || []);
       } else {
+        console.log('❌ Response failed:', response.message);
         setConversations([]);
       }
     } catch (error) {
+      console.log('💥 Error fetching conversations:', error);
       setConversations([]);
     } finally {
       setLoading(false);

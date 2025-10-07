@@ -93,11 +93,16 @@ export class MessageService {
   // Kullanıcının sohbetlerini getir
   static async getConversations(userId: string): Promise<any[]> {
     try {
+      console.log(`🔍 MessageService.getConversations called for userId: ${userId}`);
+      
       // Kullanıcının tipini kontrol et
       const user = await User.findById(userId).select('userType');
       if (!user) {
+        console.log('❌ User not found:', userId);
         throw new Error('Kullanıcı bulunamadı');
       }
+
+      console.log(`👤 User found: ${user.userType}`);
 
       let conversations;
       
@@ -108,6 +113,8 @@ export class MessageService {
       .populate('participants', 'name surname profileImage avatar userType')
       .populate('lastMessage')
       .sort({ lastMessageAt: -1 });
+
+      console.log(`📊 Found ${conversations.length} conversations in DB`);
 
       const result = await Promise.all(conversations.map(async (conv) => {
         // Eğer participants array'inde sadece 1 kişi varsa, düzelt
@@ -131,8 +138,7 @@ export class MessageService {
               throw error;
             }
           }
-          
-          }
+        }
         
         // Diğer katılımcıyı bul (userId'den farklı olan)
         const otherParticipant = conv.participants?.find((p: any) => {
@@ -185,10 +191,13 @@ export class MessageService {
         };
         
         return conversationData;
-      })); // null değerleri filtrele
+      }));
       
       // null değerleri filtrele
       const filteredResult = result.filter(Boolean);
+      
+      console.log(`✅ Returning ${filteredResult.length} filtered conversations`);
+      console.log('📋 Final conversations:', JSON.stringify(filteredResult, null, 2));
       
       return filteredResult;
     } catch (error) {
@@ -209,6 +218,7 @@ export class MessageService {
       
       return messages.reverse(); // En eski mesajlar önce gelsin
     } catch (error) {
+      console.error('MessageService.getMessages error:', error);
       throw error;
     }
   }

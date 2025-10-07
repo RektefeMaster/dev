@@ -474,6 +474,59 @@ export interface UpdateEntity<T> {
   data: Partial<Omit<T, 'id' | 'createdAt' | 'updatedAt'>>;
 }
 
+// ===== NAVIGATION TYPES =====
+
+export type RootStackParamList = {
+  Onboarding: undefined;
+  Auth: undefined;
+  EmailVerification: undefined;
+  ForgotPassword: undefined;
+  ResetPassword: undefined;
+  Main: undefined;
+  ChatScreen: {
+    conversationId: string;
+    otherParticipant: {
+      _id: string;
+      name: string;
+      surname: string;
+      avatar?: string;
+      userType: string;
+    };
+  };
+  NewMessage: undefined;
+  AppointmentDetail: { appointmentId: string };
+  Appointments: undefined;
+  Notifications: undefined;
+  NotificationSettings: undefined;
+  Messages: undefined;
+  Wallet: undefined;
+  Support: undefined;
+  FinancialTracking: undefined;
+  Calendar: undefined;
+  Profile: undefined;
+  EditProfile: undefined;
+  WorkingHours: undefined;
+  Settings: undefined;
+  Security: undefined;
+  ServiceAreas: undefined;
+  HelpCenter: undefined;
+  About: undefined;
+  FaultReports: undefined;
+  FaultReportDetail: { faultReportId: string };
+  TowingService: undefined;
+  RepairService: undefined;
+  WashService: undefined;
+  TireService: undefined;
+  EmergencyNotification: undefined;
+  Reports: undefined;
+  EndOfDay: undefined;
+  Customer: undefined;
+  QuickQuote: undefined;
+  Suppliers: undefined;
+  VehicleHistory: undefined;
+  ServiceCatalog: undefined;
+};
+
 // ===== LEGACY TYPE ALIASES =====
 export type RegisterData = RegisterRequest;
 export type VehicleData = MechanicProfileFormData;

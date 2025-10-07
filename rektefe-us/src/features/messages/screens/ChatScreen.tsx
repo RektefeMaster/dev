@@ -105,6 +105,7 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
   
   // Debug: Route params'ı log'la
   const [messages, setMessages] = useState<Message[]>([]);
+
   
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -187,11 +188,6 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
       setLoading(true);
       const response = await apiService.getConversationMessages(conversationId, pageNum, 50);
 
-      console.log('ChatScreen API Response:', {
-        success: response.success,
-        dataLength: Array.isArray(response.data) ? response.data.length : 'N/A',
-        message: response.message
-      });
       
       if (response.success) {
         const newMessages = Array.isArray(response.data) 
@@ -218,6 +214,13 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
           const lastMessage = newMessages[newMessages.length - 1];
           if (lastMessage && lastMessage._id) {
             setLastMessageId(lastMessage._id);
+          }
+          
+          // İlk yükleme ise (append değilse) en alta scroll et
+          if (!append && flatListRef.current) {
+            setTimeout(() => {
+              flatListRef.current?.scrollToEnd({ animated: true });
+            }, 100);
           }
         }
       } else {
@@ -624,21 +627,38 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
 
     // Yeni mesajlar geldiğinde
     const handleNewMessages = (newMessages: Message[]) => {
-      // Yeni mesajları mevcut mesajlara ekle
-      setMessages(prev => [...prev, ...newMessages]);
-      
-      // Son mesaj ID'sini güncelle
-      if (newMessages.length > 0) {
-        const lastMessage = newMessages[newMessages.length - 1];
-        if (lastMessage && lastMessage._id) {
-          setLastMessageId(lastMessage._id);
+      // Duplicate mesajları filtrele
+      setMessages(prev => {
+        const existingIds = new Set(prev.map(msg => msg._id));
+        const uniqueNewMessages = newMessages.filter(msg => !existingIds.has(msg._id));
+        
+        if (uniqueNewMessages.length > 0) {
+          // Yeni mesajları mevcut mesajlara ekle
+          const updatedMessages = [...prev, ...uniqueNewMessages];
+          
+          // Tarihe göre sırala (en eski üstte, en yeni altta)
+          const sortedMessages = updatedMessages.sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0);
+            const dateB = new Date(b.createdAt || 0);
+            return dateA.getTime() - dateB.getTime();
+          });
+          
+          // Son mesaj ID'sini güncelle
+          const lastMessage = sortedMessages[sortedMessages.length - 1];
+          if (lastMessage && lastMessage._id) {
+            setLastMessageId(lastMessage._id);
+          }
+          
+          // Otomatik olarak en alta kaydır
+          setTimeout(() => {
+            flatListRef.current?.scrollToEnd({ animated: true });
+          }, 100);
+          
+          return sortedMessages;
         }
-      }
-      
-      // Otomatik olarak en alta kaydır
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+        
+        return prev;
+      });
     };
 
     // onNewMessages callback'ini set et
@@ -646,13 +666,16 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
     
   }, [isAuthenticated, conversationId]); // onNewMessages dependency'sini kaldırdım
 
-  // useFocusEffect - akıllı yenileme
+  // useFocusEffect - sadece scroll için, mesaj yükleme yok
   useFocusEffect(
     useCallback(() => {
-      if (isAuthenticated && conversationId && !conversationId.startsWith('temp_')) {
-        fetchMessages();
+      // Sadece en alta scroll et, mesaj yükleme
+      if (flatListRef.current && messages.length > 0) {
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
       }
-    }, [isAuthenticated, conversationId])
+    }, [messages.length])
   );
 
   const formatMessageTime = (dateString: string) => {

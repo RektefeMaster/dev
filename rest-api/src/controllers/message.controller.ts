@@ -16,7 +16,9 @@ export class MessageController {
       const conversations = await MessageService.getConversations(userId);
       res.json({
         success: true,
-        data: conversations,
+        data: {
+          conversations: conversations
+        },
         message: 'Sohbetler başarıyla getirildi'
       });
     } catch (error) {

@@ -13,14 +13,18 @@ export enum AppointmentStatus {
   IN_SERVICE = 'SERVISTE',
   PAYMENT_PENDING = 'ODEME_BEKLIYOR',
   COMPLETED = 'TAMAMLANDI',
-  CANCELLED = 'IPTAL_EDILDI'
+  CANCELLED = 'IPTAL_EDILDI',
+  NO_SHOW = 'NO_SHOW'
 }
 
 // ===== USER TYPE ENUM =====
 export enum UserType {
   DRIVER = 'driver',
-  MECHANIC = 'mechanic'
+  MECHANIC = 'mechanic',
+  ADMIN = 'admin'
 }
+
+export type UserTypeString = 'driver' | 'mechanic' | 'admin';
 
 // ===== SERVICE TYPE ENUM =====
 export enum ServiceType {
@@ -118,7 +122,8 @@ export const getAppointmentStatusDescription = (status: AppointmentStatus): stri
     [AppointmentStatus.IN_SERVICE]: 'Serviste',
     [AppointmentStatus.PAYMENT_PENDING]: 'Ödeme Bekliyor',
     [AppointmentStatus.COMPLETED]: 'Tamamlandı',
-    [AppointmentStatus.CANCELLED]: 'İptal Edildi'
+    [AppointmentStatus.CANCELLED]: 'İptal Edildi',
+    [AppointmentStatus.NO_SHOW]: 'Gelmedi'
   };
   return descriptions[status];
 };
@@ -129,7 +134,8 @@ export const getAppointmentStatusDescription = (status: AppointmentStatus): stri
 export const getUserTypeDescription = (userType: UserType): string => {
   const descriptions: Record<UserType, string> = {
     [UserType.DRIVER]: 'Şoför',
-    [UserType.MECHANIC]: 'Usta'
+    [UserType.MECHANIC]: 'Usta',
+    [UserType.ADMIN]: 'Yönetici'
   };
   return descriptions[userType];
 };
@@ -190,8 +196,8 @@ export const isValidAppointmentStatus = (status: string): status is AppointmentS
 /**
  * String'in geçerli bir UserType olup olmadığını kontrol eder
  */
-export const isValidUserType = (userType: string): userType is UserType => {
-  return Object.values(UserType).includes(userType as UserType);
+export const isValidUserType = (userType: string): userType is UserTypeString => {
+  return ['driver', 'mechanic', 'admin'].includes(userType);
 };
 
 /**

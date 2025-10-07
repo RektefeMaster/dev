@@ -89,10 +89,11 @@ export const withNetworkCheck = async <T>(
   apiCall: () => Promise<T>,
   onNetworkError?: () => void
 ): Promise<T> => {
-  // Basit connectivity check
-  const isConnected = await fetch('https://www.google.com/favicon.ico', {
+  // API server connectivity check
+  const isConnected = await fetch('https://dev-production-8a3d.up.railway.app/health', {
     method: 'HEAD',
     cache: 'no-cache',
+    signal: AbortSignal.timeout(5000)
   })
     .then(response => response.ok)
     .catch(() => false);

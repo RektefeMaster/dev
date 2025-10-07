@@ -43,6 +43,13 @@ apiClient.interceptors.request.use(
   async (config) => {
     try {
       const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      
+      // Sadece önemli endpoint'ler için debug log
+      if (config.url?.includes('/api/auth/') || config.url?.includes('/api/mechanic/me')) {
+        console.log('🔍 Request interceptor - URL:', config.url);
+        console.log('🔍 Request interceptor - Method:', config.method);
+      }
+      
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -52,12 +59,12 @@ apiClient.interceptors.request.use(
       
       return config;
     } catch (error) {
-      console.error('Request interceptor error:', error);
+      console.error('❌ Request interceptor error:', error);
       return config;
     }
   },
   (error) => {
-    console.error('Request interceptor error:', error);
+    console.error('❌ Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
@@ -80,13 +87,18 @@ const processQueue = (error: any, token: string | null = null) => {
 
 apiClient.interceptors.response.use(
   (response) => {
-    // Success response'ları logla
-    console.log(`API Success: ${response.config.method?.toUpperCase()} ${response.config.url} - ${response.status}`);
+    // Sadece önemli endpoint'ler için success log
+    if (response.config.url?.includes('/api/auth/') || response.config.url?.includes('/api/mechanic/me')) {
+      console.log(`✅ API Success: ${response.config.method?.toUpperCase()} ${response.config.url} - ${response.status}`);
+    }
     return response;
   },
   async (error) => {
     // Error response'ları logla
-    console.error(`API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${error.response?.status}`);
+    console.error(`❌ API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${error.response?.status}`);
+    console.error(`❌ API Error Response:`, error.response?.data);
+    console.error(`❌ API Error Message:`, error.message);
+    console.error(`❌ API Error Code:`, error.code);
     
     const originalRequest = error.config;
     
@@ -322,10 +334,10 @@ export const AppointmentService = {
   async getAppointments(status?: AppointmentStatus): Promise<ApiResponse<{ appointments: any[] }>> {
     try {
       const params = status ? { status } : {};
-      const response = await apiClient.get('/api/appointments', { params });
+      const response = await apiClient.get('/api/appointments/mechanic', { params });
       return response.data;
     } catch (error: any) {
-      console.error('Get appointments error:', error);
+      console.error('❌ Get appointments error:', error);
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Randevu listesi alınamadı',
@@ -634,7 +646,7 @@ export const ProfileService = {
       const response = await apiClient.get('/api/mechanic/me');
       return response.data;
     } catch (error: any) {
-      console.error('Get profile error:', error);
+      console.error('❌ Get profile error:', error);
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Profil bilgileri alınamadı',
@@ -866,9 +878,9 @@ export const MessageService = {
   async sendMessage(conversationId: string, recipientId: string, text: string, metadata?: any): Promise<ApiResponse<MessageData>> {
     try {
       const response = await apiClient.post('/api/message/send', {
-        conversationId,
-        recipientId,
-        text,
+        receiverId: recipientId, // Backend receiverId bekliyor
+        content: text, // Backend content bekliyor
+        messageType: 'text',
         metadata
       });
       return response.data;
@@ -887,10 +899,12 @@ export const MessageService = {
    */
   async getConversations(): Promise<ApiResponse<{ conversations: any[] }>> {
     try {
+      console.log('🌐 API: Getting conversations...');
       const response = await apiClient.get('/api/message/conversations');
+      console.log('🌐 API Response:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('Get conversations error:', error);
+      console.error('❌ Get conversations error:', error);
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Konuşma listesi alınamadı',
@@ -928,6 +942,24 @@ export const MessageService = {
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Okunmamış mesaj sayısı alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Mesaj polling - yeni mesajları kontrol et
+   */
+  async pollMessages(lastMessageId?: string): Promise<ApiResponse<MessageData[]>> {
+    try {
+      const params = lastMessageId ? { lastMessageId } : {};
+      const response = await apiClient.get('/api/message/poll-messages', { params });
+      return response.data;
+    } catch (error: any) {
+      console.error('Poll messages error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Mesaj polling başarısız',
         error.response?.data?.error?.details
       );
     }
@@ -1299,6 +1331,66 @@ export const SettingsService = {
   }
 };
 
+// ===== WALLET SERVICES =====
+
+export const WalletService = {
+  /**
+   * Usta cüzdan bilgilerini getir
+   */
+  async getMechanicWallet(): Promise<ApiResponse<{ balance: number; totalEarnings: number; pendingAmount: number }>> {
+    try {
+      const response = await apiClient.get('/api/wallet/balance');
+      return response.data;
+    } catch (error: any) {
+      console.error('Get mechanic wallet error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Cüzdan bilgileri alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Cüzdan işlemlerini getir
+   */
+  async getWalletTransactions(limit: number = 10): Promise<ApiResponse<{ transactions: any[] }>> {
+    try {
+      const response = await apiClient.get('/api/wallet/transactions', {
+        params: { limit }
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get wallet transactions error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Cüzdan işlemleri alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Para çekme talebi
+   */
+  async requestWithdrawal(amount: number, accountInfo: any): Promise<ApiResponse<void>> {
+    try {
+      const response = await apiClient.post('/api/wallet/withdraw', {
+        amount,
+        accountInfo
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Request withdrawal error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Para çekme talebi gönderilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  }
+};
+
 // ===== EXPORT ALL SERVICES =====
 
 const apiService = {
@@ -1312,6 +1404,7 @@ const apiService = {
   FaultReportService,
   EmergencyService,
   SettingsService,
+  WalletService,
   // Spread all service methods to top level for backward compatibility
   ...AuthService,
   ...AppointmentService,
@@ -1321,6 +1414,7 @@ const apiService = {
   ...NotificationService,
   ...FaultReportService,
   ...EmergencyService,
+  ...WalletService,
   handleError: AppointmentService.handleError
 };
 
