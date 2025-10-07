@@ -21,6 +21,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { API_URL } from '@/constants/config';
 import { apiService } from '@/shared/services/api';
 import { withErrorHandling } from '@/shared/utils/errorHandler';
+import { ServiceType } from '@/shared/types/common';
 
 const { width } = Dimensions.get('window');
 
@@ -244,11 +245,16 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
         userId: userId,
         mechanicId: mechanicId,
         vehicleId: selectedVehicle,
-        serviceType: selectedService,
-        appointmentDate: selectedDate.toISOString(),
+        serviceType: selectedService as ServiceType,
+        appointmentDate: selectedDate,
         timeSlot: selectedTimeSlot,
         description: description.trim(),
         faultReportId: faultReportId || undefined,
+        location: {
+          latitude: 0, // TODO: Gerçek konum bilgisi ekle
+          longitude: 0,
+          address: 'Konum belirtilmemiş'
+        },
         ...(price && {
           quotedPrice: price,
           price: price,

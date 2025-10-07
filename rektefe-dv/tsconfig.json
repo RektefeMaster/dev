@@ -19,8 +19,9 @@
     "baseUrl": "./src",
     "paths": {
       "@/*": ["*"],
-      "@/shared/*": ["../shared/*"]
-    }
+      "@/shared/*": ["shared/*"]
+    },
+    "types": ["react-native"]
   },
   "include": [
     "**/*.ts",

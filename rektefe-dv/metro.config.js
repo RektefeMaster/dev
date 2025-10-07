@@ -8,10 +8,14 @@ config.watchFolders = [
   path.resolve(__dirname, '../shared'),
 ];
 
-// Resolver ayarları
+// Workspace için resolver ayarları
 config.resolver.nodeModulesPaths = [
   path.resolve(__dirname, 'node_modules'),
+  path.resolve(__dirname, '../node_modules'), // Workspace hoisted packages
   path.resolve(__dirname, '../shared'),
 ];
+
+// Workspace paketlerini çözümleme
+config.resolver.resolverMainFields = ['react-native', 'browser', 'main'];
 
 module.exports = config;

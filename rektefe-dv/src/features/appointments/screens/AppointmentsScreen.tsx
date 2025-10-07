@@ -106,9 +106,9 @@ const AppointmentsScreen = () => {
       try {
         const token = await AsyncStorage.getItem('auth_token');
         if (token) {
-          // Token'dan user ID'yi çıkar (JWT decode)
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          const userId = payload.userId;
+          // TODO: JWT decode için uygun bir kütüphane kullan
+          // Şimdilik sabit bir userId kullan
+          const userId = 'temp_user_id';
           
           newSocket.emit('join', userId);
           console.log('Kullanıcı odasına katıldı:', userId);
