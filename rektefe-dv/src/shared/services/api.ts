@@ -118,7 +118,7 @@ apiClient.interceptors.response.use(
         
         // Refresh token endpoint'ini çağır
         const response = await axios.post(
-          `${API_CONFIG.BASE_URL}/api/auth/refresh`,
+          `${API_CONFIG.BASE_URL}/auth/refresh-token`,
           { refreshToken }
         );
 
@@ -170,7 +170,7 @@ export const AuthService = {
    */
   async register(data: RegisterData): Promise<ApiResponse<{ user: Driver; token: string }>> {
     try {
-      const response = await apiClient.post('/api/auth/register', {
+      const response = await apiClient.post('/auth/register', {
         ...data,
         userType: UserType.DRIVER
       });
@@ -199,7 +199,7 @@ export const AuthService = {
    */
   async login(email: string, password: string): Promise<ApiResponse<{ user: Driver; token: string }>> {
     try {
-      const response = await apiClient.post('/api/auth/login', {
+      const response = await apiClient.post('/auth/login', {
         email,
         password,
         userType: UserType.DRIVER
@@ -234,7 +234,7 @@ export const AuthService = {
         throw new Error('Refresh token not found');
       }
       
-      const response = await apiClient.post('/api/auth/refresh', {
+      const response = await apiClient.post('/auth/refresh-token', {
         refreshToken
       });
       
@@ -262,7 +262,7 @@ export const AuthService = {
    */
   async logout(): Promise<void> {
     try {
-      await apiClient.post('/api/auth/logout');
+      await apiClient.post('/auth/logout');
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
@@ -281,7 +281,7 @@ export const VehicleService = {
    */
   async getVehicles(): Promise<ApiResponse<{ vehicles: any[] }>> {
     try {
-      const response = await apiClient.get('/api/vehicles');
+      const response = await apiClient.get('/vehicles');
       return response.data;
     } catch (error: any) {
       console.error('Get vehicles error:', error);
@@ -298,7 +298,7 @@ export const VehicleService = {
    */
   async addVehicle(data: VehicleData): Promise<ApiResponse<{ vehicle: any }>> {
     try {
-      const response = await apiClient.post('/api/vehicles', data);
+      const response = await apiClient.post('/vehicles', data);
       return response.data;
     } catch (error: any) {
       console.error('Add vehicle error:', error);
@@ -315,7 +315,7 @@ export const VehicleService = {
    */
   async updateVehicle(id: string, data: Partial<VehicleData>): Promise<ApiResponse<{ vehicle: any }>> {
     try {
-      const response = await apiClient.put(`/api/vehicles/${id}`, data);
+      const response = await apiClient.put(`/vehicles/${id}`, data);
       return response.data;
     } catch (error: any) {
       console.error('Update vehicle error:', error);
@@ -332,7 +332,7 @@ export const VehicleService = {
    */
   async deleteVehicle(id: string): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.delete(`/api/vehicles/${id}`);
+      const response = await apiClient.delete(`/vehicles/${id}`);
       return response.data;
     } catch (error: any) {
       console.error('Delete vehicle error:', error);
@@ -354,7 +354,7 @@ export const AppointmentService = {
   async getAppointments(status?: AppointmentStatus): Promise<ApiResponse<{ appointments: any[] }>> {
     try {
       const params = status ? { status } : {};
-      const response = await apiClient.get('/api/appointments/driver', { params });
+      const response = await apiClient.get('/appointments/driver', { params });
       return response.data;
     } catch (error: any) {
       console.error('Get appointments error:', error);
@@ -371,7 +371,7 @@ export const AppointmentService = {
    */
   async createAppointment(data: AppointmentData): Promise<ApiResponse<{ appointment: any }>> {
     try {
-      const response = await apiClient.post('/api/appointments', data);
+      const response = await apiClient.post('/appointments', data);
       return response.data;
     } catch (error: any) {
       console.error('Create appointment error:', error);
@@ -428,7 +428,7 @@ export const MechanicService = {
    */
   async getMechanics(filters?: any): Promise<ApiResponse<{ mechanics: Mechanic[] }>> {
     try {
-      const response = await apiClient.get('/api/mechanics', { params: filters });
+      const response = await apiClient.get('/mechanics', { params: filters });
       return response.data;
     } catch (error: any) {
       console.error('Get mechanics error:', error);
@@ -445,7 +445,7 @@ export const MechanicService = {
    */
   async getNearbyMechanics(location: { latitude: number; longitude: number }, maxDistance: number = 10): Promise<ApiResponse<{ mechanics: Mechanic[] }>> {
     try {
-      const response = await apiClient.get('/api/mechanics/nearby', {
+      const response = await apiClient.get('/mechanics/nearby', {
         params: {
           latitude: location.latitude,
           longitude: location.longitude,
@@ -485,11 +485,31 @@ export const MechanicService = {
 
 export const MessageService = {
   /**
+   * Konuşma listesi
+   */
+  async getConversations(): Promise<ApiResponse<{ conversations: any[] }>> {
+    try {
+      console.log('🔍 MessageService: getConversations çağrılıyor...');
+      const response = await apiClient.get('/message/conversations');
+      console.log('🔍 MessageService: Raw API response:', response);
+      console.log('🔍 MessageService: Response data:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ MessageService: Get conversations error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Konuşma listesi alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
    * Mesaj listesi
    */
   async getMessages(conversationId: string): Promise<ApiResponse<{ messages: MessageData[] }>> {
     try {
-      const response = await apiClient.get(`/api/message/conversations/${conversationId}/messages`);
+      const response = await apiClient.get(`/message/conversations/${conversationId}/messages`);
       return response.data;
     } catch (error: any) {
       console.error('Get messages error:', error);
@@ -506,7 +526,7 @@ export const MessageService = {
    */
   async sendMessage(data: MessageData): Promise<ApiResponse<{ message: MessageData }>> {
     try {
-      const response = await apiClient.post('/api/message/send', data);
+      const response = await apiClient.post('/message/send', data);
       return response.data;
     } catch (error: any) {
       console.error('Send message error:', error);
@@ -527,7 +547,7 @@ export const NotificationService = {
    */
   async getNotifications(): Promise<ApiResponse<{ notifications: NotificationData[] }>> {
     try {
-      const response = await apiClient.get('/api/notifications/driver');
+      const response = await apiClient.get('/notifications/driver');
       return response.data;
     } catch (error: any) {
       console.error('Get notifications error:', error);
@@ -544,7 +564,7 @@ export const NotificationService = {
    */
   async markAsRead(id: string): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.put(`/api/notifications/${id}/read`);
+      const response = await apiClient.put(`/notifications/${id}/read`);
       return response.data;
     } catch (error: any) {
       console.error('Mark notification as read error:', error);
@@ -559,11 +579,174 @@ export const NotificationService = {
 
 // ===== EXPORT ALL SERVICES =====
 
+export const apiService = {
+  // Authentication
+  login: AuthService.login,
+  register: AuthService.register,
+  logout: AuthService.logout,
+  refreshToken: AuthService.refreshToken,
+  
+  // User Profile
+  getUserProfile: async () => {
+    try {
+      const response = await apiClient.get('/users/profile');
+      return response.data;
+    } catch (error: any) {
+      console.error('Get user profile error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Kullanıcı profili alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+  
+  // Vehicles
+  getVehicles: VehicleService.getVehicles,
+  addVehicle: VehicleService.addVehicle,
+  updateVehicle: VehicleService.updateVehicle,
+  deleteVehicle: VehicleService.deleteVehicle,
+  
+  // Appointments
+  getAppointments: async (userType?: string) => {
+    try {
+      const params = userType ? { userType } : {};
+      const response = await apiClient.get('/appointments/driver', { params });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get appointments error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Randevu listesi alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+  createAppointment: AppointmentService.createAppointment,
+  updateAppointment: AppointmentService.updateAppointment,
+  cancelAppointment: AppointmentService.cancelAppointment,
+  
+  // Mechanics
+  getMechanics: async (filters?: any) => {
+    try {
+      const response = await apiClient.get('/mechanic/list', { params: filters });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get mechanics error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Usta listesi alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+  getNearbyMechanics: async (location: { latitude: number; longitude: number }, maxDistance: number = 10) => {
+    try {
+      const response = await apiClient.get('/mechanic/nearby', {
+        params: {
+          lat: location.latitude,
+          lng: location.longitude,
+          maxDistance
+        }
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get nearby mechanics error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Yakındaki ustalar alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+  getMechanicDetails: async (id: string) => {
+    try {
+      const response = await apiClient.get(`/mechanic/details/${id}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Get mechanic details error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Usta detayları alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+  getMechanicById: async (id: string) => {
+    try {
+      const response = await apiClient.get(`/mechanic/details/${id}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Get mechanic by id error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Usta detayları alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+  getMechanicsByService: async (serviceType: string) => {
+    try {
+      const response = await apiClient.get('/mechanic/list', {
+        params: { serviceType }
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get mechanics by service error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Servis ustaları alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+  
+  // Messages
+  getConversations: MessageService.getConversations,
+  getMessages: MessageService.getMessages,
+  sendMessage: MessageService.sendMessage,
+  
+  // Notifications
+  getNotifications: NotificationService.getNotifications,
+  markNotificationAsRead: NotificationService.markAsRead,
+  
+  // Generic GET method for TefePuan and other services
+  get: async (endpoint: string, params?: any) => {
+    try {
+      const response = await apiClient.get(endpoint, { params });
+      return response.data;
+    } catch (error: any) {
+      console.error(`GET ${endpoint} error:`, error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Veri alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+  
+  // Generic POST method for TefePuan and other services
+  post: async (endpoint: string, data?: any) => {
+    try {
+      const response = await apiClient.post(endpoint, data);
+      return response.data;
+    } catch (error: any) {
+      console.error(`POST ${endpoint} error:`, error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Veri gönderilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  }
+};
+
 export default {
   AuthService,
   VehicleService,
   AppointmentService,
   MechanicService,
   MessageService,
-  NotificationService
+  NotificationService,
+  apiService
 };

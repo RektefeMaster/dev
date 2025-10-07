@@ -69,17 +69,32 @@ const router = Router();
 router.get('/profile', auth, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
+    console.log('🔍 Backend: /users/profile çağrıldı, userId:', userId);
+    
     if (!userId) {
+      console.log('❌ Backend: userId bulunamadı');
       return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
     }
 
     const user = await User.findById(userId).select('-password');
+    console.log('🔍 Backend: User bulundu:', user ? 'Evet' : 'Hayır');
+    
     if (!user) {
+      console.log('❌ Backend: User bulunamadı');
       return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
     }
 
+    console.log('🔍 Backend: User data:', {
+      id: user._id,
+      name: user.name,
+      surname: user.surname,
+      email: user.email,
+      phone: user.phone
+    });
+
     return ResponseHandler.success(res, user, 'Profil başarıyla getirildi');
   } catch (error) {
+    console.error('❌ Backend: Profile error:', error);
     return ResponseHandler.error(res, 'Profil getirilirken hata oluştu');
   }
 });

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Modal, TextInput, Switch, Alert, Platform, Animated, ScrollView } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getUserProfile, api } from '@/shared/services/api';
+import { apiService, api } from '@/shared/services/api';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
@@ -35,9 +35,14 @@ const ProfileScreen = () => {
           return;
         }
         
-        const data = await getUserProfile(userId);
+        console.log('🔍 ProfileScreen: getUserProfile çağrılıyor...');
+        const data = await apiService.getUserProfile();
+        console.log('🔍 ProfileScreen: Raw API response:', data);
+        
         // API response formatı kontrol et
         const userData = data && data.success && data.data ? data.data : data;
+        console.log('🔍 ProfileScreen: Processed userData:', userData);
+        
         setUser(userData);
         setEditData({
           name: userData.name || '',
@@ -53,6 +58,7 @@ const ProfileScreen = () => {
         setShowEmail(!(userData.emailHidden));
         setShowPhone(!(userData.phoneHidden));
       } catch (e) {
+        console.error('❌ ProfileScreen: Error fetching user:', e);
         Alert.alert('Hata', 'Kullanıcı bilgileri alınamadı.');
       } finally {
         setLoading(false);
@@ -74,7 +80,7 @@ const ProfileScreen = () => {
       
       await api.put(`/users/profile`, editData);
       // Profil güncelleme sonrası kullanıcı verisini tekrar çek
-      const data = await getUserProfile(userId);
+      const data = await apiService.getUserProfile();
       const userData = data && data.success && data.data ? data.data : data;
       setUser(userData);
       setEditModal(false);

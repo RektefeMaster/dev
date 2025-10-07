@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '@/constants/config';
 import axios from 'axios';
 import { API_URL } from '@/constants/config';
-import { api } from '@/shared/services/api';
+import { apiService } from '@/shared/services/api';
 import { Driver, RegisterData } from '@/shared/types/common';
 import { isTokenValid, isTokenExpired, getTokenUserInfo } from '@/shared/utils/tokenUtils';
 
@@ -32,12 +32,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Token geçerliliğini kontrol eden fonksiyon - Basitleştirilmiş validation
+  // Token geçerliliğini kontrol eden fonksiyon - Sadece format ve süre kontrolü
   const validateToken = async (tokenToValidate: string): Promise<boolean> => {
     try {
       // Önce token'ın formatını kontrol et
       if (!isTokenValid(tokenToValidate)) {
-        console.log('❌ Token formatı geçersiz veya süresi dolmuş');
+        console.log('❌ Token formatı geçersiz');
         return false;
       }
 
@@ -47,23 +47,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return false;
       }
       
-      // Sadece profil endpoint'ini kontrol et (auth/validate endpoint'i yok)
-      try {
-        const profileResponse = await axios.get(`${API_URL}/users/profile`, {
-          headers: { Authorization: `Bearer ${tokenToValidate}` }
-        });
-        
-        if (profileResponse.data && profileResponse.data.success) {
-          console.log('✅ Token ve profil validation başarılı');
-          return true;
-        } else {
-          console.log('❌ Profil validation başarısız');
-          return false;
-        }
-      } catch (profileError) {
-        console.log('❌ Profil validation hatası:', profileError);
-        return false;
-      }
+      console.log('✅ Token format ve süre kontrolü başarılı');
+      return true;
       
     } catch (error) {
       console.log('❌ Token validation hatası:', error);
@@ -76,8 +61,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const loadAuthData = async () => {
       try {
         setIsLoading(true);
+        
+        // Debug için token'ları kontrol et
         const storedToken = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
         const storedUserId = await AsyncStorage.getItem(STORAGE_KEYS.USER_ID);
+        const storedRefreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+        
+        console.log('🔍 Stored Token:', storedToken ? 'Mevcut' : 'Yok');
+        console.log('🔍 Stored UserId:', storedUserId ? 'Mevcut' : 'Yok');
+        console.log('🔍 Stored RefreshToken:', storedRefreshToken ? 'Mevcut' : 'Yok');
         
         // Token validation kontrolü
         if (storedToken && storedUserId) {
@@ -113,6 +105,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       } catch (error) {
         // Hata durumunda temizle
+        console.log('❌ AuthContext: Hata durumunda temizleme');
         setToken(null);
         setUserId(null);
         setIsAuthenticated(false);

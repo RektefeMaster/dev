@@ -2,18 +2,20 @@
  * Rektefe DV uygulaması için temel konfigürasyon
  */
 
-// API Konfigürasyonu - Railway URL ile güncellendi (Hardcoded)
+import Constants from 'expo-constants';
+
+// API Konfigürasyonu - Environment değişkeni öncelikli
 export const API_CONFIG = {
-  BASE_URL: 'https://dev-production-8a3d.up.railway.app',
-  SOCKET_URL: 'https://dev-production-8a3d.up.railway.app',
+  BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || 'https://dev-production-8a3d.up.railway.app/api',
+  SOCKET_URL: process.env.EXPO_PUBLIC_SOCKET_URL || 'https://dev-production-8a3d.up.railway.app',
   TIMEOUT: 30000, // 30 saniye timeout - network gecikmeleri için
 };
 
 // Debug log for API configuration (only in development)
 if (__DEV__) {
   console.log('🔍 API Config Debug:');
-  console.log('EXPO_PUBLIC_API_BASE_URL:', process.env.EXPO_PUBLIC_API_BASE_URL);
-  console.log('API_BASE_URL:', process.env.API_BASE_URL);
+  console.log('process.env.EXPO_PUBLIC_API_BASE_URL:', process.env.EXPO_PUBLIC_API_BASE_URL);
+  console.log('process.env.EXPO_PUBLIC_SOCKET_URL:', process.env.EXPO_PUBLIC_SOCKET_URL);
   console.log('Final BASE_URL:', API_CONFIG.BASE_URL);
   console.log('Final SOCKET_URL:', API_CONFIG.SOCKET_URL);
 }

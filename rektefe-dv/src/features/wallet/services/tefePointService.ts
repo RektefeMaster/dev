@@ -1,4 +1,4 @@
-import { api } from '@/shared/services/api';
+import { apiService } from '@/shared/services/api';
 
 // TefePuan interfaces
 export interface TefePointBalance {
@@ -40,10 +40,10 @@ class TefePointService {
    */
   async getBalance(): Promise<TefePointBalance> {
     try {
-      const response = await api.get(`${this.baseUrl}/balance`);
+      const response = await apiService.get(`${this.baseUrl}/balance`);
       
-      if (response.data.success && response.data.data) {
-        return response.data.data;
+      if (response.success && response.data) {
+        return response.data;
       }
       
       throw new Error('TefePuan bakiyesi alınamadı');
@@ -71,10 +71,10 @@ class TefePointService {
       if (params.startDate) queryParams.append('startDate', params.startDate);
       if (params.endDate) queryParams.append('endDate', params.endDate);
 
-      const response = await api.get(`${this.baseUrl}/history?${queryParams.toString()}`);
+      const response = await apiService.get(`${this.baseUrl}/history?${queryParams.toString()}`);
       
-      if (response.data.success && response.data.data) {
-        return response.data.data;
+      if (response.success && response.data) {
+        return response.data;
       }
       
       throw new Error('TefePuan geçmişi alınamadı');
@@ -89,11 +89,11 @@ class TefePointService {
    */
   async getServiceCategories(): Promise<ServiceCategory[]> {
     try {
-      const response = await api.get(`${this.baseUrl}/categories`);
+      const response = await apiService.get(`${this.baseUrl}/categories`);
       
-      if (response.data.success && response.data.data) {
+      if (response.success && response.data) {
         // Backend'den gelen format: { categories: [...] }
-        const categories = response.data.data.categories || response.data.data;
+        const categories = response.data.categories || response.data;
         return categories;
       }
       
@@ -133,22 +133,22 @@ class TefePointService {
     remainingPoints?: number;
   }> {
     try {
-      const response = await api.post(`${this.baseUrl}/use`, {
+      const response = await apiService.post(`${this.baseUrl}/use`, {
         points,
         description
       });
       
-      if (response.data.success) {
+      if (response.success) {
         return {
           success: true,
-          message: response.data.message || 'TefePuan başarıyla kullanıldı',
-          remainingPoints: response.data.data?.remainingPoints
+          message: response.message || 'TefePuan başarıyla kullanıldı',
+          remainingPoints: response.data?.remainingPoints
         };
       }
       
       return {
         success: false,
-        message: response.data.message || 'TefePuan kullanılamadı'
+        message: response.message || 'TefePuan kullanılamadı'
       };
     } catch (error: any) {
       return {
@@ -166,22 +166,22 @@ class TefePointService {
     message: string;
   }> {
     try {
-      const response = await api.post(`${this.baseUrl}/transfer`, {
+      const response = await apiService.post(`${this.baseUrl}/transfer`, {
         toUserId,
         points,
         description: description || 'TefePuan transferi'
       });
       
-      if (response.data.success) {
+      if (response.success) {
         return {
           success: true,
-          message: response.data.message || 'TefePuan başarıyla transfer edildi'
+          message: response.message || 'TefePuan başarıyla transfer edildi'
         };
       }
       
       return {
         success: false,
-        message: response.data.message || 'TefePuan transfer edilemedi'
+        message: response.message || 'TefePuan transfer edilemedi'
       };
     } catch (error: any) {
       return {

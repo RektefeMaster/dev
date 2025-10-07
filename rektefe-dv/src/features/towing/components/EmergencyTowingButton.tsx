@@ -300,7 +300,7 @@ export const EmergencyTowingButton: React.FC<EmergencyTowingButtonProps> = ({
       }
       
       // Fallback - API'den al
-      const response = await fetch(`${API_URL}/user/profile`, {
+      const response = await fetch(`${API_URL}/users/profile`, {
         method: 'GET',
         headers: { 
           'Content-Type': 'application/json',
