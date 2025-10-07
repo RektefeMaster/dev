@@ -8,12 +8,18 @@ module.exports = function (api) {
         {
           root: ['./src'],
           alias: {
-            '@': './src',
-            '@/shared': '../shared'
+            '@': './src'
           }
         }
       ],
-      '@babel/plugin-transform-runtime',
+      [
+        '@babel/plugin-transform-runtime',
+        {
+          helpers: true,
+          regenerator: true,
+          useESModules: false
+        }
+      ],
       'react-native-reanimated/plugin'
     ]
   };
