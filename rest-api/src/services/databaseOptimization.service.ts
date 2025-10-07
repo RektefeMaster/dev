@@ -146,8 +146,18 @@ export class DatabaseOptimizationService {
           try {
             // Eski index'i drop et
             const indexName = indexSpec.name || Object.keys(indexSpec.key).map(k => `${k}_1`).join('_');
-            await collection.dropIndex(indexName);
-            console.log(`✅ Eski index drop edildi: ${indexName}`);
+            
+            // Önce index'in var olup olmadığını kontrol et
+            const existingIndexes = await collection.listIndexes().toArray();
+            const indexExists = existingIndexes.some(idx => idx.name === indexName);
+            
+            if (indexExists) {
+              await collection.dropIndex(indexName);
+              console.log(`✅ Eski index drop edildi: ${indexName}`);
+            } else {
+              console.log(`ℹ️ Index bulunamadı, drop edilmedi: ${indexName}`);
+            }
+            
             // Yeniden oluştur
             await collection.createIndex(indexSpec.key, {
               ...indexSpec,

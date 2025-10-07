@@ -1,4 +1,4 @@
-import { registerRootComponent } from 'expo';
-import App from './src/App';
+const { registerRootComponent } = require('expo');
+const App = require('./src/App').default;
 
 registerRootComponent(App);

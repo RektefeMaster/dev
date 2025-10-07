@@ -1534,8 +1534,6 @@ router.post('/confirm-email-change', async (req: Request, res: Response) => {
  *     description: Telefon numarasına SMS ile doğrulama kodu gönderir
  *     tags:
  *       - Users
- *     security:
- *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -1548,24 +1546,21 @@ router.post('/confirm-email-change', async (req: Request, res: Response) => {
  *               phone:
  *                 type: string
  *                 example: "05061234567"
+ *               userId:
+ *                 type: string
+ *                 description: "Kullanıcı ID'si (opsiyonel)"
+ *                 example: "507f1f77bcf86cd799439011"
  *     responses:
  *       200:
  *         description: Doğrulama kodu gönderildi
  *       400:
  *         description: Geçersiz telefon numarası
- *       401:
- *         description: Yetkilendirme hatası
  *       500:
  *         description: Sunucu hatası
  */
-router.post('/send-phone-verification', auth, async (req: Request, res: Response) => {
+router.post('/send-phone-verification', async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.userId;
-    const { phone } = req.body;
-
-    if (!userId) {
-      return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
-    }
+    const { phone, userId } = req.body;
 
     if (!phone) {
       return ResponseHandler.badRequest(res, 'Telefon numarası gerekli');

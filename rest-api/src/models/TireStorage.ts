@@ -188,7 +188,7 @@ const tireStorageSchema = new Schema<ITireStorage>({
 // Index'ler
 tireStorageSchema.index({ mechanicId: 1, status: 1 });
 tireStorageSchema.index({ location: 1 });
-tireStorageSchema.index({ barcode: 1 });
+// barcode index removed - already has unique: true in schema
 tireStorageSchema.index({ customerId: 1 });
 tireStorageSchema.index({ expiryDate: 1 });
 

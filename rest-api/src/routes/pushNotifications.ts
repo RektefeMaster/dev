@@ -40,7 +40,7 @@ router.post('/push-token', auth, PushNotificationController.updatePushToken);
 
 /**
  * @swagger
- * /api/users/test-notification:
+ * /api/push-notifications/test-notification:
  *   post:
  *     summary: Test bildirimi gönder
  *     description: Kullanıcıya test bildirimi gönderir
