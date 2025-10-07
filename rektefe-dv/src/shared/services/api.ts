@@ -710,6 +710,21 @@ export const apiService = {
   getNotifications: NotificationService.getNotifications,
   markNotificationAsRead: NotificationService.markAsRead,
   
+  // Fault Reports
+  createFaultReport: async (data: any) => {
+    try {
+      const response = await apiClient.post('/fault-reports', data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Create fault report error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Arıza bildirimi oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+  
   // Generic GET method for TefePuan and other services
   get: async (endpoint: string, params?: any) => {
     try {
