@@ -12,6 +12,8 @@ export const useNotifications = () => {
   const [filter, setFilter] = useState<'all' | 'unread' | 'appointment' | 'system'>('all');
 
   const fetchNotifications = useCallback(async (isRefresh = false) => {
+    console.log('🔍 useNotifications: Bildirimler getiriliyor...');
+    
     if (isRefresh) {
       setRefreshing(true);
     } else {
@@ -23,8 +25,27 @@ export const useNotifications = () => {
       { showErrorAlert: false }
     );
 
+    console.log('📱 useNotifications API Response:', JSON.stringify(data, null, 2));
+    console.log('📱 useNotifications Error:', error);
+
     if (data && data.success) {
-      setNotifications(data.data);
+      // API response formatını kontrol et
+      let notificationsData = [];
+      if (data.data && Array.isArray(data.data.notifications)) {
+        notificationsData = data.data.notifications;
+        console.log('✅ useNotifications: notifications array bulundu:', notificationsData.length);
+      } else if (Array.isArray(data.data)) {
+        notificationsData = data.data;
+        console.log('✅ useNotifications: data array bulundu:', notificationsData.length);
+      } else {
+        console.warn('⚠️ useNotifications: Beklenmeyen API response formatı:', data);
+        notificationsData = [];
+      }
+      setNotifications(notificationsData);
+      console.log('✅ useNotifications: Bildirimler state\'e set edildi:', notificationsData.length);
+    } else {
+      console.log('❌ useNotifications: API başarısız veya data yok');
+      setNotifications([]);
     }
 
     if (isRefresh) {
@@ -78,6 +99,10 @@ export const useNotifications = () => {
   }, []);
 
   const filteredNotifications = useCallback(() => {
+    if (!notifications || !Array.isArray(notifications)) {
+      return [];
+    }
+    
     switch (filter) {
       case 'unread':
         return notifications.filter(n => !n.isRead);
@@ -90,7 +115,7 @@ export const useNotifications = () => {
     }
   }, [notifications, filter]);
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const unreadCount = notifications && Array.isArray(notifications) ? notifications.filter(n => !n.isRead).length : 0;
 
   useEffect(() => {
     fetchNotifications();

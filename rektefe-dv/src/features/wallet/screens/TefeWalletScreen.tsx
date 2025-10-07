@@ -20,6 +20,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { colors, spacing, borderRadius, typography, shadows } from '@/theme/theme';
 import LoadingSkeleton from '@/shared/components/LoadingSkeleton';
 import ErrorState from '@/shared/components/ErrorState';
+import { BackButton } from '@/shared/components';
 import { tefePointService, TefePointBalance, TefePointTransaction, ServiceCategory } from '../services/tefePointService';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -233,6 +234,7 @@ const TefeWalletScreen = () => {
             }
           ]}>
             <View style={styles.headerTop}>
+              <BackButton />
               <View style={styles.headerCenter}>
                 <Text style={[styles.headerTitle, { 
                   color: themeColors.text.primary 
@@ -514,7 +516,7 @@ const styles = StyleSheet.create({
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
   },
   headerCenter: {
     alignItems: 'center',

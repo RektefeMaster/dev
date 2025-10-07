@@ -177,7 +177,19 @@ const ProfileScreen = () => {
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
         {/* Kullanıcı kartı ve hoş geldin mesajı */}
         <View style={styles.userCard}>
-          <Text style={styles.welcomeText}>Hoş geldin, <Text style={{ color: '#007AFF', fontWeight: 'bold' }}>{user?.name} {user?.surname}</Text>!</Text>
+          <Text style={[
+            styles.welcomeText,
+            {
+              fontSize: (() => {
+                const text = `Hoş geldin, ${user?.name} ${user?.surname}!`;
+                if (text.length > 30) return 16;
+                if (text.length > 25) return 18;
+                return 20;
+              })()
+            }
+          ]}>
+            Hoş geldin, <Text style={{ color: '#007AFF', fontWeight: 'bold' }}>{user?.name} {user?.surname}</Text>!
+          </Text>
           {/* Profil tamamlama progress barı */}
           <View style={styles.progressBarWrap}>
             <View style={styles.progressBarBg}>
@@ -201,7 +213,26 @@ const ProfileScreen = () => {
             <MaterialCommunityIcons name="email-outline" size={20} color="#007AFF" />
             <Text style={styles.infoLabel}>E-posta:</Text>
             {showEmail ? (
-              <Text style={[styles.infoValue, { color: '#23242a', fontWeight: 'bold', marginLeft: 6 }]}>{user?.email}</Text>
+              <Text 
+                style={[
+                  styles.infoValue, 
+                  { 
+                    color: '#23242a', 
+                    fontWeight: 'bold', 
+                    marginLeft: 6,
+                    fontSize: (() => {
+                      const text = user?.email || '';
+                      if (text.length > 25) return 12;
+                      if (text.length > 20) return 14;
+                      return 16;
+                    })()
+                  }
+                ]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {user?.email}
+              </Text>
             ) : (
               <Text style={styles.infoValueMuted}>Gizli</Text>
             )}
@@ -210,7 +241,23 @@ const ProfileScreen = () => {
             <Feather name="phone" size={20} color="#007AFF" />
             <Text style={styles.infoLabel}>Telefon:</Text>
             {showPhone ? (
-              <Text style={styles.infoValue}>{user?.phone || 'Tanımlanmamış'}</Text>
+              <Text 
+                style={[
+                  styles.infoValue,
+                  {
+                    fontSize: (() => {
+                      const text = user?.phone || 'Tanımlanmamış';
+                      if (text.length > 15) return 12;
+                      if (text.length > 12) return 14;
+                      return 16;
+                    })()
+                  }
+                ]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {user?.phone || 'Tanımlanmamış'}
+              </Text>
             ) : (
               <Text style={styles.infoValueMuted}>Gizli</Text>
             )}
@@ -219,7 +266,23 @@ const ProfileScreen = () => {
             <View style={styles.infoRow}>
               <MaterialCommunityIcons name="map-marker-outline" size={20} color="#007AFF" />
               <Text style={styles.infoLabel}>Şehir:</Text>
-              <Text style={styles.infoValue}>{user.city}</Text>
+              <Text 
+                style={[
+                  styles.infoValue,
+                  {
+                    fontSize: (() => {
+                      const text = user.city || '';
+                      if (text.length > 15) return 12;
+                      if (text.length > 12) return 14;
+                      return 16;
+                    })()
+                  }
+                ]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {user.city}
+              </Text>
             </View>
           )}
         </View>
@@ -254,21 +317,53 @@ const ProfileScreen = () => {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Profili Düzenle</Text>
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  fontSize: (() => {
+                    const text = editData.name || '';
+                    if (text.length > 15) return 14;
+                    if (text.length > 12) return 16;
+                    return 18;
+                  })()
+                }
+              ]}
               value={editData.name || ''}
               onChangeText={v => handleEditChange('name', v)}
               placeholder="Ad"
               placeholderTextColor="#666"
             />
             <TextInput
-              style={styles.input}
-              value={editData.surname || ''}
-              onChangeText={v => handleEditChange('surname', v)}
-              placeholder="Soyad"
+              style={[
+                styles.input,
+                {
+                  fontSize: (() => {
+                    const text = editData.email || '';
+                    if (text.length > 25) return 12;
+                    if (text.length > 20) return 14;
+                    return 16;
+                  })()
+                }
+              ]}
+              value={editData.email || ''}
+              onChangeText={v => handleEditChange('email', v)}
+              placeholder="E-posta"
               placeholderTextColor="#666"
+              keyboardType="email-address"
+              autoCapitalize="none"
             />
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  fontSize: (() => {
+                    const text = editData.phone || '';
+                    if (text.length > 15) return 12;
+                    if (text.length > 12) return 14;
+                    return 16;
+                  })()
+                }
+              ]}
               value={editData.phone || ''}
               onChangeText={v => handleEditChange('phone', v)}
               placeholder="Telefon"
@@ -276,14 +371,34 @@ const ProfileScreen = () => {
               keyboardType="phone-pad"
             />
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  fontSize: (() => {
+                    const text = editData.city || '';
+                    if (text.length > 15) return 12;
+                    if (text.length > 12) return 14;
+                    return 16;
+                  })()
+                }
+              ]}
               value={editData.city || ''}
               onChangeText={v => handleEditChange('city', v)}
               placeholder="Şehir"
               placeholderTextColor="#666"
             />
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  fontSize: (() => {
+                    const text = editData.bio || '';
+                    if (text.length > 50) return 12;
+                    if (text.length > 30) return 14;
+                    return 16;
+                  })()
+                }
+              ]}
               value={editData.bio || ''}
               onChangeText={v => handleEditChange('bio', v)}
               placeholder="Biyografi"

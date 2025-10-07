@@ -17,6 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/navigation/AppNavigator';
 import Background from '@/shared/components/Background';
+import { BackButton } from '@/shared/components';
 import Button from '@/shared/components/Button';
 import Card from '@/shared/components/Card';
 import { apiService } from '@/shared/services/api';
@@ -51,10 +52,12 @@ interface TimeSlot {
 interface Mechanic {
   id: string;
   name: string;
-  rating: number;
+  rating: string;
+  ratingCount: number;
   address: string;
-  distance: string;
   image?: string;
+  experience?: number;
+  shopName?: string;
 }
 
 const WashBookingScreen = () => {
@@ -105,46 +108,114 @@ const WashBookingScreen = () => {
   const loadMechanics = async () => {
     try {
       setLoading(true);
+      console.log('🔍 WashBookingScreen: Yıkama hizmeti veren usta listesi yükleniyor...');
+      
       const response = await apiService.getMechanicsByService('wash');
+      console.log('📱 WashBookingScreen API Response:', JSON.stringify(response, null, 2));
+      
       if (response.success) {
-        // Gerçek usta verilerini kullan, yoksa mock veri
-        const mechanicsData = response.data || [];
-        if (mechanicsData.length === 0) {
-          // Mock usta verileri
-          setMechanics([
-            {
-              id: '1',
-              name: 'Ahmet Yıkama Ustası',
-              rating: 4.8,
-              address: 'Kadıköy, İstanbul',
-              distance: '2.5 km',
-              image: 'https://via.placeholder.com/100'
-            },
-            {
-              id: '2',
-              name: 'Mehmet Detay Temizlik',
-              rating: 4.6,
-              address: 'Beşiktaş, İstanbul',
-              distance: '3.2 km',
-              image: 'https://via.placeholder.com/100'
-            }
-          ]);
+        // API'den gelen veriyi kontrol et
+        let mechanicsData = [];
+        
+        if (response.data && Array.isArray(response.data)) {
+          mechanicsData = response.data;
+          console.log('✅ WashBookingScreen: API\'den gelen usta sayısı:', mechanicsData.length);
+        } else if (response.data && response.data.mechanics && Array.isArray(response.data.mechanics)) {
+          mechanicsData = response.data.mechanics;
+          console.log('✅ WashBookingScreen: API\'den gelen usta sayısı (nested):', mechanicsData.length);
         } else {
-          setMechanics(mechanicsData);
+          console.warn('⚠️ WashBookingScreen: Beklenmeyen API response formatı:', response);
         }
+        
+        // Yıkama hizmeti veren ustaları filtrele
+        const washMechanics = mechanicsData.filter((mechanic: any) => {
+          // Servis türlerini kontrol et
+          const services = mechanic.services || mechanic.serviceTypes || [];
+          const hasWashService = services.some((service: any) => 
+            service === 'wash' || 
+            service === 'yıkama' || 
+            service === 'car_wash' ||
+            (typeof service === 'object' && service.type === 'wash')
+          );
+          
+          // Alternatif olarak specialties kontrolü
+          const specialties = mechanic.specialties || mechanic.skills || [];
+          const hasWashSpecialty = specialties.some((specialty: any) => 
+            specialty === 'wash' || 
+            specialty === 'yıkama' || 
+            specialty === 'car_wash' ||
+            specialty.toLowerCase().includes('yıkama') ||
+            specialty.toLowerCase().includes('wash')
+          );
+          
+          return hasWashService || hasWashSpecialty;
+        });
+        
+        console.log('🔍 WashBookingScreen: Yıkama hizmeti veren usta sayısı:', washMechanics.length);
+        
+        // Veriyi normalize et
+        const normalizedMechanics = washMechanics.map((mechanic: any) => {
+          // Adres bilgisini akıllı şekilde birleştir
+          let address = '';
+          if (mechanic.location) {
+            const loc = mechanic.location;
+            const addressParts = [];
+            
+            if (loc.description && loc.description.trim()) {
+              addressParts.push(loc.description.trim());
+            }
+            if (loc.street && loc.street.trim()) {
+              addressParts.push(loc.street.trim());
+            }
+            if (loc.neighborhood && loc.neighborhood.trim()) {
+              addressParts.push(loc.neighborhood.trim());
+            }
+            if (loc.district && loc.district.trim()) {
+              addressParts.push(loc.district.trim());
+            }
+            if (loc.city && loc.city.trim()) {
+              addressParts.push(loc.city.trim());
+            }
+            
+            address = addressParts.join(', ') || loc.city || 'Adres bilgisi yok';
+          } else {
+            address = mechanic.city || 'Adres bilgisi yok';
+          }
+          
+          // İsim bilgisini düzelt
+          const fullName = `${mechanic.name || ''} ${mechanic.surname || ''}`.trim();
+          const displayName = fullName || mechanic.name || 'İsimsiz Usta';
+          
+          // API'den gelen rating bilgisini kullan
+          const rating = mechanic.rating || mechanic.averageRating || 0;
+          const ratingText = rating > 0 ? rating.toFixed(1) : 'Değerlendirme yok';
+          const ratingCount = mechanic.ratingCount || mechanic.totalRatings || 0;
+          
+          return {
+            id: mechanic._id || mechanic.id,
+            name: displayName,
+            rating: ratingText,
+            ratingCount: ratingCount,
+            address: address,
+            image: mechanic.profilePhotoUrl || mechanic.avatar || mechanic.image,
+            // Ek bilgiler
+            experience: mechanic.experience || 0,
+            totalServices: mechanic.totalServices || 0,
+            isAvailable: mechanic.isAvailable !== false,
+            specialties: mechanic.specialties || [],
+            shopName: mechanic.shopName || ''
+          };
+        });
+        
+        console.log('✅ WashBookingScreen: Normalize edilmiş usta verileri:', normalizedMechanics);
+        setMechanics(normalizedMechanics);
+      } else {
+        console.log('❌ WashBookingScreen: API başarısız:', response.message);
+        setMechanics([]);
       }
     } catch (error) {
-      // Hata durumunda mock veri göster
-      setMechanics([
-        {
-          id: '1',
-          name: 'Ahmet Yıkama Ustası',
-          rating: 4.8,
-          address: 'Kadıköy, İstanbul',
-          distance: '2.5 km',
-          image: 'https://via.placeholder.com/100'
-        }
-      ]);
+      console.error('❌ WashBookingScreen: Usta yükleme hatası:', error);
+      setMechanics([]);
     } finally {
       setLoading(false);
     }
@@ -411,29 +482,25 @@ const WashBookingScreen = () => {
   return (
     <Background>
       <SafeAreaView style={styles.container}>
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={() => navigation.goBack()}
-            >
-              <MaterialCommunityIcons 
-                name="arrow-left" 
-                size={24} 
-                color={theme.colors.text.primary} 
-              />
-            </TouchableOpacity>
+        {/* Header */}
+        <View style={[styles.header, { backgroundColor: theme.colors.background.primary }]}>
+          <BackButton />
+          <View style={styles.headerContent}>
             <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
-              Yıkama Randevusu
+              Araç Yıkama
             </Text>
-            <View style={styles.placeholder} />
+            <Text style={[styles.headerSubtitle, { color: theme.colors.text.secondary }]}>
+              Profesyonel yıkama hizmeti
+            </Text>
           </View>
+        </View>
+
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
 
           {/* Mechanic Selection */}
           <Card style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
-              Usta Seçimi
+              Yıkama Ustası Seçimi
             </Text>
             
             {selectedMechanic ? (
@@ -476,7 +543,7 @@ const WashBookingScreen = () => {
                   color={theme.colors.primary.main} 
                 />
                 <Text style={[styles.selectMechanicText, { color: theme.colors.primary.main }]}>
-                  Usta Seç
+                  Yıkama Ustası Seç
                 </Text>
               </TouchableOpacity>
             )}
@@ -713,7 +780,7 @@ const WashBookingScreen = () => {
           <SafeAreaView style={[styles.modalContainer, { backgroundColor: theme.colors.background.primary }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.colors.text.primary }]}>
-                Usta Seçin
+                Yıkama Ustası Seçin
               </Text>
               <TouchableOpacity
                 style={styles.closeButton}
@@ -729,55 +796,66 @@ const WashBookingScreen = () => {
             
             <ScrollView style={styles.mechanicList}>
               {mechanics.map((mechanic) => (
-                <TouchableOpacity
-                  key={mechanic.id}
-                  style={[styles.mechanicCard, { borderColor: theme.colors.border.secondary }]}
-                  onPress={() => handleMechanicSelect(mechanic)}
-                >
-                  <View style={styles.mechanicImage}>
-                    {mechanic.image ? (
-                      <Image source={{ uri: mechanic.image }} style={styles.mechanicAvatar} />
-                    ) : (
-                      <View style={[styles.mechanicAvatar, { backgroundColor: theme.colors.primary.main }]}>
-                        <MaterialCommunityIcons 
-                          name="account" 
-                          size={24} 
-                          color="white" 
-                        />
-                      </View>
-                    )}
-                  </View>
-                  
-                  <View style={styles.mechanicDetails}>
-                    <Text style={[styles.mechanicName, { color: theme.colors.text.primary }]}>
-                      {mechanic.name}
-                    </Text>
-                    
-                    <View style={styles.ratingContainer}>
-                      <MaterialCommunityIcons 
-                        name="star" 
-                        size={16} 
-                        color="#FFD700" 
-                      />
-                      <Text style={[styles.rating, { color: theme.colors.text.secondary }]}>
-                        {mechanic.rating}
-                      </Text>
+                <View key={mechanic.id} style={[styles.mechanicCard, { borderColor: theme.colors.border.secondary }]}>
+                  <View style={styles.mechanicCardContent}>
+                    <View style={styles.mechanicImage}>
+                      {mechanic.image ? (
+                        <Image source={{ uri: mechanic.image }} style={styles.mechanicAvatar} />
+                      ) : (
+                        <View style={[styles.mechanicAvatar, { backgroundColor: theme.colors.primary.main }]}>
+                          <MaterialCommunityIcons 
+                            name="account" 
+                            size={28} 
+                            color="white" 
+                          />
+                        </View>
+                      )}
                     </View>
                     
-                    <View style={styles.mechanicLocation}>
-                      <MaterialCommunityIcons 
-                        name="map-marker" 
-                        size={16} 
-                        color={theme.colors.text.secondary} 
-                      />
-                      <Text style={[styles.mechanicAddress, { color: theme.colors.text.secondary }]}>
+                    <View style={styles.mechanicDetails}>
+                      <Text style={[styles.mechanicName, { color: theme.colors.text.primary }]}>
+                        {mechanic.name}
+                      </Text>
+                      
+                      {mechanic.shopName && (
+                        <Text style={[styles.shopName, { color: theme.colors.text.secondary }]}>
+                          {mechanic.shopName}
+                        </Text>
+                      )}
+                      
+                      <View style={styles.mechanicInfoRow}>
+                        <View style={styles.ratingContainer}>
+                          <MaterialCommunityIcons 
+                            name="star" 
+                            size={18} 
+                            color="#FFD700" 
+                          />
+                          <Text style={[styles.rating, { color: theme.colors.text.secondary }]}>
+                            {mechanic.rating}
+                          </Text>
+                          <Text style={[styles.ratingCount, { color: theme.colors.text.secondary }]}>
+                            ({mechanic.ratingCount})
+                          </Text>
+                        </View>
+                      </View>
+                      
+                      {mechanic.experience > 0 && (
+                        <View style={styles.experienceContainer}>
+                          <MaterialCommunityIcons 
+                            name="briefcase" 
+                            size={16} 
+                            color={theme.colors.text.secondary} 
+                          />
+                          <Text style={[styles.experienceText, { color: theme.colors.text.secondary }]}>
+                            {mechanic.experience} yıl deneyim
+                          </Text>
+                        </View>
+                      )}
+                      
+                      <Text style={[styles.mechanicFullAddress, { color: theme.colors.text.secondary }]}>
                         {mechanic.address}
                       </Text>
                     </View>
-                    
-                    <Text style={[styles.mechanicDistance, { color: theme.colors.text.secondary }]}>
-                      {mechanic.distance}
-                    </Text>
                   </View>
                   
                   <TouchableOpacity
@@ -788,7 +866,7 @@ const WashBookingScreen = () => {
                       Seç
                     </Text>
                   </TouchableOpacity>
-                </TouchableOpacity>
+                </View>
               ))}
             </ScrollView>
           </SafeAreaView>
@@ -809,18 +887,23 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingHorizontal: 16,
     paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
-  backButton: {
-    padding: 8,
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '600',
+    marginBottom: 4,
   },
-  placeholder: {
-    width: 40,
+  headerSubtitle: {
+    fontSize: 14,
+    opacity: 0.8,
   },
   section: {
     marginBottom: 16,
@@ -839,9 +922,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mechanicName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
   },
   ratingContainer: {
     flexDirection: 'row',
@@ -872,30 +955,40 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderWidth: 1,
     borderRadius: 8,
+    marginLeft: 8,
   },
   selectMechanicText: {
     fontSize: 16,
     fontWeight: '500',
-    marginLeft: 8,
   },
   packageCard: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderWidth: 2,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   packageHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   packageIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   packageInfo: {
     flex: 1,
@@ -934,10 +1027,15 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   optionCard: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
+    borderWidth: 2,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   optionContent: {
     flexDirection: 'row',
@@ -982,15 +1080,20 @@ const styles = StyleSheet.create({
   },
   timeSlot: {
     width: '18%',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    borderWidth: 1,
-    borderRadius: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderWidth: 2,
+    borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   timeText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
   },
   totalContainer: {
@@ -1036,34 +1139,70 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   mechanicCard: {
+    borderWidth: 2,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  mechanicCardContent: {
     flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderWidth: 1,
-    borderRadius: 12,
-    marginBottom: 12,
+    alignItems: 'flex-start',
+    marginBottom: 16,
   },
   mechanicImage: {
-    marginRight: 12,
+    marginRight: 16,
   },
   mechanicAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   mechanicDetails: {
     flex: 1,
   },
-  mechanicLocation: {
+  shopName: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+    opacity: 0.8,
+  },
+  mechanicInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    marginBottom: 8,
   },
-  mechanicDistance: {
+  ratingCount: {
     fontSize: 12,
-    marginTop: 2,
+    fontWeight: '400',
+    marginLeft: 4,
+    opacity: 0.7,
+  },
+  experienceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  experienceText: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  mechanicFullAddress: {
+    fontSize: 13,
+    lineHeight: 18,
+    opacity: 0.8,
   },
 });
 

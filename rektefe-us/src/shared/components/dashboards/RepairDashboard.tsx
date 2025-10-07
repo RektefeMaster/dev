@@ -175,11 +175,11 @@ const RepairDashboard: React.FC<RepairDashboardProps> = ({
           </View>
           <Text style={styles.quickActionText}>Parçacılar</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.quickActionItem} onPress={() => navigation.navigate('Customers')}>
-          <View style={[styles.quickActionIcon, { backgroundColor: colors.success.ultraLight }]}>
-            <Ionicons name="people" size={24} color={colors.success.main} />
+        <TouchableOpacity style={styles.quickActionItem} onPress={() => navigation.navigate('Bodywork')}>
+          <View style={[styles.quickActionIcon, { backgroundColor: colors.warning.ultraLight }]}>
+            <Ionicons name="construct" size={24} color={colors.warning.main} />
           </View>
-          <Text style={styles.quickActionText}>Müşteri Defteri</Text>
+          <Text style={styles.quickActionText}>Kaporta/Boya</Text>
         </TouchableOpacity>
       </View>
     </View>

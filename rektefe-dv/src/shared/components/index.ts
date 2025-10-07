@@ -13,3 +13,4 @@ export { default as LoadingStates } from './LoadingStates';
 export { default as NoDataCard } from './NoDataCard';
 export { default as Spacing } from './Spacing';
 export { default as Typography } from './Typography';
+export { default as BackButton } from './BackButton';

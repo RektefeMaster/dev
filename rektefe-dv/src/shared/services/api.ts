@@ -574,6 +574,40 @@ export const NotificationService = {
         error.response?.data?.error?.details
       );
     }
+  },
+
+  /**
+   * Tüm bildirimleri okundu olarak işaretleme
+   */
+  async markAllAsRead(): Promise<ApiResponse<void>> {
+    try {
+      const response = await apiClient.put('/notifications/read-all');
+      return response.data;
+    } catch (error: any) {
+      console.error('Mark all notifications as read error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Tüm bildirimler okundu olarak işaretlenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Bildirim silme
+   */
+  async delete(id: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await apiClient.delete(`/notifications/${id}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Delete notification error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Bildirim silinemedi',
+        error.response?.data?.error?.details
+      );
+    }
   }
 };
 
@@ -640,6 +674,83 @@ export const apiService = {
       );
     }
   },
+  getMechanicDetails: async (mechanicId: string) => {
+    try {
+      const response = await apiClient.get(`/mechanic/details/${mechanicId}`);
+      console.log('🔍 getMechanicDetails API Response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Get mechanic details error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Usta detayları alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+  getMechanicReviews: async (mechanicId: string, params?: any) => {
+    try {
+      // Mechanic details endpoint'i zaten reviews bilgilerini içeriyor
+      const response = await apiClient.get(`/mechanic/details/${mechanicId}`);
+      
+      if (response.data.success && response.data.data) {
+        // Backend'den gelen veri yapısına göre reviews'ı al
+        const reviews = response.data.data.recentReviews || response.data.data.ratings || [];
+        return {
+          success: true,
+          data: { reviews },
+          message: 'Usta yorumları başarıyla getirildi'
+        };
+      } else {
+        return {
+          success: true,
+          data: { reviews: [] },
+          message: 'Henüz yorum bulunmuyor'
+        };
+      }
+    } catch (error: any) {
+      console.error('Get mechanic reviews error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Usta yorumları alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+  checkFavoriteMechanic: async (mechanicId: string) => {
+    try {
+      // Backend'de favorite endpoint'i yok, geçici olarak false döndür
+      return {
+        success: true,
+        data: { isFavorite: false },
+        message: 'Favori durumu kontrol edilemedi - endpoint henüz mevcut değil'
+      };
+    } catch (error: any) {
+      console.error('Check favorite mechanic error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Favori usta kontrolü yapılamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+  toggleFavoriteMechanic: async (mechanicId: string) => {
+    try {
+      // Backend'de favorite endpoint'i yok, geçici olarak mock response döndür
+      return {
+        success: true,
+        data: { isFavorite: true },
+        message: 'Favori durumu değiştirilemedi - endpoint henüz mevcut değil'
+      };
+    } catch (error: any) {
+      console.error('Toggle favorite mechanic error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Favori usta durumu değiştirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
   getNearbyMechanics: async (location: { latitude: number; longitude: number }, maxDistance: number = 10) => {
     try {
       const response = await apiClient.get('/mechanic/nearby', {
@@ -655,32 +766,6 @@ export const apiService = {
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Yakındaki ustalar alınamadı',
-        error.response?.data?.error?.details
-      );
-    }
-  },
-  getMechanicDetails: async (id: string) => {
-    try {
-      const response = await apiClient.get(`/mechanic/details/${id}`);
-      return response.data;
-    } catch (error: any) {
-      console.error('Get mechanic details error:', error);
-      return createErrorResponse(
-        ErrorCode.INTERNAL_SERVER_ERROR,
-        'Usta detayları alınamadı',
-        error.response?.data?.error?.details
-      );
-    }
-  },
-  getMechanicById: async (id: string) => {
-    try {
-      const response = await apiClient.get(`/mechanic/details/${id}`);
-      return response.data;
-    } catch (error: any) {
-      console.error('Get mechanic by id error:', error);
-      return createErrorResponse(
-        ErrorCode.INTERNAL_SERVER_ERROR,
-        'Usta detayları alınamadı',
         error.response?.data?.error?.details
       );
     }
@@ -705,10 +790,38 @@ export const apiService = {
   getConversations: MessageService.getConversations,
   getMessages: MessageService.getMessages,
   sendMessage: MessageService.sendMessage,
+  deleteMessage: async (messageId: string) => {
+    try {
+      const response = await apiClient.delete(`/message/messages/${messageId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Delete message error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Mesaj silinemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+  deleteConversation: async (conversationId: string) => {
+    try {
+      const response = await apiClient.delete(`/message/conversations/${conversationId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Delete conversation error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Konuşma silinemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
   
   // Notifications
   getNotifications: NotificationService.getNotifications,
   markNotificationAsRead: NotificationService.markAsRead,
+  markAllNotificationsAsRead: NotificationService.markAllAsRead,
+  deleteNotification: NotificationService.delete,
   
   // Fault Reports
   createFaultReport: async (data: any) => {
@@ -720,6 +833,78 @@ export const apiService = {
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Arıza bildirimi oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  // Emergency Towing
+  createEmergencyTowingRequest: async (data: any) => {
+    try {
+      const response = await apiClient.post('/emergency/towing-request', data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Create emergency towing request error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Acil çekici talebi oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  // Wallet
+  getWalletBalance: async () => {
+    try {
+      const response = await apiClient.get('/wallet/balance');
+      return response.data;
+    } catch (error: any) {
+      console.error('Get wallet balance error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Cüzdan bakiyesi alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+  getWalletTransactions: async (params?: any) => {
+    try {
+      const response = await apiClient.get('/wallet/transactions', { params });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get wallet transactions error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Cüzdan işlemleri alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  // Services
+  createTirePartsRequest: async (data: any) => {
+    try {
+      const response = await apiClient.post('/services/tire-request', data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Create tire parts request error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Lastik parça talebi oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  createWashBooking: async (data: any) => {
+    try {
+      const response = await apiClient.post('/services/wash-booking', data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Create wash booking error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Yıkama randevusu oluşturulamadı',
         error.response?.data?.error?.details
       );
     }

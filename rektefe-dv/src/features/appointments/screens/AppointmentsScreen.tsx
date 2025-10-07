@@ -12,6 +12,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import io from 'socket.io-client';
 import { translateServiceName } from '@/shared/utils/serviceTranslator';
 import { RootStackParamList } from '@/navigation/AppNavigator';
+import { BackButton } from '@/shared/components';
 
 type AppointmentsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Appointments'>;
 
@@ -807,12 +808,7 @@ const AppointmentsScreen = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#007AFF" />
-          </TouchableOpacity>
+          <BackButton />
           <Text style={styles.headerTitle}>Randevularım</Text>
         </View>
         
@@ -827,12 +823,7 @@ const AppointmentsScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={24} color="#007AFF" />
-        </TouchableOpacity>
+        <BackButton />
         <Text style={styles.headerTitle}>Randevularım</Text>
       </View>
 
@@ -934,13 +925,11 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  backButton: {
-    padding: 8,
-  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    marginLeft: 8,
+    flex: 1,
+    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,

@@ -27,6 +27,7 @@ import { useWalletData } from '../hooks/useWalletData';
 import { useCreditCards } from '../hooks/useCreditCards';
 import LoadingSkeleton from '@/shared/components/LoadingSkeleton';
 import ErrorState from '@/shared/components/ErrorState';
+import { BackButton } from '@/shared/components';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -269,18 +270,7 @@ const WalletScreen = ({ navigation }: any) => {
             }
           ]}>
             <View style={styles.headerTop}>
-              <TouchableOpacity 
-                style={[styles.headerButton, { 
-                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' 
-                }]}
-                onPress={() => navigation.goBack()}
-              >
-                <MaterialCommunityIcons 
-                  name="arrow-left" 
-                  size={20} 
-                  color={themeColors.text.primary} 
-                />
-              </TouchableOpacity>
+              <BackButton />
               <View style={styles.headerCenter}>
                 <Text style={[styles.headerTitle, { 
                   color: themeColors.text.primary 
@@ -328,7 +318,17 @@ const WalletScreen = ({ navigation }: any) => {
                 </TouchableOpacity>
               </View>
               
-              <Text style={styles.balanceAmount}>
+              <Text style={[
+                styles.balanceAmount,
+                {
+                  fontSize: (() => {
+                    const text = `${balance.toFixed(2)} ₺`;
+                    if (text.length > 15) return 24;
+                    if (text.length > 12) return 28;
+                    return 32;
+                  })()
+                }
+              ]}>
                 {balance.toFixed(2)} ₺
               </Text>
               
@@ -537,10 +537,30 @@ const WalletScreen = ({ navigation }: any) => {
                     </View>
                     
                     <View style={styles.cardBody}>
-                      <Text style={styles.cardBalance}>
+                      <Text style={[
+                        styles.cardBalance,
+                        {
+                          fontSize: (() => {
+                            const text = `${card.balance.toFixed(2)} ₺`;
+                            if (text.length > 12) return 16;
+                            if (text.length > 10) return 18;
+                            return 20;
+                          })()
+                        }
+                      ]}>
                         {card.balance.toFixed(2)} ₺
                       </Text>
-                      <Text style={styles.cardNumber}>
+                      <Text style={[
+                        styles.cardNumber,
+                        {
+                          fontSize: (() => {
+                            const text = showCardNumbers ? card.cardNumber : '**** **** **** ****';
+                            if (text.length > 20) return 12;
+                            if (text.length > 18) return 14;
+                            return 16;
+                          })()
+                        }
+                      ]}>
                         {showCardNumbers ? card.cardNumber : '**** **** **** ****'}
                       </Text>
                     </View>

@@ -78,7 +78,7 @@ const TireDashboard: React.FC<TireDashboardProps> = ({
     <View style={styles.tireHotelWidget}>
       <View style={styles.widgetHeader}>
         <Text style={styles.widgetTitle}>Lastik Oteli Yönetimi</Text>
-        <TouchableOpacity onPress={() => Alert.alert('Lastik Oteli', 'Detaylı yönetim ekranına git')}>
+        <TouchableOpacity onPress={() => navigation.navigate('TireHotel')}>
           <Text style={styles.widgetActionText}>Yönet</Text>
         </TouchableOpacity>
       </View>

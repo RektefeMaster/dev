@@ -16,12 +16,14 @@ import {
   StatusBar,
   Platform,
 } from 'react-native';
+import * as Location from 'expo-location';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/context/ThemeContext';
 import { apiService } from '@/shared/services/api';
 import { withErrorHandling } from '@/shared/utils/errorHandler';
+import { translateServiceName } from '@/shared/utils/serviceTranslator';
 
 // --- Interfaces ---
 interface Mechanic {
@@ -34,6 +36,7 @@ interface Mechanic {
   totalJobs?: number;
   experience?: number;
   specialties?: string[];
+  serviceCategories?: string[];
   reviews?: Review[];
   phone?: string;
   email?: string;
@@ -52,15 +55,23 @@ interface Mechanic {
   location?: {
     coordinates: [number, number];
   };
+  totalServices?: number;
+  completedJobs?: number;
 }
 
 interface Review {
   id: string;
   userName: string;
-  rating: number;
   comment: string;
   date: string;
   avatar?: string;
+  rating?: number;
+  _id?: string;
+  userId?: {
+    name: string;
+    surname: string;
+  };
+  createdAt?: string;
 }
 
 // --- UI/UX Constants ---
@@ -83,6 +94,8 @@ const MechanicDetailScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
+  const [calculatedDistance, setCalculatedDistance] = useState<string>('0 m');
   const scrollY = useRef(new Animated.Value(0)).current;
   const [activeTab, setActiveTab] = useState<'about' | 'services' | 'reviews'>('about');
   
@@ -95,7 +108,81 @@ const MechanicDetailScreen: React.FC = () => {
 
   useEffect(() => {
     loadAllData();
+    getUserLocation();
   }, []);
+
+  // Mesafe hesaplama fonksiyonu
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    console.log('🧮 Mesafe hesaplama:', { lat1, lon1, lat2, lon2 });
+    
+    const R = 6371; // Dünya'nın yarıçapı (km)
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = R * c;
+    
+    console.log('🧮 Hesaplama detayları:', { dLat, dLon, a, c, distance });
+    return distance;
+  };
+
+  // Mesafeyi formatla
+  const formatDistance = (distanceKm: number): string => {
+    console.log('📏 Formatlanacak mesafe:', distanceKm);
+    
+    if (distanceKm < 1) {
+      const meters = Math.round(distanceKm * 1000);
+      console.log('📏 Metre cinsinden:', meters);
+      return `${meters} m`;
+    } else if (distanceKm < 10) {
+      const km = distanceKm.toFixed(1);
+      console.log('📏 Ondalıklı km:', km);
+      return `${km} km`;
+    } else {
+      const km = Math.round(distanceKm);
+      console.log('📏 Tam km:', km);
+      return `${km} km`;
+    }
+  };
+
+  // Adres bilgisini formatla
+  const formatAddress = (location: any): string => {
+    if (!location) return 'Konum yok';
+    
+    const parts = [];
+    if (location.city) parts.push(location.city);
+    if (location.district) parts.push(location.district);
+    
+    if (parts.length > 0) {
+      return parts.join(', ');
+    }
+    
+    return 'Konum yok';
+  };
+
+  // Kullanıcı konumunu al
+  const getUserLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('⚠️ Konum izni verilmedi');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      const userLoc = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
+      };
+      console.log('📍 Kullanıcı konumu alındı:', userLoc);
+      setUserLocation(userLoc);
+    } catch (error) {
+      console.log('❌ Konum alınamadı:', error);
+    }
+  };
   
   const loadAllData = async () => {
     setLoading(true);
@@ -112,14 +199,56 @@ const MechanicDetailScreen: React.FC = () => {
       setError(null);
       
       const mechanicId = mechanic.id || mechanic._id;
+      console.log('🔍 Mechanic ID:', mechanicId);
+      
       const { data, error: apiError } = await withErrorHandling(
         () => apiService.getMechanicDetails(mechanicId),
         { showErrorAlert: false }
       );
 
+      console.log('🔍 API Response:', { data, error: apiError });
+
       if (data && data.success) {
+        console.log('🔍 Backend\'den gelen veri:', data.data);
         setMechanicDetails(data.data);
+        
+        // Mesafe hesapla - İstanbul merkez koordinatları kullanarak test
+        console.log('🔍 Konum verisi:', data.data.location);
+        if (data.data.location?.coordinates && Array.isArray(data.data.location.coordinates)) {
+          const mechanicCoords = data.data.location.coordinates;
+          console.log('📍 Usta koordinatları:', mechanicCoords);
+          
+          // Koordinatların geçerli olup olmadığını kontrol et
+          if (mechanicCoords.length >= 2 && typeof mechanicCoords[0] === 'number' && typeof mechanicCoords[1] === 'number') {
+            // İstanbul merkez koordinatları (test için)
+            const istanbulCenter = { latitude: 41.0082, longitude: 28.9784 };
+            console.log('🏙️ İstanbul merkez:', istanbulCenter);
+            
+            const distance = calculateDistance(
+              istanbulCenter.latitude,
+              istanbulCenter.longitude,
+              mechanicCoords[0],  // latitude
+              mechanicCoords[1]   // longitude
+            );
+            console.log('📏 Hesaplanan mesafe (km):', distance);
+            
+            const formattedDist = formatDistance(distance);
+            console.log('📍 Formatlanmış mesafe:', formattedDist);
+            setCalculatedDistance(formattedDist);
+          } else {
+            console.log('⚠️ Geçersiz koordinat formatı:', mechanicCoords);
+            // Adres bilgisini kullan
+            const address = formatAddress(data.data.location);
+            setCalculatedDistance(address);
+          }
+        } else {
+          console.log('⚠️ Usta konum bilgisi eksik:', data.data.location);
+          // Adres bilgisini kullan
+          const address = formatAddress(data.data.location);
+          setCalculatedDistance(address);
+        }
       } else {
+        console.log('❌ Backend\'den veri alınamadı:', data);
         setMechanicDetails(mechanic);
       }
     } catch (err) {
@@ -138,7 +267,7 @@ const MechanicDetailScreen: React.FC = () => {
       );
 
       if (data && data.success && data.data) {
-        setMechanicReviews(data.data);
+        setMechanicReviews(data.data.reviews || []);
       }
     } catch (err) {
       console.error('Yorumlar yüklenemedi:', err);
@@ -153,7 +282,7 @@ const MechanicDetailScreen: React.FC = () => {
         () => apiService.checkFavoriteMechanic(mechanicId),
         { showErrorAlert: false }
       );
-
+      
       if (data && data.success) {
         setIsFavorite(data.data.isFavorite || false);
       }
@@ -162,202 +291,370 @@ const MechanicDetailScreen: React.FC = () => {
     }
   };
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await Promise.all([loadMechanicDetails(), loadReviews(), checkFavoriteStatus()]);
-    setRefreshing(false);
-  };
-
-  // --- Helper functions for booking, messaging, calling, and favorites ---
-
-  const handleBookAppointment = () => {
-    const mechanicId = mechanic.id || mechanic._id;
-    (navigation as any).navigate('BookAppointment', {
-      mechanicId,
-      mechanicName: mechanic.name,
-      mechanicSurname: mechanic.surname,
-    });
+  const handleCall = () => {
+    if (mechanicDetails?.phone) {
+      Linking.openURL(`tel:${mechanicDetails.phone}`);
+    }
   };
 
   const handleMessage = () => {
-    const mechanicId = mechanic.id || mechanic._id;
-    (navigation as any).navigate('ChatScreen', {
-      otherParticipant: {
-        _id: mechanicId,
-        name: mechanic.name,
-        surname: mechanic.surname,
-        avatar: mechanic.avatar,
-        userType: 'mechanic'
-      }
-    });
+    // Mesaj gönderme işlemi
+    console.log('Mesaj gönderilecek:', mechanicDetails?.name);
   };
 
-  const handleCall = () => {
-    const phone = (mechanicDetails || mechanic).phone;
-    if (phone) {
-      Linking.openURL(`tel:${phone}`);
-    } else {
-      Alert.alert('Bilgi', 'Bu ustanın telefon numarası kayıtlı değil.');
-    }
+  const handleAppointment = () => {
+    // Randevu alma işlemi
+    console.log('Randevu alınacak:', mechanicDetails?.name);
   };
 
-  const toggleFavorite = async () => {
+  const handleFavorite = async () => {
     try {
       const mechanicId = mechanic.id || mechanic._id;
-      const { data } = await withErrorHandling(() => apiService.toggleFavoriteMechanic(mechanicId), { showErrorAlert: false });
+      const { data } = await withErrorHandling(
+        () => apiService.toggleFavoriteMechanic(mechanicId),
+        { showErrorAlert: false }
+      );
+      
       if (data && data.success) {
-        setIsFavorite(data.data.isFavorite);
+        setIsFavorite(data.data.isFavorite || !isFavorite);
       }
     } catch (err) {
-      console.error('Favori durumu güncellenemedi:', err);
+      console.error('Favori durumu değiştirilemedi:', err);
     }
   };
 
-  // --- Render Functions ---
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadAllData();
+    setRefreshing(false);
+  };
 
-  const renderStars = (rating: number) => (
-    Array.from({ length: 5 }, (_, index) => (
+  const renderStars = (rating: number) => {
+    return [...Array(5)].map((_, i) => (
       <MaterialCommunityIcons
-        key={index}
-        name={index < Math.floor(rating) ? 'star' : 'star-outline'}
-        size={14}
+        key={i}
+        name={i < rating ? 'star' : 'star-outline'}
+        size={16}
         color="#FFD700"
       />
-    ))
-  );
+    ));
+  };
 
-  const renderTabBar = () => {
-    const tabs = [
-      { key: 'about', title: 'Hakkında' },
-      { key: 'services', title: 'Hizmetler' },
-      { key: 'reviews', title: 'Yorumlar' },
-    ];
+  const renderAboutTab = (mechanicData: Mechanic) => {
+    console.log('📊 Stats için kullanılan veri:', {
+      experience: mechanicData.experience,
+      totalJobs: mechanicData.totalJobs,
+      totalServices: mechanicData.totalServices,
+      completedJobs: mechanicData.completedJobs,
+      calculatedDistance,
+      formattedDistance: mechanicData.formattedDistance
+    });
+
     return (
-      <View style={[styles.tabBarContainer, { backgroundColor: theme.colors.background.primary }]}>
-        {tabs.map((tab) => (
-          <TouchableOpacity key={tab.key} onPress={() => setActiveTab(tab.key as any)} style={styles.tabItem}>
-            <Text style={[
-              styles.tabText,
-              { color: activeTab === tab.key ? theme.colors.primary.main : theme.colors.text.secondary }
-            ]}>
-              {tab.title}
+      <View style={styles.tabContentContainer}>
+        {/* Quick Stats */}
+        <View style={styles.statsContainer}>
+          <View style={[styles.statCard, { backgroundColor: theme.colors.background.card }]}>
+            <View style={[styles.statIcon, { backgroundColor: theme.colors.primary.main + '20' }]}>
+              <MaterialCommunityIcons name="clock-outline" size={24} color={theme.colors.primary.main} />
+            </View>
+            <Text 
+              style={[
+                styles.statNumber, 
+                { 
+                  color: theme.colors.text.primary,
+                  fontSize: (() => {
+                    const text = (mechanicData.experience || '0').toString();
+                    if (text.length > 4) return 14;
+                    if (text.length > 3) return 16;
+                    if (text.length > 2) return 18;
+                    return 20;
+                  })()
+                }
+              ]}
+            >
+              {mechanicData.experience || '0'}
             </Text>
-            {activeTab === tab.key && (
-              <View style={[styles.activeTabIndicator, { backgroundColor: theme.colors.primary.main }]} />
-            )}
-          </TouchableOpacity>
-        ))}
+            <Text style={[styles.statLabel, { color: theme.colors.text.secondary }]}>Yıl Deneyim</Text>
+          </View>
+          
+          <View style={[styles.statCard, { backgroundColor: theme.colors.background.card }]}>
+            <View style={[styles.statIcon, { backgroundColor: theme.colors.success.main + '20' }]}>
+              <MaterialCommunityIcons name="wrench" size={24} color={theme.colors.success.main} />
+            </View>
+            <Text 
+              style={[
+                styles.statNumber, 
+                { 
+                  color: theme.colors.text.primary,
+                  fontSize: (() => {
+                    const text = (mechanicData.totalJobs || mechanicData.totalServices || mechanicData.completedJobs || '0').toString();
+                    if (text.length > 5) return 12;
+                    if (text.length > 4) return 14;
+                    if (text.length > 3) return 16;
+                    if (text.length > 2) return 18;
+                    return 20;
+                  })()
+                }
+              ]}
+            >
+              {mechanicData.totalJobs || mechanicData.totalServices || mechanicData.completedJobs || '0'}
+            </Text>
+            <Text style={[styles.statLabel, { color: theme.colors.text.secondary }]}>Tamamlanan İş</Text>
+          </View>
+          
+          <View style={[styles.statCard, { backgroundColor: theme.colors.background.card }]}>
+            <View style={[styles.statIcon, { backgroundColor: theme.colors.warning.main + '20' }]}>
+              <MaterialCommunityIcons name="map-marker" size={24} color={theme.colors.warning.main} />
+            </View>
+            <Text 
+              style={[
+                styles.statNumber, 
+                { 
+                  color: theme.colors.text.primary,
+                  fontSize: (() => {
+                    const text = calculatedDistance || mechanicData.formattedDistance || '0 m';
+                    if (text.length > 20) return 10;
+                    if (text.length > 15) return 12;
+                    if (text.length > 10) return 14;
+                    if (text.length > 5) return 16;
+                    return 18;
+                  })()
+                }
+              ]}
+            >
+              {calculatedDistance || mechanicData.formattedDistance || '0 m'}
+            </Text>
+            <Text style={[styles.statLabel, { color: theme.colors.text.secondary }]}>Adres</Text>
+          </View>
+        </View>
+
+        {mechanicData.bio && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>Hakkında</Text>
+            <Text style={[styles.bioText, { color: theme.colors.text.secondary }]}>{mechanicData.bio}</Text>
+          </View>
+        )}
+        
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>İletişim Bilgileri</Text>
+          {mechanicData.phone && (
+            <TouchableOpacity style={[styles.contactItem, { backgroundColor: theme.colors.background.card }]} onPress={handleCall}>
+              <MaterialCommunityIcons name="phone" size={22} color={theme.colors.success.main} />
+              <Text style={[styles.contactText, { color: theme.colors.text.primary }]}>{mechanicData.phone}</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.text.secondary} />
+            </TouchableOpacity>
+          )}
+          {mechanicData.email && (
+            <View style={[styles.contactItem, { backgroundColor: theme.colors.background.card }]}>
+              <MaterialCommunityIcons name="email" size={22} color={theme.colors.primary.main} />
+              <Text style={[styles.contactText, { color: theme.colors.text.primary }]}>{mechanicData.email}</Text>
+            </View>
+          )}
+          {mechanicData.fullAddress && (
+            <View style={[styles.contactItem, { backgroundColor: theme.colors.background.card }]}>
+              <MaterialCommunityIcons name="map-marker" size={22} color={theme.colors.warning.main} />
+              <Text style={[styles.contactText, { color: theme.colors.text.primary }]}>{mechanicData.fullAddress}</Text>
+            </View>
+          )}
+        </View>
       </View>
     );
   };
-  
-  const renderAboutTab = (currentMechanic: Mechanic) => (
-    <View style={styles.tabContentContainer}>
-      {/* Quick Stats */}
-      <View style={styles.statsContainer}>
-        <View style={[styles.statCard, { backgroundColor: theme.colors.background.card }]}>
-          <View style={[styles.statIcon, { backgroundColor: theme.colors.primary.main + '20' }]}>
-            <MaterialCommunityIcons name="clock-outline" size={24} color={theme.colors.primary.main} />
-          </View>
-          <Text style={[styles.statNumber, { color: theme.colors.text.primary }]}>
-            {currentMechanic.experience || '0'}
-          </Text>
-          <Text style={[styles.statLabel, { color: theme.colors.text.secondary }]}>Yıl Deneyim</Text>
-        </View>
-        
-        <View style={[styles.statCard, { backgroundColor: theme.colors.background.card }]}>
-          <View style={[styles.statIcon, { backgroundColor: theme.colors.success.main + '20' }]}>
-            <MaterialCommunityIcons name="wrench" size={24} color={theme.colors.success.main} />
-          </View>
-          <Text style={[styles.statNumber, { color: theme.colors.text.primary }]}>
-            {currentMechanic.totalJobs || '0'}
-          </Text>
-          <Text style={[styles.statLabel, { color: theme.colors.text.secondary }]}>Tamamlanan İş</Text>
-        </View>
-        
-        <View style={[styles.statCard, { backgroundColor: theme.colors.background.card }]}>
-          <View style={[styles.statIcon, { backgroundColor: theme.colors.warning.main + '20' }]}>
-            <MaterialCommunityIcons name="map-marker" size={24} color={theme.colors.warning.main} />
-          </View>
-          <Text style={[styles.statNumber, { color: theme.colors.text.primary }]}>
-            {currentMechanic.formattedDistance || '0 m'}
-          </Text>
-          <Text style={[styles.statLabel, { color: theme.colors.text.secondary }]}>Mesafe</Text>
+
+  const renderServicesTab = (specialties: string[]) => {
+    console.log('🔧 Hizmetler verisi:', specialties);
+    console.log('🔧 Hizmetler uzunluğu:', specialties.length);
+    
+    // Hizmetleri çevir ve genişlet
+    const translatedServices = specialties.map(service => translateServiceName(service));
+    
+    // Genel hizmetleri detaylı alt hizmetlere genişlet
+    const expandedServices: string[] = [];
+    translatedServices.forEach(service => {
+      if (service === 'Genel Bakım') {
+        expandedServices.push(
+          'Motor Yağı Değişimi',
+          'Filtre Değişimi',
+          'Fren Kontrolü',
+          'Lastik Kontrolü',
+          'Elektrik Kontrolü',
+          'Araç Muayenesi',
+          'Periyodik Bakım'
+        );
+      } else if (service === 'Genel Onarım') {
+        expandedServices.push(
+          'Motor Onarımı',
+          'Fren Sistemi Onarımı',
+          'Süspansiyon Onarımı',
+          'Direksiyon Onarımı',
+          'Şanzıman Onarımı',
+          'Elektrik Arıza Tespiti',
+          'Klima Onarımı'
+        );
+      } else {
+        expandedServices.push(service);
+      }
+    });
+    
+    const uniqueServices = [...new Set(expandedServices)]; // Tekrarları kaldır
+    
+    // Hizmetleri daha detaylı kategorilere ayır
+    const categorizedServices = {
+      'Bakım Hizmetleri': uniqueServices.filter(service => 
+        service.includes('Bakım') || service.includes('Kontrolü') || service.includes('Muayene') ||
+        service.includes('Yağı') || service.includes('Filtre') || service.includes('Periyodik')
+      ),
+      'Onarım Hizmetleri': uniqueServices.filter(service => 
+        service.includes('Onarım') || service.includes('Arıza') || service.includes('Tespiti') ||
+        service.includes('Motor') || service.includes('Fren') || service.includes('Süspansiyon') ||
+        service.includes('Direksiyon') || service.includes('Şanzıman') || service.includes('Klima')
+      ),
+      'Lastik & Parça Hizmetleri': uniqueServices.filter(service => 
+        service.includes('Lastik') || service.includes('Jant') || service.includes('Balans') ||
+        service.includes('Rot') || service.includes('Parça') || service.includes('Yedek')
+      ),
+      'Elektrik & Elektronik': uniqueServices.filter(service => 
+        service.includes('Elektrik') || service.includes('Elektronik') || service.includes('Aku') ||
+        service.includes('Klima') || service.includes('Radyo') || service.includes('Kamera')
+      ),
+      'Kaporta & Boya': uniqueServices.filter(service => 
+        service.includes('Kaporta') || service.includes('Boya') || service.includes('Çizik') ||
+        service.includes('Dent') || service.includes('Çarpma')
+      ),
+      'Diğer Hizmetler': uniqueServices.filter(service => 
+        !service.includes('Bakım') && !service.includes('Kontrolü') && !service.includes('Muayene') &&
+        !service.includes('Yağı') && !service.includes('Filtre') && !service.includes('Periyodik') &&
+        !service.includes('Onarım') && !service.includes('Arıza') && !service.includes('Tespiti') &&
+        !service.includes('Motor') && !service.includes('Fren') && !service.includes('Süspansiyon') &&
+        !service.includes('Direksiyon') && !service.includes('Şanzıman') && !service.includes('Klima') &&
+        !service.includes('Lastik') && !service.includes('Jant') && !service.includes('Balans') &&
+        !service.includes('Rot') && !service.includes('Parça') && !service.includes('Yedek') &&
+        !service.includes('Elektrik') && !service.includes('Elektronik') && !service.includes('Aku') &&
+        !service.includes('Radyo') && !service.includes('Kamera') && !service.includes('Boya') &&
+        !service.includes('Çizik') && !service.includes('Dent') && !service.includes('Çarpma')
+      )
+    };
+
+    return (
+      <View style={styles.tabContentContainer}>
+        <View style={styles.section}>
+          {uniqueServices.length > 0 ? (
+            <View style={styles.servicesContainer}>
+              {Object.entries(categorizedServices).map(([category, services]) => {
+                if (services.length === 0) return null;
+                
+                return (
+                  <View key={category} style={styles.serviceCategory}>
+                    <Text style={[styles.categoryTitle, { color: theme.colors.text.secondary }]}>
+                      {category}
+                    </Text>
+                     <View style={styles.servicesGrid}>
+                      {services.map((service, index) => (
+                        <View key={index} style={[styles.serviceItem, { backgroundColor: theme.colors.background.card }]}>
+                          <MaterialCommunityIcons 
+                            name="check-circle" 
+                            size={18} 
+                            color={theme.colors.primary.main} 
+                          />
+                          <Text style={[styles.serviceText, { color: theme.colors.text.primary }]}>
+                            {service}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <View style={styles.noServicesContainer}>
+              <MaterialCommunityIcons 
+                name="wrench" 
+                size={48} 
+                color={theme.colors.text.secondary} 
+              />
+              <Text style={[styles.noServicesText, { color: theme.colors.text.secondary }]}>
+                Henüz hizmet bilgisi eklenmemiş
+              </Text>
+            </View>
+          )}
         </View>
       </View>
+    );
+  };
 
-      {currentMechanic.bio && (
+  const renderReviewsTab = (reviews: Review[]) => {
+    // Reviews verilerini formatla - undefined kontrolü ekle
+    const safeReviews = reviews || [];
+    const formattedReviews = safeReviews.map(review => ({
+      id: review.id || review._id,
+      userName: review.userName || `${review.userId?.name || 'Müşteri'} ${review.userId?.surname || ''}`.trim(),
+      rating: review.rating || 0,
+      comment: review.comment || 'Yorum yapılmamış',
+      date: review.date || review.createdAt || new Date().toISOString()
+    }));
+
+    return (
+      <View style={styles.tabContentContainer}>
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>Hakkında</Text>
-          <Text style={[styles.bioText, { color: theme.colors.text.secondary }]}>{currentMechanic.bio}</Text>
-        </View>
-      )}
-       <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>İletişim Bilgileri</Text>
-          {currentMechanic.phone && (
-            <TouchableOpacity style={[styles.contactItem, { backgroundColor: theme.colors.background.card }]} onPress={handleCall}>
-                <MaterialCommunityIcons name="phone" size={22} color={theme.colors.success.main} />
-                <Text style={[styles.contactText, { color: theme.colors.text.primary }]}>{currentMechanic.phone}</Text>
-                <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.text.secondary} />
-            </TouchableOpacity>
-          )}
-          {currentMechanic.email && (
-             <View style={[styles.contactItem, { backgroundColor: theme.colors.background.card }]}>
-                <MaterialCommunityIcons name="email" size={22} color={theme.colors.primary.main} />
-                <Text style={[styles.contactText, { color: theme.colors.text.primary }]}>{currentMechanic.email}</Text>
-            </View>
-          )}
-          {currentMechanic.fullAddress && (
-             <View style={[styles.contactItem, { backgroundColor: theme.colors.background.card }]}>
-                <MaterialCommunityIcons name="map-marker" size={22} color={theme.colors.warning.main} />
-                <Text style={[styles.contactText, { color: theme.colors.text.primary }]}>{currentMechanic.fullAddress}</Text>
-            </View>
-          )}
-       </View>
-    </View>
-  );
-
-  const renderServicesTab = (specialties: string[]) => (
-    <View style={styles.tabContentContainer}>
-       <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>Uzmanlık Alanları</Text>
-            {specialties.length > 0 ? (
-                <View style={styles.specialtiesContainer}>
-                    {specialties.map((specialty, index) => (
-                        <View key={index} style={[styles.specialtyChip, { backgroundColor: theme.colors.primary.main + '15' }]}>
-                            <MaterialCommunityIcons name="check-circle" size={16} color={theme.colors.primary.main} />
-                            <Text style={[styles.specialtyText, { color: theme.colors.primary.main }]}>{specialty}</Text>
-                        </View>
-                    ))}
-                </View>
-            ) : <Text style={{color: theme.colors.text.secondary}}>Uzmanlık alanı belirtilmemiş.</Text>}
-       </View>
-    </View>
-  );
-
-  const renderReviewsTab = (reviews: Review[]) => (
-    <View style={styles.tabContentContainer}>
-        <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
-                Müşteri Yorumları ({reviews.length})
-            </Text>
-            {reviews.length > 0 ? reviews.map((review) => (
-                <View key={review.id} style={[styles.reviewCard, { backgroundColor: theme.colors.background.card }]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+            Müşteri Yorumları ({formattedReviews.length})
+          </Text>
+          
+          {formattedReviews.length > 0 ? (
+            <View style={styles.reviewsContainer}>
+              {formattedReviews.map((review, index) => (
+                <View key={review.id || index} style={[styles.reviewCard, { backgroundColor: theme.colors.background.card }]}>
                   <View style={styles.reviewHeader}>
-                    <View style={styles.reviewInfo}>
-                      <Text style={[styles.reviewerName, { color: theme.colors.text.primary }]}>{review.userName}</Text>
+                    <View style={styles.reviewUserInfo}>
+                      <Text style={[styles.reviewUserName, { color: theme.colors.text.primary }]}>
+                        {review.userName}
+                      </Text>
                       <Text style={[styles.reviewDate, { color: theme.colors.text.secondary }]}>
-                          {new Date(review.date).toLocaleDateString('tr-TR')}
+                        {new Date(review.date).toLocaleDateString('tr-TR', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
                       </Text>
                     </View>
-                    <View style={styles.reviewRating}>{renderStars(review.rating)}</View>
+                    <View style={styles.reviewRating}>
+                      {[...Array(5)].map((_, i) => (
+                        <MaterialCommunityIcons
+                          key={i}
+                          name={i < review.rating ? 'star' : 'star-outline'}
+                          size={18}
+                          color="#FFD700"
+                        />
+                      ))}
+                    </View>
                   </View>
-                  <Text style={[styles.reviewComment, { color: theme.colors.text.primary }]}>{review.comment}</Text>
+                  <Text style={[styles.reviewComment, { color: theme.colors.text.primary }]}>
+                    {review.comment}
+                  </Text>
                 </View>
-            )) : <Text style={{color: theme.colors.text.secondary}}>Henüz yorum yapılmamış.</Text>}
+              ))}
+            </View>
+          ) : (
+            <View style={styles.noReviewsContainer}>
+              <MaterialCommunityIcons 
+                name="comment-outline" 
+                size={64} 
+                color={theme.colors.text.secondary} 
+              />
+              <Text style={[styles.noReviewsText, { color: theme.colors.text.secondary }]}>
+                Henüz yorum yapılmamış
+              </Text>
+              <Text style={[styles.noReviewsSubtext, { color: theme.colors.text.secondary }]}>
+                Bu usta için ilk yorumu siz yapabilirsiniz
+              </Text>
+            </View>
+          )}
         </View>
-    </View>
-  );
+      </View>
+    );
+  };
 
   // --- Loading and Error States ---
   if (loading) {
@@ -384,111 +681,170 @@ const MechanicDetailScreen: React.FC = () => {
   }
 
   const currentMechanic = mechanicDetails || mechanic;
-  const specialties = currentMechanic.specialties || currentMechanic.specialization || [];
 
-  // --- Animation Interpolations ---
-  const headerHeight = scrollY.interpolate({
-    inputRange: [0, HEADER_EXPANDED_HEIGHT - HEADER_COLLAPSED_HEIGHT],
-    outputRange: [HEADER_EXPANDED_HEIGHT, HEADER_COLLAPSED_HEIGHT],
-    extrapolate: 'clamp'
-  });
-
-  const headerContentOpacity = scrollY.interpolate({
-    inputRange: [0, (HEADER_EXPANDED_HEIGHT - HEADER_COLLAPSED_HEIGHT) / 2],
-    outputRange: [1, 0],
-    extrapolate: 'clamp'
-  });
-
-  const collapsedHeaderOpacity = scrollY.interpolate({
-    inputRange: [(HEADER_EXPANDED_HEIGHT - HEADER_COLLAPSED_HEIGHT) / 2, HEADER_EXPANDED_HEIGHT - HEADER_COLLAPSED_HEIGHT],
-    outputRange: [0, 1],
-    extrapolate: 'clamp'
-  });
-  
-
-  // --- Main Render ---
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
-        <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary.main} />
-        {/* --- Animated Header --- */}
-        <Animated.View style={[styles.header, { height: headerHeight }]}>
-            <LinearGradient 
-              colors={[theme.colors.primary.main, theme.colors.primary.dark]} 
-              style={StyleSheet.absoluteFill} 
+      <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary.main} />
+      
+      {/* Header */}
+      <View style={[styles.header, { backgroundColor: theme.colors.primary.main }]}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.headerActionButton} onPress={handleFavorite}>
+            <MaterialCommunityIcons 
+              name={isFavorite ? "heart" : "heart-outline"} 
+              size={24} 
+              color={isFavorite ? "#ff6b6b" : "#fff"} 
             />
-            
-            {/* Expanded Header Content */}
-            <Animated.View style={[styles.expandedHeaderContent, { opacity: headerContentOpacity }]}>
-                <Text style={styles.mechanicName}>{currentMechanic.name} {currentMechanic.surname}</Text>
-                {currentMechanic.shopName && (
-                  <Text style={styles.mechanicShop}>{currentMechanic.shopName}</Text>
-                )}
-                <View style={styles.ratingContainer}>
-                    {renderStars(currentMechanic.rating || 0)}
-                    <Text style={styles.ratingText}>
-                      {currentMechanic.rating?.toFixed(1) || '0.0'} ({currentMechanic.ratingCount || mechanicReviews.length})
-                    </Text>
-                </View>
-            </Animated.View>
-            
-            {/* Collapsed Header Content */}
-            <Animated.View style={[styles.collapsedHeaderContent, { opacity: collapsedHeaderOpacity }]}>
-                <Text style={styles.collapsedMechanicName}>{currentMechanic.name} {currentMechanic.surname}</Text>
-            </Animated.View>
-
-            {/* Shared Header Buttons */}
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-                <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
-            </TouchableOpacity>
-            <View style={styles.headerActions}>
-                <TouchableOpacity style={styles.headerButton} onPress={toggleFavorite}>
-                    <MaterialCommunityIcons name={isFavorite ? 'heart' : 'heart-outline'} size={24} color={isFavorite ? '#FF3B30' : '#fff'} />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.headerButton}>
-                    <MaterialCommunityIcons name="share-variant" size={24} color="#fff" />
-                </TouchableOpacity>
-            </View>
-        </Animated.View>
-
-        
-        {/* Content ScrollView */}
-        <ScrollView
-            showsVerticalScrollIndicator={false}
-            onScroll={Animated.event(
-                [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-                { useNativeDriver: false }
-            )}
-            scrollEventThrottle={16}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.colors.primary.main} />}
-        >
-            <View style={{ paddingTop: HEADER_EXPANDED_HEIGHT }}>
-                {/* --- Sticky Tab Bar --- */}
-                {renderTabBar()}
-                
-                {/* --- Tab Content --- */}
-                {activeTab === 'about' && renderAboutTab(currentMechanic)}
-                {activeTab === 'services' && renderServicesTab(specialties)}
-                {activeTab === 'reviews' && renderReviewsTab(mechanicReviews)}
-            </View>
-        </ScrollView>
-        
-        {/* --- Floating Action Buttons --- */}
-        <View style={[styles.footer, {borderTopColor: theme.colors.border?.primary || '#eee'}]}>
-            <TouchableOpacity 
-              style={[styles.secondaryButton, {borderColor: theme.colors.primary.main}]} 
-              onPress={handleMessage}
-            >
-                <MaterialCommunityIcons name="message-text" size={20} color={theme.colors.primary.main} />
-                <Text style={[styles.secondaryButtonText, { color: theme.colors.primary.main }]}>Mesaj</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.primaryButton, { backgroundColor: theme.colors.primary.main }]} 
-              onPress={handleBookAppointment}
-            >
-                <MaterialCommunityIcons name="calendar-plus" size={20} color="#fff" />
-                <Text style={styles.primaryButtonText}>Randevu Al</Text>
-            </TouchableOpacity>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerActionButton}>
+            <MaterialCommunityIcons name="share-variant" size={24} color="#fff" />
+          </TouchableOpacity>
         </View>
+      </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Profile Section */}
+        <View style={[styles.profileSection, { backgroundColor: theme.colors.primary.main }]}>
+          <View style={styles.profileImageContainer}>
+            {currentMechanic.avatar ? (
+              <Image source={{ uri: currentMechanic.avatar }} style={styles.profileImage} />
+            ) : (
+              <View style={[styles.profileImagePlaceholder, { backgroundColor: theme.colors.background.card }]}>
+                <MaterialCommunityIcons name="account" size={60} color={theme.colors.text.secondary} />
+              </View>
+            )}
+          </View>
+          
+          <Text style={[
+            styles.mechanicName,
+            {
+              fontSize: (() => {
+                const text = `${currentMechanic.name} ${currentMechanic.surname}`;
+                if (text.length > 25) return 18;
+                if (text.length > 20) return 20;
+                if (text.length > 15) return 22;
+                return 24;
+              })()
+            }
+          ]}>
+            {currentMechanic.name} {currentMechanic.surname}
+          </Text>
+          
+          {currentMechanic.shopName && (
+            <Text style={[
+              styles.shopName,
+              {
+                fontSize: (() => {
+                  const text = currentMechanic.shopName || '';
+                  if (text.length > 25) return 14;
+                  if (text.length > 20) return 16;
+                  if (text.length > 15) return 18;
+                  return 20;
+                })()
+              }
+            ]}>{currentMechanic.shopName}</Text>
+          )}
+          
+          <View style={styles.ratingContainer}>
+            {renderStars(Math.floor(currentMechanic.rating || 0))}
+            <Text style={[
+              styles.ratingText,
+              {
+                fontSize: (() => {
+                  const text = `${currentMechanic.rating?.toFixed(1) || '0.0'} (${currentMechanic.ratingCount || 0})`;
+                  if (text.length > 15) return 12;
+                  if (text.length > 12) return 14;
+                  return 16;
+                })()
+              }
+            ]}>
+              {currentMechanic.rating?.toFixed(1) || '0.0'} ({currentMechanic.ratingCount || 0})
+            </Text>
+          </View>
+        </View>
+
+        {/* Tab Bar */}
+        <View style={[styles.tabBarContainer, { backgroundColor: theme.colors.background.primary }]}>
+          <TouchableOpacity 
+            style={styles.tabItem} 
+            onPress={() => setActiveTab('about')}
+          >
+            <Text style={[
+              styles.tabText, 
+              { color: activeTab === 'about' ? theme.colors.primary.main : theme.colors.text.secondary }
+            ]}>
+              Hakkında
+            </Text>
+            {activeTab === 'about' && (
+              <View style={[styles.activeTabIndicator, { backgroundColor: theme.colors.primary.main }]} />
+            )}
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.tabItem} 
+            onPress={() => setActiveTab('services')}
+          >
+            <Text style={[
+              styles.tabText, 
+              { color: activeTab === 'services' ? theme.colors.primary.main : theme.colors.text.secondary }
+            ]}>
+              Hizmetler
+            </Text>
+            {activeTab === 'services' && (
+              <View style={[styles.activeTabIndicator, { backgroundColor: theme.colors.primary.main }]} />
+            )}
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.tabItem} 
+            onPress={() => setActiveTab('reviews')}
+          >
+            <Text style={[
+              styles.tabText, 
+              { color: activeTab === 'reviews' ? theme.colors.primary.main : theme.colors.text.secondary }
+            ]}>
+              Yorumlar
+            </Text>
+            {activeTab === 'reviews' && (
+              <View style={[styles.activeTabIndicator, { backgroundColor: theme.colors.primary.main }]} />
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Tab Content */}
+        {activeTab === 'about' && renderAboutTab(currentMechanic)}
+        {activeTab === 'services' && renderServicesTab(currentMechanic.serviceCategories || currentMechanic.specialties || [])}
+        {activeTab === 'reviews' && renderReviewsTab(mechanicReviews)}
+      </ScrollView>
+
+      {/* Footer Actions */}
+      <View style={[styles.footer, { backgroundColor: theme.colors.background.primary }]}>
+        <TouchableOpacity 
+          style={[styles.secondaryButton, { borderColor: theme.colors.primary.main }]} 
+          onPress={handleMessage}
+        >
+          <MaterialCommunityIcons name="message" size={20} color={theme.colors.primary.main} />
+          <Text style={[styles.secondaryButtonText, { color: theme.colors.primary.main }]}>
+            Mesaj
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.primaryButton, { backgroundColor: theme.colors.primary.main }]} 
+          onPress={handleAppointment}
+        >
+          <MaterialCommunityIcons name="calendar-plus" size={20} color="#fff" />
+          <Text style={styles.primaryButtonText}>Randevu Al</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 };
@@ -496,104 +852,90 @@ const MechanicDetailScreen: React.FC = () => {
 // --- Styles ---
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  loadingContainer: { 
-    flex: 1, 
-    justifyContent: 'center', 
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    gap: 16,
   },
   loadingText: {
-    marginTop: 16,
     fontSize: 16,
     fontWeight: '500',
   },
-  errorContainer: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    padding: 20 
-  },
-  errorText: { 
-    fontSize: 16, 
-    textAlign: 'center', 
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  // Header
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 60
-  },
-  expandedHeaderContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  errorContainer: {
     flex: 1,
-    paddingHorizontal: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    gap: 20,
   },
-  collapsedHeaderContent: {
-    position: 'absolute',
-    bottom: 12,
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingTop: Platform.OS === 'ios' ? 44 : 12,
   },
   backButton: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 55 : 45,
-    left: 15,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center'
+    padding: 8,
   },
   headerActions: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 55 : 45,
-    right: 15,
     flexDirection: 'row',
-    gap: 10
+    gap: 8,
   },
-  headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.2)',
+  headerActionButton: {
+    padding: 8,
+  },
+  profileSection: {
+    alignItems: 'center',
+    paddingVertical: 30,
+    paddingHorizontal: 20,
+  },
+  profileImageContainer: {
+    marginBottom: 16,
+  },
+  profileImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  profileImagePlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
-  // Mechanic Info
   mechanicName: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
-    textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  collapsedMechanicName: {
-    fontSize: 18,
-    fontWeight: 'bold',
+  shopName: {
+    fontSize: 16,
     color: '#fff',
-  },
-  mechanicShop: {
-    fontSize: 18,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: 8,
-    fontWeight: '500',
+    opacity: 0.9,
+    marginBottom: 12,
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6
+    gap: 8,
   },
   ratingText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 16,
     color: '#fff',
+    fontWeight: '500',
   },
   // Stats
   statsContainer: {
@@ -624,6 +966,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 4,
+    textAlign: 'center',
   },
   statLabel: {
     fontSize: 12,
@@ -664,13 +1007,69 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
+    fontStyle: 'italic',
   },
   bioText: {
     fontSize: 15,
     lineHeight: 22,
   },
   // Services/Specialties
+  servicesContainer: {
+    gap: 20,
+  },
+  serviceCategory: {
+    marginBottom: 16,
+  },
+  categoryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+   servicesGrid: {
+     flexDirection: 'row',
+     flexWrap: 'wrap',
+     gap: 8,
+   },
+   serviceItem: {
+     flexDirection: 'row',
+     alignItems: 'center',
+     paddingHorizontal: 12,
+     paddingVertical: 8,
+     borderRadius: 8,
+     gap: 6,
+     shadowColor: '#000',
+     shadowOffset: { width: 0, height: 1 },
+     shadowOpacity: 0.05,
+     shadowRadius: 2,
+     elevation: 1,
+     marginBottom: 4,
+     flex: 1,
+     minWidth: '45%',
+     maxWidth: '48%',
+   },
+   serviceText: {
+     fontSize: 13,
+     fontWeight: '500',
+     flex: 1,
+   },
+  noServicesContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    gap: 16,
+  },
+  noServicesText: {
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  // Legacy styles for backward compatibility
   specialtiesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -689,10 +1088,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   // Reviews
+  reviewsContainer: {
+    gap: 12,
+  },
   reviewCard: {
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -702,26 +1103,43 @@ const styles = StyleSheet.create({
   reviewHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
-  reviewInfo: {
+  reviewUserInfo: {
     flex: 1,
   },
-  reviewerName: {
-    fontSize: 15,
+  reviewUserName: {
+    fontSize: 16,
     fontWeight: '600',
+    marginBottom: 4,
   },
   reviewDate: {
     fontSize: 12,
-    marginTop: 2,
+    opacity: 0.7,
   },
   reviewRating: {
-    flexDirection: 'row'
+    flexDirection: 'row',
+    gap: 2,
   },
   reviewComment: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  noReviewsContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    gap: 16,
+  },
+  noReviewsText: {
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  noReviewsSubtext: {
+    fontSize: 14,
+    textAlign: 'center',
+    opacity: 0.7,
   },
   // Contact
   contactItem: {

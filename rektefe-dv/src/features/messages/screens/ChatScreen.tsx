@@ -23,6 +23,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors as themeColors, typography, spacing, borderRadius } from '@/theme/theme';
 import { API_URL } from '@/constants/config';
 import { apiService } from '@/shared/services/api';
+import { BackButton } from '@/shared/components';
 
 type Message = {
   _id: string;
@@ -512,13 +513,7 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="chevron-back" size={24} color={themeColors.text.primary as any} />
-        </TouchableOpacity>
+        <BackButton />
         
         <View style={styles.headerInfo}>
           {otherParticipant?.avatar ? (
@@ -648,6 +643,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    marginLeft: 12,
   },
   headerAvatar: {
     width: 40,

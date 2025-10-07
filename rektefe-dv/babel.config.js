@@ -12,6 +12,13 @@ module.exports = function (api) {
           }
         }
       ],
+      [
+        '@babel/plugin-transform-runtime',
+        {
+          helpers: true,
+          regenerator: true
+        }
+      ],
       'react-native-reanimated/plugin'
     ]
   };

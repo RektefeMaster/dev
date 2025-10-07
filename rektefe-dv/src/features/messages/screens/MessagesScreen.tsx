@@ -14,7 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors as themeColors, typography, spacing, borderRadius, shadows, dimensions as themeDimensions } from '@/theme/theme';
-import { Button, Card, Input } from '@/shared/components';
+import { Button, Card, Input, BackButton } from '@/shared/components';
 import LoadingSpinner from '@/shared/components/LoadingStates';
 import EmptyState from '@/shared/components/NoDataCard';
 import { apiService } from '@/shared/services/api';
@@ -154,7 +154,17 @@ const MessagesScreen = ({ navigation }: any) => {
 
         <View style={styles.conversationContent}>
           <View style={styles.conversationHeader}>
-            <Text style={styles.participantName}>
+            <Text style={[
+              styles.participantName,
+              {
+                fontSize: (() => {
+                  const text = `${item.otherParticipant.name} ${item.otherParticipant.surname}`;
+                  if (text.length > 20) return 14;
+                  if (text.length > 15) return 16;
+                  return 18;
+                })()
+              }
+            ]}>
               {item.otherParticipant.name} {item.otherParticipant.surname}
             </Text>
             <Text style={styles.lastMessageTime}>
@@ -164,7 +174,17 @@ const MessagesScreen = ({ navigation }: any) => {
 
           {item.lastMessage ? (
             <View style={styles.lastMessageContainer}>
-              <Text style={styles.lastMessageText} numberOfLines={2}>
+              <Text style={[
+                styles.lastMessageText,
+                {
+                  fontSize: (() => {
+                    const text = item.lastMessage.content || '';
+                    if (text.length > 50) return 12;
+                    if (text.length > 30) return 13;
+                    return 14;
+                  })()
+                }
+              ]} numberOfLines={2}>
                 {item.lastMessage.content}
               </Text>
               {item.unreadCount > 0 && (
@@ -193,6 +213,7 @@ const MessagesScreen = ({ navigation }: any) => {
       
       {/* Header */}
       <View style={styles.header}>
+        <BackButton />
         <Text style={styles.headerTitle}>Mesajlar</Text>
         <TouchableOpacity
           style={styles.newMessageButton}
@@ -271,6 +292,8 @@ const styles = StyleSheet.create({
     fontSize: typography.h2.fontSize,
     fontWeight: '700',
     color: themeColors.text.primary as any,
+    flex: 1,
+    textAlign: 'center',
   },
   newMessageButton: {
     width: 40,

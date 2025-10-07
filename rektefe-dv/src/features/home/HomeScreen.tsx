@@ -498,15 +498,48 @@ const HomeScreen = () => {
                   </View>
                   
                   <View style={styles.mechanicInfo}>
-                    <Text style={[styles.mechanicName, { color: theme.colors.text.primary }]}>
+                    <Text style={[
+                      styles.mechanicName, 
+                      { 
+                        color: theme.colors.text.primary,
+                        fontSize: (() => {
+                          const text = `${nearestMechanic.name} ${nearestMechanic.surname}`;
+                          if (text.length > 25) return 16;
+                          if (text.length > 20) return 18;
+                          return 20;
+                        })()
+                      }
+                    ]}>
                       {nearestMechanic.name} {nearestMechanic.surname}
                     </Text>
                     {nearestMechanic.shopName && (
-                      <Text style={[styles.mechanicShop, { color: theme.colors.text.secondary }]}>
+                      <Text style={[
+                        styles.mechanicShop, 
+                        { 
+                          color: theme.colors.text.secondary,
+                          fontSize: (() => {
+                            const text = nearestMechanic.shopName || '';
+                            if (text.length > 20) return 12;
+                            if (text.length > 15) return 14;
+                            return 16;
+                          })()
+                        }
+                      ]}>
                         {nearestMechanic.shopName}
                       </Text>
                     )}
-                    <Text style={[styles.mechanicLocation, { color: theme.colors.text.secondary }]}>
+                    <Text style={[
+                      styles.mechanicLocation, 
+                      { 
+                        color: theme.colors.text.secondary,
+                        fontSize: (() => {
+                          const text = `${nearestMechanic.city} ${nearestMechanic.district ? `• ${nearestMechanic.district}` : ''}`;
+                          if (text.length > 25) return 12;
+                          if (text.length > 20) return 14;
+                          return 16;
+                        })()
+                      }
+                    ]}>
                       {nearestMechanic.city} {nearestMechanic.district && `• ${nearestMechanic.district}`}
                     </Text>
                   </View>

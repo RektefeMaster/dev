@@ -16,6 +16,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '@/context/AuthContext';
 import Background from '@/shared/components/Background';
+import { BackButton } from '@/shared/components';
 import { apiService } from '@/shared/services/api';
 
 interface EmergencyTrackingRouteParams {
@@ -336,16 +337,7 @@ const EmergencyTrackingScreen = () => {
         <View style={styles.content}>
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={() => navigation.goBack()}
-            >
-              <MaterialCommunityIcons 
-                name="arrow-left" 
-                size={24} 
-                color={theme.colors.text.primary} 
-              />
-            </TouchableOpacity>
+            <BackButton />
             <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
               Acil Çekici Takip
             </Text>

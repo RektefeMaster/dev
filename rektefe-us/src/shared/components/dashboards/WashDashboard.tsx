@@ -192,12 +192,12 @@ const WashDashboard: React.FC<WashDashboardProps> = ({
 
         <TouchableOpacity 
           style={styles.quickActionItem}
-          onPress={() => navigation.navigate('ServiceCatalog')}
+          onPress={() => navigation.navigate('CarWash')}
         >
           <View style={[styles.quickActionIcon, { backgroundColor: colors.info.ultraLight }]}>
             <Ionicons name="list" size={24} color={colors.info.main} />
           </View>
-          <Text style={styles.quickActionText}>Hizmet Paketleri</Text>
+          <Text style={styles.quickActionText}>Yıkama Yönetimi</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -212,12 +212,12 @@ const WashDashboard: React.FC<WashDashboardProps> = ({
 
         <TouchableOpacity 
           style={styles.quickActionItem}
-          onPress={() => navigation.navigate('Reports')}
+          onPress={() => navigation.navigate('CarWash', { screen: 'LoyaltyProgram' })}
         >
           <View style={[styles.quickActionIcon, { backgroundColor: colors.warning.ultraLight }]}>
-            <Ionicons name="analytics" size={24} color={colors.warning.main} />
+            <Ionicons name="star" size={24} color={colors.warning.main} />
           </View>
-          <Text style={styles.quickActionText}>Raporlar</Text>
+          <Text style={styles.quickActionText}>Sadakat Programı</Text>
         </TouchableOpacity>
       </View>
     </View>

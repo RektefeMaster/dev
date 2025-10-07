@@ -18,6 +18,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, shadows, typography } from '@/theme/theme';
 import { API_URL } from '@/constants/config';
+import { BackButton } from '@/shared/components';
 import faqsData from '../data/faqs.json';
 import guidesData from '../data/guides.json';
 
@@ -137,6 +138,10 @@ const SupportScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
+          <BackButton 
+            color={colors.text.inverse} 
+            style={styles.backButtonStyle}
+          />
           <View style={styles.headerContent}>
             <Text style={styles.headerTitle}>Destek</Text>
             <Text style={styles.headerSubtitle}>Size nasıl yardımcı olabiliriz?</Text>
@@ -289,11 +294,13 @@ const SupportScreen = () => {
           />
           <View style={styles.guidesGrid}>
             {guides.map((g, i) => (
-              <View key={i} style={styles.guideBox}>
-                <MaterialCommunityIcons name={g.icon as any} size={28} color={colors.primary.main} />
+              <TouchableOpacity key={i} style={styles.guideBox} activeOpacity={0.7}>
+                <View style={styles.guideIconContainer}>
+                  <MaterialCommunityIcons name={g.icon as any} size={28} color={colors.primary.main} />
+                </View>
                 <Text style={styles.guideTitle}>{g.title}</Text>
                 <Text style={styles.guideDesc}>{g.desc}</Text>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         </View>
@@ -373,6 +380,10 @@ const styles = StyleSheet.create({
     fontSize: typography.body2.fontSize,
     color: colors.text.inverse,
     opacity: 0.9,
+  },
+  backButtonStyle: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   contentContainer: {
     paddingHorizontal: spacing.lg,
@@ -500,17 +511,44 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     ...shadows.small,
   },
-  guidesGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: spacing.md },
+  guidesGrid: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    justifyContent: 'space-between',
+  },
   guideBox: {
     width: '48%',
     backgroundColor: colors.background.card,
     borderRadius: borderRadius.card,
     padding: spacing.md,
     alignItems: 'center',
+    marginBottom: spacing.md,
+    minHeight: 120,
+    justifyContent: 'center',
     ...shadows.small,
   },
-  guideTitle: { marginTop: spacing.xs, fontSize: typography.body1.fontSize, fontWeight: '700', color: colors.primary.main },
-  guideDesc: { marginTop: spacing.xs, fontSize: typography.body2.fontSize, color: colors.text.secondary, textAlign: 'center' },
+  guideIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary.main + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  guideTitle: { 
+    fontSize: typography.body1.fontSize, 
+    fontWeight: '700', 
+    color: colors.text.primary,
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  guideDesc: { 
+    fontSize: typography.body2.fontSize, 
+    color: colors.text.secondary, 
+    textAlign: 'center',
+    lineHeight: 18,
+  },
   formCard: { backgroundColor: colors.background.card, borderRadius: borderRadius.card, padding: spacing.lg, ...shadows.small },
   input: {
     backgroundColor: colors.background.tertiary,

@@ -1446,6 +1446,685 @@ export const WalletService = {
   }
 };
 
+// ===== TIRE HOTEL SERVICE =====
+
+const TireHotelService = {
+  /**
+   * Lastik seti depoya yerleştir
+   */
+  async storeTireSet(data: {
+    customerId: string;
+    vehicleId: string;
+    tireSet: {
+      season: 'summer' | 'winter';
+      brand: string;
+      model: string;
+      size: string;
+      condition: 'new' | 'used' | 'good' | 'fair' | 'poor';
+      treadDepth: number[];
+      productionYear?: number;
+      notes?: string;
+    };
+    storageFee: number;
+    photos?: string[];
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post('/api/tire-storage/store', data);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Store tire set error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Lastik seti yerleştirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Barkod ile lastik seti bul
+   */
+  async findTireSetByBarcode(barcode: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get(`/api/tire-storage/find/${barcode}`);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Find tire set error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Lastik seti bulunamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Lastik seti teslim et
+   */
+  async retrieveTireSet(tireStorageId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.put(`/api/tire-storage/retrieve/${tireStorageId}`);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Retrieve tire set error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Lastik seti teslim edilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Depo durumunu getir
+   */
+  async getTireDepotStatus(): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get('/api/tire-storage/depot-status');
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Get depot status error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Depo durumu getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Sezonluk hatırlatma gönder
+   */
+  async sendSeasonalReminders(season: 'summer' | 'winter'): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post('/api/tire-storage/send-seasonal-reminders', { season });
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Send seasonal reminders error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Hatırlatma gönderilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Depo düzeni oluştur/güncelle
+   */
+  async setupDepot(corridors: Array<{
+    name: string;
+    racks: number;
+    slotsPerRack: number;
+  }>): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post('/api/tire-storage/setup-depot', { corridors });
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Setup depot error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Depo düzeni oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Hatırlatma ayarlarını oluştur/güncelle
+   */
+  async setupReminders(settings: {
+    summerReminder: {
+      enabled: boolean;
+      startDate: string;
+      endDate: string;
+      message: string;
+    };
+    winterReminder: {
+      enabled: boolean;
+      startDate: string;
+      endDate: string;
+      message: string;
+    };
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post('/api/tire-storage/setup-reminders', settings);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Setup reminders error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Hatırlatma ayarları oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  }
+};
+
+// ===== BODYWORK SERVICE =====
+
+const BodyworkService = {
+  /**
+   * Yeni kaporta/boya işi oluştur
+   */
+  async createBodyworkJob(data: {
+    customerId: string;
+    vehicleId: string;
+    damageInfo: {
+      description: string;
+      photos: string[];
+      videos?: string[];
+      damageType: 'collision' | 'scratch' | 'dent' | 'rust' | 'paint_damage' | 'other';
+      severity: 'minor' | 'moderate' | 'major' | 'severe';
+      affectedAreas: string[];
+      estimatedRepairTime: number;
+    };
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post('/api/bodywork/create', data);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Create bodywork job error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Kaporta işi oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Teklif hazırla
+   */
+  async prepareQuote(jobId: string, quoteData: {
+    partsToReplace: Array<{
+      partName: string;
+      partNumber?: string;
+      brand: string;
+      quantity: number;
+      unitPrice: number;
+      notes?: string;
+    }>;
+    partsToRepair: Array<{
+      partName: string;
+      laborHours: number;
+      laborRate: number;
+      notes?: string;
+    }>;
+    paintMaterials: Array<{
+      materialName: string;
+      quantity: number;
+      unitPrice: number;
+      notes?: string;
+    }>;
+    validityDays?: number;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/api/bodywork/${jobId}/prepare-quote`, quoteData);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Prepare quote error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Teklif hazırlanamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Teklifi gönder
+   */
+  async sendQuote(jobId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/api/bodywork/${jobId}/send-quote`);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Send quote error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Teklif gönderilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * İş akışı aşamasını güncelle
+   */
+  async updateWorkflowStage(jobId: string, stageData: {
+    stage: string;
+    status: 'in_progress' | 'completed' | 'skipped';
+    photos?: string[];
+    notes?: string;
+    assignedTo?: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.put(`/api/bodywork/${jobId}/workflow-stage`, stageData);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Update workflow stage error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'İş akışı güncellenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Müşteri onayı iste
+   */
+  async requestCustomerApproval(jobId: string, stage: string, photos?: string[]): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/api/bodywork/${jobId}/request-approval`, {
+        stage,
+        photos
+      });
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Request customer approval error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Müşteri onayı istenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Kalite kontrol yap
+   */
+  async performQualityCheck(jobId: string, qualityData: {
+    passed: boolean;
+    checkedBy: string;
+    issues?: string[];
+    photos?: string[];
+    notes?: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/api/bodywork/${jobId}/quality-check`, qualityData);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Perform quality check error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Kalite kontrol yapılamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Ustanın kaporta işlerini getir
+   */
+  async getBodyworkJobs(status?: string): Promise<ApiResponse<any>> {
+    try {
+      const params = status ? { status } : {};
+      const response = await apiClient.get('/api/bodywork/mechanic-jobs', { params });
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Get bodywork jobs error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Kaporta işleri getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Kaporta işi detayını getir
+   */
+  async getBodyworkJobById(jobId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get(`/api/bodywork/${jobId}`);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Get bodywork job error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'İş detayı getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Şablon oluştur
+   */
+  async createTemplate(data: {
+    name: string;
+    description: string;
+    damageType: 'collision' | 'scratch' | 'dent' | 'rust' | 'paint_damage' | 'other';
+    severity: 'minor' | 'moderate' | 'major' | 'severe';
+    workflowTemplate: Array<{
+      stage: string;
+      stageName: string;
+      estimatedHours: number;
+      requiredPhotos: number;
+      description: string;
+      order: number;
+    }>;
+    standardParts: Array<{
+      partName: string;
+      partNumber?: string;
+      brand: string;
+      estimatedPrice: number;
+      notes?: string;
+    }>;
+    standardMaterials: Array<{
+      materialName: string;
+      estimatedQuantity: number;
+      estimatedPrice: number;
+      notes?: string;
+    }>;
+    laborRates: {
+      hourlyRate: number;
+      overtimeRate: number;
+      weekendRate: number;
+    };
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post('/api/bodywork/templates', data);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Create template error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Şablon oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Şablonları getir
+   */
+  async getTemplates(damageType?: string, severity?: string): Promise<ApiResponse<any>> {
+    try {
+      const params: any = {};
+      if (damageType) params.damageType = damageType;
+      if (severity) params.severity = severity;
+      
+      const response = await apiClient.get('/api/bodywork/templates', { params });
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Get templates error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Şablonlar getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  }
+};
+
+// ===== CAR WASH SERVICE =====
+
+const CarWashService = {
+  /**
+   * Yeni yıkama paketi oluştur
+   */
+  async createCarWashPackage(data: {
+    name: string;
+    description: string;
+    packageType: 'basic' | 'premium' | 'deluxe' | 'detailing' | 'custom';
+    services: Array<{
+      serviceName: string;
+      serviceType: 'exterior' | 'interior' | 'engine' | 'special';
+      duration: number;
+      price: number;
+      description: string;
+      isOptional: boolean;
+      order: number;
+    }>;
+    basePrice: number;
+    vehicleTypeMultipliers: {
+      car: number;
+      suv: number;
+      truck: number;
+      motorcycle: number;
+      van: number;
+    };
+    features: {
+      includesInterior: boolean;
+      includesExterior: boolean;
+      includesEngine: boolean;
+      includesWaxing: boolean;
+      includesPolishing: boolean;
+      includesDetailing: boolean;
+      ecoFriendly: boolean;
+      premiumProducts: boolean;
+    };
+    images?: string[];
+    thumbnail?: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post('/api/carwash/packages', data);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Create car wash package error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Paket oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Paketleri getir
+   */
+  async getCarWashPackages(packageType?: string): Promise<ApiResponse<any>> {
+    try {
+      const params = packageType ? { packageType } : {};
+      const response = await apiClient.get('/api/carwash/packages', { params });
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Get car wash packages error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Paketler getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Yıkama işi oluştur
+   */
+  async createCarWashJob(data: {
+    customerId: string;
+    vehicleId: string;
+    packageId: string;
+    vehicleInfo: {
+      brand: string;
+      model: string;
+      year: number;
+      plateNumber: string;
+      vehicleType: 'car' | 'suv' | 'truck' | 'motorcycle' | 'van';
+      color: string;
+      size: 'small' | 'medium' | 'large' | 'extra_large';
+    };
+    location: {
+      address: string;
+      coordinates: { lat: number; lng: number };
+      isMobile: boolean;
+    };
+    specialRequests?: string[];
+    notes?: string;
+    scheduledAt?: Date;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post('/api/carwash/jobs', data);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Create car wash job error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Yıkama işi oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Yıkama işini başlat
+   */
+  async startCarWashJob(jobId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/api/carwash/jobs/${jobId}/start`);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Start car wash job error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'İş başlatılamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Hizmeti tamamla
+   */
+  async completeCarWashService(jobId: string, serviceName: string, photos?: string[], notes?: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/api/carwash/jobs/${jobId}/services/${serviceName}/complete`, {
+        photos,
+        notes
+      });
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Complete car wash service error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Hizmet tamamlanamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Yıkama işini tamamla
+   */
+  async completeCarWashJob(jobId: string, qualityData: {
+    passed: boolean;
+    checkedBy: string;
+    issues?: string[];
+    photos?: string[];
+    customerRating?: number;
+    customerFeedback?: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/api/carwash/jobs/${jobId}/complete`, qualityData);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Complete car wash job error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'İş tamamlanamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Yıkama işlerini getir
+   */
+  async getCarWashJobs(status?: string, date?: string): Promise<ApiResponse<any>> {
+    try {
+      const params: any = {};
+      if (status) params.status = status;
+      if (date) params.date = date;
+      
+      const response = await apiClient.get('/api/carwash/jobs', { params });
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Get car wash jobs error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Yıkama işleri getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Yıkama işi detayını getir
+   */
+  async getCarWashJobById(jobId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get(`/api/carwash/jobs/${jobId}`);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Get car wash job error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'İş detayı getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Sadakat programı oluştur/güncelle
+   */
+  async setupLoyaltyProgram(data: {
+    programName: string;
+    description: string;
+    loyaltyLevels: Array<{
+      level: 'bronze' | 'silver' | 'gold' | 'platinum';
+      levelName: string;
+      minVisits: number;
+      minSpent: number;
+      benefits: {
+        discountPercentage: number;
+        priorityService: boolean;
+        freeUpgrades: boolean;
+        specialOffers: boolean;
+        birthdayDiscount: number;
+      };
+      color: string;
+      icon: string;
+    }>;
+    campaigns?: Array<any>;
+    referralProgram?: any;
+    birthdayCampaign?: any;
+    pointsSystem?: any;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post('/api/carwash/loyalty-program', data);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Setup loyalty program error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Sadakat programı oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Sadakat programını getir
+   */
+  async getLoyaltyProgram(): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get('/api/carwash/loyalty-program');
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Get loyalty program error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Sadakat programı getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  }
+};
+
 // ===== EXPORT ALL SERVICES =====
 
 const apiService = {
@@ -1460,6 +2139,9 @@ const apiService = {
   EmergencyService,
   SettingsService,
   WalletService,
+  TireHotelService,
+  BodyworkService,
+  CarWashService,
   // Spread all service methods to top level for backward compatibility
   ...AuthService,
   ...AppointmentService,
@@ -1470,6 +2152,9 @@ const apiService = {
   ...FaultReportService,
   ...EmergencyService,
   ...WalletService,
+  ...TireHotelService,
+  ...BodyworkService,
+  ...CarWashService,
   handleError: AppointmentService.handleError
 };
 

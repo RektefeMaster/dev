@@ -8,7 +8,6 @@ import { ThemeProvider, useTheme } from '@/shared/context/ThemeContext';
 import ErrorBoundary from '@/shared/components/ErrorBoundary';
 import notificationService from '@/features/notifications/services/notificationService';
 import { apiService } from '@/shared/services/api';
-import 'text-encoding';
 
 function App() {
   return (

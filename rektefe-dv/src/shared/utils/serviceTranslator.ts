@@ -66,7 +66,33 @@ export const serviceNameMapping: { [key: string]: string } = {
   'towing': 'Çekici',
   'cekici': 'Çekici',
   'emergency': 'Acil Servis',
-  'acil-servis': 'Acil Servis'
+  'acil-servis': 'Acil Servis',
+  
+  // İngilizce terimler için çeviriler
+  'repair': 'Genel Onarım',
+  'maintenance': 'Genel Bakım',
+  'service': 'Servis',
+  'tire': 'Lastik Servisi',
+  'wash': 'Araç Yıkama',
+  'towing': 'Çekici Hizmeti',
+  'diagnostic': 'Arıza Tespiti',
+  'inspection': 'Muayene',
+  'oil': 'Yağ Değişimi',
+  'filter': 'Filtre Değişimi',
+  'brake': 'Fren Servisi',
+  'battery': 'Aku Servisi',
+  'ac': 'Klima Servisi',
+  'exhaust': 'Egzoz Servisi',
+  'body': 'Kaporta Onarımı',
+  'paint': 'Boya Servisi',
+  'wash-service': 'Yıkama Servisi',
+  'tire-service': 'Lastik Servisi',
+  'brake-service': 'Fren Servisi',
+  'battery-service': 'Aku Servisi',
+  'ac-service': 'Klima Servisi',
+  'exhaust-service': 'Egzoz Servisi',
+  'body-repair': 'Kaporta Onarımı',
+  'paint-service': 'Boya Servisi'
 };
 
 /**

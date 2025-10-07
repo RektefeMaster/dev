@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/config';
 import { useFocusEffect } from '@react-navigation/native';
 import Background from '@/shared/components/Background';
+import { BackButton } from '@/shared/components';
 import LottieView from 'lottie-react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 import carData from '@/constants/carData.json';
@@ -328,9 +329,39 @@ const GarageScreen = () => {
       <View style={styles.vehicleHeader}>
         <MaterialCommunityIcons name="car" size={32} color="#007AFF" />
         <View style={styles.vehicleTitle}>
-          <Text style={styles.vehicleBrand}>{vehicle.brand}</Text>
-          <Text style={styles.vehicleModel}>{vehicle.modelName}</Text>
-          <Text style={styles.vehiclePlate}>{vehicle.plateNumber}</Text>
+          <Text style={[
+            styles.vehicleBrand,
+            {
+              fontSize: (() => {
+                const text = vehicle.brand || '';
+                if (text.length > 15) return 14;
+                if (text.length > 12) return 16;
+                return 18;
+              })()
+            }
+          ]}>{vehicle.brand}</Text>
+          <Text style={[
+            styles.vehicleModel,
+            {
+              fontSize: (() => {
+                const text = vehicle.modelName || '';
+                if (text.length > 20) return 12;
+                if (text.length > 15) return 14;
+                return 16;
+              })()
+            }
+          ]}>{vehicle.modelName}</Text>
+          <Text style={[
+            styles.vehiclePlate,
+            {
+              fontSize: (() => {
+                const text = vehicle.plateNumber || '';
+                if (text.length > 10) return 12;
+                if (text.length > 8) return 14;
+                return 16;
+              })()
+            }
+          ]}>{vehicle.plateNumber}</Text>
         </View>
         <TouchableOpacity
           style={styles.favoriteButton}
@@ -400,6 +431,7 @@ const GarageScreen = () => {
       <Background>
         <ScrollView style={{flex:1}} contentContainerStyle={{padding: 20, paddingBottom: 100}} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
+            <BackButton />
             <Text style={styles.title}>Garajım</Text>
             <TouchableOpacity
               style={[styles.addButton, !token && styles.disabledButton]}
@@ -703,6 +735,8 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
+    flex: 1,
+    textAlign: 'center',
   },
   addButton: {
     flexDirection: 'row',

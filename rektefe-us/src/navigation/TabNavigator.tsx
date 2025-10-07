@@ -247,6 +247,10 @@ const CustomTabBar = ({ state, descriptors, navigation }: TabBarProps) => {
               icon = 'disc';
               label = 'Lastik';
               break;
+            case 'CarWash':
+              icon = 'water';
+              label = 'Oto Yıkama';
+              break;
             case 'Messages':
               icon = 'chatbubble';
               label = 'Mesajlar';
@@ -424,6 +428,45 @@ const TabNavigator = () => {
             title: 'Lastik',
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="disc" size={size} color={color} />
+            ),
+          }}
+        />
+      )}
+
+      {(userCapabilities.includes('lastik') || userCapabilities.includes('tire')) && (
+        <Tab.Screen 
+          name="TireHotel" 
+          component={require('../features/tire-hotel/screens/TireHotelScreen').default}
+          options={{
+            title: 'Lastik Oteli',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="business" size={size} color={color} />
+            ),
+          }}
+        />
+      )}
+
+      {(userCapabilities.includes('kaporta') || userCapabilities.includes('kaporta-boya') || userCapabilities.includes('tamir-bakim')) && (
+        <Tab.Screen 
+          name="Bodywork" 
+          component={require('../features/bodywork/screens/BodyworkScreen').default}
+          options={{
+            title: 'Kaporta/Boya',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="construct" size={size} color={color} />
+            ),
+          }}
+        />
+      )}
+
+      {(userCapabilities.includes('arac-yikama') || userCapabilities.includes('car-wash')) && (
+        <Tab.Screen
+          name="CarWash"
+          component={require('../features/carwash/screens/CarWashScreen').default}
+          options={{
+            title: 'Oto Yıkama',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="water" size={size} color={color} />
             ),
           }}
         />

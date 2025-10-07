@@ -18,6 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/navigation/AppNavigator';
 import Background from '@/shared/components/Background';
+import { BackButton } from '@/shared/components';
 import Button from '@/shared/components/Button';
 import Input from '@/shared/components/Input';
 import Card from '@/shared/components/Card';
@@ -344,16 +345,7 @@ const TowingRequestScreen = () => {
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={() => navigation.goBack()}
-            >
-              <MaterialCommunityIcons 
-                name="arrow-left" 
-                size={24} 
-                color={theme.colors.text.primary} 
-              />
-            </TouchableOpacity>
+            <BackButton />
             <View style={styles.headerContent}>
               <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
                 Çekici Hizmeti
