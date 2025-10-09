@@ -6,7 +6,8 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "postinstall": "node -e \"const fs=require('fs');const p=require('path');const src=p.resolve(__dirname,'../shared');const dest=p.resolve(__dirname,'node_modules/@shared');try{if(fs.existsSync(src)){fs.rmSync(dest,{recursive:true,force:true});fs.mkdirSync(p.dirname(dest),{recursive:true});fs.cpSync(src,dest,{recursive:true});console.log('✅ Shared folder copied to node_modules/@shared');}else{console.log('⚠️  Warning: ../shared not found');}}catch(e){console.error('❌ Error copying shared:',e.message);}\""
   },
   "dependencies": {
     "@babel/runtime": "^7.28.4",
