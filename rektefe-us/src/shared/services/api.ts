@@ -2254,6 +2254,40 @@ export const ReportService = {
         error.response?.data?.error?.details
       );
     }
+  },
+
+  /**
+   * Detaylı usta raporları
+   */
+  async getDetailedStats(): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get('/mechanic/reports/detailed-stats');
+      return response.data;
+    } catch (error: any) {
+      console.error('Get detailed stats error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Detaylı raporlar alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Usta rapor özeti
+   */
+  async getSummary(): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get('/mechanic/reports/summary');
+      return response.data;
+    } catch (error: any) {
+      console.error('Get report summary error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Rapor özeti alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
   }
 };
 

@@ -97,11 +97,20 @@ export default function EndOfDayScreen() {
         const cancelledCount = apiData.jobsByStatus?.['İPTAL']?.count || 
                                apiData.jobsByStatus?.['IPTAL']?.count || 0;
 
-        // Ortalama hizmet süresini hesapla (sabit değer yerine gerçek veri kullanabiliriz)
-        const averageServiceTime = completedJobs.length > 0 ? 2.5 : 0;
+        // Ortalama hizmet süresi - gerçek veriden hesapla
+        let averageServiceTime = 0;
+        if (completedJobs.length > 0) {
+          const totalDuration = completedJobs.reduce((sum: number, job: any) => {
+            return sum + (job.actualDuration || job.estimatedDuration || 150); // Varsayılan 150 dakika (2.5 saat)
+          }, 0);
+          averageServiceTime = Math.round((totalDuration / completedJobs.length) / 60 * 10) / 10; // Saate çevir
+        }
 
-        // Toplam müşteri sayısı (tekrar eden + yeni)
-        const totalCustomersToday = summary.newCustomers || 0;
+        // Toplam müşteri sayısı - benzersiz müşteri sayısı
+        const uniqueCustomerIds = new Set(
+          completedJobs.map((job: any) => job.userId || job.customerName).filter(Boolean)
+        );
+        const totalCustomersToday = uniqueCustomerIds.size;
         
         // API'den gelen veriyi DaySummary interface'ine uygun hale getir
         const daySummary: DaySummary = {

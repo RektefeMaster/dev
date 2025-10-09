@@ -69,151 +69,34 @@ export default function ReportsScreen() {
     try {
       setLoading(true);
       
-      // Gerçek API çağrıları
-      const [
-        statsResponse,
-        appointmentsResponse,
-        ratingsResponse,
-        walletResponse
-      ] = await Promise.allSettled([
-        apiService.AppointmentService.getAppointmentStats(),
-        apiService.AppointmentService.getMechanicAppointments(),
-        apiService.AppointmentService.getRatingStats(),
-        apiService.WalletService.getMechanicWallet()
-      ]);
-
-      // Stats verisi
-      const stats = statsResponse.status === 'fulfilled' && statsResponse.value.success 
-        ? statsResponse.value.data : null;
-
-      // Appointment verisi
-      const appointments = appointmentsResponse.status === 'fulfilled' && appointmentsResponse.value.success 
-        ? appointmentsResponse.value.data?.appointments || [] : [];
-
-      // Rating verisi
-      const ratings = ratingsResponse.status === 'fulfilled' && ratingsResponse.value.success 
-        ? ratingsResponse.value.data : null;
-
-      // Wallet verisi (kazançlar için)
-      const wallet = walletResponse.status === 'fulfilled' && walletResponse.value.success 
-        ? walletResponse.value.data : null;
-
-      // Kazançları hesapla
-      const thisMonthEarnings = wallet?.thisMonthEarnings || 0;
-      const lastMonthEarnings = wallet?.lastMonthEarnings || 0;
-      const totalEarnings = wallet?.totalEarnings || 0;
-
-      // Haftalık kazanç hesapla (son 7 gün)
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-      const weeklyAppointments = appointments.filter((apt: any) => {
-        const aptDate = new Date(apt.appointmentDate || apt.createdAt);
-        return aptDate >= oneWeekAgo && apt.status === 'TAMAMLANDI';
-      });
-      const weeklyEarnings = weeklyAppointments.reduce((sum: number, apt: any) => 
-        sum + (apt.finalPrice || apt.price || 0), 0);
-
-      // Yıllık kazanç hesapla (bu yıl)
-      const yearStart = new Date(new Date().getFullYear(), 0, 1);
-      const yearlyAppointments = appointments.filter((apt: any) => {
-        const aptDate = new Date(apt.appointmentDate || apt.createdAt);
-        return aptDate >= yearStart && apt.status === 'TAMAMLANDI';
-      });
-      const yearlyEarnings = yearlyAppointments.reduce((sum: number, apt: any) => 
-        sum + (apt.finalPrice || apt.price || 0), 0);
-
-      // Toplam ve tamamlanan randevu sayısı
-      const totalAppointments = appointments.length;
-      const completedAppointments = appointments.filter((apt: any) => 
-        apt.status === 'TAMAMLANDI').length;
-
-      // Ortalama puan
-      const averageRating = ratings?.averageRating || 0;
-
-      // En çok yapılan hizmetler
-      const serviceMap: { [key: string]: { count: number; earnings: number } } = {};
-      appointments.forEach((apt: any) => {
-        if (apt.status === 'TAMAMLANDI' && apt.serviceType) {
-          if (!serviceMap[apt.serviceType]) {
-            serviceMap[apt.serviceType] = { count: 0, earnings: 0 };
-          }
-          serviceMap[apt.serviceType].count += 1;
-          serviceMap[apt.serviceType].earnings += (apt.finalPrice || apt.price || 0);
-        }
-      });
-      const topServices = Object.entries(serviceMap)
-        .map(([name, data]) => ({ name, ...data }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
-
-      // Müşteri istatistikleri
-      const uniqueCustomers = new Set(appointments.map((apt: any) => apt.userId));
-      const totalCustomers = uniqueCustomers.size;
+      // Backend'den detaylı raporları çek
+      const response = await apiService.ReportService.getDetailedStats();
       
-      // Bu ayki yeni müşteriler
-      const thisMonthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-      const thisMonthAppointments = appointments.filter((apt: any) => {
-        const aptDate = new Date(apt.appointmentDate || apt.createdAt);
-        return aptDate >= thisMonthStart;
-      });
-      const newCustomersThisMonth = new Set(thisMonthAppointments.map((apt: any) => apt.userId)).size;
-
-      // Aylık kazanç trendi (son 6 ay)
-      const earningsByMonth: Array<{ month: string; earnings: number }> = [];
-      for (let i = 5; i >= 0; i--) {
-        const monthDate = new Date();
-        monthDate.setMonth(monthDate.getMonth() - i);
-        const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
-        const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+      if (response.success && response.data) {
+        const data = response.data;
         
-        const monthAppointments = appointments.filter((apt: any) => {
-          const aptDate = new Date(apt.appointmentDate || apt.createdAt);
-          return aptDate >= monthStart && aptDate <= monthEnd && apt.status === 'TAMAMLANDI';
-        });
+        // Backend'den gelen veriyi ReportData formatına dönüştür
+        const reportData: ReportData = {
+          weeklyEarnings: data.earnings.weekly || 0,
+          monthlyEarnings: data.earnings.monthly || 0,
+          yearlyEarnings: data.earnings.yearly || 0,
+          totalAppointments: data.appointments.total || 0,
+          completedAppointments: data.appointments.completed || 0,
+          averageRating: data.rating.average || 0,
+          topServices: data.topServices || [],
+          customerStats: {
+            newCustomers: data.customerStats.newCustomers || 0,
+            returningCustomers: data.customerStats.returningCustomers || 0,
+            totalCustomers: data.customerStats.thisMonth || 0,
+          },
+          earningsByMonth: data.earningsByMonth || [],
+          appointmentsByDay: data.appointmentsByDay || [],
+        };
         
-        const monthEarnings = monthAppointments.reduce((sum: number, apt: any) => 
-          sum + (apt.finalPrice || apt.price || 0), 0);
-        
-        const monthName = monthDate.toLocaleDateString('tr-TR', { month: 'short' });
-        earningsByMonth.push({ month: monthName, earnings: monthEarnings });
+        setReportData(reportData);
+      } else {
+        Alert.alert('Hata', response.message || 'Rapor verileri yüklenirken bir hata oluştu.');
       }
-
-      // Günlük randevu dağılımı (son 7 gün)
-      const appointmentsByDay: Array<{ day: string; count: number }> = [];
-      for (let i = 6; i >= 0; i--) {
-        const dayDate = new Date();
-        dayDate.setDate(dayDate.getDate() - i);
-        dayDate.setHours(0, 0, 0, 0);
-        const nextDay = new Date(dayDate);
-        nextDay.setDate(nextDay.getDate() + 1);
-        
-        const dayAppointments = appointments.filter((apt: any) => {
-          const aptDate = new Date(apt.appointmentDate || apt.createdAt);
-          return aptDate >= dayDate && aptDate < nextDay;
-        });
-        
-        const dayName = dayDate.toLocaleDateString('tr-TR', { weekday: 'short' });
-        appointmentsByDay.push({ day: dayName, count: dayAppointments.length });
-      }
-
-      const reportData: ReportData = {
-        weeklyEarnings,
-        monthlyEarnings: thisMonthEarnings,
-        yearlyEarnings,
-        totalAppointments,
-        completedAppointments,
-        averageRating,
-        topServices,
-        customerStats: {
-          newCustomers: newCustomersThisMonth,
-          returningCustomers: Math.max(0, totalCustomers - newCustomersThisMonth),
-          totalCustomers,
-        },
-        earningsByMonth,
-        appointmentsByDay,
-      };
-      
-      setReportData(reportData);
 
     } catch (error: any) {
       console.error('Report data fetch error:', error);

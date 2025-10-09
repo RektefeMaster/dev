@@ -61,6 +61,7 @@ import reportsRoutes from './routes/reports';
 import loyalCustomersRoutes from './routes/loyalCustomers';
 import vehicleHistoryRoutes from './routes/vehicleHistory';
 import jobReferralsRoutes from './routes/jobReferrals';
+import mechanicReportsRoutes from './routes/mechanicReports';
 
 // .env dosyasını yükle
 dotenv.config();
@@ -320,9 +321,10 @@ app.use('/api/drivers', vehiclesRoutes); // Frontend uyumluluğu için
 app.use('/api/service-categories', serviceCategoryRoutes);
 app.use('/api/mechanic-services', mechanicServiceRoutes);
 app.use('/api/support', supportRoutes);
-app.use('/api/mechanic', mechanicRoutes);
+app.use('/api/mechanic/reports', mechanicReportsRoutes); // Spesifik route önce
 app.use('/api/mechanic-jobs', mechanicJobsRoutes);
 app.use('/api/mechanic-earnings', mechanicEarningsRoutes);
+app.use('/api/mechanic', mechanicRoutes); // Genel route sonra
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/push-notifications', pushNotificationRoutes);

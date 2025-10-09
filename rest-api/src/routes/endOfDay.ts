@@ -74,10 +74,15 @@ router.get('/report', auth, async (req: Request, res: Response) => {
         }
       },
       {
+        $addFields: {
+          effectivePrice: { $ifNull: ['$finalPrice', '$price'] }
+        }
+      },
+      {
         $group: {
           _id: '$status',
           count: { $sum: 1 },
-          totalEarnings: { $sum: '$price' }
+          totalEarnings: { $sum: '$effectivePrice' }
         }
       }
     ]);
@@ -91,8 +96,8 @@ router.get('/report', auth, async (req: Request, res: Response) => {
     .populate('userId', 'name surname')
     .sort({ appointmentDate: -1 });
 
-    // Toplam kazanç hesapla
-    const totalEarnings = completedJobs.reduce((sum, job) => sum + (job.price || 0), 0);
+    // Toplam kazanç hesapla (finalPrice öncelikli, yoksa price)
+    const totalEarnings = completedJobs.reduce((sum, job) => sum + (job.finalPrice || job.price || 0), 0);
 
     // Yeni müşteri sayısı
     const newCustomers = await Appointment.aggregate([
@@ -281,10 +286,15 @@ router.post('/send-automatic', auth, async (req: Request, res: Response) => {
             }
           },
           {
+            $addFields: {
+              effectivePrice: { $ifNull: ['$finalPrice', '$price'] }
+            }
+          },
+          {
             $group: {
               _id: '$status',
               count: { $sum: 1 },
-              totalEarnings: { $sum: '$price' }
+              totalEarnings: { $sum: '$effectivePrice' }
             }
           }
         ]);
@@ -295,7 +305,7 @@ router.post('/send-automatic', auth, async (req: Request, res: Response) => {
           appointmentDate: { $gte: startOfDay, $lte: endOfDay }
         });
 
-        const totalEarnings = completedJobs.reduce((sum, job) => sum + (job.price || 0), 0);
+        const totalEarnings = completedJobs.reduce((sum, job) => sum + (job.finalPrice || job.price || 0), 0);
 
         // Ustaya bildirim gönder
         await User.findByIdAndUpdate(
