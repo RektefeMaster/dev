@@ -17,9 +17,4 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
 ];
 
-// Extra node modules - shared klasörünü alias olarak ekle
-config.resolver.alias = {
-  '@shared': path.resolve(workspaceRoot, 'shared'),
-};
-
 module.exports = config;
