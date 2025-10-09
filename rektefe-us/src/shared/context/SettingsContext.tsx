@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import apiService from '@/shared/services';
+import apiService, { ProfileService } from '@/shared/services';
 import { useSharedAuth } from './SharedAuthContext';
 import { STORAGE_KEYS } from '@/constants/config';
 import { 
@@ -350,7 +350,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       setError(null);
       
       console.log('📡 SETTINGS CONTEXT: Calling API service...');
-      const response = await apiService.updateServiceCategories(categories);
+      const response = await ProfileService.updateServiceCategories(categories);
       console.log('📡 SETTINGS CONTEXT: API response received:', response);
       console.log('📡 SETTINGS CONTEXT: response.success:', response?.success);
       console.log('📡 SETTINGS CONTEXT: response.message:', response?.message);

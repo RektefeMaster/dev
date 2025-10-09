@@ -14,13 +14,14 @@ import {
   Image,
   Dimensions,
   FlatList,
+  Linking,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/context';
 import { useAuth } from '@/shared/context';
 import { Card, Button } from '@/shared/components';
-import { spacing, borderRadius, shadows, dimensions } from '@/shared/theme';
+import { spacing, borderRadius, shadows, dimensions, typography } from '@/shared/theme';
 import apiService from '@/shared/services';
 
 const { width } = Dimensions.get('window');
@@ -65,6 +66,40 @@ interface CarWashPackage {
   thumbnail: string;
   isActive: boolean;
   isPopular: boolean;
+}
+
+interface MobileWashJob {
+  id: string;
+  customerName: string;
+  customerPhone: string;
+  vehicleInfo: string;
+  vehicleType: 'car' | 'motorcycle' | 'truck' | 'van' | 'suv';
+  vehicleYear: number;
+  vehicleBrand: string;
+  vehicleModel: string;
+  vehiclePlate: string;
+  location: {
+    address: string;
+    coordinates: { lat: number; lng: number };
+  };
+  washType: 'basic' | 'premium' | 'deluxe' | 'detailing' | 'interior' | 'exterior';
+  washLevel: 'light' | 'medium' | 'heavy' | 'extreme';
+  status: 'pending' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
+  requestedAt: string;
+  estimatedTime?: string;
+  estimatedDuration?: number;
+  price?: number;
+  notes?: string;
+  services?: Array<{
+    name: string;
+    price: number;
+    duration: number;
+    completed: boolean;
+  }>;
+  customerLocation?: { lat: number; lng: number };
+  mechanicLocation?: { lat: number; lng: number };
+  photos?: string[];
+  specialRequests?: string[];
 }
 
 interface CarWashJob {
@@ -159,7 +194,7 @@ export default function CarWashScreen() {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'packages' | 'jobs' | 'loyalty'>('packages');
+  const [activeTab, setActiveTab] = useState<'packages' | 'jobs' | 'loyalty' | 'mobile'>('packages');
   
   // Packages
   const [packages, setPackages] = useState<CarWashPackage[]>([]);
@@ -169,12 +204,31 @@ export default function CarWashScreen() {
   const [jobs, setJobs] = useState<CarWashJob[]>([]);
   const [selectedJobStatus, setSelectedJobStatus] = useState<string>('');
   
+  // Mobile Wash Jobs
+  const [mobileJobs, setMobileJobs] = useState<MobileWashJob[]>([]);
+  const [mobileJobFilter, setMobileJobFilter] = useState<'active' | 'history'>('active');
+  
   // Modals
   const [showCreatePackageModal, setShowCreatePackageModal] = useState(false);
   const [showCreateJobModal, setShowCreateJobModal] = useState(false);
   const [showJobDetailModal, setShowJobDetailModal] = useState(false);
   const [showLoyaltyModal, setShowLoyaltyModal] = useState(false);
+  const [isSetupLoyaltyModalVisible, setIsSetupLoyaltyModalVisible] = useState(false);
   const [selectedJob, setSelectedJob] = useState<CarWashJob | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState<CarWashPackage | null>(null);
+  const [editingPackage, setEditingPackage] = useState(false);
+  
+  // Loyalty Program
+  const [tempLoyaltyProgram, setTempLoyaltyProgram] = useState<any>(null);
+  const [loyaltyProgram, setLoyaltyProgram] = useState<any>(null);
+  
+  // Stats
+  const [stats, setStats] = useState({
+    activeCustomers: 0,
+    vipCustomers: 0,
+    totalVisits: 0,
+    totalEarnings: 0
+  });
   
   // Create package form
   const [packageForm, setPackageForm] = useState({
@@ -182,6 +236,7 @@ export default function CarWashScreen() {
     description: '',
     packageType: 'basic' as 'basic' | 'premium' | 'deluxe' | 'detailing' | 'custom',
     basePrice: 0,
+    estimatedDuration: 30, // Dakika cinsinden tahmini süre
     services: [] as Array<{
       serviceName: string;
       serviceType: 'exterior' | 'interior' | 'engine' | 'special';
@@ -215,12 +270,62 @@ export default function CarWashScreen() {
         await fetchPackages();
       } else if (activeTab === 'jobs') {
         await fetchJobs();
+      } else if (activeTab === 'mobile') {
+        await fetchMobileJobs();
+      } else if (activeTab === 'loyalty') {
+        await fetchLoyaltyProgram();
+        await fetchStats();
       }
       
     } catch (error) {
       Alert.alert('Hata', 'Veriler yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchLoyaltyProgram = async () => {
+    try {
+      const response = await apiService.CarWashService.getLoyaltyProgram();
+      if (response.success && response.data) {
+        setLoyaltyProgram(response.data);
+      }
+    } catch (error) {
+      console.log('Sadakat programı henüz kurulmamış');
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      // Backend'den gerçek istatistikleri çek
+      const jobsResponse = await apiService.CarWashService.getCarWashJobs();
+      if (jobsResponse.success && jobsResponse.data) {
+        const allJobs = jobsResponse.data;
+        const completedJobs = allJobs.filter((job: any) => job.status === 'completed');
+        
+        // Benzersiz müşteri sayısı
+        const uniqueCustomers = new Set(completedJobs.map((job: any) => job.customerId._id));
+        
+        // VIP müşteriler (gold ve platinum)
+        const vipCount = completedJobs.filter((job: any) => 
+          job.loyaltyInfo?.customerLevel === 'gold' || 
+          job.loyaltyInfo?.customerLevel === 'platinum'
+        ).length;
+        
+        // Toplam kazanç
+        const totalEarnings = completedJobs.reduce((sum: number, job: any) => 
+          sum + (job.pricing?.finalPrice || 0), 0
+        );
+        
+        setStats({
+          activeCustomers: uniqueCustomers.size,
+          vipCustomers: vipCount,
+          totalVisits: completedJobs.length,
+          totalEarnings: totalEarnings
+        });
+      }
+    } catch (error) {
+      console.log('İstatistikler yüklenemedi');
     }
   };
 
@@ -250,6 +355,19 @@ export default function CarWashScreen() {
     }
   };
 
+  const fetchMobileJobs = async () => {
+    try {
+      const response = await apiService.getWashJobs();
+      if (response.success) {
+        setMobileJobs(response.data || []);
+      } else {
+        setMobileJobs([]);
+      }
+    } catch (error) {
+      Alert.alert('Hata', 'Mobil yıkama işleri yüklenirken bir hata oluştu');
+    }
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchData();
@@ -258,22 +376,57 @@ export default function CarWashScreen() {
 
   const handleCreatePackage = async () => {
     try {
-      if (!packageForm.name || !packageForm.description || packageForm.services.length === 0) {
-        Alert.alert('Hata', 'Lütfen tüm gerekli alanları doldurun');
+      if (!packageForm.name || !packageForm.description) {
+        Alert.alert('Hata', 'Lütfen paket adı ve açıklamasını doldurun');
         return;
       }
 
-      const response = await apiService.CarWashService.createCarWashPackage(packageForm);
+      if (packageForm.basePrice <= 0) {
+        Alert.alert('Hata', 'Lütfen geçerli bir fiyat girin');
+        return;
+      }
+
+      // Backend'in kabul ettiği alanları hazırla (estimatedDuration hariç)
+      const packageData = {
+        name: packageForm.name,
+        description: packageForm.description,
+        packageType: packageForm.packageType,
+        basePrice: packageForm.basePrice,
+        features: packageForm.features,
+        vehicleTypeMultipliers: {
+          car: 1.0,
+          suv: 1.2,
+          truck: 1.5,
+          motorcycle: 0.6,
+          van: 1.3
+        },
+        // Eğer services boş ise placeholder ekle
+        services: packageForm.services.length > 0 ? packageForm.services : [{
+          serviceName: 'Standart Hizmet',
+          serviceType: 'exterior' as const,
+          duration: packageForm.estimatedDuration,
+          price: packageForm.basePrice,
+          description: packageForm.description,
+          isOptional: false,
+          order: 1
+        }]
+      };
+
+      const response = editingPackage && selectedPackage
+        ? await apiService.CarWashService.createCarWashPackage({ ...packageData, _id: selectedPackage._id })
+        : await apiService.CarWashService.createCarWashPackage(packageData);
+        
       if (response.success) {
-        Alert.alert('Başarılı', 'Paket başarıyla oluşturuldu');
+        Alert.alert('Başarılı', editingPackage ? 'Paket başarıyla güncellendi' : 'Paket başarıyla oluşturuldu');
         setShowCreatePackageModal(false);
         resetPackageForm();
         await fetchPackages();
       } else {
-        Alert.alert('Hata', response.message || 'Paket oluşturulamadı');
+        Alert.alert('Hata', response.message || (editingPackage ? 'Paket güncellenemedi' : 'Paket oluşturulamadı'));
       }
     } catch (error) {
-      Alert.alert('Hata', 'Paket oluşturulurken bir hata oluştu');
+      Alert.alert('Hata', editingPackage ? 'Paket güncellenirken bir hata oluştu' : 'Paket oluşturulurken bir hata oluştu');
+      console.error('Create/Update package error:', error);
     }
   };
 
@@ -331,6 +484,7 @@ export default function CarWashScreen() {
       description: '',
       packageType: 'basic',
       basePrice: 0,
+      estimatedDuration: 30,
       services: [],
       features: {
         includesInterior: false,
@@ -343,10 +497,44 @@ export default function CarWashScreen() {
         premiumProducts: false
       }
     });
+    setEditingPackage(false);
+    setSelectedPackage(null);
+  };
+
+  const handleEditPackage = (pkg: CarWashPackage) => {
+    setSelectedPackage(pkg);
+    setEditingPackage(true);
+    setPackageForm({
+      name: pkg.name,
+      description: pkg.description,
+      packageType: pkg.packageType,
+      basePrice: pkg.pricing.basePrice,
+      estimatedDuration: pkg.pricing.duration || 30,
+      services: pkg.services,
+      features: pkg.features
+    });
+    setShowCreatePackageModal(true);
+  };
+
+  const handleUsePackage = (pkg: CarWashPackage) => {
+    Alert.alert(
+      'Hızlı İşlem',
+      'Bu paket ile yeni bir yıkama işi başlatmak istiyor musunuz?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        { 
+          text: 'Devam Et', 
+          onPress: () => {
+            // Navigate to quick job creation with package pre-selected
+            Alert.alert('Bilgi', 'Hızlı iş oluşturma ekranı yakında eklenecek');
+          }
+        }
+      ]
+    );
   };
 
   const handleSetupLoyaltyProgram = async () => {
-    if (!tempLoyaltyProgram?.programName || tempLoyaltyProgram.loyaltyLevels.length === 0) {
+    if (!tempLoyaltyProgram?.programName || !tempLoyaltyProgram.loyaltyLevels || tempLoyaltyProgram.loyaltyLevels.length === 0) {
       Alert.alert('Uyarı', 'Lütfen program adını ve en az bir sadakat seviyesini doldurun.');
       return;
     }
@@ -356,7 +544,8 @@ export default function CarWashScreen() {
       if (response.success) {
         Alert.alert('Başarılı', 'Sadakat programı başarıyla yapılandırıldı.');
         setIsSetupLoyaltyModalVisible(false);
-        onRefresh();
+        setLoyaltyProgram(tempLoyaltyProgram);
+        await fetchLoyaltyProgram();
       } else {
         Alert.alert('Hata', response.message || 'Sadakat programı yapılandırılamadı.');
       }
@@ -522,7 +711,112 @@ export default function CarWashScreen() {
     return colors[level as keyof typeof colors] || '#666';
   };
 
-  const renderPackages = () => (
+  // Mobile wash helper functions
+  const getMobileWashTypeText = (type: string) => {
+    const types = {
+      basic: 'Temel Yıkama',
+      premium: 'Premium Yıkama',
+      deluxe: 'Deluxe Yıkama',
+      detailing: 'Detay Temizlik',
+      interior: 'İç Temizlik',
+      exterior: 'Dış Temizlik'
+    };
+    return types[type as keyof typeof types] || type;
+  };
+
+  const getMobileWashTypeColor = (type: string) => {
+    const typeColors = {
+      basic: '#4CAF50',
+      premium: '#2196F3',
+      deluxe: '#FF9800',
+      detailing: '#9C27B0',
+      interior: '#607D8B',
+      exterior: '#795548'
+    };
+    return typeColors[type as keyof typeof typeColors] || '#666';
+  };
+
+  const getMobileWashLevelText = (level: string) => {
+    const levels = {
+      light: 'Hafif',
+      medium: 'Orta',
+      heavy: 'Ağır',
+      extreme: 'Aşırı Kirli'
+    };
+    return levels[level as keyof typeof levels] || level;
+  };
+
+  const getMobileWashLevelColor = (level: string) => {
+    const levelColors = {
+      light: '#4CAF50',
+      medium: '#FF9800',
+      heavy: '#F44336',
+      extreme: '#9C27B0'
+    };
+    return levelColors[level as keyof typeof levelColors] || '#666';
+  };
+
+  const getMobileStatusText = (status: string) => {
+    const texts = {
+      pending: 'Bekliyor',
+      accepted: 'Kabul Edildi',
+      in_progress: 'Devam Ediyor',
+      completed: 'Tamamlandı',
+      cancelled: 'İptal Edildi'
+    };
+    return texts[status as keyof typeof texts] || status;
+  };
+
+  const getMobileStatusColor = (status: string) => {
+    const statusColors = {
+      pending: '#FF9800',
+      accepted: '#2196F3',
+      in_progress: '#4CAF50',
+      completed: '#4CAF50',
+      cancelled: '#F44336'
+    };
+    return statusColors[status as keyof typeof statusColors] || '#666';
+  };
+
+  const handleMobileJobAction = (jobId: string, action: 'accept' | 'start' | 'complete' | 'cancel') => {
+    Alert.alert(
+      'İşlem Onayı',
+      `${action === 'accept' ? 'Kabul' : action === 'start' ? 'Başlat' : action === 'complete' ? 'Tamamla' : 'İptal'} etmek istediğinizden emin misiniz?`,
+      [
+        { text: 'İptal', style: 'cancel' },
+        { text: 'Evet', onPress: () => performMobileJobAction(jobId, action) }
+      ]
+    );
+  };
+
+  const performMobileJobAction = async (jobId: string, action: string) => {
+    try {
+      setMobileJobs(prev => prev.map(job => 
+        job.id === jobId 
+          ? { 
+              ...job, 
+              status: action === 'accept' ? 'accepted' : 
+                     action === 'start' ? 'in_progress' : 
+                     action === 'complete' ? 'completed' : 'cancelled'
+            }
+          : job
+      ));
+      
+      Alert.alert('Başarılı', 'İşlem tamamlandı');
+    } catch (error) {
+      Alert.alert('Hata', 'İşlem gerçekleştirilemedi');
+    }
+  };
+
+  const renderPackages = () => {
+    // Her kategori için paket sayısını hesapla
+    const getPackageCount = (type: string) => {
+      return packages.filter(pkg => pkg.packageType === type).length;
+    };
+
+    const filteredPackages = packages.filter(pkg => !selectedPackageType || pkg.packageType === selectedPackageType);
+
+    return (
     <View style={styles.tabContent}>
       {/* Package Type Filter */}
       <View style={styles.filterContainer}>
@@ -532,27 +826,55 @@ export default function CarWashScreen() {
             onPress={() => setSelectedPackageType('')}
           >
             <Text style={[styles.filterButtonText, selectedPackageType === '' && styles.filterButtonTextActive]}>
-              Tümü
+              Tümü ({packages.length})
             </Text>
           </TouchableOpacity>
-          {['basic', 'premium', 'deluxe', 'detailing', 'custom'].map((type) => (
+          {['basic', 'premium', 'deluxe', 'detailing', 'custom'].map((type) => {
+            const count = getPackageCount(type);
+            return (
             <TouchableOpacity
               key={type}
               style={[styles.filterButton, selectedPackageType === type && styles.filterButtonActive]}
               onPress={() => setSelectedPackageType(type)}
             >
               <Text style={[styles.filterButtonText, selectedPackageType === type && styles.filterButtonTextActive]}>
-                {getPackageTypeText(type)}
+                {getPackageTypeText(type)} ({count})
               </Text>
             </TouchableOpacity>
-          ))}
+            );
+          })}
         </ScrollView>
       </View>
 
+      {/* Category Header */}
+      {selectedPackageType && (
+        <View style={styles.categoryHeader}>
+          <View style={[styles.categoryBadge, { backgroundColor: getPackageTypeColor(selectedPackageType) }]}>
+            <Ionicons name="pricetag" size={20} color={colors.text.inverse} />
+            <Text style={styles.categoryTitle}>
+              {getPackageTypeText(selectedPackageType)} Paketleri
+            </Text>
+          </View>
+          <Text style={styles.categoryCount}>
+            {filteredPackages.length} paket
+          </Text>
+        </View>
+      )}
+
       {/* Packages List */}
       <ScrollView showsVerticalScrollIndicator={false}>
-        {packages.map((pkg) => (
-          <Card key={pkg._id} style={styles.packageCard}>
+        {filteredPackages.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="folder-open-outline" size={64} color={colors.text.tertiary} />
+            <Text style={styles.emptyText}>
+              {selectedPackageType 
+                ? `${getPackageTypeText(selectedPackageType)} kategorisinde paket bulunamadı`
+                : 'Henüz paket eklenmemiş'}
+            </Text>
+          </View>
+        ) : (
+          filteredPackages.map((pkg) => (
+            <Card key={pkg._id} style={styles.packageCard}>
             <View style={styles.packageHeader}>
               <View style={styles.packageInfo}>
                 <Text style={styles.packageName}>{pkg.name}</Text>
@@ -565,13 +887,19 @@ export default function CarWashScreen() {
 
             <View style={styles.packageDetails}>
               <View style={styles.priceContainer}>
-                <Text style={styles.priceLabel}>Başlangıç Fiyatı</Text>
+                <View style={styles.priceRow}>
+                  <Ionicons name="cash-outline" size={16} color={colors.text.secondary} />
+                  <Text style={styles.priceLabel}>Başlangıç Fiyatı</Text>
+                </View>
                 <Text style={styles.priceValue}>{pkg.pricing.basePrice.toLocaleString()}₺</Text>
               </View>
               
               <View style={styles.durationContainer}>
-                <Text style={styles.durationLabel}>Süre</Text>
-                <Text style={styles.durationValue}>{pkg.pricing.duration} dakika</Text>
+                <View style={styles.durationRow}>
+                  <Ionicons name="time-outline" size={16} color={colors.text.secondary} />
+                  <Text style={styles.durationLabel}>Tahmini Süre</Text>
+                </View>
+                <Text style={styles.durationValue}>~{pkg.pricing.duration} dk</Text>
               </View>
 
               <View style={styles.servicesContainer}>
@@ -617,21 +945,28 @@ export default function CarWashScreen() {
             <View style={styles.packageActions}>
               <Button
                 title="Düzenle"
-                onPress={() => Alert.alert('Düzenle', 'Paket düzenleme özelliği yakında eklenecek')}
-                style={styles.editButton}
-                textStyle={styles.editButtonText}
+                onPress={() => handleEditPackage(pkg)}
+                variant="outline"
+                size="medium"
+                icon="create-outline"
+                style={{ flex: 1, marginRight: spacing.sm }}
               />
               <Button
-                title="Yıkama Başlat"
-                onPress={() => Alert.alert('Yıkama', 'Yıkama başlatma özelliği yakında eklenecek')}
-                style={styles.startButton}
+                title="Kullan"
+                onPress={() => handleUsePackage(pkg)}
+                variant="primary"
+                size="medium"
+                icon="play"
+                style={{ flex: 1 }}
               />
             </View>
           </Card>
-        ))}
+          ))
+        )}
       </ScrollView>
     </View>
   );
+};
 
   const renderJobs = () => (
     <View style={styles.tabContent}>
@@ -725,20 +1060,26 @@ export default function CarWashScreen() {
             <View style={styles.jobActions}>
               {job.status === 'pending' && (
                 <Button
-                  title="Başlat"
+                  title="İşi Başlat"
                   onPress={() => handleStartJob(job._id)}
-                  style={styles.startButton}
+                  variant="primary"
+                  size="medium"
+                  icon="play-circle"
+                  fullWidth
                 />
               )}
               
               {job.status === 'in_progress' && (
                 <Button
-                  title="Detayları Görüntüle"
+                  title="Detayları Gör"
                   onPress={() => {
                     setSelectedJob(job);
                     setShowJobDetailModal(true);
                   }}
-                  style={styles.detailButton}
+                  variant="secondary"
+                  size="medium"
+                  icon="eye"
+                  fullWidth
                 />
               )}
               
@@ -746,8 +1087,11 @@ export default function CarWashScreen() {
                 <Button
                   title="Tamamlandı"
                   onPress={() => {}}
-                  style={styles.completedButton}
-                  textStyle={styles.completedButtonText}
+                  variant="success"
+                  size="medium"
+                  icon="checkmark-circle"
+                  fullWidth
+                  disabled
                 />
               )}
             </View>
@@ -759,40 +1103,607 @@ export default function CarWashScreen() {
 
   const renderLoyalty = () => (
     <View style={styles.tabContent}>
-      <Card style={styles.loyaltyCard}>
-        <Text style={styles.cardTitle}>Sadakat Programı</Text>
-        <Text style={styles.cardDescription}>
-          Müşteri sadakat programınızı yönetin ve özel kampanyalar oluşturun.
-        </Text>
-        <Button
-          title="Sadakat Programı Kur"
-          onPress={() => setShowLoyaltyModal(true)}
-          style={styles.primaryButton}
-        />
-      </Card>
+      {!loyaltyProgram ? (
+        <Card style={styles.loyaltyCard}>
+          <Ionicons name="gift-outline" size={64} color={colors.primary.main} style={{ alignSelf: 'center', marginBottom: spacing.md }} />
+          <Text style={styles.cardTitle}>Sadakat Programı</Text>
+          <Text style={styles.cardDescription}>
+            Müşterilerinizi ödüllendirin ve sadakatlerini artırın. Otomatik indirimler, özel kampanyalar ve puan sistemi ile müşteri memnuniyetini üst düzeye çıkarın.
+          </Text>
+          <Button
+            title="Programı Kur"
+            onPress={() => {
+              initializeDefaultLoyaltyProgram();
+              setIsSetupLoyaltyModalVisible(true);
+            }}
+            variant="primary"
+            size="large"
+            icon="gift"
+            fullWidth
+          />
+        </Card>
+      ) : (
+        <>
+          <Card style={styles.loyaltyProgramCard}>
+            <View style={styles.loyaltyHeader}>
+              <View>
+                <Text style={styles.cardTitle}>{loyaltyProgram.programName}</Text>
+                <Text style={styles.cardDescription}>{loyaltyProgram.description}</Text>
+              </View>
+              <TouchableOpacity 
+                onPress={() => {
+                  setTempLoyaltyProgram(loyaltyProgram);
+                  setIsSetupLoyaltyModalVisible(true);
+                }}
+                style={styles.editIconButton}
+              >
+                <Ionicons name="create-outline" size={24} color={colors.primary.main} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.loyaltyLevelsContainer}>
+              <Text style={styles.sectionTitle}>Sadakat Seviyeleri</Text>
+              {loyaltyProgram.loyaltyLevels?.map((level: any, index: number) => (
+                <View key={index} style={[styles.levelCard, { borderLeftColor: level.color }]}>
+                  <View style={styles.levelHeader}>
+                    <Ionicons name={level.icon as any} size={20} color={level.color} />
+                    <Text style={[styles.levelName, { color: level.color }]}>{level.levelName}</Text>
+                  </View>
+                  <Text style={styles.levelRequirement}>
+                    Min. {level.minVisits} ziyaret • Min. {level.minSpent}₺ harcama
+                  </Text>
+                  <Text style={styles.levelBenefit}>
+                    %{level.benefits.discountPercentage} İndirim
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </Card>
+        </>
+      )}
 
       <Card style={styles.loyaltyStatsCard}>
         <Text style={styles.cardTitle}>Sadakat İstatistikleri</Text>
         <View style={styles.statsGrid}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>24</Text>
+            <Text style={styles.statValue}>{stats.activeCustomers}</Text>
             <Text style={styles.statLabel}>Aktif Müşteri</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>8</Text>
+            <Text style={styles.statValue}>{stats.vipCustomers}</Text>
             <Text style={styles.statLabel}>VIP Müşteri</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>156</Text>
+            <Text style={styles.statValue}>{stats.totalVisits}</Text>
             <Text style={styles.statLabel}>Toplam Ziyaret</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>12,450₺</Text>
+            <Text style={styles.statValue}>{stats.totalEarnings.toLocaleString()}₺</Text>
             <Text style={styles.statLabel}>Toplam Kazanç</Text>
           </View>
         </View>
       </Card>
     </View>
+  );
+
+  const renderMobileWash = () => {
+    const activeMobileJobs = mobileJobs.filter(job => ['pending', 'accepted', 'in_progress'].includes(job.status));
+    const historyMobileJobs = mobileJobs.filter(job => ['completed', 'cancelled'].includes(job.status));
+    const displayJobs = mobileJobFilter === 'active' ? activeMobileJobs : historyMobileJobs;
+
+    return (
+      <View style={styles.tabContent}>
+        {/* Filter */}
+        <View style={styles.mobileFilterContainer}>
+          <TouchableOpacity
+            style={[styles.mobileFilterButton, mobileJobFilter === 'active' && styles.mobileFilterButtonActive]}
+            onPress={() => setMobileJobFilter('active')}
+          >
+            <Text style={[styles.mobileFilterButtonText, mobileJobFilter === 'active' && styles.mobileFilterButtonTextActive]}>
+              Aktif İşler ({activeMobileJobs.length})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.mobileFilterButton, mobileJobFilter === 'history' && styles.mobileFilterButtonActive]}
+            onPress={() => setMobileJobFilter('history')}
+          >
+            <Text style={[styles.mobileFilterButtonText, mobileJobFilter === 'history' && styles.mobileFilterButtonTextActive]}>
+              Geçmiş ({historyMobileJobs.length})
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Mobile Jobs List */}
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {displayJobs.length > 0 ? (
+            displayJobs.map((job) => (
+              <Card key={job.id} style={styles.mobileJobCard}>
+                {/* Yıkama Türü ve Seviye Badge'leri */}
+                <View style={styles.washTypeContainer}>
+                  <View style={[styles.washTypeBadge, { backgroundColor: getMobileWashTypeColor(job.washType) }]}>
+                    <Ionicons name="water" size={14} color="#FFFFFF" />
+                    <Text style={styles.washTypeText}>{getMobileWashTypeText(job.washType)}</Text>
+                  </View>
+                  <View style={[styles.washLevelBadge, { backgroundColor: getMobileWashLevelColor(job.washLevel) }]}>
+                    <Text style={styles.washLevelText}>{getMobileWashLevelText(job.washLevel)}</Text>
+                  </View>
+                  <View style={[styles.statusBadge, { backgroundColor: getMobileStatusColor(job.status) }]}>
+                    <Text style={styles.statusText}>{getMobileStatusText(job.status)}</Text>
+                  </View>
+                </View>
+
+                {/* Müşteri Bilgileri */}
+                <View style={styles.customerInfo}>
+                  <Text style={styles.customerName}>{job.customerName}</Text>
+                  <Text style={styles.customerPhone}>{job.customerPhone}</Text>
+                </View>
+
+                {/* Araç Detayları */}
+                <View style={styles.vehicleDetails}>
+                  <View style={styles.vehicleRow}>
+                    <Ionicons name="car" size={16} color={colors.text.secondary} />
+                    <Text style={styles.vehicleText}>{job.vehicleBrand} {job.vehicleModel}</Text>
+                  </View>
+                  <View style={styles.vehicleRow}>
+                    <Ionicons name="calendar" size={16} color={colors.text.secondary} />
+                    <Text style={styles.vehicleText}>{job.vehicleYear}</Text>
+                  </View>
+                  <View style={styles.vehicleRow}>
+                    <Ionicons name="card" size={16} color={colors.text.secondary} />
+                    <Text style={styles.vehicleText}>{job.vehiclePlate}</Text>
+                  </View>
+                </View>
+
+                {/* Konum Bilgisi */}
+                <View style={styles.locationInfo}>
+                  <TouchableOpacity 
+                    style={styles.locationRow}
+                    onPress={() => {
+                      const { lat, lng } = job.location.coordinates;
+                      const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+                      Linking.openURL(url);
+                    }}
+                  >
+                    <Ionicons name="location" size={16} color={colors.primary.main} />
+                    <Text style={styles.locationText}>{job.location.address}</Text>
+                    <Ionicons name="open-outline" size={14} color={colors.primary.main} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Hizmetler Listesi */}
+                {job.services && job.services.length > 0 && (
+                  <View style={styles.servicesContainer}>
+                    <Text style={styles.servicesLabel}>Hizmetler:</Text>
+                    {job.services.map((service, index) => (
+                      <View key={index} style={styles.serviceItem}>
+                        <View style={styles.serviceInfo}>
+                          <Text style={styles.serviceName}>{service.name}</Text>
+                          <Text style={styles.serviceDuration}>{service.duration} dk</Text>
+                        </View>
+                        <View style={styles.servicePriceContainer}>
+                          <Text style={styles.servicePrice}>{service.price} TL</Text>
+                          {service.completed && (
+                            <Ionicons name="checkmark-circle" size={16} color={colors.success.main} />
+                          )}
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Özel İstekler */}
+                {job.specialRequests && job.specialRequests.length > 0 && (
+                  <View style={styles.specialRequestsContainer}>
+                    <Text style={styles.specialRequestsTitle}>Özel İstekler:</Text>
+                    {job.specialRequests.map((request, index) => (
+                      <Text key={index} style={styles.specialRequestText}>• {request}</Text>
+                    ))}
+                  </View>
+                )}
+
+                {/* İş Detayları */}
+                <View style={styles.jobDetailsContainer}>
+                  <View style={styles.detailRow}>
+                    <Ionicons name="time" size={14} color={colors.text.secondary} />
+                    <Text style={styles.detailText}>{job.estimatedTime}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Ionicons name="cash" size={14} color={colors.text.secondary} />
+                    <Text style={styles.detailText}>{job.price} TL</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Ionicons name="calendar" size={14} color={colors.text.secondary} />
+                    <Text style={styles.detailText}>{new Date(job.requestedAt).toLocaleDateString('tr-TR')}</Text>
+                  </View>
+                </View>
+
+                {/* Notlar */}
+                {job.notes && (
+                  <View style={styles.notesContainer}>
+                    <Text style={styles.notesText}>{job.notes}</Text>
+                  </View>
+                )}
+
+                {/* Aksiyon Butonları */}
+                <View style={styles.actionButtonsContainer}>
+                  {job.status === 'pending' && (
+                    <>
+                      <Button
+                        title="Kabul Et"
+                        onPress={() => handleMobileJobAction(job.id, 'accept')}
+                        variant="success"
+                        size="medium"
+                        icon="checkmark-circle"
+                        style={{ flex: 1, marginRight: spacing.sm }}
+                      />
+                      <Button
+                        title="Reddet"
+                        onPress={() => handleMobileJobAction(job.id, 'cancel')}
+                        variant="outline"
+                        size="medium"
+                        icon="close-circle"
+                        style={{ flex: 1 }}
+                      />
+                    </>
+                  )}
+                  {job.status === 'accepted' && (
+                    <Button
+                      title="İşi Başlat"
+                      onPress={() => handleMobileJobAction(job.id, 'start')}
+                      variant="primary"
+                      size="medium"
+                      icon="play-circle"
+                      fullWidth
+                    />
+                  )}
+                  {job.status === 'in_progress' && (
+                    <Button
+                      title="İşi Tamamla"
+                      onPress={() => handleMobileJobAction(job.id, 'complete')}
+                      variant="success"
+                      size="medium"
+                      icon="checkmark-done"
+                      fullWidth
+                    />
+                  )}
+                </View>
+
+                {/* Hızlı Aksiyonlar */}
+                <View style={styles.quickActions}>
+                  <TouchableOpacity 
+                    style={styles.quickActionButton}
+                    onPress={() => Linking.openURL(`tel:${job.customerPhone}`)}
+                  >
+                    <Ionicons name="call" size={16} color={colors.primary.main} />
+                    <Text style={styles.quickActionText}>Ara</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.quickActionButton}
+                    onPress={() => {
+                      const { lat, lng } = job.location.coordinates;
+                      const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+                      Linking.openURL(url);
+                    }}
+                  >
+                    <Ionicons name="map" size={16} color={colors.primary.main} />
+                    <Text style={styles.quickActionText}>Harita</Text>
+                  </TouchableOpacity>
+                </View>
+              </Card>
+            ))
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="water-outline" size={64} color={colors.text.tertiary} />
+              <Text style={styles.emptyTitle}>
+                {mobileJobFilter === 'active' ? 'Aktif mobil yıkama işi yok' : 'Geçmiş iş yok'}
+              </Text>
+              <Text style={styles.emptySubtitle}>
+                {mobileJobFilter === 'active' ? 'Yeni işler geldiğinde burada görünecek' : 'Tamamlanan işler burada görünecek'}
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  const renderCreatePackageModal = () => (
+    <Modal
+      visible={showCreatePackageModal}
+      animationType="slide"
+      presentationStyle="pageSheet"
+    >
+      <SafeAreaView style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>
+            {editingPackage ? 'Paketi Düzenle' : 'Yeni Paket Oluştur'}
+          </Text>
+          <TouchableOpacity onPress={() => {
+            setShowCreatePackageModal(false);
+            resetPackageForm();
+          }}>
+            <Ionicons name="close" size={24} color={colors.text.primary} />
+          </TouchableOpacity>
+        </View>
+        
+        <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.formSection}>
+            <Text style={styles.formLabel}>Paket Adı</Text>
+            <TextInput
+              style={styles.formInput}
+              placeholder="Örn: Premium Yıkama Paketi"
+              value={packageForm.name}
+              onChangeText={(text) => setPackageForm({ ...packageForm, name: text })}
+            />
+          </View>
+
+          <View style={styles.formSection}>
+            <Text style={styles.formLabel}>Açıklama</Text>
+            <TextInput
+              style={[styles.formInput, styles.formTextArea]}
+              placeholder="Paket içeriğini açıklayın..."
+              value={packageForm.description}
+              onChangeText={(text) => setPackageForm({ ...packageForm, description: text })}
+              multiline
+              numberOfLines={4}
+            />
+          </View>
+
+          <View style={styles.formSection}>
+            <Text style={styles.formLabel}>Paket Tipi</Text>
+            <View style={styles.packageTypeButtons}>
+              {['basic', 'premium', 'deluxe', 'detailing', 'custom'].map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[
+                    styles.packageTypeButton,
+                    packageForm.packageType === type && styles.packageTypeButtonActive,
+                    { backgroundColor: packageForm.packageType === type ? getPackageTypeColor(type) : colors.background.secondary }
+                  ]}
+                  onPress={() => setPackageForm({ ...packageForm, packageType: type as any })}
+                >
+                  <Text style={[
+                    styles.packageTypeButtonText,
+                    packageForm.packageType === type && styles.packageTypeButtonTextActive
+                  ]}>
+                    {getPackageTypeText(type)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.formSection}>
+            <Text style={styles.formLabel}>Temel Fiyat (₺)</Text>
+            <TextInput
+              style={styles.formInput}
+              placeholder="0"
+              value={packageForm.basePrice.toString()}
+              onChangeText={(text) => setPackageForm({ ...packageForm, basePrice: parseFloat(text) || 0 })}
+              keyboardType="numeric"
+            />
+          </View>
+
+          <View style={styles.formSection}>
+            <Text style={styles.formLabel}>Tahmini Süre (Dakika)</Text>
+            <View style={styles.durationInputContainer}>
+              <TextInput
+                style={styles.formInput}
+                placeholder="30"
+                value={packageForm.estimatedDuration.toString()}
+                onChangeText={(text) => setPackageForm({ ...packageForm, estimatedDuration: parseInt(text) || 30 })}
+                keyboardType="numeric"
+              />
+              <View style={styles.durationSuggestions}>
+                {[15, 30, 45, 60, 90, 120].map((duration) => (
+                  <TouchableOpacity
+                    key={duration}
+                    style={[
+                      styles.durationChip,
+                      packageForm.estimatedDuration === duration && styles.durationChipActive
+                    ]}
+                    onPress={() => setPackageForm({ ...packageForm, estimatedDuration: duration })}
+                  >
+                    <Text style={[
+                      styles.durationChipText,
+                      packageForm.estimatedDuration === duration && styles.durationChipTextActive
+                    ]}>
+                      {duration}dk
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            <Text style={styles.formHelperText}>
+              Paketin tamamlanması için yaklaşık süreyi belirleyin
+            </Text>
+          </View>
+
+          <View style={styles.formSection}>
+            <Text style={styles.formLabel}>Özellikler</Text>
+            <View style={styles.featuresCheckboxContainer}>
+              {Object.keys(packageForm.features).map((feature) => (
+                <TouchableOpacity
+                  key={feature}
+                  style={styles.checkboxRow}
+                  onPress={() => setPackageForm({
+                    ...packageForm,
+                    features: {
+                      ...packageForm.features,
+                      [feature]: !packageForm.features[feature as keyof typeof packageForm.features]
+                    }
+                  })}
+                >
+                  <Ionicons
+                    name={packageForm.features[feature as keyof typeof packageForm.features] ? "checkbox" : "square-outline"}
+                    size={24}
+                    color={colors.primary.main}
+                  />
+                  <Text style={styles.checkboxLabel}>
+                    {feature === 'includesInterior' ? 'İç Temizlik' :
+                     feature === 'includesExterior' ? 'Dış Temizlik' :
+                     feature === 'includesEngine' ? 'Motor Temizliği' :
+                     feature === 'includesWaxing' ? 'Cila' :
+                     feature === 'includesPolishing' ? 'Pasta' :
+                     feature === 'includesDetailing' ? 'Detaylı Temizlik' :
+                     feature === 'ecoFriendly' ? 'Çevre Dostu' :
+                     feature === 'premiumProducts' ? 'Premium Ürünler' : feature}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </ScrollView>
+        
+        <View style={styles.modalFooter}>
+          <Button
+            title="İptal"
+            onPress={() => {
+              setShowCreatePackageModal(false);
+              resetPackageForm();
+            }}
+            variant="outline"
+            size="large"
+            style={{ flex: 1, marginRight: spacing.sm }}
+          />
+          <Button
+            title={editingPackage ? 'Güncelle' : 'Oluştur'}
+            onPress={handleCreatePackage}
+            variant="primary"
+            size="large"
+            icon={editingPackage ? "save" : "add-circle"}
+            style={{ flex: 1 }}
+          />
+        </View>
+      </SafeAreaView>
+    </Modal>
+  );
+
+  const renderLoyaltyProgramModal = () => (
+    <Modal
+      visible={isSetupLoyaltyModalVisible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+    >
+      <SafeAreaView style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>Sadakat Programı Kurulumu</Text>
+          <TouchableOpacity onPress={() => setIsSetupLoyaltyModalVisible(false)}>
+            <Ionicons name="close" size={24} color={colors.text.primary} />
+          </TouchableOpacity>
+        </View>
+        
+        <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+          {tempLoyaltyProgram && (
+            <>
+              <View style={styles.formSection}>
+                <Text style={styles.formLabel}>Program Adı</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Örn: Yıkama Sadakat Programı"
+                  value={tempLoyaltyProgram.programName}
+                  onChangeText={(text) => setTempLoyaltyProgram({ ...tempLoyaltyProgram, programName: text })}
+                />
+              </View>
+
+              <View style={styles.formSection}>
+                <Text style={styles.formLabel}>Açıklama</Text>
+                <TextInput
+                  style={[styles.formInput, styles.formTextArea]}
+                  placeholder="Programın açıklaması..."
+                  value={tempLoyaltyProgram.description}
+                  onChangeText={(text) => setTempLoyaltyProgram({ ...tempLoyaltyProgram, description: text })}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+
+              <View style={styles.formSection}>
+                <Text style={styles.sectionTitle}>Sadakat Seviyeleri</Text>
+                {tempLoyaltyProgram.loyaltyLevels?.map((level: any, index: number) => (
+                  <View key={index} style={[styles.levelCard, { borderLeftColor: level.color }]}>
+                    <View style={styles.levelHeader}>
+                      <Ionicons name={level.icon as any} size={20} color={level.color} />
+                      <Text style={[styles.levelName, { color: level.color }]}>{level.levelName}</Text>
+                    </View>
+                    <View style={styles.levelInputs}>
+                      <View style={styles.levelInputGroup}>
+                        <Text style={styles.levelInputLabel}>Min. Ziyaret:</Text>
+                        <TextInput
+                          style={styles.levelInput}
+                          value={level.minVisits.toString()}
+                          onChangeText={(text) => {
+                            const updatedLevels = [...tempLoyaltyProgram.loyaltyLevels];
+                            updatedLevels[index].minVisits = parseInt(text) || 0;
+                            setTempLoyaltyProgram({ ...tempLoyaltyProgram, loyaltyLevels: updatedLevels });
+                          }}
+                          keyboardType="numeric"
+                        />
+                      </View>
+                      <View style={styles.levelInputGroup}>
+                        <Text style={styles.levelInputLabel}>Min. Harcama (₺):</Text>
+                        <TextInput
+                          style={styles.levelInput}
+                          value={level.minSpent.toString()}
+                          onChangeText={(text) => {
+                            const updatedLevels = [...tempLoyaltyProgram.loyaltyLevels];
+                            updatedLevels[index].minSpent = parseInt(text) || 0;
+                            setTempLoyaltyProgram({ ...tempLoyaltyProgram, loyaltyLevels: updatedLevels });
+                          }}
+                          keyboardType="numeric"
+                        />
+                      </View>
+                      <View style={styles.levelInputGroup}>
+                        <Text style={styles.levelInputLabel}>İndirim (%):</Text>
+                        <TextInput
+                          style={styles.levelInput}
+                          value={level.benefits.discountPercentage.toString()}
+                          onChangeText={(text) => {
+                            const updatedLevels = [...tempLoyaltyProgram.loyaltyLevels];
+                            updatedLevels[index].benefits.discountPercentage = parseInt(text) || 0;
+                            setTempLoyaltyProgram({ ...tempLoyaltyProgram, loyaltyLevels: updatedLevels });
+                          }}
+                          keyboardType="numeric"
+                        />
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.formSection}>
+                <View style={styles.checkboxRow}>
+                  <Ionicons
+                    name={tempLoyaltyProgram.isActive ? "checkbox" : "square-outline"}
+                    size={24}
+                    color={colors.primary.main}
+                  />
+                  <Text style={styles.checkboxLabel}>Programı Aktif Et</Text>
+                </View>
+              </View>
+            </>
+          )}
+        </ScrollView>
+        
+        <View style={styles.modalFooter}>
+          <Button
+            title="İptal"
+            onPress={() => setIsSetupLoyaltyModalVisible(false)}
+            variant="outline"
+            size="large"
+            style={{ flex: 1, marginRight: spacing.sm }}
+          />
+          <Button
+            title="Kaydet"
+            onPress={handleSetupLoyaltyProgram}
+            variant="primary"
+            size="large"
+            icon="save"
+            style={{ flex: 1 }}
+          />
+        </View>
+      </SafeAreaView>
+    </Modal>
   );
 
   const renderJobDetailModal = () => (
@@ -848,15 +1759,19 @@ export default function CarWashScreen() {
                       <Button
                         title="Tamamlandı"
                         onPress={() => {}}
-                        style={styles.completedServiceButton}
-                        textStyle={styles.completedServiceButtonText}
+                        variant="success"
+                        size="small"
+                        icon="checkmark-circle"
+                        disabled
                       />
                     )}
                     {!service.completed && selectedJob.status === 'in_progress' && (
                       <Button
                         title="Tamamla"
                         onPress={() => handleCompleteService(selectedJob._id, service.serviceName)}
-                        style={styles.completeServiceButton}
+                        variant="primary"
+                        size="small"
+                        icon="checkmark"
                       />
                     )}
                   </View>
@@ -894,14 +1809,19 @@ export default function CarWashScreen() {
             <Button
               title="İşi Tamamla"
               onPress={() => selectedJob && handleCompleteJob(selectedJob._id)}
-              style={styles.completeJobButton}
+              variant="success"
+              size="large"
+              icon="checkmark-done"
+              style={{ flex: 1, marginRight: spacing.sm }}
             />
           )}
           <Button
             title="Kapat"
             onPress={() => setShowJobDetailModal(false)}
-            style={[styles.modalButton, styles.cancelButton]}
-            textStyle={styles.cancelButtonText}
+            variant="outline"
+            size="large"
+            style={{ flex: selectedJob?.status === 'in_progress' ? 1 : undefined }}
+            fullWidth={selectedJob?.status !== 'in_progress'}
           />
         </View>
       </SafeAreaView>
@@ -926,12 +1846,16 @@ export default function CarWashScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Oto Yıkama</Text>
+        <Text style={styles.headerTitle}>Yıkama Hizmetleri</Text>
         <TouchableOpacity onPress={() => {
           if (activeTab === 'packages') {
             setShowCreatePackageModal(true);
           } else if (activeTab === 'jobs') {
             setShowCreateJobModal(true);
+          } else if (activeTab === 'mobile') {
+            Alert.alert('Bilgi', 'Mobil yıkama işleri müşteri uygulamasından gelir');
+          } else if (activeTab === 'loyalty') {
+            setShowLoyaltyModal(true);
           }
         }}>
           <Ionicons name="add" size={24} color={colors.text.primary} />
@@ -957,6 +1881,14 @@ export default function CarWashScreen() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'mobile' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('mobile')}
+        >
+          <Text style={[styles.tabButtonText, activeTab === 'mobile' && styles.tabButtonTextActive]}>
+            Mobil
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           style={[styles.tabButton, activeTab === 'loyalty' && styles.tabButtonActive]}
           onPress={() => setActiveTab('loyalty')}
         >
@@ -976,10 +1908,13 @@ export default function CarWashScreen() {
       >
         {activeTab === 'packages' && renderPackages()}
         {activeTab === 'jobs' && renderJobs()}
+        {activeTab === 'mobile' && renderMobileWash()}
         {activeTab === 'loyalty' && renderLoyalty()}
       </ScrollView>
 
       {/* Modals */}
+      {renderCreatePackageModal()}
+      {renderLoyaltyProgramModal()}
       {renderJobDetailModal()}
     </SafeAreaView>
   );
@@ -1007,11 +1942,12 @@ const createStyles = (colors: any) => StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
+    borderBottomColor: colors.border.primary,
+    backgroundColor: colors.background.primary,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: typography.h3.fontSize,
+    fontWeight: typography.h3.fontWeight,
     color: colors.text.primary,
   },
   tabNavigation: {
@@ -1019,25 +1955,29 @@ const createStyles = (colors: any) => StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
+    borderBottomColor: colors.border.primary,
+    backgroundColor: colors.background.primary,
   },
   tabButton: {
     flex: 1,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     alignItems: 'center',
-    borderRadius: borderRadius.sm,
+    borderRadius: borderRadius.md,
     marginHorizontal: spacing.xs,
+    ...shadows.small,
   },
   tabButtonActive: {
     backgroundColor: colors.primary.main,
+    ...shadows.medium,
   },
   tabButtonText: {
-    fontSize: 14,
+    fontSize: typography.body2.fontSize,
+    fontWeight: typography.fontWeights.medium,
     color: colors.text.secondary,
   },
   tabButtonTextActive: {
     color: colors.text.inverse,
-    fontWeight: '600',
+    fontWeight: typography.fontWeights.semibold,
   },
   content: {
     flex: 1,
@@ -1049,27 +1989,71 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginBottom: spacing.lg,
   },
   filterButton: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    borderRadius: borderRadius.sm,
+    borderRadius: borderRadius.button,
     marginRight: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
+    borderWidth: 1.5,
+    borderColor: colors.border.secondary,
+    backgroundColor: colors.background.secondary,
+    ...shadows.small,
   },
   filterButtonActive: {
     backgroundColor: colors.primary.main,
     borderColor: colors.primary.main,
+    ...shadows.medium,
   },
   filterButtonText: {
-    fontSize: 14,
+    fontSize: typography.body3.fontSize,
+    fontWeight: typography.fontWeights.medium,
     color: colors.text.secondary,
   },
   filterButtonTextActive: {
     color: colors.text.inverse,
-    fontWeight: '600',
+    fontWeight: typography.fontWeights.semibold,
+  },
+  categoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+  },
+  categoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    ...shadows.small,
+  },
+  categoryTitle: {
+    fontSize: typography.h3.fontSize,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text.inverse,
+    marginLeft: spacing.sm,
+  },
+  categoryCount: {
+    fontSize: typography.body2.fontSize,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.secondary,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xl * 2,
+  },
+  emptyText: {
+    fontSize: typography.body2.fontSize,
+    color: colors.text.tertiary,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.xl,
   },
   packageCard: {
     marginBottom: spacing.lg,
+    ...shadows.card,
   },
   packageHeader: {
     flexDirection: 'row',
@@ -1079,26 +2063,32 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   packageInfo: {
     flex: 1,
+    marginRight: spacing.sm,
   },
   packageName: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: typography.h4.fontSize,
+    fontWeight: typography.h4.fontWeight,
     color: colors.text.primary,
+    marginBottom: spacing.xs / 2,
   },
   packageDescription: {
-    fontSize: 14,
+    fontSize: typography.body3.fontSize,
     color: colors.text.secondary,
+    lineHeight: typography.body3.lineHeight,
     marginTop: spacing.xs,
   },
   packageTypeBadge: {
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
+    borderRadius: borderRadius.md,
+    ...shadows.small,
   },
   packageTypeText: {
-    fontSize: 12,
+    fontSize: typography.caption.small.fontSize,
     color: colors.text.inverse,
-    fontWeight: '600',
+    fontWeight: typography.fontWeights.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   packageDetails: {
     marginBottom: spacing.md,
@@ -1107,29 +2097,48 @@ const createStyles = (colors: any) => StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.primary,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   priceLabel: {
-    fontSize: 14,
+    fontSize: typography.body3.fontSize,
     color: colors.text.secondary,
+    fontWeight: typography.fontWeights.medium,
   },
   priceValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: typography.h4.fontSize,
+    fontWeight: typography.h4.fontWeight,
     color: colors.primary.main,
   },
   durationContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.primary,
+  },
+  durationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   durationLabel: {
-    fontSize: 14,
+    fontSize: typography.body3.fontSize,
     color: colors.text.secondary,
+    fontWeight: typography.fontWeights.medium,
   },
   durationValue: {
-    fontSize: 14,
+    fontSize: typography.body1.fontSize,
+    fontWeight: typography.fontWeights.semibold,
     color: colors.text.primary,
   },
   servicesContainer: {
@@ -1174,20 +2183,7 @@ const createStyles = (colors: any) => StyleSheet.create({
   packageActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  editButton: {
-    flex: 1,
-    marginRight: spacing.sm,
-    backgroundColor: colors.background.secondary,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  editButtonText: {
-    color: colors.text.secondary,
-  },
-  startButton: {
-    flex: 1,
-    backgroundColor: colors.primary.main,
+    gap: spacing.sm,
   },
   jobCard: {
     marginBottom: spacing.lg,
@@ -1217,14 +2213,17 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginTop: spacing.xs,
   },
   statusBadge: {
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
+    borderRadius: borderRadius.md,
+    ...shadows.small,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: typography.caption.small.fontSize,
     color: colors.text.inverse,
-    fontWeight: '600',
+    fontWeight: typography.fontWeights.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   jobDetails: {
     marginBottom: spacing.md,
@@ -1292,15 +2291,6 @@ const createStyles = (colors: any) => StyleSheet.create({
   jobActions: {
     marginTop: spacing.md,
   },
-  detailButton: {
-    backgroundColor: colors.info.main,
-  },
-  completedButton: {
-    backgroundColor: colors.success.main,
-  },
-  completedButtonText: {
-    color: colors.text.inverse,
-  },
   loyaltyCard: {
     alignItems: 'center',
     marginBottom: spacing.lg,
@@ -1309,13 +2299,14 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginBottom: spacing.lg,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: typography.h3.fontSize,
+    fontWeight: typography.h3.fontWeight,
     color: colors.text.primary,
     marginBottom: spacing.md,
   },
   cardDescription: {
-    fontSize: 14,
+    fontSize: typography.body2.fontSize,
+    lineHeight: typography.body2.lineHeight,
     color: colors.text.secondary,
     marginBottom: spacing.md,
     textAlign: 'center',
@@ -1332,16 +2323,21 @@ const createStyles = (colors: any) => StyleSheet.create({
     width: '48%',
     alignItems: 'center',
     marginBottom: spacing.md,
+    backgroundColor: colors.background.secondary,
+    padding: spacing.md,
+    borderRadius: borderRadius.card,
+    ...shadows.small,
   },
   statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: typography.h2.fontSize,
+    fontWeight: typography.h2.fontWeight,
     color: colors.primary.main,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.large.fontSize,
     color: colors.text.secondary,
     marginTop: spacing.xs,
+    textAlign: 'center',
   },
   modalContainer: {
     flex: 1,
@@ -1352,13 +2348,14 @@ const createStyles = (colors: any) => StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
+    borderBottomColor: colors.border.primary,
+    backgroundColor: colors.background.primary,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: typography.h3.fontSize,
+    fontWeight: typography.h3.fontWeight,
     color: colors.text.primary,
   },
   modalContent: {
@@ -1397,21 +2394,9 @@ const createStyles = (colors: any) => StyleSheet.create({
     color: colors.text.primary,
   },
   serviceDetailInfo: {
-    fontSize: 12,
+    fontSize: typography.caption.large.fontSize,
     color: colors.text.secondary,
     marginBottom: spacing.sm,
-  },
-  completedServiceButton: {
-    backgroundColor: colors.success.main,
-    paddingVertical: spacing.xs,
-  },
-  completedServiceButtonText: {
-    fontSize: 12,
-    color: colors.text.inverse,
-  },
-  completeServiceButton: {
-    backgroundColor: colors.primary.main,
-    paddingVertical: spacing.xs,
   },
   pricingDetail: {
     backgroundColor: colors.background.secondary,
@@ -1434,22 +2419,385 @@ const createStyles = (colors: any) => StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderTopWidth: 1,
+    borderTopColor: colors.border.primary,
+    backgroundColor: colors.background.primary,
+    gap: spacing.sm,
+  },
+  // Mobile Wash Styles
+  mobileFilterContainer: {
+    flexDirection: 'row',
+    marginBottom: spacing.lg,
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.lg,
+    padding: spacing.xs,
+  },
+  mobileFilterButton: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    borderRadius: borderRadius.md,
+  },
+  mobileFilterButtonActive: {
+    backgroundColor: colors.primary.main,
+  },
+  mobileFilterButtonText: {
+    fontSize: 14,
+    color: colors.text.secondary,
+  },
+  mobileFilterButtonTextActive: {
+    color: colors.text.inverse,
+    fontWeight: '600',
+  },
+  mobileJobCard: {
+    marginBottom: spacing.lg,
+  },
+  washTypeContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  washTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    gap: spacing.xs,
+  },
+  washTypeText: {
+    fontSize: 12,
+    color: colors.text.inverse,
+    fontWeight: '600',
+  },
+  washLevelBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+  },
+  washLevelText: {
+    fontSize: 12,
+    color: colors.text.inverse,
+    fontWeight: '600',
+  },
+  customerInfo: {
+    marginBottom: spacing.md,
+  },
+  customerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  customerPhone: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
+  },
+  vehicleDetails: {
+    marginBottom: spacing.md,
+  },
+  vehicleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+    gap: spacing.xs,
+  },
+  vehicleText: {
+    fontSize: 14,
+    color: colors.text.secondary,
+  },
+  locationInfo: {
+    marginBottom: spacing.md,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  locationText: {
+    fontSize: 14,
+    color: colors.primary.main,
+    flex: 1,
+  },
+  serviceInfo: {
+    flex: 1,
+  },
+  serviceName: {
+    fontSize: 14,
+    color: colors.text.primary,
+  },
+  serviceDuration: {
+    fontSize: 12,
+    color: colors.text.tertiary,
+    marginTop: spacing.xs / 2,
+  },
+  servicePriceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  servicePrice: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary.main,
+  },
+  specialRequestsContainer: {
+    marginBottom: spacing.md,
+    padding: spacing.sm,
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.sm,
+  },
+  specialRequestsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  specialRequestText: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs / 2,
+  },
+  jobDetailsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
     borderTopColor: colors.border.light,
   },
-  completeJobButton: {
-    flex: 1,
-    marginRight: spacing.sm,
-    backgroundColor: colors.success.main,
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
-  modalButton: {
-    flex: 1,
+  detailText: {
+    fontSize: 12,
+    color: colors.text.tertiary,
   },
-  cancelButton: {
+  notesContainer: {
+    marginBottom: spacing.md,
+    padding: spacing.sm,
     backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.sm,
+  },
+  notesText: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    fontStyle: 'italic',
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.light,
+    gap: spacing.lg,
+  },
+  quickActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  quickActionText: {
+    fontSize: 14,
+    color: colors.primary.main,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: spacing.xxl,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    textAlign: 'center',
+  },
+  // Form styles
+  formSection: {
+    marginBottom: spacing.xl,
+  },
+  formLabel: {
+    fontSize: typography.label.fontSize,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  formInput: {
+    backgroundColor: colors.background.secondary,
+    borderWidth: 1.5,
+    borderColor: colors.border.secondary,
+    borderRadius: borderRadius.input,
+    padding: spacing.md,
+    fontSize: typography.body2.fontSize,
+    color: colors.text.primary,
+    minHeight: dimensions.inputHeight,
+    ...shadows.small,
+  },
+  formTextArea: {
+    height: 100,
+    textAlignVertical: 'top',
+    paddingTop: spacing.md,
+  },
+  formHelperText: {
+    fontSize: typography.caption.large.fontSize,
+    color: colors.text.tertiary,
+    marginTop: spacing.sm,
+    fontStyle: 'italic',
+  },
+  durationInputContainer: {
+    gap: spacing.md,
+  },
+  durationSuggestions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  durationChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.button,
+    borderWidth: 1.5,
+    borderColor: colors.border.secondary,
+    backgroundColor: colors.background.secondary,
+    minWidth: 60,
+    alignItems: 'center',
+    ...shadows.small,
+  },
+  durationChipActive: {
+    backgroundColor: colors.primary.main,
+    borderColor: colors.primary.main,
+    ...shadows.medium,
+  },
+  durationChipText: {
+    fontSize: typography.body3.fontSize,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.text.secondary,
+  },
+  durationChipTextActive: {
+    color: colors.text.inverse,
+    fontWeight: typography.fontWeights.semibold,
+  },
+  packageTypeButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  packageTypeButton: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.button,
+    borderWidth: 1.5,
+    borderColor: colors.border.secondary,
+    ...shadows.small,
+  },
+  packageTypeButtonActive: {
+    borderColor: 'transparent',
+    ...shadows.medium,
+  },
+  packageTypeButtonText: {
+    fontSize: typography.body3.fontSize,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.text.secondary,
+  },
+  packageTypeButtonTextActive: {
+    color: colors.text.inverse,
+    fontWeight: typography.fontWeights.semibold,
+  },
+  featuresCheckboxContainer: {
+    gap: spacing.sm,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    color: colors.text.primary,
+  },
+  // Loyalty program styles
+  loyaltyProgramCard: {
+    marginBottom: spacing.lg,
+  },
+  loyaltyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
+  },
+  editIconButton: {
+    padding: spacing.xs,
+  },
+  loyaltyLevelsContainer: {
+    marginTop: spacing.md,
+  },
+  levelCard: {
+    backgroundColor: colors.background.secondary,
+    padding: spacing.lg,
+    borderRadius: borderRadius.card,
+    marginBottom: spacing.md,
+    borderLeftWidth: 5,
+    ...shadows.card,
+  },
+  levelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  levelName: {
+    fontSize: typography.h4.fontSize,
+    fontWeight: typography.h4.fontWeight,
+  },
+  levelRequirement: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  levelBenefit: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary.main,
+  },
+  levelInputs: {
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  levelInputGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  levelInputLabel: {
+    fontSize: 12,
+    color: colors.text.secondary,
+  },
+  levelInput: {
+    backgroundColor: colors.background.primary,
     borderWidth: 1,
     borderColor: colors.border.medium,
-  },
-  cancelButtonText: {
-    color: colors.text.secondary,
+    borderRadius: borderRadius.sm,
+    padding: spacing.sm,
+    fontSize: 14,
+    color: colors.text.primary,
+    minWidth: 80,
+    textAlign: 'right',
   },
 });

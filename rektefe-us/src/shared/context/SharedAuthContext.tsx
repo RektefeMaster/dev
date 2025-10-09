@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// BaseApiService artık frontend'te yok, sadece api.ts kullanılıyor
+
+// BaseApiService interface tanımı
+interface BaseApiService {
+  validateToken(): Promise<boolean>;
+  login(data: any): Promise<any>;
+  register(data: any): Promise<any>;
+  logout(): Promise<void>;
+  get(url: string): Promise<any>;
+}
 
 // ===== SHARED TYPES =====
 
@@ -11,6 +19,7 @@ export interface SharedUser {
   email: string;
   phone: string;
   userType: 'driver' | 'mechanic';
+  isAdmin?: boolean;
   // Driver-specific fields
   profilePhotoUrl?: string;
   coverPhotoUrl?: string;

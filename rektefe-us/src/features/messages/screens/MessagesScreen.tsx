@@ -133,7 +133,7 @@ const MessagesScreen = ({ navigation }: any) => {
   };
 
   const handleConversationPress = (conversation: Conversation) => {
-    navigation.navigate('Chat', {
+    navigation.navigate('ChatScreen', {
       conversationId: conversation._id,
       otherParticipant: conversation.otherParticipant,
     });

@@ -1787,17 +1787,11 @@ router.get('/:mechanicId/wash-packages', async (req: Request, res: Response) => 
   try {
     const { mechanicId } = req.params;
     
-    // Ustayı bul ve yıkama paketlerini getir
-    const mechanic = await User.findById(mechanicId)
-      .select('washPackages washOptions shopName name surname')
-      .lean();
+    // CarWashPackage collection'ından ustanın paketlerini çek
+    const { CarWashService } = require('../services/carWash.service');
+    const result = await CarWashService.getMechanicPackages(mechanicId);
 
-    if (!mechanic) {
-      return ResponseHandler.notFound(res, 'Usta bulunamadı.');
-    }
-
-    // Eğer ustanın yıkama paketleri yoksa boş döndür
-    if (!mechanic.washPackages || mechanic.washPackages.length === 0) {
+    if (!result.success) {
       return ResponseHandler.success(res, {
         packages: [],
         options: []
@@ -1805,12 +1799,13 @@ router.get('/:mechanicId/wash-packages', async (req: Request, res: Response) => 
     }
 
     const washData = {
-      packages: mechanic.washPackages || [],
-      options: mechanic.washOptions || []
+      packages: result.data || [],
+      options: [] // Ek hizmetler için gelecekte eklenecek
     };
 
     return ResponseHandler.success(res, washData, 'Yıkama paketleri başarıyla getirildi.');
   } catch (error) {
+    console.error('Wash packages error:', error);
     return ResponseHandler.error(res, 'Yıkama paketleri getirilirken bir hata oluştu.');
   }
 });

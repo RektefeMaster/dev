@@ -898,6 +898,20 @@ export const apiService = {
     }
   },
 
+  getMechanicWashPackages: async (mechanicId: string) => {
+    try {
+      const response = await apiClient.get(`/mechanic/${mechanicId}/wash-packages`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Get mechanic wash packages error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Yıkama paketleri alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
   createWashBooking: async (data: any) => {
     try {
       const response = await apiClient.post('/services/wash-booking', data);

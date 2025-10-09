@@ -522,7 +522,7 @@ export default function TowingServiceScreen() {
               activeJobs.map(renderJobCard)
             ) : (
               <View style={styles.emptyContainer}>
-                <Ionicons name="truck-outline" size={64} color={colors.text.tertiary} />
+                <Ionicons name="car" size={64} color={colors.text.tertiary} />
                 <Text style={styles.emptyTitle}>Aktif çekici işi yok</Text>
                 <Text style={styles.emptySubtitle}>Yeni işler geldiğinde burada görünecek</Text>
               </View>

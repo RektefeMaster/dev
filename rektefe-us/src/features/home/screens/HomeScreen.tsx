@@ -21,6 +21,7 @@ import { Rating, RatingItem } from '@/shared/types';
 import { translateServiceName } from '@/shared/utils/serviceTranslator';
 import { DrawerActions } from '@react-navigation/native';
 import { CardNav } from '@/shared/components';
+import { hasFaultReportFeature, getServiceCategory, getNotificationTypeText, getJobTypeText } from '@/shared/utils/serviceTypeHelpers';
 
 interface Appointment {
   _id: string;
@@ -133,7 +134,7 @@ const mechanicCapabilities = [
           },
           {
             label: 'Sohbet',
-            onPress: () => navigation.navigate('Chat'),
+            onPress: () => navigation.navigate('Messages'),
           },
         ],
       },
@@ -659,7 +660,7 @@ const mechanicCapabilities = [
     } else if (userCapabilities.includes('tire') || userCapabilities.includes('Lastik & Parça')) {
       return 'Lastik İşleri';
     } else {
-      return 'Profil';
+      return 'Randevular';
     }
   }, [user?.serviceCategories]);
 
@@ -677,7 +678,7 @@ const mechanicCapabilities = [
     } else if (userCapabilities.includes('tire') || userCapabilities.includes('Lastik & Parça')) {
       navigation.navigate('TireService');
     } else {
-      navigation.navigate('Profile');
+      navigation.navigate('Appointments');
     }
   };
 
@@ -1013,27 +1014,31 @@ const mechanicCapabilities = [
               </TouchableOpacity>
             )}
 
-            {/* Arıza Bildirimleri - Tüm ustalar için */}
-            <TouchableOpacity
-              style={styles.quickActionCard}
-              onPress={() => navigation.navigate('FaultReports')}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.quickActionGradient, { backgroundColor: '#FEF2F2' }]}>
-                <Ionicons name="warning" size={28} color="#EF4444" />
-                {faultReportsCount > 0 && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{faultReportsCount}</Text>
-                  </View>
+            {/* Arıza Bildirimleri - Sadece ilgili hizmet türleri için */}
+            {hasFaultReportFeature(user?.serviceCategories) && (
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => navigation.navigate('FaultReports')}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.quickActionGradient, { backgroundColor: '#FEF2F2' }]}>
+                  <Ionicons name="warning" size={28} color="#EF4444" />
+                  {faultReportsCount > 0 && (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>{faultReportsCount}</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.quickActionText}>
+                  {getNotificationTypeText(getServiceCategory(user?.serviceCategories), 'fault_report')}
+                </Text>
+                {faultReportsCount > 0 ? (
+                  <Text style={styles.quickActionSubtext}>{faultReportsCount} yeni bildirim</Text>
+                ) : (
+                  <Text style={styles.quickActionSubtext}>Bekleyen bildirimler</Text>
                 )}
-              </View>
-              <Text style={styles.quickActionText}>Arıza Bildirimleri</Text>
-              {faultReportsCount > 0 ? (
-                <Text style={styles.quickActionSubtext}>{faultReportsCount} yeni bildirim</Text>
-              ) : (
-                <Text style={styles.quickActionSubtext}>Bekleyen bildirimler</Text>
-              )}
-            </TouchableOpacity>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={styles.quickActionCard}

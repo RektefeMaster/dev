@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { colors, spacing, borderRadius, shadows, typography } from '@/shared/theme';
 import { BackButton } from '@/shared/components';
-import apiService from '@/shared/services';
+import apiService, { ProfileService } from '@/shared/services';
 import { useAuth } from '@/shared/context';
 
 const { width } = Dimensions.get('window');
@@ -26,6 +26,7 @@ const { width } = Dimensions.get('window');
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const { user, isAuthenticated, logout, updateUser } = useAuth();
+  const isAdmin = user?.email === 'testus@gmail.com';
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -169,9 +170,13 @@ export default function ProfileScreen() {
 
   const handleSaveCapabilities = async () => {
     try {
+      console.log('💾 PROFILE SCREEN: handleSaveCapabilities called - ProfileScreen');
+      console.log('💾 PROFILE SCREEN: This is the ProfileScreen component');
+      console.log('🔍 PROFILE SCREEN: ProfileService:', ProfileService);
+      console.log('🔍 PROFILE SCREEN: ProfileService.updateServiceCategories:', ProfileService?.updateServiceCategories);
       setLoading(true);
 
-      const response = await apiService.updateUserCapabilities(selectedCapabilities);
+      const response = await ProfileService.updateServiceCategories(selectedCapabilities);
 
       if (response.success) {
         updateUser({ serviceCategories: selectedCapabilities });
@@ -317,6 +322,12 @@ export default function ProfileScreen() {
                 <Ionicons name="construct" size={16} color={colors.primary.main} />
                 <Text style={styles.roleText}>Usta</Text>
               </View>
+              {isAdmin && (
+                <View style={styles.adminBadge}>
+                  <Ionicons name="shield-checkmark" size={14} color="#FFFFFF" />
+                  <Text style={styles.adminBadgeText}>Admin</Text>
+                </View>
+              )}
             </View>
           </View>
           
@@ -659,7 +670,7 @@ export default function ProfileScreen() {
         </SafeAreaView>
       </Modal>
 
-      {/* Capabilities Modal */}
+      {/* Capabilities Modal - Admin düzenler, diğerleri görüntüler */}
       <Modal
         visible={showCapabilitiesModal}
         animationType="slide"
@@ -668,71 +679,109 @@ export default function ProfileScreen() {
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setShowCapabilitiesModal(false)}>
-              <Text style={styles.modalCancelText}>İptal</Text>
+              <Text style={styles.modalCancelText}>{isAdmin ? 'İptal' : 'Kapat'}</Text>
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Hizmet Alanlarım</Text>
-            <TouchableOpacity onPress={handleSaveCapabilities}>
-              <Text style={styles.modalSaveText}>Kaydet</Text>
-            </TouchableOpacity>
+            {isAdmin ? (
+              <TouchableOpacity onPress={handleSaveCapabilities}>
+                <Text style={styles.modalSaveText}>Kaydet</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.headerPlaceholder} />
+            )}
           </View>
           
           <ScrollView style={styles.modalContent}>
+            {isAdmin && (
+              <View style={[styles.infoNoteContainer, { backgroundColor: '#FEF3C7', borderLeftColor: '#F59E0B' }]}>
+                <Ionicons name="shield-checkmark" size={20} color="#F59E0B" />
+                <Text style={styles.infoNoteText}>
+                  Admin olarak hizmet kategorilerini düzenleyebilirsiniz.
+                </Text>
+              </View>
+            )}
+            
             <Text style={styles.modalDescription}>
-              Hangi hizmet alanlarında çalışmak istiyorsunuz? Seçtiğiniz alanlara göre menünüz güncellenecek.
+              {isAdmin 
+                ? 'Hizmet kategorilerini seçerek menünüzü özelleştirin.'
+                : 'Kayıt sırasında belirlediğiniz hizmet alanlarınız aşağıda görüntülenmektedir.'}
             </Text>
             
+            {!isAdmin && (
+              <View style={styles.infoNoteContainer}>
+                <Ionicons name="information-circle" size={20} color={colors.primary.main} />
+                <Text style={styles.infoNoteText}>
+                  Hizmet kategorinizi değiştirmek veya yeni hizmet eklemek için bizimle iletişime geçin.
+                </Text>
+              </View>
+            )}
+            
             <View style={styles.capabilitiesList}>
-              {capabilities.map((capability) => (
-                <TouchableOpacity
-                  key={capability.id}
-                  style={[
-                    styles.capabilityCard,
-                    {
-                      backgroundColor: selectedCapabilities.includes(capability.id)
-                        ? capability.color + '20'
-                        : colors.background.secondary,
-                      borderColor: selectedCapabilities.includes(capability.id)
-                        ? capability.color
-                        : colors.border.secondary,
-                    }
-                  ]}
-                  onPress={() => handleCapabilityToggle(capability.id)}
-                >
-                  <View style={styles.capabilityContent}>
-                    <View style={[
-                      styles.capabilityIcon,
-                      { backgroundColor: capability.color }
-                    ]}>
-                      <Ionicons 
-                        name={capability.icon as any} 
-                        size={24} 
-                        color="#FFFFFF" 
-                      />
+              {capabilities.map((capability) => {
+                const isActive = isAdmin 
+                  ? selectedCapabilities.includes(capability.id)
+                  : (user?.serviceCategories?.includes(capability.id) || user?.serviceCategories?.includes(capability.title));
+                
+                if (isAdmin) {
+                  return (
+                    <TouchableOpacity
+                      key={capability.id}
+                      style={[
+                        styles.capabilityCard,
+                        {
+                          backgroundColor: isActive ? capability.color + '20' : colors.background.secondary,
+                          borderColor: isActive ? capability.color : colors.border.secondary,
+                        }
+                      ]}
+                      onPress={() => handleCapabilityToggle(capability.id)}
+                    >
+                      <View style={styles.capabilityContent}>
+                        <View style={[styles.capabilityIcon, { backgroundColor: capability.color }]}>
+                          <Ionicons name={capability.icon as any} size={24} color="#FFFFFF" />
+                        </View>
+                        <View style={styles.capabilityText}>
+                          <Text style={[styles.capabilityTitle, { color: colors.text.primary }]}>
+                            {capability.title}
+                          </Text>
+                          <Text style={[styles.capabilityDescription, { color: colors.text.secondary }]}>
+                            {capability.description}
+                          </Text>
+                        </View>
+                        {isActive && <Ionicons name="checkmark-circle" size={24} color={capability.color} />}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                } else {
+                  return (
+                    <View
+                      key={capability.id}
+                      style={[
+                        styles.capabilityCard,
+                        {
+                          backgroundColor: isActive ? capability.color + '20' : colors.background.secondary,
+                          borderColor: isActive ? capability.color : colors.border.secondary,
+                          opacity: isActive ? 1 : 0.5,
+                        }
+                      ]}
+                    >
+                      <View style={styles.capabilityContent}>
+                        <View style={[styles.capabilityIcon, { backgroundColor: capability.color }]}>
+                          <Ionicons name={capability.icon as any} size={24} color="#FFFFFF" />
+                        </View>
+                        <View style={styles.capabilityText}>
+                          <Text style={[styles.capabilityTitle, { color: colors.text.primary }]}>
+                            {capability.title}
+                          </Text>
+                          <Text style={[styles.capabilityDescription, { color: colors.text.secondary }]}>
+                            {capability.description}
+                          </Text>
+                        </View>
+                        {isActive && <Ionicons name="checkmark-circle" size={24} color={capability.color} />}
+                      </View>
                     </View>
-                    <View style={styles.capabilityText}>
-                      <Text style={[
-                        styles.capabilityTitle,
-                        { color: colors.text.primary }
-                      ]}>
-                        {capability.title}
-                      </Text>
-                      <Text style={[
-                        styles.capabilityDescription,
-                        { color: colors.text.secondary }
-                      ]}>
-                        {capability.description}
-                      </Text>
-                    </View>
-                    {selectedCapabilities.includes(capability.id) && (
-                      <Ionicons 
-                        name="checkmark-circle" 
-                        size={24} 
-                        color={capability.color} 
-                      />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))}
+                  );
+                }
+              })}
             </View>
           </ScrollView>
         </SafeAreaView>
@@ -876,6 +925,39 @@ const styles = StyleSheet.create({
     color: colors.primary.main,
     marginLeft: spacing.xs,
     fontWeight: '500',
+  },
+  adminBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    marginTop: spacing.xs,
+    ...shadows.small,
+  },
+  adminBadgeText: {
+    fontSize: typography.caption.small.fontSize,
+    color: '#FFFFFF',
+    marginLeft: spacing.xs,
+    fontWeight: '700',
+  },
+  infoNoteContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.primary.ultraLight,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.lg,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary.main,
+  },
+  infoNoteText: {
+    fontSize: typography.body3.fontSize,
+    color: colors.text.primary,
+    marginLeft: spacing.sm,
+    flex: 1,
+    lineHeight: 20,
   },
   experienceSection: {
     marginTop: spacing.lg,

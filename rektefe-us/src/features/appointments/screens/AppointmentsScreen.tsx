@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  SafeAreaView,
   Modal,
   TextInput,
   Alert,
@@ -16,6 +15,7 @@ import {
   Dimensions,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/shared/context';
 import { useAuth } from '@/shared/context';
@@ -23,6 +23,7 @@ import apiService from '@/shared/services';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import BackButton from '@/shared/components/BackButton';
 import { translateServiceName } from '@/shared/utils/serviceTranslator';
+import { getServiceCategory, getJobTypeText, getStatusText } from '@/shared/utils/serviceTypeHelpers';
 import { colors as themeColors, typography, spacing, borderRadius as br, shadows, dimensions as themeDimensions } from '@/shared/theme';
 
 const { width } = Dimensions.get('window');
@@ -271,7 +272,7 @@ const AppointmentsScreen = () => {
 
   const handleStatusChange = async (randevuId: string, newStatus: RandevuDurum) => {
     try {
-      const response = await apiService.updateAppointmentStatus(randevuId, { status: newStatus });
+      const response = await apiService.updateAppointmentStatus(randevuId, mapTRtoEN(newStatus) as any);
       
       if (response.success) {
         Alert.alert('Başarılı', 'Randevu durumu güncellendi');
@@ -321,13 +322,10 @@ const AppointmentsScreen = () => {
     try {
       setPriceModalLoading(true);
 
-      const requestBody = {
-        additionalAmount: parseFloat(additionalAmount),
-        reason: selectedReason === 'custom' ? undefined : selectedReason,
-        customReason: selectedReason === 'custom' ? customReason : undefined
-      };
+      const amount = parseFloat(additionalAmount);
+      const reason = selectedReason === 'custom' ? customReason : selectedReason;
 
-      const response = await apiService.updateAppointmentPriceIncrease(selectedAppointment._id, requestBody);
+      const response = await apiService.updateAppointmentPriceIncrease(selectedAppointment._id, amount, reason);
 
       if (response.data.success) {
         const responseData = response.data;
@@ -576,6 +574,10 @@ const AppointmentsScreen = () => {
     );
   }
 
+  // Hizmet kategorisine göre başlık
+  const serviceCategory = getServiceCategory(user?.serviceCategories);
+  const jobTypeText = getJobTypeText(serviceCategory);
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background.primary} />
@@ -585,7 +587,7 @@ const AppointmentsScreen = () => {
         <View style={styles.headerContent}>
           <View style={styles.headerTop}>
             <BackButton />
-            <Text style={[styles.title, { color: colors.text.primary.main }]}>Randevularım</Text>
+            <Text style={[styles.title, { color: colors.text.primary.main }]}>{jobTypeText.plural}</Text>
             <TouchableOpacity
               style={[styles.filterButton, { backgroundColor: colors.background.secondary, borderColor: colors.border.secondary }]}
               onPress={() => setShowFilters(!showFilters)}
@@ -744,8 +746,8 @@ const AppointmentsScreen = () => {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                colors={[colors.primary]}
-                tintColor={colors.primary}
+                colors={[colors.primary.main]}
+                tintColor={colors.primary.main}
               />
             }
             showsVerticalScrollIndicator={false}
@@ -777,7 +779,7 @@ const AppointmentsScreen = () => {
             {/* Current Price */}
             {selectedAppointment && (
               <View style={[styles.currentPriceCard, { backgroundColor: colors.background.card }]}>
-                <MaterialCommunityIcons name="currency-try" size={20} color={colors.primary} />
+                <MaterialCommunityIcons name="currency-try" size={20} color={colors.primary.main} />
                 <Text style={[styles.currentPriceText, { color: colors.text.primary }]}>
                   Mevcut Fiyat: {selectedAppointment.price && selectedAppointment.price > 0 
                     ? new Intl.NumberFormat('tr-TR', {
@@ -886,7 +888,7 @@ const AppointmentsScreen = () => {
                 </View>
                 <View style={styles.summaryRow}>
                   <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>Ek Tutar:</Text>
-                  <Text style={[styles.summaryValue, { color: colors.success }]}>
+                  <Text style={[styles.summaryValue, { color: colors.success.main }]}>
                     +{new Intl.NumberFormat('tr-TR', {
                       style: 'currency',
                       currency: 'TRY',
@@ -895,7 +897,7 @@ const AppointmentsScreen = () => {
                 </View>
                 <View style={[styles.summaryRow, styles.summaryTotal]}>
                   <Text style={[styles.summaryLabel, { color: colors.text.primary, fontWeight: 'bold' }]}>Yeni Toplam:</Text>
-                  <Text style={[styles.summaryValue, { color: colors.primary, fontWeight: 'bold' }]}>
+                  <Text style={[styles.summaryValue, { color: colors.primary.main, fontWeight: 'bold' }]}>
                     {new Intl.NumberFormat('tr-TR', {
                       style: 'currency',
                       currency: 'TRY',

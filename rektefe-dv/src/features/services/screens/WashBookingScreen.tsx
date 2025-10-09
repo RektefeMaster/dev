@@ -231,97 +231,114 @@ const WashBookingScreen = () => {
   const loadMechanicWashData = async (mechanicId: string) => {
     try {
       setLoading(true);
+      console.log('🔍 WashBookingScreen: Ustanın yıkama paketleri yükleniyor...', mechanicId);
       
-      // Usta tarafındaki mock verilerle entegre - gerçek API'den gelecek
-      const mockPackages: WashPackage[] = [
-        {
-          id: 'basic',
-          name: 'Temel Yıkama',
-          description: 'Dış yıkama + Vakum',
-          price: 50,
-          duration: '30 dk',
-          features: ['Dış yıkama', 'Vakum', 'Kurulama'],
-          icon: 'water',
-          color: '#10B981'
-        },
-        {
-          id: 'premium',
-          name: 'Premium Yıkama',
-          description: 'Dış + İç temizlik',
-          price: 80,
-          duration: '45 dk',
-          features: ['Dış yıkama', 'İç temizlik', 'Vakum', 'Kurulama', 'Cam temizliği'],
-          icon: 'water',
-          color: '#3B82F6'
-        },
-        {
-          id: 'deluxe',
-          name: 'Deluxe Yıkama',
-          description: 'Tam detay temizlik',
-          price: 120,
-          duration: '60 dk',
-          features: ['Dış yıkama', 'İç temizlik', 'Vakum', 'Kurulama', 'Cam temizliği', 'Cila', 'Lastik parlatma'],
-          icon: 'water',
-          color: '#8B5CF6'
-        },
-        {
-          id: 'detailing',
-          name: 'Detay Temizlik',
-          description: 'Profesyonel detay temizlik',
-          price: 150,
-          duration: '90 dk',
-          features: ['Dış yıkama', 'İç temizlik', 'Vakum', 'Kurulama', 'Cam temizliği', 'Cila', 'Lastik parlatma', 'Koltuk temizliği', 'Motor temizliği'],
-          icon: 'water',
-          color: '#F59E0B'
+      // Backend'den ustanın gerçek paketlerini çek
+      const response = await apiService.getMechanicWashPackages(mechanicId);
+      console.log('📦 WashBookingScreen API Response:', JSON.stringify(response, null, 2));
+      
+      if (response.success && response.data) {
+        // Backend'den gelen paketleri normalize et
+        const backendPackages = response.data.packages || [];
+        
+        if (backendPackages.length > 0) {
+          console.log('✅ Backend\'den gelen paketler:', backendPackages.length);
+          
+          // Backend paketlerini UI formatına çevir
+          const normalizedPackages: WashPackage[] = backendPackages.map((pkg: any) => {
+            // Paket tipine göre renk ve icon belirle
+            const getPackageColor = (type: string) => {
+              switch(type) {
+                case 'basic': return '#10B981';
+                case 'premium': return '#3B82F6';
+                case 'deluxe': return '#8B5CF6';
+                case 'detailing': return '#F59E0B';
+                case 'custom': return '#6B7280';
+                default: return '#3B82F6';
+              }
+            };
+            
+            // Özellikleri array'e çevir
+            const features = [];
+            if (pkg.features?.includesExterior) features.push('Dış Yıkama');
+            if (pkg.features?.includesInterior) features.push('İç Temizlik');
+            if (pkg.features?.includesEngine) features.push('Motor Temizliği');
+            if (pkg.features?.includesWaxing) features.push('Cila');
+            if (pkg.features?.includesPolishing) features.push('Pasta');
+            if (pkg.features?.includesDetailing) features.push('Detaylı Temizlik');
+            if (pkg.features?.ecoFriendly) features.push('Çevre Dostu');
+            if (pkg.features?.premiumProducts) features.push('Premium Ürünler');
+            
+            return {
+              id: pkg._id,
+              name: pkg.name,
+              description: pkg.description,
+              price: pkg.pricing?.basePrice || 0,
+              duration: `${pkg.pricing?.duration || 30} dk`,
+              features: features.length > 0 ? features : ['Standart Yıkama'],
+              icon: 'water',
+              color: getPackageColor(pkg.packageType)
+            };
+          });
+          
+          setWashPackages(normalizedPackages);
+          console.log('✅ Normalize edilmiş paketler:', normalizedPackages);
+        } else {
+          console.log('⚠️ Bu usta için paket bulunamadı, varsayılan paketler gösteriliyor');
+          // Varsayılan paketleri göster
+          setWashPackages(getDefaultPackages());
         }
-      ];
-
-      const mockOptions: WashOption[] = [
-        {
-          id: 'wax',
-          name: 'Cila',
-          description: 'Araç cilası',
-          price: 30,
-          icon: 'sparkles'
-        },
-        {
-          id: 'interior',
-          name: 'İç Detay',
-          description: 'Koltuk ve panel temizliği',
-          price: 25,
-          icon: 'sofa'
-        },
-        {
-          id: 'engine',
-          name: 'Motor Temizliği',
-          description: 'Motor bölümü temizliği',
-          price: 40,
-          icon: 'engine'
-        },
-        {
-          id: 'tire',
-          name: 'Lastik Parlatma',
-          description: 'Lastik parlatma ve temizlik',
-          price: 20,
-          icon: 'car'
-        },
-        {
-          id: 'leather',
-          name: 'Deri Temizlik',
-          description: 'Deri koltuk temizliği',
-          price: 35,
-          icon: 'sofa'
-        }
-      ];
-
-      setWashPackages(mockPackages);
-      setWashOptions(mockOptions);
+        
+        // Ek hizmetler (şimdilik boş, gelecekte backend'den gelecek)
+        setWashOptions(response.data.options || []);
+      } else {
+        console.log('⚠️ Backend\'den paket getirilemedi, varsayılan paketler gösteriliyor');
+        setWashPackages(getDefaultPackages());
+        setWashOptions([]);
+      }
     } catch (error) {
-      Alert.alert('Hata', 'Yıkama paketleri yüklenirken bir hata oluştu.');
+      console.error('❌ Yıkama paketleri yüklenemedi:', error);
+      Alert.alert('Bilgi', 'Varsayılan paketler gösteriliyor.');
+      setWashPackages(getDefaultPackages());
+      setWashOptions([]);
     } finally {
       setLoading(false);
     }
   };
+
+  // Varsayılan paketler (backend'de paket yoksa fallback)
+  const getDefaultPackages = (): WashPackage[] => [
+    {
+      id: 'basic',
+      name: 'Temel Yıkama',
+      description: 'Dış yıkama + Vakum',
+      price: 50,
+      duration: '30 dk',
+      features: ['Dış yıkama', 'Vakum', 'Kurulama'],
+      icon: 'water',
+      color: '#10B981'
+    },
+    {
+      id: 'premium',
+      name: 'Premium Yıkama',
+      description: 'Dış + İç temizlik',
+      price: 80,
+      duration: '45 dk',
+      features: ['Dış yıkama', 'İç temizlik', 'Vakum', 'Kurulama', 'Cam temizliği'],
+      icon: 'water',
+      color: '#3B82F6'
+    },
+    {
+      id: 'deluxe',
+      name: 'Deluxe Yıkama',
+      description: 'Tam detay temizlik',
+      price: 120,
+      duration: '60 dk',
+      features: ['Dış yıkama', 'İç temizlik', 'Vakum', 'Kurulama', 'Cam temizliği', 'Cila', 'Lastik parlatma'],
+      icon: 'water',
+      color: '#8B5CF6'
+    }
+  ];
 
   // Calculate total price
   useEffect(() => {

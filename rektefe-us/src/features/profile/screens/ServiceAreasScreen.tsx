@@ -132,7 +132,8 @@ export default function ServiceAreasScreen() {
 
   const saveCategories = async () => {
     try {
-      console.log('💾 SERVICE AREAS SCREEN: saveCategories called');
+      console.log('💾 SERVICE AREAS SCREEN: saveCategories called - ServiceAreasScreen');
+      console.log('💾 SERVICE AREAS SCREEN: This is the ServiceAreasScreen component');
       console.log('📋 SERVICE AREAS SCREEN: Selected categories (Frontend):', selectedCategories);
       console.log('📋 SERVICE AREAS SCREEN: Selected categories length:', selectedCategories.length);
       

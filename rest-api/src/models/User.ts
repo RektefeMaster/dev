@@ -39,6 +39,7 @@ export interface IUser extends Document {
   createdAt: Date;
   // Usta/Şöför özel alanları
   username?: string;
+  isAdmin?: boolean;
   serviceCategories?: string[];
   experience?: number;
   rating?: number;
@@ -293,6 +294,10 @@ const userSchema = new Schema<IUser>({
     },
     unique: true,
     sparse: true
+  },
+  isAdmin: {
+    type: Boolean,
+    default: false
   },
   serviceCategories: [{
     type: String,

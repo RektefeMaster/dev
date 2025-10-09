@@ -109,6 +109,7 @@ export interface Driver extends BaseUser {
 
 export interface Mechanic extends BaseUser {
   userType: 'mechanic';
+  isAdmin?: boolean;
   experience?: number;
   specialties?: string[];
   serviceCategories?: string[];
@@ -429,8 +430,20 @@ export type UpdateEntity<T> = Partial<Omit<T, '_id' | 'createdAt' | 'updatedAt'>
 
 // ===== RATING TYPES =====
 export interface RatingItem {
+  _id?: string;
   rating: number;
-  count: number;
+  count?: number;
+  comment?: string;
+  createdAt?: string | Date;
+  driverId?: string;
+  customer?: {
+    name: string;
+    surname: string;
+  };
+  appointment?: {
+    serviceType: string;
+  };
+  appointmentId?: string;
 }
 
 // ===== ADDITIONAL REQUEST/RESPONSE TYPES =====

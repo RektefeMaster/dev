@@ -2324,7 +2324,9 @@ const apiService = {
   ...BodyworkService,
   ...CarWashService,
   ...ReportService,
-  handleError: AppointmentService.handleError
+  handleError: AppointmentService.handleError,
+  // Backward compatibility aliases
+  getWashJobs: CarWashService.getCarWashJobs
 };
 
 export default apiService;

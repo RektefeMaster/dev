@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Modal, ScrollView, Switch, Alert } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -192,6 +192,53 @@ const CustomTabBar = ({ state, descriptors, navigation }: TabBarProps) => {
   const currentRoute = state.routes[state.index]?.name;
   const [unreadCount, setUnreadCount] = useState(0);
   
+  // Tab sayısına göre dinamik stil ayarları
+  const tabCount = state.routes.length;
+  const isScrollable = tabCount > 6; // 6'dan fazla tab varsa scroll yap
+  
+  const dynamicStyles = useMemo(() => {
+    // Tab sayısına göre boyutları ayarla
+    let iconSize = 22;
+    let fontSize = 10;
+    let minWidth = 70; // Scroll için sabit genişlik
+    let paddingHorizontal = spacing.sm;
+    let tabHeight = 72;
+    
+    if (isScrollable) {
+      // Scrollable mod: Sabit boyutlar
+      iconSize = 22;
+      fontSize = 10;
+      minWidth = 70;
+      paddingHorizontal = spacing.sm;
+    } else {
+      // Normal mod: Tab sayısına göre ayarla
+      if (tabCount <= 4) {
+        iconSize = 24;
+        fontSize = 11;
+        minWidth = 70;
+        paddingHorizontal = spacing.sm;
+      } else if (tabCount <= 5) {
+        iconSize = 22;
+        fontSize = 10;
+        minWidth = 65;
+        paddingHorizontal = spacing.sm;
+      } else {
+        iconSize = 20;
+        fontSize = 9.5;
+        minWidth = 58;
+        paddingHorizontal = spacing.xs;
+      }
+    }
+    
+    return {
+      iconSize,
+      fontSize,
+      minWidth,
+      paddingHorizontal,
+      tabHeight,
+    };
+  }, [tabCount, isScrollable]);
+  
   // Gerçek okunmamış mesaj sayısını al
   useEffect(() => {
     const fetchUnreadCount = async () => {
@@ -215,84 +262,105 @@ const CustomTabBar = ({ state, descriptors, navigation }: TabBarProps) => {
     return () => clearInterval(interval);
   }, []);
   
+  const tabButtons = state.routes.map((route: any, index: number) => {
+    const isFocused = state.index === index;
+    const { options } = descriptors[route.key];
+    
+    let icon = '';
+    let label = '';
+    let badge = 0;
+    
+    switch (route.name) {
+      case 'Home':
+        icon = 'home';
+        label = 'Ana Sayfa';
+        break;
+      case 'TowingService':
+        icon = 'car';
+        label = 'Çekici';
+        break;
+      case 'RepairService':
+        icon = 'construct';
+        label = 'Tamir';
+        break;
+      case 'TireService':
+        icon = 'disc';
+        label = 'Lastik';
+        break;
+      case 'TireHotel':
+        icon = 'business';
+        label = 'Oteli';
+        break;
+      case 'Bodywork':
+        icon = 'construct';
+        label = 'Kaporta';
+        break;
+      case 'CarWash':
+        icon = 'water';
+        label = 'Yıkama';
+        break;
+      case 'Messages':
+        icon = 'chatbubble';
+        label = 'Mesajlar';
+        badge = unreadCount;
+        break;
+      case 'Reports':
+        icon = 'analytics';
+        label = 'Raporlar';
+        break;
+      case 'Wallet':
+        icon = 'wallet';
+        label = 'Cüzdan';
+        break;
+      case 'Profile':
+        icon = 'person';
+        label = 'Profil';
+        break;
+    }
+
+    const onPress = () => {
+      const event = navigation.emit({
+        type: 'tabPress',
+        target: route.key,
+        canPreventDefault: true,
+      });
+
+      if (!isFocused && !event.defaultPrevented) {
+        navigation.navigate(route.name);
+      }
+    };
+
+    return (
+       <TabButton
+         key={route.key}
+         isFocused={isFocused}
+         icon={icon}
+         label={label}
+         badge={badge}
+         onPress={onPress}
+         dynamicStyles={dynamicStyles}
+         isScrollable={isScrollable}
+       />
+    );
+  });
+  
   return (
     <View style={styles.tabBarWrapper}>
-      <View style={styles.tabBarContainer}>
-        {state.routes.map((route: any, index: number) => {
-          const isFocused = state.index === index;
-          const { options } = descriptors[route.key];
-          
-          let icon = '';
-          let label = '';
-          let badge = 0;
-          
-          switch (route.name) {
-            case 'Home':
-              icon = 'home';
-              label = 'Ana Sayfa';
-              break;
-            case 'TowingService':
-              icon = 'car';
-              label = 'Çekici';
-              break;
-            case 'RepairService':
-              icon = 'construct';
-              label = 'Tamir';
-              break;
-            case 'WashService':
-              icon = 'water';
-              label = 'Yıkama';
-              break;
-            case 'TireService':
-              icon = 'disc';
-              label = 'Lastik';
-              break;
-            case 'CarWash':
-              icon = 'water';
-              label = 'Oto Yıkama';
-              break;
-            case 'Messages':
-              icon = 'chatbubble';
-              label = 'Mesajlar';
-              badge = unreadCount;
-              break;
-            case 'Reports':
-              icon = 'analytics';
-              label = 'Raporlar';
-              break;
-            case 'Wallet':
-              icon = 'wallet';
-              label = 'Cüzdan';
-              break;
-            case 'Profile':
-              icon = 'person';
-              label = 'Profil';
-              break;
-          }
-
-          const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
-
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
-            }
-          };
-
-          return (
-            <TabButton
-              key={route.key}
-              isFocused={isFocused}
-              icon={icon}
-              label={label}
-              badge={badge}
-              onPress={onPress}
-            />
-          );
-        })}
+      <View style={[styles.tabBarContainer, { height: dynamicStyles.tabHeight }]}>
+         {isScrollable ? (
+           <ScrollView
+             horizontal
+             showsHorizontalScrollIndicator={false}
+             contentContainerStyle={styles.scrollContent}
+             bounces={false}
+             style={styles.scrollView}
+             nestedScrollEnabled={false}
+           >
+             {tabButtons}
+           </ScrollView>
+         ) : (
+           tabButtons
+         )}
       </View>
     </View>
   );
@@ -304,14 +372,27 @@ interface TabButtonProps {
   label: string;
   badge: number;
   onPress: () => void;
+  dynamicStyles: {
+    iconSize: number;
+    fontSize: number;
+    minWidth: number;
+    paddingHorizontal: number;
+    tabHeight: number;
+  };
+  isScrollable: boolean;
 }
 
-const TabButton = ({ isFocused, icon, label, badge, onPress }: TabButtonProps) => {
+const TabButton = ({ isFocused, icon, label, badge, onPress, dynamicStyles, isScrollable }: TabButtonProps) => {
   return (
     <TouchableOpacity
       style={[
         styles.tabButton,
-        isFocused && styles.activeTabButton
+        isFocused && styles.activeTabButton,
+         {
+           paddingHorizontal: dynamicStyles.paddingHorizontal,
+           minWidth: dynamicStyles.minWidth,
+           flex: isScrollable ? 0 : 1, // Scrollable ise flex kullanma
+         }
       ]}
       onPress={onPress}
       activeOpacity={0.7}
@@ -319,8 +400,8 @@ const TabButton = ({ isFocused, icon, label, badge, onPress }: TabButtonProps) =
       <View style={styles.iconContainer}>
         <Ionicons 
           name={icon as any} 
-          size={22} 
-            color={isFocused ? colors.primary.main : colors.text.tertiary}
+          size={dynamicStyles.iconSize} 
+          color={isFocused ? colors.primary.main : colors.text.tertiary}
         />
         {badge > 0 && (
           <View style={styles.badge}>
@@ -330,10 +411,20 @@ const TabButton = ({ isFocused, icon, label, badge, onPress }: TabButtonProps) =
           </View>
         )}
       </View>
-      <Text style={[
-        styles.tabLabel,
-        isFocused && styles.activeTabLabel
-      ]}>
+      <Text 
+        style={[
+          styles.tabLabel,
+          isFocused && styles.activeTabLabel,
+          { 
+            fontSize: dynamicStyles.fontSize,
+            maxWidth: dynamicStyles.minWidth - 8, // Padding için yer bırak
+          }
+        ]}
+        numberOfLines={2}
+        adjustsFontSizeToFit={true}
+        minimumFontScale={0.7}
+        ellipsizeMode="tail"
+      >
         {label}
       </Text>
       {isFocused && (
@@ -358,7 +449,7 @@ const TabNavigator = () => {
       return 'TowingService';
     }
     if (userCapabilities.includes('arac-yikama') || userCapabilities.includes('wash') || userCapabilities.includes('Yıkama Hizmeti')) {
-      return 'WashService';
+      return 'CarWash';
     }
     if (userCapabilities.includes('lastik') || userCapabilities.includes('tire') || userCapabilities.includes('Lastik & Parça')) {
       return 'TireService';
@@ -407,19 +498,6 @@ const TabNavigator = () => {
 
       {/* Tamir & Bakım için RepairService tab'ı yok - varsayılan Home ekranını kullanıyor */}
 
-      {(userCapabilities.includes('arac-yikama') || userCapabilities.includes('wash')) && (
-        <Tab.Screen 
-          name="WashService" 
-          component={require('../features/services/screens/WashServiceScreen').default}
-          options={{
-            title: 'Yıkama',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="water" size={size} color={color} />
-            ),
-          }}
-        />
-      )}
-
       {(userCapabilities.includes('lastik') || userCapabilities.includes('tire')) && (
         <Tab.Screen 
           name="TireService" 
@@ -438,7 +516,7 @@ const TabNavigator = () => {
           name="TireHotel" 
           component={require('../features/tire-hotel/screens/TireHotelScreen').default}
           options={{
-            title: 'Lastik Oteli',
+            title: 'Oteli',
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="business" size={size} color={color} />
             ),
@@ -446,12 +524,12 @@ const TabNavigator = () => {
         />
       )}
 
-      {(userCapabilities.includes('kaporta') || userCapabilities.includes('kaporta-boya') || userCapabilities.includes('tamir-bakim')) && (
+      {(userCapabilities.includes('kaporta') || userCapabilities.includes('kaporta-boya') || userCapabilities.includes('bodywork')) && (
         <Tab.Screen 
           name="Bodywork" 
           component={require('../features/bodywork/screens/BodyworkScreen').default}
           options={{
-            title: 'Kaporta/Boya',
+            title: 'Kaporta',
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="construct" size={size} color={color} />
             ),
@@ -459,12 +537,12 @@ const TabNavigator = () => {
         />
       )}
 
-      {(userCapabilities.includes('arac-yikama') || userCapabilities.includes('car-wash')) && (
+      {(user?.email === 'testus@gmail.com' || userCapabilities.includes('arac-yikama') || userCapabilities.includes('car-wash') || userCapabilities.includes('wash')) && (
         <Tab.Screen
           name="CarWash"
           component={require('../features/carwash/screens/CarWashScreen').default}
           options={{
-            title: 'Oto Yıkama',
+            title: 'Yıkama',
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="water" size={size} color={color} />
             ),
@@ -547,7 +625,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    height: 72,
     borderRadius: borderRadius.xl,
     backgroundColor: colors.background.primary,
     ...shadows.large,
@@ -559,12 +636,11 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   tabButton: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
     minHeight: 60,
+    maxHeight: 68, // Maksimum yükseklik sınırı
     borderRadius: borderRadius.lg,
     position: 'relative',
   },
@@ -597,16 +673,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   tabLabel: {
-    fontSize: 11,
     color: colors.text.tertiary,
     textAlign: 'center',
     fontWeight: '500',
     marginTop: spacing.xs,
+    flexWrap: 'wrap',
   },
-    activeTabLabel: {
-      color: colors.primary.main,
-      fontWeight: '600',
-    },
+  activeTabLabel: {
+    color: colors.primary.main,
+    fontWeight: '600',
+  },
   activeIndicator: {
     position: 'absolute',
     bottom: -spacing.xs,
@@ -614,6 +690,15 @@ const styles = StyleSheet.create({
     height: 2,
     backgroundColor: colors.primary.main,
     borderRadius: borderRadius.xs,
+  },
+  scrollView: {
+    flex: 1,
+    maxHeight: '100%', // TabBar yüksekliğini aşmasın
+  },
+  scrollContent: {
+    alignItems: 'center',
+    paddingHorizontal: spacing.xs,
+    flexGrow: 0, // Dikey genişleme yapmasın
   },
 
   // Hamburger Menu Styles

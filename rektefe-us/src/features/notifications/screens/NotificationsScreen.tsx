@@ -21,6 +21,7 @@ import { useAuth } from '@/shared/context';
 import { colors, spacing, borderRadius, shadows, typography } from '@/shared/theme';
 import apiService from '@/shared/services';
 import { BackButton } from '@/shared/components';
+import { getServiceCategory, getNotificationTypeText } from '@/shared/utils/serviceTypeHelpers';
 
 const { width } = Dimensions.get('window');
 
@@ -71,9 +72,19 @@ const getNotificationColor = (type: string): string => {
   return colorMap[type] || colorMap.default;
 };
 
-const getNotificationCategory = (type: string): string => {
+const getNotificationCategory = (type: string, serviceCategories?: string[]): string => {
+  const serviceCategory = getServiceCategory(serviceCategories);
+  
+  // Hizmet türüne göre özelleştirilmiş kategoriler
+  if (type === 'appointment') {
+    return getNotificationTypeText(serviceCategory, 'appointment');
+  }
+  if (type === 'fault_report') {
+    return getNotificationTypeText(serviceCategory, 'fault_report');
+  }
+  
+  // Genel kategoriler
   const categoryMap: { [key: string]: string } = {
-    appointment: 'Randevu',
     payment: 'Ödeme',
     message: 'Mesaj',
     system: 'Sistem',
@@ -237,7 +248,7 @@ export default function NotificationsScreen({ navigation }: any) {
       filtered = filtered.filter(n => 
         n.title.toLowerCase().includes(query) ||
         n.message.toLowerCase().includes(query) ||
-        getNotificationCategory(n.type).toLowerCase().includes(query)
+        getNotificationCategory(n.type, user?.serviceCategories).toLowerCase().includes(query)
       );
     }
     
@@ -289,7 +300,7 @@ export default function NotificationsScreen({ navigation }: any) {
     const isUnread = !item.read && !item.isRead;
     const iconName = getNotificationIcon(item.type);
     const iconColor = getNotificationColor(item.type);
-    const category = getNotificationCategory(item.type);
+    const category = getNotificationCategory(item.type, user?.serviceCategories);
     const timeText = formatNotificationTime(item.createdAt);
     
     return (
@@ -500,7 +511,7 @@ export default function NotificationsScreen({ navigation }: any) {
                       {selectedNotification.title}
                     </Text>
                     <Text style={styles.modalNotificationCategory}>
-                      {getNotificationCategory(selectedNotification.type)}
+                      {getNotificationCategory(selectedNotification.type, user?.serviceCategories)}
                     </Text>
                     <Text style={styles.modalNotificationTime}>
                       {formatNotificationTime(selectedNotification.createdAt)}

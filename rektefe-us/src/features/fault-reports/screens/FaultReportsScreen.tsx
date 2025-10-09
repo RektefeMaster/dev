@@ -18,6 +18,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/shared/context';
 import apiService from '@/shared/services';
+import { getServiceCategory, getNotificationTypeText } from '@/shared/utils/serviceTypeHelpers';
 
 const { width } = Dimensions.get('window');
 
@@ -337,6 +338,10 @@ const FaultReportsScreen: React.FC = () => {
     </TouchableOpacity>
   );
 
+  // Hizmet kategorisine göre başlık
+  const serviceCategory = getServiceCategory(user?.serviceCategories);
+  const faultReportTitle = getNotificationTypeText(serviceCategory, 'fault_report');
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -354,7 +359,7 @@ const FaultReportsScreen: React.FC = () => {
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Arıza Bildirimleri</Text>
+          <Text style={styles.headerTitle}>{faultReportTitle}</Text>
           <Text style={styles.headerSubtitle}>
             {filteredReports.length} bildirim
           </Text>

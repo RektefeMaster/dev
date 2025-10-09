@@ -132,7 +132,13 @@ const AppNavigator = () => {
         <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
-        <Stack.Screen name="Main" component={TabNavigator} />
+        <Stack.Screen 
+          name="Main" 
+          component={TabNavigator}
+          options={{
+            gestureEnabled: false, // Sola kaydırma ile geri gitmeyi engelle
+          }}
+        />
         <Stack.Screen name="ChatScreen" component={ChatScreen} />
         <Stack.Screen name="NewMessage" component={NewMessageScreen} />
         <Stack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} />
