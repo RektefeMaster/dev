@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { useAuth } from '../../../shared/context/SharedAuthContext';
-import { RootStackParamList } from '../../../shared/types';
+import { useSharedAuth } from '../shared/context/SharedAuthContext';
+import { RootStackParamList } from '../shared/types/common';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '@/constants/config';
 
@@ -41,7 +41,7 @@ import { ReviewsScreen } from '@/features/reviews/screens';
 const Stack = createStackNavigator<RootStackParamList>();
 
 const AppNavigator = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading } = useSharedAuth();
   const [initialRoute, setInitialRoute] = useState<string | null>(null);
   const [isCheckingRoute, setIsCheckingRoute] = useState(true);
   const navigationRef = useRef<any>(null);

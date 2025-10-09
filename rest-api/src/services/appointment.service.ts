@@ -143,7 +143,7 @@ export class AppointmentService {
         finalPrice: faultReportPrice, // Nihai fiyat
         priceSource: priceSource, // Fiyat kaynağı
         status: 'TALEP_EDILDI',
-        paymentStatus: data.paymentStatus || 'pending',
+        paymentStatus: data.paymentStatus || PaymentStatus.PENDING,
         shareContactInfo: data.shareContactInfo || false,
         isShopAppointment: data.isShopAppointment || false, // Ustanın kendi eklediği randevu mu?
         notificationSettings: data.notificationSettings || {

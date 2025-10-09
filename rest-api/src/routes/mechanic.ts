@@ -12,6 +12,7 @@ import { Message } from '../models/Message'; // Added Message import for debug
 import { Notification } from '../models/Notification'; // Added Notification import for debug
 import { AppointmentStatus, PaymentStatus } from '../../../shared/types/enums';
 import { ResponseHandler } from '../utils/response';
+import { Types } from 'mongoose';
 
 const router = Router();
 
@@ -186,14 +187,137 @@ router.get('/wallet/transactions', auth, async (req: Request, res: Response) => 
       return res.status(401).json({ success: false, message: 'Kullanıcı ID bulunamadı' });
     }
 
-    const wallet = await Wallet.findOne({ userId });
-    if (!wallet) {
-      return res.status(404).json({ success: false, message: 'Cüzdan bulunamadı' });
-    }
-
-    res.json({ success: true, data: wallet.transactions });
+    const limit = parseInt(req.query.limit as string) || 10;
+    
+    // Gerçek randevu verilerinden işlemleri getir
+    const appointments = await Appointment.find({
+      mechanicId: new Types.ObjectId(userId),
+      status: 'TAMAMLANDI'
+    })
+    .populate('userId', 'name surname')
+    .populate('vehicleId', 'brand modelName plateNumber')
+    .sort({ completionDate: -1 })
+    .limit(limit);
+    
+    // Transaction formatına dönüştür
+    const transactions = appointments.map((apt: any) => ({
+      _id: apt._id.toString(),
+      type: 'credit',
+      amount: apt.price || 0,
+      date: apt.completionDate || apt.appointmentDate,
+      description: apt.serviceType || 'Hizmet',
+      serviceType: apt.serviceType || 'Hizmet',
+      customerName: apt.userId ? `${apt.userId.name || ''} ${apt.userId.surname || ''}`.trim() : 'Müşteri',
+      vehicleInfo: apt.vehicleId 
+        ? `${apt.vehicleId.brand || ''} ${apt.vehicleId.modelName || ''} (${apt.vehicleId.plateNumber || ''})`.trim()
+        : 'Araç bilgisi yok',
+      status: 'completed',
+      appointmentId: apt._id.toString()
+    }));
+    
+    res.json({ success: true, data: transactions });
   } catch (error: any) {
+    console.error('❌ Transactions error:', error);
     res.status(500).json({ success: false, message: 'İşlemler alınamadı' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/mechanic/earnings-summary:
+ *   get:
+ *     summary: Mekanik kazanç özetini getir
+ *     description: Giriş yapan mekaniğin dönem bazlı kazanç özetini getirir
+ *     tags:
+ *       - Mechanic
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [thisMonth, lastMonth, allTime]
+ *         description: Kazanç dönemi
+ *     responses:
+ *       200:
+ *         description: Kazanç özeti başarıyla getirildi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.get('/earnings-summary', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const period = req.query.period as string || 'thisMonth';
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Kullanıcı ID bulunamadı'
+      });
+    }
+    
+    // Tarih aralıklarını belirle
+    const now = new Date();
+    let startDate: Date;
+    let endDate: Date = new Date();
+    
+    if (period === 'thisMonth') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else if (period === 'lastMonth') {
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+    } else { // allTime
+      startDate = new Date(2020, 0, 1);
+    }
+    
+    // Tamamlanan randevuları getir
+    const completedAppointments = await Appointment.find({
+      mechanicId: new Types.ObjectId(userId),
+      status: 'TAMAMLANDI',
+      appointmentDate: { $gte: startDate, $lte: endDate }
+    });
+    
+    // Bekleyen randevuları getir
+    const pendingAppointments = await Appointment.find({
+      mechanicId: new Types.ObjectId(userId),
+      status: { $in: ['ONAYLANDI', 'BEKLEMEDE'] }
+    });
+    
+    // Tüm zamanlar için toplam kazanç
+    const allTimeAppointments = await Appointment.find({
+      mechanicId: new Types.ObjectId(userId),
+      status: 'TAMAMLANDI'
+    });
+    
+    // Hesaplamalar
+    const totalEarnings = completedAppointments.reduce((sum, apt) => sum + (apt.price || 0), 0);
+    const totalJobs = completedAppointments.length;
+    const averageEarnings = totalJobs > 0 ? Math.round(totalEarnings / totalJobs) : 0;
+    const pendingPayments = pendingAppointments.reduce((sum, apt) => sum + (apt.price || 0), 0);
+    const allTimeTotal = allTimeAppointments.reduce((sum, apt) => sum + (apt.price || 0), 0);
+    
+    res.json({
+      success: true,
+      data: {
+        totalEarnings,
+        totalJobs,
+        averageEarnings,
+        pendingPayments,
+        allTimeTotal,
+        period
+      },
+      message: 'Kazanç özeti başarıyla getirildi'
+    });
+  } catch (error: any) {
+    console.error('❌ Earnings summary error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Kazanç özeti alınamadı',
+      error: error.message
+    });
   }
 });
 

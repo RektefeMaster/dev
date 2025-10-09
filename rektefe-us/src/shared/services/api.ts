@@ -370,7 +370,7 @@ export const AppointmentService = {
    */
   async getAppointmentDetails(id: string): Promise<ApiResponse<{ appointment: any }>> {
     try {
-      const response = await apiClient.get(`/api/appointments/${id}`);
+      const response = await apiClient.get(`/appointments/${id}`);
       return response.data;
     } catch (error: any) {
       console.error('Get appointment details error:', error);
@@ -387,7 +387,7 @@ export const AppointmentService = {
    */
   async updateAppointment(id: string, data: Partial<AppointmentData>): Promise<ApiResponse<{ appointment: any }>> {
     try {
-      const response = await apiClient.put(`/api/appointments/${id}`, data);
+      const response = await apiClient.put(`/appointments/${id}`, data);
       return response.data;
     } catch (error: any) {
       console.error('Update appointment error:', error);
@@ -404,7 +404,7 @@ export const AppointmentService = {
    */
   async updateAppointmentStatus(id: string, status: AppointmentStatus): Promise<ApiResponse<{ appointment: any }>> {
     try {
-      const response = await apiClient.put(`/api/appointments/${id}/status`, { status });
+      const response = await apiClient.put(`/appointments/${id}/status`, { status });
       return response.data;
     } catch (error: any) {
       console.error('Update appointment status error:', error);
@@ -421,7 +421,7 @@ export const AppointmentService = {
    */
   async acceptAppointment(id: string): Promise<ApiResponse<{ appointment: any }>> {
     try {
-      const response = await apiClient.put(`/api/appointments/${id}/accept`);
+      const response = await apiClient.put(`/appointments/${id}/accept`);
       return response.data;
     } catch (error: any) {
       console.error('Accept appointment error:', error);
@@ -438,7 +438,7 @@ export const AppointmentService = {
    */
   async rejectAppointment(id: string, reason?: string): Promise<ApiResponse<{ appointment: any }>> {
     try {
-      const response = await apiClient.put(`/api/appointments/${id}/reject`, { reason });
+      const response = await apiClient.put(`/appointments/${id}/reject`, { reason });
       return response.data;
     } catch (error: any) {
       console.error('Reject appointment error:', error);
@@ -481,7 +481,7 @@ export const AppointmentService = {
 
   async getAppointmentById(id: string): Promise<ApiResponse<{ appointment: any }>> {
     try {
-      const response = await apiClient.get(`/api/appointments/${id}`);
+      const response = await apiClient.get(`/appointments/${id}`);
       return response.data;
     } catch (error: any) {
       console.error('Get appointment by ID error:', error);
@@ -491,7 +491,7 @@ export const AppointmentService = {
 
   async approveAppointment(id: string, data?: any): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post(`/api/appointments/${id}/approve`, data);
+      const response = await apiClient.post(`/appointments/${id}/approve`, data);
       return response.data;
     } catch (error: any) {
       console.error('Approve appointment error:', error);
@@ -501,7 +501,7 @@ export const AppointmentService = {
 
   async updateJobStatus(id: string, status: string, notes?: string): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.put(`/api/appointments/${id}/job-status`, { status, notes });
+      const response = await apiClient.put(`/appointments/${id}/job-status`, { status, notes });
       return response.data;
     } catch (error: any) {
       console.error('Update job status error:', error);
@@ -511,7 +511,7 @@ export const AppointmentService = {
 
   async referJob(id: string, mechanicId?: string, notes?: string): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post(`/api/appointments/${id}/refer`, { mechanicId, notes });
+      const response = await apiClient.post(`/appointments/${id}/refer`, { mechanicId, notes });
       return response.data;
     } catch (error: any) {
       console.error('Refer job error:', error);
@@ -521,7 +521,7 @@ export const AppointmentService = {
 
   async sendCustomerApproval(id: string, items?: any[], totalAmount?: number, notes?: string): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post(`/api/appointments/${id}/customer-approval`, { items, totalAmount, notes });
+      const response = await apiClient.post(`/appointments/${id}/customer-approval`, { items, totalAmount, notes });
       return response.data;
     } catch (error: any) {
       console.error('Send customer approval error:', error);
@@ -531,7 +531,7 @@ export const AppointmentService = {
 
   async getJobStory(id: string): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get(`/api/appointments/${id}/job-story`);
+      const response = await apiClient.get(`/appointments/${id}/job-story`);
       return response.data;
     } catch (error: any) {
       console.error('Get job story error:', error);
@@ -549,7 +549,7 @@ export const AppointmentService = {
       } as any);
       if (caption) formData.append('caption', caption);
 
-      const response = await apiClient.post(`/api/appointments/${id}/job-story/photo`, formData, {
+      const response = await apiClient.post(`/appointments/${id}/job-story/photo`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       return response.data;
@@ -561,7 +561,7 @@ export const AppointmentService = {
 
   async deleteJobStoryPhoto(id: string, photoId: string): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.delete(`/api/appointments/${id}/job-story/photo/${photoId}`);
+      const response = await apiClient.delete(`/appointments/${id}/job-story/photo/${photoId}`);
       return response.data;
     } catch (error: any) {
       console.error('Delete job story photo error:', error);
@@ -591,7 +591,7 @@ export const AppointmentService = {
 
   async checkCustomerLoyalty(customerId: string): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get(`/api/customers/${customerId}/loyalty`);
+      const response = await apiClient.get(`/customers/${customerId}/loyalty`);
       return response.data;
     } catch (error: any) {
       console.error('Check customer loyalty error:', error);
@@ -601,7 +601,7 @@ export const AppointmentService = {
 
   async updateAppointmentPriceIncrease(id: string, amount?: number, reason?: string): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.put(`/api/appointments/${id}/price-increase`, { amount, reason });
+      const response = await apiClient.put(`/appointments/${id}/price-increase`, { amount, reason });
       return response.data;
     } catch (error: any) {
       console.error('Update price increase error:', error);
@@ -629,7 +629,7 @@ export const AppointmentService = {
 
   async getRecentRatings(): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get('/mechanic/ratings/recent');
+      const response = await apiClient.get('/ratings/current/recent');
       return response.data;
     } catch (error: any) {
       // Cancel edilen istekleri handle et (error logging yapma)
@@ -643,7 +643,7 @@ export const AppointmentService = {
 
   async getRatingStats(): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get('/mechanic/ratings/stats');
+      const response = await apiClient.get('/ratings/current/stats');
       return response.data;
     } catch (error: any) {
       // Cancel edilen istekleri handle et (error logging yapma)
@@ -870,6 +870,53 @@ export const EarningsService = {
         error.response?.data?.error?.details
       );
     }
+  },
+
+  /**
+   * Usta kazançlarını getir (Reports için)
+   */
+  async getMechanicEarnings(): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get('/mechanic/wallet');
+      if (response.data.success && response.data.data) {
+        const wallet = response.data.data;
+        // Wallet verisini earnings formatına dönüştür
+        return createSuccessResponse({
+          thisMonth: wallet.balance || 0,
+          completedJobs: 0, // Bu bilgi appointment'lardan gelmeli
+          averagePerJob: 0,
+          pendingPayments: wallet.pendingAmount || 0,
+          allTime: wallet.totalEarnings || 0
+        });
+      }
+      return response.data;
+    } catch (error: any) {
+      console.error('Get mechanic earnings error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Kazanç bilgileri alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Gerçek appointment verilerine dayalı kazanç özeti getir
+   */
+  async getEarningsSummaryByPeriod(period: 'thisMonth' | 'lastMonth' | 'allTime' = 'thisMonth'): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get('/mechanic/earnings-summary', {
+        params: { period }
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get earnings summary by period error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Kazanç özeti alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
   }
 };
 
@@ -881,7 +928,7 @@ export const MessageService = {
    */
   async getMessages(conversationId: string): Promise<ApiResponse<{ messages: MessageData[] }>> {
     try {
-      const response = await apiClient.get(`/api/message/conversations/${conversationId}/messages`);
+      const response = await apiClient.get(`/message/conversations/${conversationId}/messages`);
       return response.data;
     } catch (error: any) {
       console.error('Get messages error:', error);
@@ -898,7 +945,7 @@ export const MessageService = {
    */
   async getConversationMessages(conversationId: string, page: number = 1, limit: number = 50): Promise<ApiResponse<MessageData[]>> {
     try {
-      const response = await apiClient.get(`/api/message/conversations/${conversationId}/messages`, {
+      const response = await apiClient.get(`/message/conversations/${conversationId}/messages`, {
         params: { page, limit }
       });
       return response.data;
@@ -958,7 +1005,7 @@ export const MessageService = {
    */
   async deleteConversation(conversationId: string): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.delete(`/api/message/conversations/${conversationId}`);
+      const response = await apiClient.delete(`/message/conversations/${conversationId}`);
       return response.data;
     } catch (error: any) {
       console.error('Delete conversation error:', error);
@@ -1035,7 +1082,7 @@ export const NotificationService = {
    */
   async markAsRead(id: string): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.put(`/api/notifications/${id}/read`);
+      const response = await apiClient.put(`/notifications/${id}/read`);
       return response.data;
     } catch (error: any) {
       console.error('Mark notification as read error:', error);
@@ -1077,7 +1124,7 @@ export const CustomerService = {
 
   async getCustomerDetails(customerId: string): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get(`/api/customers/${customerId}`);
+      const response = await apiClient.get(`/customers/${customerId}`);
       return response.data;
     } catch (error: any) {
       console.error('Get customer details error:', error);
@@ -1087,7 +1134,7 @@ export const CustomerService = {
 
   async addCustomerNote(customerId: string, note: string): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post(`/api/customers/${customerId}/notes`, { note });
+      const response = await apiClient.post(`/customers/${customerId}/notes`, { note });
       return response.data;
     } catch (error: any) {
       console.error('Add customer note error:', error);
@@ -1102,9 +1149,9 @@ export const FaultReportService = {
   /**
    * Ustanın arıza raporlarını getir
    */
-  async getMechanicFaultReports(statusFilter?: string): Promise<ApiResponse<{ faultReports: any[] }>> {
+  async getMechanicFaultReports(statusFilter?: string): Promise<ApiResponse<any[] | { faultReports: any[] }>> {
     try {
-      const url = statusFilter ? `/api/fault-reports/mechanic/reports?status=${statusFilter}` : '/fault-reports/mechanic/reports';
+      const url = statusFilter ? `/fault-reports/mechanic/reports?status=${statusFilter}` : '/fault-reports/mechanic/reports';
       const response = await apiClient.get(url);
       return response.data;
     } catch (error: any) {
@@ -1118,11 +1165,11 @@ export const FaultReportService = {
   },
 
   /**
-   * Arıza raporu detayı getir
+   * Arıza raporu detayı getir (Mechanic için)
    */
   async getFaultReportById(id: string): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get(`/api/fault-reports/${id}`);
+      const response = await apiClient.get(`/fault-reports/mechanic/${id}`);
       return response.data;
     } catch (error: any) {
       console.error('Get fault report by ID error:', error);
@@ -1131,7 +1178,7 @@ export const FaultReportService = {
   },
 
   /**
-   * Arıza raporu için teklif gönder
+   * Arıza raporu için teklif gönder (Mechanic)
    */
   async submitQuote(faultReportId: string, quoteData: {
     quoteAmount: number;
@@ -1139,7 +1186,7 @@ export const FaultReportService = {
     notes: string;
   }): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.post(`/api/fault-reports/${faultReportId}/quote`, quoteData);
+      const response = await apiClient.post(`/fault-reports/${faultReportId}/quote`, quoteData);
       return response.data;
     } catch (error: any) {
       console.error('Submit quote error:', error);
@@ -1156,7 +1203,7 @@ export const FaultReportService = {
    */
   async submitMechanicResponse(id: string, response: any): Promise<ApiResponse<any>> {
     try {
-      const apiResponse = await apiClient.post(`/api/fault-reports/${id}/mechanic-response`, response);
+      const apiResponse = await apiClient.post(`/fault-reports/${id}/response`, response);
       return apiResponse.data;
     } catch (error: any) {
       console.error('Submit mechanic response error:', error);
@@ -1169,7 +1216,7 @@ export const FaultReportService = {
    */
   async finalizeWork(id: string, finalData: any): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post(`/api/fault-reports/${id}/finalize`, finalData);
+      const response = await apiClient.post(`/fault-reports/${id}/finalize`, finalData);
       return response.data;
     } catch (error: any) {
       console.error('Finalize work error:', error);
@@ -1181,11 +1228,11 @@ export const FaultReportService = {
 // ===== EMERGENCY SERVICES =====
 export const EmergencyService = {
   /**
-   * Acil çekici taleplerini getir
+   * Acil çekici taleplerini getir (Mechanic için)
    */
   async getEmergencyTowingRequests(status?: string): Promise<ApiResponse<any>> {
     try {
-      const url = status ? `/api/emergency/towing?status=${status}` : '/emergency/towing';
+      const url = status ? `/emergency/mechanic/emergency-requests?status=${status}` : '/emergency/mechanic/emergency-requests';
       const response = await apiClient.get(url);
       return response.data;
     } catch (error: any) {
@@ -1195,11 +1242,11 @@ export const EmergencyService = {
   },
 
   /**
-   * Acil çekici talebine yanıt ver
+   * Acil çekici talebine yanıt ver (Mechanic)
    */
   async respondToEmergencyTowingRequest(id: string, responseData: any): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post(`/api/emergency/towing/${id}/respond`, responseData);
+      const response = await apiClient.post('/emergency/mechanic-response', { requestId: id, ...responseData });
       return response.data;
     } catch (error: any) {
       console.error('Respond to emergency towing request error:', error);
@@ -1388,9 +1435,32 @@ export const WalletService = {
   /**
    * Usta cüzdan bilgilerini getir
    */
-  async getMechanicWallet(): Promise<ApiResponse<{ balance: number; totalEarnings: number; pendingAmount: number }>> {
+  async getMechanicWallet(): Promise<ApiResponse<{ balance: number; totalEarnings: number; pendingAmount: number; thisMonthEarnings: number }>> {
     try {
-      const response = await apiClient.get('/wallet/balance');
+      const response = await apiClient.get('/mechanic/wallet');
+      if (response.data.success && response.data.data) {
+        const wallet = response.data.data;
+        // Wallet modelinden gelen veriyi dönüştür
+        const now = new Date();
+        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const thisMonthTransactions = wallet.transactions?.filter((t: any) => 
+          t.type === 'credit' && new Date(t.createdAt) >= firstDayOfMonth
+        ) || [];
+        const thisMonthEarnings = thisMonthTransactions.reduce((sum: number, t: any) => sum + t.amount, 0);
+        
+        const totalEarnings = wallet.transactions?.filter((t: any) => t.type === 'credit')
+          .reduce((sum: number, t: any) => sum + t.amount, 0) || 0;
+        
+        const pendingAmount = wallet.transactions?.filter((t: any) => t.status === 'pending')
+          .reduce((sum: number, t: any) => sum + t.amount, 0) || 0;
+
+        return createSuccessResponse({
+          balance: wallet.balance || 0,
+          totalEarnings,
+          pendingAmount,
+          thisMonthEarnings
+        });
+      }
       return response.data;
     } catch (error: any) {
       // Cancel edilen istekleri handle et (error logging yapma)
@@ -1409,11 +1479,19 @@ export const WalletService = {
   /**
    * Cüzdan işlemlerini getir
    */
-  async getWalletTransactions(limit: number = 10): Promise<ApiResponse<{ transactions: any[] }>> {
+  async getWalletTransactions(limit: number = 10): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get('/wallet/transactions', {
+      const response = await apiClient.get('/mechanic/wallet/transactions', {
         params: { limit }
       });
+      // Backend'den gelen veri zaten transactions array'i, doğru formatta return et
+      if (response.data.success && Array.isArray(response.data.data)) {
+        const transactions = response.data.data.slice(0, limit);
+        return {
+          ...response.data,
+          data: transactions
+        } as ApiResponse<any>;
+      }
       return response.data;
     } catch (error: any) {
       console.error('Get wallet transactions error:', error);
@@ -1442,6 +1520,26 @@ export const WalletService = {
         'Para çekme talebi gönderilemedi',
         error.response?.data?.error?.details
       );
+    }
+  },
+
+  /**
+   * Son işlemleri getir (alias for getWalletTransactions)
+   */
+  async getRecentTransactions(limit: number = 10): Promise<ApiResponse<{ transactions: any[] }>> {
+    return this.getWalletTransactions(limit);
+  },
+
+  /**
+   * Wallet debug bilgisi (development için)
+   */
+  async getWalletDebugInfo(): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get('/mechanic/wallet/debug');
+      return response.data;
+    } catch (error: any) {
+      console.log('Wallet debug info not available');
+      return createSuccessResponse({ message: 'Debug endpoint not available' });
     }
   }
 };
@@ -1486,7 +1584,7 @@ const TireHotelService = {
    */
   async findTireSetByBarcode(barcode: string): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get(`/api/tire-storage/find/${barcode}`);
+      const response = await apiClient.get(`/tire-storage/find/${barcode}`);
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Find tire set error:', error);
@@ -1503,7 +1601,7 @@ const TireHotelService = {
    */
   async retrieveTireSet(tireStorageId: string): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.put(`/api/tire-storage/retrieve/${tireStorageId}`);
+      const response = await apiClient.put(`/tire-storage/retrieve/${tireStorageId}`);
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Retrieve tire set error:', error);
@@ -1660,7 +1758,7 @@ const BodyworkService = {
     validityDays?: number;
   }): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post(`/api/bodywork/${jobId}/prepare-quote`, quoteData);
+      const response = await apiClient.post(`/bodywork/${jobId}/prepare-quote`, quoteData);
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Prepare quote error:', error);
@@ -1677,7 +1775,7 @@ const BodyworkService = {
    */
   async sendQuote(jobId: string): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post(`/api/bodywork/${jobId}/send-quote`);
+      const response = await apiClient.post(`/bodywork/${jobId}/send-quote`);
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Send quote error:', error);
@@ -1700,7 +1798,7 @@ const BodyworkService = {
     assignedTo?: string;
   }): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.put(`/api/bodywork/${jobId}/workflow-stage`, stageData);
+      const response = await apiClient.put(`/bodywork/${jobId}/workflow-stage`, stageData);
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Update workflow stage error:', error);
@@ -1717,7 +1815,7 @@ const BodyworkService = {
    */
   async requestCustomerApproval(jobId: string, stage: string, photos?: string[]): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post(`/api/bodywork/${jobId}/request-approval`, {
+      const response = await apiClient.post(`/bodywork/${jobId}/request-approval`, {
         stage,
         photos
       });
@@ -1743,7 +1841,7 @@ const BodyworkService = {
     notes?: string;
   }): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post(`/api/bodywork/${jobId}/quality-check`, qualityData);
+      const response = await apiClient.post(`/bodywork/${jobId}/quality-check`, qualityData);
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Perform quality check error:', error);
@@ -1778,7 +1876,7 @@ const BodyworkService = {
    */
   async getBodyworkJobById(jobId: string): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get(`/api/bodywork/${jobId}`);
+      const response = await apiClient.get(`/bodywork/${jobId}`);
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Get bodywork job error:', error);
@@ -1974,7 +2072,7 @@ const CarWashService = {
    */
   async startCarWashJob(jobId: string): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post(`/api/carwash/jobs/${jobId}/start`);
+      const response = await apiClient.post(`/carwash/jobs/${jobId}/start`);
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Start car wash job error:', error);
@@ -1991,7 +2089,7 @@ const CarWashService = {
    */
   async completeCarWashService(jobId: string, serviceName: string, photos?: string[], notes?: string): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post(`/api/carwash/jobs/${jobId}/services/${serviceName}/complete`, {
+      const response = await apiClient.post(`/carwash/jobs/${jobId}/services/${serviceName}/complete`, {
         photos,
         notes
       });
@@ -2018,7 +2116,7 @@ const CarWashService = {
     customerFeedback?: string;
   }): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post(`/api/carwash/jobs/${jobId}/complete`, qualityData);
+      const response = await apiClient.post(`/carwash/jobs/${jobId}/complete`, qualityData);
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Complete car wash job error:', error);
@@ -2056,7 +2154,7 @@ const CarWashService = {
    */
   async getCarWashJobById(jobId: string): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get(`/api/carwash/jobs/${jobId}`);
+      const response = await apiClient.get(`/carwash/jobs/${jobId}`);
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Get car wash job error:', error);
@@ -2125,6 +2223,28 @@ const CarWashService = {
   }
 };
 
+// ===== REPORT SERVICES =====
+export const ReportService = {
+  /**
+   * Günlük rapor getir
+   */
+  async getEndOfDayReport(date: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get('/end-of-day/report', { 
+        params: { date } 
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get end of day report error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Günlük rapor alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  }
+};
+
 // ===== EXPORT ALL SERVICES =====
 
 const apiService = {
@@ -2142,10 +2262,12 @@ const apiService = {
   TireHotelService,
   BodyworkService,
   CarWashService,
+  ReportService,
   // Spread all service methods to top level for backward compatibility
   ...AuthService,
   ...AppointmentService,
   ...ProfileService,
+  ...EarningsService,
   ...MessageService,
   ...CustomerService,
   ...NotificationService,
@@ -2155,6 +2277,7 @@ const apiService = {
   ...TireHotelService,
   ...BodyworkService,
   ...CarWashService,
+  ...ReportService,
   handleError: AppointmentService.handleError
 };
 

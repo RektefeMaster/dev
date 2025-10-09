@@ -21,7 +21,7 @@ import * as Location from 'expo-location';
 
 import { typography, spacing, borderRadius, shadows, dimensions } from '@shared/theme';
 import { Button, Input, Card } from '@shared/components';
-import { useAuth } from '../../../../../shared/context/SharedAuthContext';
+import { useAuth } from '@/shared/context';
 import { useTheme } from '@shared/context';
 import { STORAGE_KEYS } from '@/constants/config';
 

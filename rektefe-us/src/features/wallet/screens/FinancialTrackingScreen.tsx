@@ -5,7 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   RefreshControl,
-  FlatList,
+  ScrollView,
   Alert,
   StatusBar,
   Dimensions,
@@ -13,9 +13,10 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
-import { colors, spacing, borderRadius, shadows } from '@/shared/theme';
-import { BackButton } from '@/shared/components';
+import { colors, spacing, borderRadius, shadows, typography, dimensions } from '@/shared/theme';
+import { BackButton, LoadingSpinner, EmptyState } from '@/shared/components';
 import apiService from '@/shared/services';
 import { useAuth } from '@/shared/context';
 
@@ -55,20 +56,22 @@ export default function FinancialTrackingScreen() {
     try {
       setLoading(true);
       
+      // Yeni API endpoint'i kullan - gerçek appointment verilerine dayalı
       const [statsRes, transactionsRes] = await Promise.all([
-        apiService.getMechanicEarnings(),
-        apiService.getRecentTransactions(),
+        apiService.getEarningsSummaryByPeriod(activePeriod),
+        apiService.getRecentTransactions(20),
       ]);
 
-      if (statsRes.success) {
+      if (statsRes.success && statsRes.data) {
         setStats({
-          totalEarnings: statsRes.data?.thisMonth || 0,
-          totalJobs: statsRes.data?.completedJobs || 0,
-          averageEarnings: statsRes.data?.averagePerJob || 0,
-          pendingPayments: statsRes.data?.pendingPayments || 0,
-          allTimeTotal: statsRes.data?.allTime || 0,
+          totalEarnings: statsRes.data.totalEarnings || 0,
+          totalJobs: statsRes.data.totalJobs || 0,
+          averageEarnings: statsRes.data.averageEarnings || 0,
+          pendingPayments: statsRes.data.pendingPayments || 0,
+          allTimeTotal: statsRes.data.allTimeTotal || 0,
         });
       } else {
+        console.warn('📊 Stats response:', statsRes);
         setStats({
           totalEarnings: 0,
           totalJobs: 0,
@@ -87,6 +90,7 @@ export default function FinancialTrackingScreen() {
         setTransactions([]);
       }
     } catch (error: any) {
+      console.error('❌ Fetch financial data error:', error);
       setStats({
         totalEarnings: 0,
         totalJobs: 0,
@@ -136,15 +140,26 @@ export default function FinancialTrackingScreen() {
     );
   };
 
-  const renderSummaryCard = (icon: string, value: string, label: string, color: string) => (
+  const renderSummaryCard = (iconName: keyof typeof Ionicons.glyphMap, value: string, label: string, color: string) => (
     <View style={styles.summaryCard}>
-      <View style={[styles.summaryIcon, { backgroundColor: color }]}>
-        <Text style={styles.summaryIconText}>{icon}</Text>
+      <View style={[styles.summaryIconContainer, { backgroundColor: color + '15' }]}>
+        <Ionicons name={iconName} size={20} color={color} />
       </View>
       <Text style={styles.summaryValue}>{value}</Text>
       <Text style={styles.summaryLabel}>{label}</Text>
     </View>
   );
+
+  const formatDate = (dateString: string | Date) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('tr-TR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
 
   const renderTransactionCard = (transaction: any) => (
     <TouchableOpacity
@@ -154,7 +169,7 @@ export default function FinancialTrackingScreen() {
     >
       <View style={styles.transactionHeader}>
         <Text style={styles.transactionTitle}>
-          {transaction.serviceType} - {transaction.customerName}
+          {transaction.customerName}
         </Text>
         <View style={[
           styles.statusBadge,
@@ -166,21 +181,25 @@ export default function FinancialTrackingScreen() {
         </View>
       </View>
       
-      <Text style={styles.transactionService}>{transaction.serviceType}</Text>
+      <Text style={styles.transactionService}>
+        {transaction.serviceType} • {transaction.vehicleInfo}
+      </Text>
       
       <View style={styles.transactionDetails}>
-        <Text style={styles.transactionDate}>{transaction.date}</Text>
-        <Text style={styles.transactionAmount}>+₺{transaction.amount}</Text>
+        <Text style={styles.transactionDate}>{formatDate(transaction.date)}</Text>
+        <Text style={styles.transactionAmount}>
+          +₺{transaction.amount?.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </Text>
       </View>
     </TouchableOpacity>
   );
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return '#10B981';
-      case 'pending': return '#F59E0B';
-      case 'failed': return '#EF4444';
-      default: return '#6B7280';
+      case 'completed': return colors.success.main;
+      case 'pending': return colors.warning.main;
+      case 'failed': return colors.error.main;
+      default: return colors.text.tertiary;
     }
   };
 
@@ -195,334 +214,345 @@ export default function FinancialTrackingScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <View style={styles.loadingContent}>
-          <Ionicons name="card" size={40} color="#3B82F6" />
-          <Text style={styles.loadingText}>Yükleniyor...</Text>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <LoadingSpinner />
+          <Text style={styles.loadingText}>Kazançlarınız yükleniyor...</Text>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background.primary} />
       
       {/* Header */}
       <View style={styles.header}>
-        <SafeAreaView style={styles.headerContent}>
-          <View style={styles.headerTop}>
-            <BackButton />
-            <View style={styles.headerCenter}>
-              <Text style={styles.headerTitle}>Kazançlarım</Text>
-              <Text style={styles.headerSubtitle}>Finansal durumunuzu takip edin</Text>
-            </View>
+        <View style={styles.headerTop}>
+          <BackButton />
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle}>Kazançlarım</Text>
           </View>
-        </SafeAreaView>
-      </View>
-
-      {/* Period Selection */}
-      <View style={styles.periodContainer}>
-        {renderPeriodButton('thisMonth')}
-        {renderPeriodButton('lastMonth')}
-        {renderPeriodButton('allTime')}
-      </View>
-
-      {/* Total Earnings Card */}
-      <View style={styles.totalEarningsCard}>
-        <Text style={styles.totalEarningsLabel}>Toplam Kazanç</Text>
-        <Text style={styles.totalEarningsValue}>₺{stats.totalEarnings}</Text>
-        <Text style={styles.totalEarningsPeriod}>{getPeriodText()}</Text>
-      </View>
-
-      {/* Summary Cards */}
-      <View style={styles.summarySection}>
-        {renderSummaryCard('⚙️', `${stats.totalJobs}`, 'Toplam İş', '#3B82F6')}
-        {renderSummaryCard('📊', `₺${stats.averageEarnings}`, 'Ortalama', '#10B981')}
-        {renderSummaryCard('⏳', `₺${stats.pendingPayments}`, 'Bekleyen', '#F59E0B')}
-        {renderSummaryCard('📁', `₺${stats.allTimeTotal}`, 'Toplam', '#8B5CF6')}
-      </View>
-
-      {/* Latest Transactions */}
-      <View style={styles.transactionsSection}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Son İşlemler</Text>
           <TouchableOpacity
-            style={styles.viewAllButton}
-            onPress={() => (navigation as any).navigate('Appointments')}
+            style={styles.refreshButton}
+            onPress={onRefresh}
+            disabled={refreshing}
           >
-            <Text style={styles.viewAllText}>Tümünü Gör</Text>
+            <Ionicons 
+              name="refresh" 
+              size={20} 
+              color={refreshing ? colors.text.tertiary : colors.text.secondary} 
+            />
           </TouchableOpacity>
         </View>
-        
-        <FlatList
-          data={transactions}
-          renderItem={({ item }) => renderTransactionCard(item)}
-          keyExtractor={(item) => item._id}
-          style={styles.transactionsList}
-          contentContainerStyle={styles.transactionsContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={['#3B82F6']}
-              tintColor="#3B82F6"
-            />
-          }
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Ionicons name="card" size={48} color="#6B7280" />
-              <Text style={styles.emptyStateTitle}>Henüz işlem yok</Text>
-              <Text style={styles.emptyStateText}>
-                Tamamlanan işleriniz burada görünecek
-              </Text>
-            </View>
-          }
-        />
       </View>
-    </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary.main]}
+            tintColor={colors.primary.main}
+          />
+        }
+      >
+        {/* Period Selection */}
+        <View style={styles.periodContainer}>
+          {renderPeriodButton('thisMonth')}
+          {renderPeriodButton('lastMonth')}
+          {renderPeriodButton('allTime')}
+        </View>
+
+        {/* Total Earnings Card */}
+        <LinearGradient
+          colors={[colors.primary.main, colors.primary.dark]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.totalEarningsCard}
+        >
+          <Ionicons name="wallet" size={32} color="rgba(255, 255, 255, 0.9)" style={styles.earningsIcon} />
+          <Text style={styles.totalEarningsLabel}>Toplam Kazanç</Text>
+          <Text style={styles.totalEarningsValue}>₺{stats.totalEarnings.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+          <View style={styles.periodBadge}>
+            <Text style={styles.totalEarningsPeriod}>{getPeriodText()}</Text>
+          </View>
+        </LinearGradient>
+
+        {/* Summary Cards */}
+        <View style={styles.summarySection}>
+          {renderSummaryCard('briefcase', `${stats.totalJobs}`, 'Toplam İş', colors.primary.main)}
+          {renderSummaryCard('trending-up', `₺${stats.averageEarnings.toLocaleString('tr-TR')}`, 'Ortalama', colors.success.main)}
+          {renderSummaryCard('time', `₺${stats.pendingPayments.toLocaleString('tr-TR')}`, 'Bekleyen', colors.warning.main)}
+          {renderSummaryCard('stats-chart', `₺${stats.allTimeTotal.toLocaleString('tr-TR')}`, 'Tüm Zamanlar', colors.secondary.main)}
+        </View>
+
+        {/* Latest Transactions */}
+        <View style={styles.transactionsSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Son İşlemler</Text>
+            <TouchableOpacity
+              style={styles.viewAllButton}
+              onPress={() => (navigation as any).navigate('Appointments')}
+            >
+              <Text style={styles.viewAllText}>Tümünü Gör</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.primary.main} />
+            </TouchableOpacity>
+          </View>
+          
+          {transactions.length > 0 ? (
+            transactions.map((item, index) => (
+              <View key={item._id || index}>
+                {renderTransactionCard(item)}
+              </View>
+            ))
+          ) : (
+            <EmptyState
+              icon="receipt-outline"
+              title="Henüz işlem yok"
+              subtitle="Tamamlanan işleriniz burada görünecek"
+            />
+          )}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: colors.background.primary,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: spacing.xxl,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: typography.body2.fontSize,
+    color: colors.text.secondary,
+    marginTop: spacing.md,
   },
   header: {
-    backgroundColor: '#000000',
-    paddingTop: 0,
-  },
-  headerContent: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingHorizontal: dimensions.screenPadding,
+    paddingVertical: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.primary,
+    backgroundColor: colors.background.primary,
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    justifyContent: 'space-between',
   },
   headerCenter: {
     flex: 1,
     alignItems: 'center',
-    marginLeft: spacing.md,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: typography.h1.fontSize,
     fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 8,
+    color: colors.text.primary.main,
   },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#9CA3AF',
+  refreshButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.background.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
   },
   periodContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    marginBottom: 20,
-    gap: 12,
+    paddingHorizontal: dimensions.screenPadding,
+    marginTop: spacing.lg,
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
   },
   periodButton: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.background.secondary,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
   },
   activePeriodButton: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: colors.primary.ultraLight,
+    borderColor: colors.primary.main,
   },
   periodButtonText: {
-    fontSize: 14,
+    fontSize: typography.body3.fontSize,
     fontWeight: '600',
-    color: '#3B82F6',
+    color: colors.text.secondary,
   },
   activePeriodButtonText: {
-    color: '#FFFFFF',
+    color: colors.primary.main,
+    fontWeight: '700',
   },
   totalEarningsCard: {
-    backgroundColor: '#3B82F6',
-    marginHorizontal: 20,
-    marginBottom: 20,
-    borderRadius: 20,
-    padding: 24,
+    marginHorizontal: dimensions.screenPadding,
+    marginBottom: spacing.xl,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
     alignItems: 'center',
+    ...shadows.large,
+  },
+  earningsIcon: {
+    marginBottom: spacing.sm,
   },
   totalEarningsLabel: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 8,
+    fontSize: typography.body2.fontSize,
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: spacing.sm,
+    fontWeight: '500',
   },
   totalEarningsValue: {
-    fontSize: 32,
+    fontSize: 40,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 4,
+    marginBottom: spacing.md,
+  },
+  periodBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
   },
   totalEarningsPeriod: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: typography.body3.fontSize,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   summarySection: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    marginBottom: 30,
-    gap: 12,
+    paddingHorizontal: dimensions.screenPadding,
+    marginBottom: spacing.xl,
+    gap: spacing.sm,
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
+    ...shadows.small,
   },
-  summaryIcon: {
+  summaryIconContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
-  },
-  summaryIconText: {
-    fontSize: 20,
+    marginBottom: spacing.sm,
   },
   summaryValue: {
-    fontSize: 18,
+    fontSize: typography.body2.fontSize,
     fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 4,
+    color: colors.text.primary.main,
+    marginBottom: spacing.xs,
     textAlign: 'center',
   },
   summaryLabel: {
-    fontSize: 12,
-    color: '#6B7280',
+    fontSize: typography.caption.large.fontSize,
+    color: colors.text.secondary,
     textAlign: 'center',
-    lineHeight: 16,
+    lineHeight: 14,
   },
   transactionsSection: {
-    flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: dimensions.screenPadding,
+    paddingBottom: spacing.xl,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: spacing.md,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontSize: typography.h3.fontSize,
+    fontWeight: '600',
+    color: colors.text.primary.main,
   },
   viewAllButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   viewAllText: {
-    fontSize: 14,
+    fontSize: typography.body3.fontSize,
     fontWeight: '600',
-    color: '#3B82F6',
-  },
-  transactionsList: {
-    flex: 1,
-  },
-  transactionsContent: {
-    paddingBottom: 40,
+    color: colors.primary.main,
   },
   transactionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
+    ...shadows.small,
   },
   transactionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    alignItems: 'flex-start',
+    marginBottom: spacing.sm,
   },
   transactionTitle: {
-    fontSize: 16,
+    fontSize: typography.body2.fontSize,
     fontWeight: '600',
-    color: '#1F2937',
+    color: colors.text.primary.main,
     flex: 1,
+    marginRight: spacing.sm,
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: typography.caption.small.fontSize,
     fontWeight: '600',
     color: '#FFFFFF',
   },
   transactionService: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 12,
+    fontSize: typography.body3.fontSize,
+    color: colors.text.secondary,
+    marginBottom: spacing.sm,
   },
   transactionDetails: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.primary,
   },
   transactionDate: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: typography.caption.large.fontSize,
+    color: colors.text.tertiary,
   },
   transactionAmount: {
-    fontSize: 16,
+    fontSize: typography.body2.fontSize,
     fontWeight: '700',
-    color: '#10B981',
-  },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingContent: {
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginTop: 20,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyStateTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyStateText: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    textAlign: 'center',
-    paddingHorizontal: 40,
-    lineHeight: 20,
+    color: colors.success.main,
   },
 });

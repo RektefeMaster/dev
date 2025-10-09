@@ -2,10 +2,10 @@
  * Rektefe US uygulaması için temel konfigürasyon
  */
 
-// API Konfigürasyonu - Local development için güncellendi
+// API Konfigürasyonu - Railway production için güncellendi
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:3000',
-  SOCKET_URL: 'http://localhost:3000',
+  BASE_URL: 'https://dev-production-8a3d.up.railway.app/api',
+  SOCKET_URL: 'https://dev-production-8a3d.up.railway.app',
   TIMEOUT: 30000, // 30 saniye timeout - network gecikmeleri için
 };
 

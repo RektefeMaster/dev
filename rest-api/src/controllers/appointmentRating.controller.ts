@@ -93,6 +93,43 @@ export class AppointmentRatingController {
         appointment.status = AppointmentStatus.COMPLETED; // Tamamlandı olarak işaretle
         await appointment.save();
 
+        // Wallet transaction oluştur (eğer daha önce oluşturulmadıysa)
+        try {
+          const Wallet = require('../models/Wallet').Wallet;
+          const mechanicWallet = await Wallet.findOne({ userId: mechanicId });
+          
+          // Bu appointment için daha önce transaction oluşturulmuş mu kontrol et
+          const existingTransaction = mechanicWallet?.transactions?.find((t: any) => 
+            t.appointmentId && t.appointmentId.toString() === appointment._id.toString()
+          );
+
+          if (!existingTransaction && appointment.price && appointment.price > 0) {
+            const transaction = {
+              type: 'credit' as const,
+              amount: appointment.price,
+              description: `İş tamamlandı - ${(appointment.userId as any).name || 'Müşteri'}`,
+              date: new Date(),
+              status: 'completed' as const,
+              appointmentId: appointment._id
+            };
+
+            await Wallet.findOneAndUpdate(
+              { userId: mechanicId },
+              {
+                $inc: { balance: appointment.price },
+                $push: { transactions: transaction },
+                $setOnInsert: { userId: mechanicId, createdAt: new Date() }
+              },
+              { upsert: true, new: true }
+            );
+
+            console.log(`✅ Wallet transaction created for appointment ${appointment._id}`);
+          }
+        } catch (walletError) {
+          console.error('Wallet transaction oluşturma hatası:', walletError);
+          // Wallet hatası rating işlemini durdurmaz
+        }
+
         // Ustaya bildirim gönder
         sendNotificationToUser(mechanicId.toString(), {
           type: 'appointment_status_update',

@@ -13,11 +13,11 @@ import {
   Vibration,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTheme } from '../../../shared/context';
+import { useTheme } from '@/shared/context';
 import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '../../../shared/context';
-import { Background } from '../../../shared/components';
-import apiService from '../../../shared/services/api';
+import { useAuth } from '@/shared/context';
+import { Background } from '@/shared/components';
+import apiService from '@/shared/services/api';
 
 interface EmergencyRequest {
   _id: string;

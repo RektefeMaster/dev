@@ -90,7 +90,9 @@ const FaultReportsScreen: React.FC = () => {
       const response = await apiService.FaultReportService.getMechanicFaultReports(statusFilter);
       
       if (response.success && response.data) {
-        setFaultReports(response.data.faultReports || []);
+        // Backend data olarak direkt array dönüyor
+        const reports = Array.isArray(response.data) ? response.data : (response.data.faultReports || []);
+        setFaultReports(reports);
       } else {
         setFaultReports([]);
       }

@@ -4,7 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius, shadows } from '@/shared/theme';
 import { TabParamList } from '@/shared/types';
-import { useAuth } from '../../../shared/context/SharedAuthContext';
+import { useAuth } from '@/shared/context';
 import apiService from '@/shared/services';
 
 // Screens
