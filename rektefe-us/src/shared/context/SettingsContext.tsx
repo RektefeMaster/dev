@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '@/shared/services';
-import { useAuth } from './AuthContext';
+import { useSharedAuth } from './SharedAuthContext';
 import { STORAGE_KEYS } from '@/constants/config';
 import { 
   UserSettings, 
@@ -61,7 +61,7 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const SettingsProvider = ({ children }: { children: ReactNode }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, updateUser } = useSharedAuth();
   const [settings, setSettings] = useState<UserSettings>(defaultUserSettings);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,12 +96,13 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Load from API
-      const [notificationRes, privacyRes, jobRes, appRes, securityRes] = await Promise.allSettled([
+      const [notificationRes, privacyRes, jobRes, appRes, securityRes, profileRes] = await Promise.allSettled([
         apiService.getNotificationSettings(),
         apiService.getPrivacySettings(),
         apiService.getJobSettings(),
         apiService.getAppSettings(),
-        apiService.getSecuritySettings()
+        apiService.getSecuritySettings(),
+        apiService.getMechanicProfile()
       ]);
 
       const newSettings = { ...defaultUserSettings };
@@ -144,6 +145,15 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
           ...defaultSecuritySettings,
           ...securityRes.value.data
         };
+      }
+
+      // Load service categories from profile
+      if (profileRes.status === 'fulfilled' && profileRes.value.success && profileRes.value.data) {
+        const userProfile = profileRes.value.data;
+        if (userProfile.serviceCategories && Array.isArray(userProfile.serviceCategories)) {
+          console.log('✅ Service categories loaded from profile:', userProfile.serviceCategories);
+          setServiceCategories(userProfile.serviceCategories);
+        }
       }
 
       setSettings(newSettings);
@@ -334,22 +344,37 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   // Update service categories
   const updateServiceCategories = async (categories: string[]) => {
     try {
-      console.log('🎯 SettingsContext updateServiceCategories called with:', categories);
+      console.log('🎯 SETTINGS CONTEXT: updateServiceCategories called');
+      console.log('🎯 SETTINGS CONTEXT: categories:', categories);
+      console.log('🎯 SETTINGS CONTEXT: categories type:', typeof categories, 'isArray:', Array.isArray(categories));
       setError(null);
-      setServiceCategories(categories);
       
-      console.log('📡 Calling API service...');
+      console.log('📡 SETTINGS CONTEXT: Calling API service...');
       const response = await apiService.updateServiceCategories(categories);
-      console.log('📡 API response:', response);
+      console.log('📡 SETTINGS CONTEXT: API response received:', response);
+      console.log('📡 SETTINGS CONTEXT: response.success:', response?.success);
+      console.log('📡 SETTINGS CONTEXT: response.message:', response?.message);
+      console.log('📡 SETTINGS CONTEXT: response.data:', response?.data);
       
       if (!response.success) {
-        console.error('❌ API returned success: false');
+        console.error('❌ SETTINGS CONTEXT: API returned success: false');
+        console.error('❌ SETTINGS CONTEXT: Error message:', response.message);
         throw new Error(response.message || 'Hizmet kategorileri güncellenemedi');
       }
 
-      console.log('✅ Service categories updated successfully');
+      // Backend'den başarılı yanıt geldi, local state'i güncelle
+      console.log('✅ SETTINGS CONTEXT: Updating local state with:', categories);
+      setServiceCategories(categories);
+      
+      // AuthContext'deki user state'ini de güncelle
+      console.log('✅ SETTINGS CONTEXT: Updating auth context user state');
+      updateUser({ serviceCategories: categories } as any);
+      
+      console.log('✅ SETTINGS CONTEXT: Service categories updated successfully in both context and auth');
     } catch (error: any) {
-      console.error('❌ SettingsContext error:', error);
+      console.error('❌ SETTINGS CONTEXT ERROR:', error);
+      console.error('❌ SETTINGS CONTEXT ERROR message:', error.message);
+      console.error('❌ SETTINGS CONTEXT ERROR stack:', error.stack);
       setError(error.message || 'Hizmet kategorileri güncellenirken hata oluştu');
       throw error; // Re-throw to let the calling component handle it
     }

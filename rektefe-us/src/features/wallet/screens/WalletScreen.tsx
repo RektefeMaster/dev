@@ -54,6 +54,7 @@ export default function WalletScreen() {
   const fetchWalletData = async () => {
     try {
       setLoading(true);
+      console.log('🔄 [WalletScreen] Cüzdan verileri yükleniyor...');
       
       const [walletRes, transactionsRes, debugRes] = await Promise.all([
         apiService.getMechanicWallet(),
@@ -61,16 +62,21 @@ export default function WalletScreen() {
         apiService.getWalletDebugInfo(),
       ]);
 
-      console.log('🔍 WalletScreen: Debug bilgisi:', debugRes);
+      console.log('🔍 [WalletScreen] Wallet response:', walletRes);
+      console.log('🔍 [WalletScreen] Transactions response:', transactionsRes);
+      console.log('🔍 [WalletScreen] Debug bilgisi:', debugRes);
 
       if (walletRes.success) {
-        setWalletData({
+        const newWalletData = {
           balance: walletRes.data?.balance || 0,
           totalEarnings: walletRes.data?.totalEarnings || 0,
           pendingAmount: walletRes.data?.pendingAmount || 0,
           thisMonthEarnings: walletRes.data?.thisMonthEarnings || 0,
-        });
+        };
+        console.log('💰 [WalletScreen] Wallet data set ediliyor:', newWalletData);
+        setWalletData(newWalletData);
       } else {
+        console.warn('⚠️ [WalletScreen] Wallet response success: false');
         setWalletData({
           balance: 0,
           totalEarnings: 0,
@@ -80,11 +86,14 @@ export default function WalletScreen() {
       }
 
       if (transactionsRes.success) {
+        console.log('📝 [WalletScreen] Transactions set ediliyor:', transactionsRes.data?.length || 0, 'adet');
         setTransactions(transactionsRes.data || []);
       } else {
+        console.warn('⚠️ [WalletScreen] Transactions response success: false');
         setTransactions([]);
       }
     } catch (error: any) {
+      console.error('❌ [WalletScreen] Fetch error:', error);
       setWalletData({
         balance: 0,
         totalEarnings: 0,
@@ -94,6 +103,7 @@ export default function WalletScreen() {
       setTransactions([]);
     } finally {
       setLoading(false);
+      console.log('✅ [WalletScreen] Loading tamamlandı');
     }
   };
 

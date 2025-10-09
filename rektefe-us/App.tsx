@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SharedAuthProvider } from './src/shared/context/SharedAuthContext';
 import { ThemeProvider } from './src/shared/context/ThemeContext';
+import { SettingsProvider } from './src/shared/context/SettingsContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { notificationService } from './src/features/notifications/services';
 import { BaseApiService } from '../shared/api/BaseApiService';
@@ -170,8 +171,10 @@ export default function App() {
           },
           apiService: apiService,
         }}>
-          <AppNavigator />
-          <StatusBar style="auto" />
+          <SettingsProvider>
+            <AppNavigator />
+            <StatusBar style="auto" />
+          </SettingsProvider>
         </SharedAuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>

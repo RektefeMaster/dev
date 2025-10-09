@@ -143,10 +143,14 @@ export default function FinancialTrackingScreen() {
   const renderSummaryCard = (iconName: keyof typeof Ionicons.glyphMap, value: string, label: string, color: string) => (
     <View style={styles.summaryCard}>
       <View style={[styles.summaryIconContainer, { backgroundColor: color + '15' }]}>
-        <Ionicons name={iconName} size={20} color={color} />
+        <Ionicons name={iconName} size={18} color={color} />
       </View>
-      <Text style={styles.summaryValue}>{value}</Text>
-      <Text style={styles.summaryLabel}>{label}</Text>
+      <Text style={styles.summaryValue} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>
+        {value}
+      </Text>
+      <Text style={styles.summaryLabel} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>
+        {label}
+      </Text>
     </View>
   );
 
@@ -449,32 +453,39 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background.secondary,
     borderRadius: borderRadius.lg,
-    padding: spacing.md,
+    padding: spacing.sm,
+    paddingVertical: spacing.md,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: colors.border.secondary,
     ...shadows.small,
+    minHeight: 100,
   },
   summaryIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.sm,
   },
   summaryValue: {
-    fontSize: typography.body2.fontSize,
+    fontSize: typography.body3.fontSize,
     fontWeight: '700',
     color: colors.text.primary.main,
     marginBottom: spacing.xs,
     textAlign: 'center',
+    width: '100%',
+    paddingHorizontal: spacing.xs,
   },
   summaryLabel: {
-    fontSize: typography.caption.large.fontSize,
+    fontSize: typography.caption.small.fontSize,
     color: colors.text.secondary,
     textAlign: 'center',
-    lineHeight: 14,
+    lineHeight: 13,
+    width: '100%',
+    paddingHorizontal: 2,
   },
   transactionsSection: {
     paddingHorizontal: dimensions.screenPadding,

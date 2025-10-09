@@ -133,29 +133,63 @@ router.get('/wallet', auth, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
     if (!userId) {
+      console.error('❌ [Backend] User ID bulunamadı');
       return res.status(401).json({ success: false, message: 'Kullanıcı ID bulunamadı' });
     }
 
-    console.log('🔍 Wallet endpoint: UserId:', userId);
+    console.log('🔍 [Backend] Wallet endpoint çağrıldı - UserId:', userId);
     
-    const wallet = await Wallet.findOne({ userId });
-    console.log('💰 Wallet bulundu:', wallet ? 'Evet' : 'Hayır');
+    // Wallet modelini al veya oluştur
+    let wallet = await Wallet.findOne({ userId });
+    console.log('💰 [Backend] Wallet bulundu:', wallet ? 'Evet' : 'Hayır');
     
     if (!wallet) {
-      // Cüzdan yoksa oluştur
-      console.log('🆕 Yeni wallet oluşturuluyor...');
-      const newWallet = new Wallet({ userId, balance: 0 });
-      await newWallet.save();
-      console.log('✅ Yeni wallet oluşturuldu:', newWallet._id);
-      return res.json({ success: true, data: newWallet });
+      console.log('🆕 [Backend] Yeni wallet oluşturuluyor...');
+      wallet = new Wallet({ userId, balance: 0 });
+      await wallet.save();
+      console.log('✅ [Backend] Yeni wallet oluşturuldu:', wallet._id);
     }
 
-    console.log('💰 Mevcut wallet balance:', wallet.balance);
-    console.log('📊 Transaction sayısı:', wallet.transactions.length);
+    // Gerçek balance'ı tamamlanmış appointment'lardan hesapla
+    const completedAppointments = await Appointment.find({
+      mechanicId: new Types.ObjectId(userId),
+      status: 'TAMAMLANDI'
+    });
     
-    res.json({ success: true, data: wallet });
+    // Toplam kazancı hesapla (finalPrice varsa onu, yoksa price'ı kullan)
+    const realBalance = completedAppointments.reduce((sum, apt) => {
+      const price = apt.finalPrice || apt.price || 0;
+      return sum + price;
+    }, 0);
+
+    console.log('💰 [Backend] Wallet modelindeki balance:', wallet.balance);
+    console.log('💰 [Backend] Gerçek balance (appointment\'lardan):', realBalance);
+    console.log('📊 [Backend] Tamamlanmış appointment sayısı:', completedAppointments.length);
+    console.log('📊 [Backend] Wallet transaction sayısı:', wallet.transactions.length);
+    
+    // Gerçek balance ile response döndür
+    const responseData = {
+      _id: wallet._id,
+      userId: wallet.userId,
+      balance: realBalance, // Gerçek balance
+      transactions: wallet.transactions,
+      createdAt: wallet.createdAt,
+      updatedAt: wallet.updatedAt,
+      __v: wallet.__v
+    };
+    
+    console.log('📦 [Backend] Response gönderiliyor:', { 
+      success: true, 
+      data: { 
+        balance: realBalance, 
+        transactionCount: wallet.transactions.length 
+      } 
+    });
+    
+    res.json({ success: true, data: responseData });
   } catch (error: any) {
-    console.error('❌ Wallet endpoint hatası:', error);
+    console.error('❌ [Backend] Wallet endpoint hatası:', error);
+    console.error('❌ [Backend] Error stack:', error.stack);
     res.status(500).json({ success: false, message: 'Cüzdan bilgileri alınamadı' });
   }
 });

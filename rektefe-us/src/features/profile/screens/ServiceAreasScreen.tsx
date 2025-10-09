@@ -35,10 +35,21 @@ export default function ServiceAreasScreen() {
     
     // Load user's selected categories
     if (serviceCategories && serviceCategories.length > 0) {
-      setSelectedCategories(serviceCategories);
+      // Backend'den gelen kategorileri Frontend formatına çevir
+      const frontendCategories = serviceCategories.map(cat => {
+        const reverseMapping: { [key: string]: string } = {
+          'repair': 'tamir-bakim',
+          'wash': 'arac-yikama',
+          'tire': 'lastik',
+          'towing': 'cekici'
+        };
+        return reverseMapping[cat] || cat;
+      });
+      
+      setSelectedCategories(frontendCategories);
       setCategories(prev => prev.map(cat => ({
         ...cat,
-        isSelected: serviceCategories.includes(cat.id)
+        isSelected: frontendCategories.includes(cat.id)
       })));
     }
   }, [serviceCategories]);
@@ -95,23 +106,59 @@ export default function ServiceAreasScreen() {
     })));
   };
 
+  // Frontend ID'lerini Backend format'ına çevir
+  const mapCategoriesToBackendFormat = (frontendCategories: string[]): string[] => {
+    const mapping: { [key: string]: string } = {
+      'tamir-bakim': 'repair',
+      'arac-yikama': 'wash',
+      'lastik': 'tire',
+      'cekici': 'towing'
+    };
+    
+    return frontendCategories.map(cat => mapping[cat] || cat);
+  };
+
+  // Backend format'ını Frontend ID'lerine çevir
+  const mapCategoriesToFrontendFormat = (backendCategories: string[]): string[] => {
+    const reverseMapping: { [key: string]: string } = {
+      'repair': 'tamir-bakim',
+      'wash': 'arac-yikama',
+      'tire': 'lastik',
+      'towing': 'cekici'
+    };
+    
+    return backendCategories.map(cat => reverseMapping[cat] || cat);
+  };
+
   const saveCategories = async () => {
     try {
-      console.log('💾 ServiceAreasScreen saveCategories called');
-      console.log('📋 Selected categories:', selectedCategories);
+      console.log('💾 SERVICE AREAS SCREEN: saveCategories called');
+      console.log('📋 SERVICE AREAS SCREEN: Selected categories (Frontend):', selectedCategories);
+      console.log('📋 SERVICE AREAS SCREEN: Selected categories length:', selectedCategories.length);
+      
+      if (selectedCategories.length === 0) {
+        console.log('⚠️ SERVICE AREAS SCREEN: No categories selected!');
+        Alert.alert('Uyarı', 'En az bir hizmet alanı seçmelisiniz');
+        return;
+      }
       
       setLoading(true);
       
-      console.log('🔄 Calling updateServiceCategories...');
-      await updateServiceCategories(selectedCategories);
+      // Backend formatına çevir
+      const backendCategories = mapCategoriesToBackendFormat(selectedCategories);
+      console.log('📋 SERVICE AREAS SCREEN: Mapped categories (Backend):', backendCategories);
+      console.log('📋 SERVICE AREAS SCREEN: Mapped categories type:', typeof backendCategories, 'isArray:', Array.isArray(backendCategories));
       
-      console.log('✅ Categories updated successfully');
+      console.log('🔄 SERVICE AREAS SCREEN: Calling updateServiceCategories...');
+      await updateServiceCategories(backendCategories);
+      
+      console.log('✅ SERVICE AREAS SCREEN: Categories updated successfully');
       Alert.alert('Başarılı', 'Hizmet alanlarınız güncellendi');
       navigation.goBack();
     } catch (error: any) {
-      console.error('❌ ServiceAreasScreen error:', error);
-      console.error('❌ Error message:', error.message);
-      console.error('❌ Error stack:', error.stack);
+      console.error('❌ SERVICE AREAS SCREEN ERROR:', error);
+      console.error('❌ SERVICE AREAS SCREEN ERROR message:', error.message);
+      console.error('❌ SERVICE AREAS SCREEN ERROR stack:', error.stack);
       Alert.alert('Hata', error.message || 'Hizmet alanları güncellenemedi');
     } finally {
       setLoading(false);

@@ -14,6 +14,7 @@ import {
   Clipboard,
   ActivityIndicator,
   Dimensions,
+  StatusBar,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/shared/context';
@@ -22,6 +23,7 @@ import apiService from '@/shared/services';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import BackButton from '@/shared/components/BackButton';
 import { translateServiceName } from '@/shared/utils/serviceTranslator';
+import { colors as themeColors, typography, spacing, borderRadius as br, shadows, dimensions as themeDimensions } from '@/shared/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -562,9 +564,10 @@ const AppointmentsScreen = () => {
 
   if (loading && !refreshing) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.background.primary} />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary.main} />
           <Text style={[styles.loadingText, { color: colors.text.secondary }]}>
             Randevular yükleniyor...
           </Text>
@@ -574,18 +577,20 @@ const AppointmentsScreen = () => {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background.primary} />
+      
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.background.primary }]}>
         <View style={styles.headerContent}>
           <View style={styles.headerTop}>
             <BackButton />
-            <Text style={[styles.title, { color: colors.text.primary }]}>Randevularım</Text>
+            <Text style={[styles.title, { color: colors.text.primary.main }]}>Randevularım</Text>
             <TouchableOpacity
-              style={[styles.filterButton, { backgroundColor: colors.neutral[100] }]}
+              style={[styles.filterButton, { backgroundColor: colors.background.secondary, borderColor: colors.border.secondary }]}
               onPress={() => setShowFilters(!showFilters)}
             >
-              <MaterialCommunityIcons name="filter" size={20} color={colors.text.primary} />
+              <MaterialCommunityIcons name="filter" size={20} color={colors.text.primary.main} />
             </TouchableOpacity>
           </View>
           
@@ -934,22 +939,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: themeDimensions.screenPadding,
+    paddingVertical: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: themeColors.border.primary,
   },
   headerContent: {
-    gap: 16,
+    gap: spacing.lg,
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 12,
+    gap: spacing.md,
   },
   title: {
-    fontSize: 24,
+    fontSize: typography.h2.fontSize,
     fontWeight: '700',
     flex: 1,
     textAlign: 'center',
@@ -960,23 +965,21 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
   },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: spacing.md,
   },
   statCard: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    borderRadius: br.lg,
     borderWidth: 1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    ...shadows.small,
   },
   statIcon: {
     width: 32,
@@ -984,63 +987,57 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   statNumber: {
-    fontSize: 18,
+    fontSize: typography.h4.fontSize,
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.large.fontSize,
     fontWeight: '500',
     textAlign: 'center',
   },
   searchContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: themeDimensions.screenPadding,
+    paddingVertical: spacing.lg,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: br.lg,
     borderWidth: 1,
-    gap: 12,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    gap: spacing.md,
+    ...shadows.small,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: typography.body1.fontSize,
   },
   tabsContainer: {
-    paddingVertical: 16,
+    paddingVertical: spacing.lg,
   },
   tabsContent: {
-    paddingHorizontal: 20,
-    gap: 12,
+    paddingHorizontal: themeDimensions.screenPadding,
+    gap: spacing.md,
   },
   tab: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderRadius: 20,
-    marginRight: 12,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    marginRight: spacing.md,
+    ...shadows.small,
   },
   tabContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   tabText: {
-    fontSize: 14,
+    fontSize: typography.body3.fontSize,
     fontWeight: '600',
   },
   tabBadge: {
@@ -1049,10 +1046,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: spacing.sm,
   },
   tabBadgeText: {
-    fontSize: 12,
+    fontSize: typography.caption.large.fontSize,
     fontWeight: '600',
   },
   content: {
@@ -1064,24 +1061,21 @@ const styles = StyleSheet.create({
   },
   // Modern Card Styles
   modernCard: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 16,
+    marginHorizontal: themeDimensions.screenPadding,
+    marginVertical: spacing.sm,
+    borderRadius: br.xl,
     borderWidth: 1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    ...shadows.medium,
     overflow: 'hidden',
   },
   modernCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: themeDimensions.screenPadding,
+    paddingVertical: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: themeColors.border.primary,
   },
   customerSection: {
     flexDirection: 'row',
@@ -1101,39 +1095,36 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modernCustomerName: {
-    fontSize: 18,
+    fontSize: typography.h4.fontSize,
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   modernCustomerPhone: {
-    fontSize: 14,
+    fontSize: typography.body3.fontSize,
     fontWeight: '500',
   },
   modernStatusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: 20,
-    gap: 6,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
+    gap: spacing.sm,
+    ...shadows.small,
   },
   modernStatusText: {
-    fontSize: 12,
+    fontSize: typography.caption.large.fontSize,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
   infoSection: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: themeDimensions.screenPadding,
+    paddingVertical: spacing.lg,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   infoIconContainer: {
     width: 36,
@@ -1213,26 +1204,23 @@ const styles = StyleSheet.create({
   },
   modernActions: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 12,
+    paddingHorizontal: themeDimensions.screenPadding,
+    paddingVertical: spacing.lg,
+    gap: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: themeColors.border.primary,
   },
   modernActionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    gap: 8,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: br.lg,
+    gap: spacing.sm,
     minHeight: 48,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    ...shadows.button,
   },
   acceptAction: {
     backgroundColor: '#10B981',
@@ -1256,7 +1244,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444',
   },
   modernActionText: {
-    fontSize: 14,
+    fontSize: typography.body3.fontSize,
     fontWeight: '700',
     color: '#FFFFFF',
   },

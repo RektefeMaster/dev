@@ -732,19 +732,26 @@ export const ProfileService = {
    */
   async updateServiceCategories(categories: string[]): Promise<ApiResponse<void>> {
     try {
-      console.log('🔧 updateServiceCategories called with:', categories);
+      console.log('🔧 API SERVICE: updateServiceCategories called with:', categories);
+      console.log('🔧 API SERVICE: categories type:', typeof categories, 'isArray:', Array.isArray(categories));
       
       const requestBody = { categories };
-      console.log('📤 Request body:', requestBody);
+      console.log('📤 API SERVICE: Request body:', JSON.stringify(requestBody));
+      console.log('📤 API SERVICE: BASE_URL:', API_CONFIG.BASE_URL);
+      console.log('📤 API SERVICE: Full URL:', `${API_CONFIG.BASE_URL}/users/service-categories`);
       
       const response = await apiClient.put('/users/service-categories', requestBody);
-      console.log('📥 Response:', response.data);
+      console.log('📥 API SERVICE: Response status:', response.status);
+      console.log('📥 API SERVICE: Response data:', JSON.stringify(response.data));
+      console.log('📥 API SERVICE: Response.data.success:', response.data?.success);
       
       return response.data;
     } catch (error: any) {
-      console.error('❌ Update service categories error:', error);
-      console.error('❌ Error response:', error.response?.data);
-      console.error('❌ Error status:', error.response?.status);
+      console.error('❌ API SERVICE: Update service categories error:', error);
+      console.error('❌ API SERVICE: Error message:', error.message);
+      console.error('❌ API SERVICE: Error response:', error.response?.data);
+      console.error('❌ API SERVICE: Error status:', error.response?.status);
+      console.error('❌ API SERVICE: Request config:', error.config?.url);
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Servis kategorileri güncellenemedi',
@@ -1437,9 +1444,15 @@ export const WalletService = {
    */
   async getMechanicWallet(): Promise<ApiResponse<{ balance: number; totalEarnings: number; pendingAmount: number; thisMonthEarnings: number }>> {
     try {
+      console.log('🔍 [API] getMechanicWallet çağrılıyor...');
       const response = await apiClient.get('/mechanic/wallet');
+      console.log('📦 [API] Backend response:', JSON.stringify(response.data, null, 2));
+      
       if (response.data.success && response.data.data) {
         const wallet = response.data.data;
+        console.log('💰 [API] Wallet balance:', wallet.balance);
+        console.log('📊 [API] Transactions sayısı:', wallet.transactions?.length || 0);
+        
         // Wallet modelinden gelen veriyi dönüştür
         const now = new Date();
         const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -1454,20 +1467,26 @@ export const WalletService = {
         const pendingAmount = wallet.transactions?.filter((t: any) => t.status === 'pending')
           .reduce((sum: number, t: any) => sum + t.amount, 0) || 0;
 
-        return createSuccessResponse({
+        const result = {
           balance: wallet.balance || 0,
           totalEarnings,
           pendingAmount,
           thisMonthEarnings
-        });
+        };
+        
+        console.log('✅ [API] Dönüştürülen veri:', result);
+        return createSuccessResponse(result);
       }
+      
+      console.log('⚠️ [API] Response data yok veya success false');
       return response.data;
     } catch (error: any) {
       // Cancel edilen istekleri handle et (error logging yapma)
       if (axios.isCancel(error)) {
         return createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, 'Request cancelled', undefined);
       }
-      console.error('Get mechanic wallet error:', error);
+      console.error('❌ [API] Get mechanic wallet error:', error);
+      console.error('❌ [API] Error response:', error.response?.data);
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Cüzdan bilgileri alınamadı',
