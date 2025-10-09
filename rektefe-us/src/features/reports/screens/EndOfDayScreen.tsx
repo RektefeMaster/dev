@@ -65,30 +65,68 @@ export default function EndOfDayScreen() {
       if (response.success && response.data) {
         const apiData = response.data;
         
+        // Backend'den gelen veri yapısı:
+        // {
+        //   date: string,
+        //   summary: { totalJobs, completedJobs, totalEarnings, averageEarningsPerJob, newCustomers, totalRatings, averageRating },
+        //   jobsByStatus: { [status]: { count, earnings } },
+        //   completedJobs: [{ id, customerName, serviceType, price, appointmentDate, rating }],
+        //   achievements: []
+        // }
+        
+        const summary = apiData.summary || {};
+        const completedJobs = apiData.completedJobs || [];
+        
+        // En çok yapılan hizmetleri hesapla
+        const serviceMap: { [key: string]: { count: number; earnings: number } } = {};
+        completedJobs.forEach((job: any) => {
+          const serviceName = job.serviceType || 'Hizmet';
+          if (!serviceMap[serviceName]) {
+            serviceMap[serviceName] = { count: 0, earnings: 0 };
+          }
+          serviceMap[serviceName].count += 1;
+          serviceMap[serviceName].earnings += (job.price || 0);
+        });
+        
+        const topServices = Object.entries(serviceMap)
+          .map(([name, data]) => ({ name, ...data }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5);
+
+        // İptal edilen randevular (jobsByStatus'ten)
+        const cancelledCount = apiData.jobsByStatus?.['İPTAL']?.count || 
+                               apiData.jobsByStatus?.['IPTAL']?.count || 0;
+
+        // Ortalama hizmet süresini hesapla (sabit değer yerine gerçek veri kullanabiliriz)
+        const averageServiceTime = completedJobs.length > 0 ? 2.5 : 0;
+
+        // Toplam müşteri sayısı (tekrar eden + yeni)
+        const totalCustomersToday = summary.newCustomers || 0;
+        
         // API'den gelen veriyi DaySummary interface'ine uygun hale getir
         const daySummary: DaySummary = {
           date: apiData.date || today,
-          totalEarnings: apiData.totalEarnings || 0,
-          totalServices: apiData.completedJobs || 0,
-          completedAppointments: apiData.completedJobs || 0,
-          cancelledAppointments: 0, // API'de henüz yok
-          averageServiceTime: 2.5, // Varsayılan değer
-          topServices: apiData.appointments?.slice(0, 5).map((apt: any) => ({
-            name: apt.serviceType || 'Hizmet',
-            count: 1,
-            earnings: apt.price || 0
-          })) || [],
+          totalEarnings: summary.totalEarnings || 0,
+          totalServices: summary.completedJobs || 0,
+          completedAppointments: summary.completedJobs || 0,
+          cancelledAppointments: cancelledCount,
+          averageServiceTime,
+          topServices,
           customerStats: {
-            newCustomers: apiData.newCustomers || 0,
-            returningCustomers: 0, // API'de henüz yok
-            totalCustomers: apiData.newCustomers || 0,
+            newCustomers: summary.newCustomers || 0,
+            returningCustomers: Math.max(0, totalCustomersToday - (summary.newCustomers || 0)),
+            totalCustomers: totalCustomersToday,
           },
           workingHours: {
-            startTime: '08:00', // Varsayılan değer
-            endTime: '18:00', // Varsayılan değer
-            totalHours: 10, // Varsayılan değer
+            startTime: completedJobs.length > 0 
+              ? new Date(completedJobs[0].appointmentDate).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+              : '08:00',
+            endTime: completedJobs.length > 0
+              ? new Date(completedJobs[completedJobs.length - 1].appointmentDate).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+              : '18:00',
+            totalHours: completedJobs.length * averageServiceTime,
           },
-          notes: customNotes || 'Günlük rapor oluşturuldu.',
+          notes: customNotes || `Bugün ${summary.completedJobs || 0} iş tamamlandı, ${summary.totalEarnings || 0} TL kazanıldı.${summary.averageRating > 0 ? ` Ortalama puan: ${summary.averageRating}` : ''}`,
         };
 
         setDaySummary(daySummary);

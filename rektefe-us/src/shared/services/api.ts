@@ -1453,25 +1453,18 @@ export const WalletService = {
         console.log('💰 [API] Wallet balance:', wallet.balance);
         console.log('📊 [API] Transactions sayısı:', wallet.transactions?.length || 0);
         
-        // Wallet modelinden gelen veriyi dönüştür
-        const now = new Date();
-        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const thisMonthTransactions = wallet.transactions?.filter((t: any) => 
-          t.type === 'credit' && new Date(t.createdAt) >= firstDayOfMonth
-        ) || [];
-        const thisMonthEarnings = thisMonthTransactions.reduce((sum: number, t: any) => sum + t.amount, 0);
-        
-        const totalEarnings = wallet.transactions?.filter((t: any) => t.type === 'credit')
-          .reduce((sum: number, t: any) => sum + t.amount, 0) || 0;
-        
-        const pendingAmount = wallet.transactions?.filter((t: any) => t.status === 'pending')
-          .reduce((sum: number, t: any) => sum + t.amount, 0) || 0;
+        // Backend'den gelen veriyi kullan (backend zaten hesaplamış)
+        const thisMonthEarnings = wallet.thisMonthEarnings || 0;
+        const lastMonthEarnings = wallet.lastMonthEarnings || 0;
+        const pendingAmount = wallet.pendingAmount || 0;
+        const totalEarnings = wallet.totalEarnings || 0;
 
         const result = {
           balance: wallet.balance || 0,
           totalEarnings,
           pendingAmount,
-          thisMonthEarnings
+          thisMonthEarnings,
+          lastMonthEarnings
         };
         
         console.log('✅ [API] Dönüştürülen veri:', result);

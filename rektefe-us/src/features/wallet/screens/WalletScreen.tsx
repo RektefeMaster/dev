@@ -34,6 +34,7 @@ export default function WalletScreen() {
     totalEarnings: 0,
     pendingAmount: 0,
     thisMonthEarnings: 0,
+    lastMonthEarnings: 0,
   });
   const [transactions, setTransactions] = useState<any[]>([]);
 
@@ -72,6 +73,7 @@ export default function WalletScreen() {
           totalEarnings: walletRes.data?.totalEarnings || 0,
           pendingAmount: walletRes.data?.pendingAmount || 0,
           thisMonthEarnings: walletRes.data?.thisMonthEarnings || 0,
+          lastMonthEarnings: walletRes.data?.lastMonthEarnings || 0,
         };
         console.log('💰 [WalletScreen] Wallet data set ediliyor:', newWalletData);
         setWalletData(newWalletData);
@@ -82,6 +84,7 @@ export default function WalletScreen() {
           totalEarnings: 0,
           pendingAmount: 0,
           thisMonthEarnings: 0,
+          lastMonthEarnings: 0,
         });
       }
 
@@ -99,6 +102,7 @@ export default function WalletScreen() {
         totalEarnings: 0,
         pendingAmount: 0,
         thisMonthEarnings: 0,
+        lastMonthEarnings: 0,
       });
       setTransactions([]);
     } finally {
@@ -226,10 +230,12 @@ export default function WalletScreen() {
         </View>
       </View>
 
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+      <FlatList
+        data={transactions.slice(0, 10)}
+        renderItem={renderTransactionItem}
+        keyExtractor={(item) => item._id || item.appointmentId}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -238,88 +244,102 @@ export default function WalletScreen() {
             tintColor={colors.primary}
           />
         }
-      >
-        {/* Balance Card */}
-        <View style={styles.balanceCard}>
-          <View style={styles.balanceHeader}>
-            <Text style={styles.balanceLabel}>Mevcut Bakiye</Text>
-            <Text style={styles.balanceAmount}>₺{walletData.balance.toFixed(2)}</Text>
-          </View>
-          
-          <View style={styles.balanceActions}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.withdrawButton]}
-              onPress={handleWithdraw}
-              disabled={walletData.balance <= 0}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="wallet" size={20} color={colors.primary} />
-              <Text style={styles.actionButtonText}>Para Çek</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[styles.actionButton, styles.historyButton]}
-              onPress={() => Alert.alert('Bilgi', 'İşlem geçmişi yakında eklenecek')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="time" size={20} color={colors.text.primary.main} />
-              <Text style={[styles.actionButtonText, styles.historyButtonText]}>Geçmiş</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Stats Cards */}
-        <View style={styles.statsSection}>
-          <StatsCard
-            icon="trending-up"
-            value={`₺${walletData.thisMonthEarnings.toFixed(2)}`}
-            label="Bu Ay"
-            variant="success"
-          />
-          <StatsCard
-            icon="time"
-            value={`₺${walletData.pendingAmount.toFixed(2)}`}
-            label="Bekleyen"
-            variant="warning"
-          />
-          <StatsCard
-            icon="cash"
-            value={`₺${walletData.totalEarnings.toFixed(2)}`}
-            label="Toplam"
-            variant="primary"
-          />
-        </View>
-
-        {/* Recent Transactions */}
-        <View style={styles.transactionsSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Son İşlemler ({transactions.length})</Text>
-            <TouchableOpacity
-              onPress={() => Alert.alert('Bilgi', 'İşlem geçmişi yakında eklenecek')}
-            >
-              <Text style={styles.viewAllText}>Tümünü Gör</Text>
-            </TouchableOpacity>
-          </View>
-
-          {transactions.length > 0 ? (
-            transactions.slice(0, 10).map((item, index) => (
-              <View key={item._id || index}>
-                {renderTransactionItem({ item })}
+        ListHeaderComponent={() => (
+          <>
+            {/* Balance Card */}
+            <View style={styles.balanceCard}>
+              <View style={styles.balanceHeader}>
+                <Text style={styles.balanceLabel}>Mevcut Bakiye</Text>
+                <Text style={styles.balanceAmount}>₺{walletData.balance.toFixed(2)}</Text>
               </View>
-            ))
-          ) : (
-            <View style={styles.emptyContainer}>
-              <EmptyState
-                icon="receipt-outline"
-                title="Henüz işlem yok"
-                subtitle="İlk işleminizi tamamladığınızda burada görünecek"
-                actionText="İşlem Geçmişi"
-                onActionPress={() => Alert.alert('Bilgi', 'İşlem geçmişi yakında eklenecek')}
-              />
+              
+              <View style={styles.balanceActions}>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.withdrawButton]}
+                  onPress={handleWithdraw}
+                  disabled={walletData.balance <= 0}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="wallet" size={20} color={colors.primary} />
+                  <Text style={styles.actionButtonText}>Para Çek</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.historyButton]}
+                  onPress={() => navigation.navigate('WalletHistory' as never)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="time" size={20} color={colors.text.primary.main} />
+                  <Text style={[styles.actionButtonText, styles.historyButtonText]}>Geçmiş</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          )}
-        </View>
-      </ScrollView>
+
+            {/* Stats Cards */}
+            <View style={styles.statsSection}>
+              <View style={styles.statsCard}>
+                <View style={styles.statsIconContainer}>
+                  <Ionicons name="trending-up" size={20} color={colors.success} />
+                </View>
+                <Text style={styles.statsValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                  ₺{walletData.thisMonthEarnings.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </Text>
+                <Text style={styles.statsLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                  Bu Ay
+                </Text>
+              </View>
+              
+              <View style={styles.statsCard}>
+                <View style={styles.statsIconContainer}>
+                  <Ionicons name="time" size={20} color={colors.warning} />
+                </View>
+                <Text style={styles.statsValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                  ₺{walletData.pendingAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </Text>
+                <Text style={styles.statsLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                  Bekleyen
+                </Text>
+              </View>
+              
+              <View style={styles.statsCard}>
+                <View style={styles.statsIconContainer}>
+                  <Ionicons name="cash" size={20} color={colors.primary} />
+                </View>
+                <Text style={styles.statsValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                  ₺{walletData.totalEarnings.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </Text>
+                <Text style={styles.statsLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                  Toplam
+                </Text>
+              </View>
+            </View>
+
+            {/* Recent Transactions Header */}
+            <View style={styles.transactionsSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Son İşlemler ({transactions.length})</Text>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('WalletHistory' as never)}
+                >
+                  <Text style={styles.viewAllText}>Tümünü Gör</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </>
+        )}
+        ListEmptyComponent={() => (
+          <View style={styles.emptyContainer}>
+            <EmptyState
+              icon="receipt-outline"
+              title="Henüz işlem yok"
+              subtitle="İlk işleminizi tamamladığınızda burada görünecek"
+              actionText="İşlem Geçmişi"
+              onActionPress={() => navigation.navigate('WalletHistory' as never)}
+            />
+          </View>
+        )}
+        ItemSeparatorComponent={() => <View style={styles.transactionSeparator} />}
+      />
     </SafeAreaView>
   );
 }
@@ -328,9 +348,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background.primary,
-  },
-  scrollView: {
-    flex: 1,
   },
   scrollContent: {
     paddingBottom: spacing.xxl,
@@ -437,7 +454,49 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: dimensions.screenPadding,
     marginBottom: spacing.xxl,
-    gap: spacing.md,
+    gap: spacing.sm,
+  },
+  statsCard: {
+    flex: 1,
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
+    shadowColor: colors.shadow.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+    minHeight: 100,
+  },
+  statsIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.background.tertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  statsValue: {
+    fontSize: typography.body2.fontSize,
+    fontWeight: '700',
+    color: colors.text.primary.main,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+    width: '100%',
+    paddingHorizontal: spacing.xs,
+  },
+  statsLabel: {
+    fontSize: typography.caption.large.fontSize,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    fontWeight: '500',
+    width: '100%',
+    paddingHorizontal: spacing.xs,
   },
   transactionsSection: {
     flex: 1,
@@ -459,14 +518,13 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
   },
-  transactionsList: {
-    paddingBottom: spacing.xxl,
+  transactionSeparator: {
+    height: spacing.sm,
   },
   transactionCard: {
     backgroundColor: colors.background.secondary,
     borderRadius: borderRadius.md,
     padding: spacing.md,
-    marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border.secondary,
     shadowColor: colors.shadow.primary,

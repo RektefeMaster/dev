@@ -18,7 +18,7 @@ import {
 import TabNavigator from './TabNavigator';
 import { ChatScreen, NewMessageScreen, MessagesScreen } from '@/features/messages/screens';
 import { AppointmentDetailScreen, CalendarScreen } from '@/features/appointments/screens';
-import { WalletScreen, FinancialTrackingScreen } from '@/features/wallet/screens';
+import { WalletScreen, FinancialTrackingScreen, WalletHistoryScreen } from '@/features/wallet/screens';
 import { SupportScreen } from '@/features/support/screens';
 import { ProfileScreen, EditProfileScreen, SettingsScreen, ServiceAreasScreen } from '@/features/profile/screens';
 import WorkingHoursScreen from '@/features/profile/screens/WorkingHoursScreen';
@@ -141,6 +141,7 @@ const AppNavigator = () => {
         <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
         <Stack.Screen name="Messages" component={MessagesScreen} />
         <Stack.Screen name="Wallet" component={WalletScreen} />
+        <Stack.Screen name="WalletHistory" component={WalletHistoryScreen} />
         <Stack.Screen name="Support" component={SupportScreen} />
         <Stack.Screen name="FinancialTracking" component={FinancialTrackingScreen} />
         <Stack.Screen name="Calendar" component={CalendarScreen} />

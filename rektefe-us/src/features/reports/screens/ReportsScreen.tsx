@@ -69,46 +69,154 @@ export default function ReportsScreen() {
     try {
       setLoading(true);
       
-      // Placeholder API çağrıları - bu methodlar henüz implement edilmedi
-      const [weeklyResponse, monthlyResponse, yearlyResponse, statsResponse] = await Promise.allSettled([
-        Promise.resolve({ success: true, data: { earnings: 0 } }), // getWeeklyEarnings placeholder
-        Promise.resolve({ success: true, data: { earnings: 0 } }), // getMonthlyEarnings placeholder
-        Promise.resolve({ success: true, data: { earnings: 0 } }), // getYearlyEarnings placeholder
-        Promise.resolve({ success: true, data: { stats: {} } }) // getMechanicStats placeholder
+      // Gerçek API çağrıları
+      const [
+        statsResponse,
+        appointmentsResponse,
+        ratingsResponse,
+        walletResponse
+      ] = await Promise.allSettled([
+        apiService.AppointmentService.getAppointmentStats(),
+        apiService.AppointmentService.getMechanicAppointments(),
+        apiService.AppointmentService.getRatingStats(),
+        apiService.WalletService.getMechanicWallet()
       ]);
 
-      const weeklyEarnings = weeklyResponse.status === 'fulfilled' && weeklyResponse.value.success 
-        ? weeklyResponse.value.data?.earnings || 0 : 0;
-      
-      const monthlyEarnings = monthlyResponse.status === 'fulfilled' && monthlyResponse.value.success 
-        ? monthlyResponse.value.data?.earnings || 0 : 0;
-      
-      const yearlyEarnings = yearlyResponse.status === 'fulfilled' && yearlyResponse.value.success 
-        ? yearlyResponse.value.data?.earnings || 0 : 0;
-      
+      // Stats verisi
       const stats = statsResponse.status === 'fulfilled' && statsResponse.value.success 
         ? statsResponse.value.data : null;
 
+      // Appointment verisi
+      const appointments = appointmentsResponse.status === 'fulfilled' && appointmentsResponse.value.success 
+        ? appointmentsResponse.value.data?.appointments || [] : [];
+
+      // Rating verisi
+      const ratings = ratingsResponse.status === 'fulfilled' && ratingsResponse.value.success 
+        ? ratingsResponse.value.data : null;
+
+      // Wallet verisi (kazançlar için)
+      const wallet = walletResponse.status === 'fulfilled' && walletResponse.value.success 
+        ? walletResponse.value.data : null;
+
+      // Kazançları hesapla
+      const thisMonthEarnings = wallet?.thisMonthEarnings || 0;
+      const lastMonthEarnings = wallet?.lastMonthEarnings || 0;
+      const totalEarnings = wallet?.totalEarnings || 0;
+
+      // Haftalık kazanç hesapla (son 7 gün)
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      const weeklyAppointments = appointments.filter((apt: any) => {
+        const aptDate = new Date(apt.appointmentDate || apt.createdAt);
+        return aptDate >= oneWeekAgo && apt.status === 'TAMAMLANDI';
+      });
+      const weeklyEarnings = weeklyAppointments.reduce((sum: number, apt: any) => 
+        sum + (apt.finalPrice || apt.price || 0), 0);
+
+      // Yıllık kazanç hesapla (bu yıl)
+      const yearStart = new Date(new Date().getFullYear(), 0, 1);
+      const yearlyAppointments = appointments.filter((apt: any) => {
+        const aptDate = new Date(apt.appointmentDate || apt.createdAt);
+        return aptDate >= yearStart && apt.status === 'TAMAMLANDI';
+      });
+      const yearlyEarnings = yearlyAppointments.reduce((sum: number, apt: any) => 
+        sum + (apt.finalPrice || apt.price || 0), 0);
+
+      // Toplam ve tamamlanan randevu sayısı
+      const totalAppointments = appointments.length;
+      const completedAppointments = appointments.filter((apt: any) => 
+        apt.status === 'TAMAMLANDI').length;
+
+      // Ortalama puan
+      const averageRating = ratings?.averageRating || 0;
+
+      // En çok yapılan hizmetler
+      const serviceMap: { [key: string]: { count: number; earnings: number } } = {};
+      appointments.forEach((apt: any) => {
+        if (apt.status === 'TAMAMLANDI' && apt.serviceType) {
+          if (!serviceMap[apt.serviceType]) {
+            serviceMap[apt.serviceType] = { count: 0, earnings: 0 };
+          }
+          serviceMap[apt.serviceType].count += 1;
+          serviceMap[apt.serviceType].earnings += (apt.finalPrice || apt.price || 0);
+        }
+      });
+      const topServices = Object.entries(serviceMap)
+        .map(([name, data]) => ({ name, ...data }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      // Müşteri istatistikleri
+      const uniqueCustomers = new Set(appointments.map((apt: any) => apt.userId));
+      const totalCustomers = uniqueCustomers.size;
+      
+      // Bu ayki yeni müşteriler
+      const thisMonthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      const thisMonthAppointments = appointments.filter((apt: any) => {
+        const aptDate = new Date(apt.appointmentDate || apt.createdAt);
+        return aptDate >= thisMonthStart;
+      });
+      const newCustomersThisMonth = new Set(thisMonthAppointments.map((apt: any) => apt.userId)).size;
+
+      // Aylık kazanç trendi (son 6 ay)
+      const earningsByMonth: Array<{ month: string; earnings: number }> = [];
+      for (let i = 5; i >= 0; i--) {
+        const monthDate = new Date();
+        monthDate.setMonth(monthDate.getMonth() - i);
+        const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+        const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+        
+        const monthAppointments = appointments.filter((apt: any) => {
+          const aptDate = new Date(apt.appointmentDate || apt.createdAt);
+          return aptDate >= monthStart && aptDate <= monthEnd && apt.status === 'TAMAMLANDI';
+        });
+        
+        const monthEarnings = monthAppointments.reduce((sum: number, apt: any) => 
+          sum + (apt.finalPrice || apt.price || 0), 0);
+        
+        const monthName = monthDate.toLocaleDateString('tr-TR', { month: 'short' });
+        earningsByMonth.push({ month: monthName, earnings: monthEarnings });
+      }
+
+      // Günlük randevu dağılımı (son 7 gün)
+      const appointmentsByDay: Array<{ day: string; count: number }> = [];
+      for (let i = 6; i >= 0; i--) {
+        const dayDate = new Date();
+        dayDate.setDate(dayDate.getDate() - i);
+        dayDate.setHours(0, 0, 0, 0);
+        const nextDay = new Date(dayDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        
+        const dayAppointments = appointments.filter((apt: any) => {
+          const aptDate = new Date(apt.appointmentDate || apt.createdAt);
+          return aptDate >= dayDate && aptDate < nextDay;
+        });
+        
+        const dayName = dayDate.toLocaleDateString('tr-TR', { weekday: 'short' });
+        appointmentsByDay.push({ day: dayName, count: dayAppointments.length });
+      }
+
       const reportData: ReportData = {
         weeklyEarnings,
-        monthlyEarnings,
+        monthlyEarnings: thisMonthEarnings,
         yearlyEarnings,
-        totalAppointments: 0, // Placeholder
-        completedAppointments: 0, // Placeholder
-        averageRating: 0, // Placeholder
-        topServices: [], // Placeholder
+        totalAppointments,
+        completedAppointments,
+        averageRating,
+        topServices,
         customerStats: {
-          newCustomers: 0, // Placeholder
-          returningCustomers: 0, // Placeholder
-          totalCustomers: 0, // Placeholder
+          newCustomers: newCustomersThisMonth,
+          returningCustomers: Math.max(0, totalCustomers - newCustomersThisMonth),
+          totalCustomers,
         },
-        earningsByMonth: [], // Placeholder
-        appointmentsByDay: [], // Placeholder
+        earningsByMonth,
+        appointmentsByDay,
       };
       
       setReportData(reportData);
 
     } catch (error: any) {
+      console.error('Report data fetch error:', error);
       Alert.alert('Hata', 'Rapor verileri yüklenirken bir hata oluştu.');
     } finally {
       setLoading(false);
@@ -151,20 +259,25 @@ export default function ReportsScreen() {
   };
 
   const renderEarningsChart = () => {
-    const maxEarnings = Math.max(...reportData.earningsByMonth.map(item => item.earnings));
+    // Eğer veri yoksa chart'ı gösterme
+    if (!reportData.earningsByMonth || reportData.earningsByMonth.length === 0) {
+      return null;
+    }
+
+    const maxEarnings = Math.max(...reportData.earningsByMonth.map(item => item.earnings), 1);
     
     return (
       <View style={styles.chartContainer}>
         <Text style={styles.chartTitle}>Aylık Kazanç Trendi</Text>
         <View style={styles.chart}>
           {reportData.earningsByMonth.map((item, index) => {
-            const height = (item.earnings / maxEarnings) * 120;
+            const height = maxEarnings > 0 ? (item.earnings / maxEarnings) * 120 : 0;
             return (
               <View key={index} style={styles.chartBar}>
                 <View 
                   style={[
                     styles.chartBarFill, 
-                    { height: height }
+                    { height: Math.max(height, 1) }
                   ]} 
                 />
                 <Text style={styles.chartBarLabel}>{item.month}</Text>
@@ -180,20 +293,25 @@ export default function ReportsScreen() {
   };
 
   const renderAppointmentsChart = () => {
-    const maxCount = Math.max(...reportData.appointmentsByDay.map(item => item.count));
+    // Eğer veri yoksa chart'ı gösterme
+    if (!reportData.appointmentsByDay || reportData.appointmentsByDay.length === 0) {
+      return null;
+    }
+
+    const maxCount = Math.max(...reportData.appointmentsByDay.map(item => item.count), 1);
     
     return (
       <View style={styles.chartContainer}>
         <Text style={styles.chartTitle}>Haftalık Randevu Dağılımı</Text>
         <View style={styles.chart}>
           {reportData.appointmentsByDay.map((item, index) => {
-            const height = (item.count / maxCount) * 100;
+            const height = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
             return (
               <View key={index} style={styles.chartBar}>
                 <View 
                   style={[
                     styles.chartBarFillSecondary, 
-                    { height: height }
+                    { height: Math.max(height, 1) }
                   ]} 
                 />
                 <Text style={styles.chartBarLabel}>{item.day}</Text>
@@ -312,34 +430,36 @@ export default function ReportsScreen() {
         </View>
 
         {/* Top Services */}
-        <View style={styles.servicesCard}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardTitleContainer}>
-              <Ionicons name="construct" size={24} color={colors.primary.main} />
-              <Text style={styles.cardTitle}>En Çok Yapılan Hizmetler</Text>
-            </View>
-            <TouchableOpacity 
-              style={styles.detailButton}
-              onPress={() => setShowServicesModal(true)}
-            >
-              <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.servicesList}>
-            {reportData.topServices.slice(0, 3).map((service, index) => (
-              <View key={index} style={styles.serviceItem}>
-                <View style={styles.serviceInfo}>
-                  <Text style={styles.serviceName}>{service.name}</Text>
-                  <Text style={styles.serviceCount}>{service.count} işlem</Text>
-                </View>
-                <Text style={styles.serviceEarnings}>
-                  {formatCurrency(service.earnings)}
-                </Text>
+        {reportData.topServices && reportData.topServices.length > 0 && (
+          <View style={styles.servicesCard}>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardTitleContainer}>
+                <Ionicons name="construct" size={24} color={colors.primary.main} />
+                <Text style={styles.cardTitle}>En Çok Yapılan Hizmetler</Text>
               </View>
-            ))}
+              <TouchableOpacity 
+                style={styles.detailButton}
+                onPress={() => setShowServicesModal(true)}
+              >
+                <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.servicesList}>
+              {reportData.topServices.slice(0, 3).map((service, index) => (
+                <View key={index} style={styles.serviceItem}>
+                  <View style={styles.serviceInfo}>
+                    <Text style={styles.serviceName}>{service.name}</Text>
+                    <Text style={styles.serviceCount}>{service.count} işlem</Text>
+                  </View>
+                  <Text style={styles.serviceEarnings}>
+                    {formatCurrency(service.earnings)}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Customer Stats */}
         <View style={styles.customerCard}>
