@@ -13,8 +13,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { colors, typography, spacing, borderRadius, shadows } from '@/shared/theme';
-import apiService from '@/shared/services/api';
+import { colors, typography, spacing, borderRadius, shadows } from '@shared/theme';
+import { apiService } from '@shared/services';
 
 type ResetPasswordRouteProp = RouteProp<{ params: { token: string } }, 'params'>;
 
@@ -359,5 +359,8 @@ const styles = StyleSheet.create({
     fontSize: typography.body1.fontSize,
     fontWeight: '600',
     color: colors.text.inverse,
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
 });

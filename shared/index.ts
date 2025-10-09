@@ -8,7 +8,7 @@ export * from './api';
 export * from './context';
 
 // Shared Services
-export * from './services/api';
+// Services folder is empty, no exports needed
 
 // Shared Types
 export * from './types';

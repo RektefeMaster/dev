@@ -13,8 +13,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { colors, typography, spacing, borderRadius, shadows } from '@/shared/theme';
-import apiService from '@/shared/services/api';
+import { colors, typography, spacing, borderRadius, shadows } from '@shared/theme';
+import { apiService } from '@shared/services';
 
 export default function ForgotPasswordScreen() {
   const navigation = useNavigation();

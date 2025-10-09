@@ -98,7 +98,6 @@ export const SharedAuthProvider = ({
       }
       
       // Token format kontrolü geçiyorsa true döndür
-      ');
       return true;
     } catch (error: any) {
       return false;
@@ -439,6 +438,9 @@ export const useSharedAuth = () => {
   return context;
 };
 
+// Alias for compatibility
+export const useAuth = useSharedAuth;
+
 // ===== UTILITY FUNCTIONS =====
 
 // Driver app için wrapper
@@ -458,6 +460,26 @@ export const createDriverAuthProvider = (apiService: BaseApiService, storageKeys
       </SharedAuthProvider>
     );
   };
+};
+
+// Basit AuthProvider wrapper
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const config: AuthConfig = {
+    userType: 'driver', // Default olarak driver
+    appName: 'Rektefe App',
+    storageKeys: {
+      token: 'auth_token',
+      user: 'user_data',
+      refreshToken: 'refresh_token'
+    },
+    apiService: new BaseApiService('http://localhost:3000') // Default API service
+  };
+  
+  return (
+    <SharedAuthProvider config={config}>
+      {children}
+    </SharedAuthProvider>
+  );
 };
 
 // Mechanic app için wrapper

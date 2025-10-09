@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme as useSystemColorScheme } from 'react-native';
-import { Colors } from '@/constants/Colors';
-import { createTheme } from '@/shared/theme';
+import { Colors } from '../../constants/Colors';
+import { createTheme } from '../theme';
 
 interface ThemeContextType {
   isDark: boolean;

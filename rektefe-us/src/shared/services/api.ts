@@ -45,7 +45,7 @@ apiClient.interceptors.request.use(
       const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
       
       // Token yoksa ve auth gerektiren endpoint ise isteği iptal et
-      if (!token && config.url && !config.url.includes('/api/auth/')) {
+      if (!token && config.url && !config.url.includes('/auth/')) {
         // Silent cancellation - no logging
         const cancelToken = axios.CancelToken.source();
         cancelToken.cancel('No authentication token');
@@ -54,7 +54,7 @@ apiClient.interceptors.request.use(
       }
       
       // Sadece önemli endpoint'ler için debug log
-      if (config.url?.includes('/api/auth/') || config.url?.includes('/api/mechanic/me')) {
+      if (config.url?.includes('/auth/') || config.url?.includes('/mechanic/me')) {
         console.log('🔍 Request interceptor - URL:', config.url);
         console.log('🔍 Request interceptor - Method:', config.method);
       }
@@ -97,7 +97,7 @@ const processQueue = (error: any, token: string | null = null) => {
 apiClient.interceptors.response.use(
   (response) => {
     // Sadece önemli endpoint'ler için success log
-    if (response.config.url?.includes('/api/auth/') || response.config.url?.includes('/api/mechanic/me')) {
+    if (response.config.url?.includes('/auth/') || response.config.url?.includes('/mechanic/me')) {
       console.log(`✅ API Success: ${response.config.method?.toUpperCase()} ${response.config.url} - ${response.status}`);
     }
     return response;
@@ -197,7 +197,7 @@ export const AuthService = {
    */
   async register(data: RegisterData): Promise<ApiResponse<{ user: Mechanic; token: string }>> {
     try {
-      const response = await apiClient.post('/api/auth/register', {
+      const response = await apiClient.post('/auth/register', {
         ...data,
         userType: UserType.MECHANIC
       });
@@ -226,7 +226,7 @@ export const AuthService = {
    */
   async login(email: string, password: string): Promise<ApiResponse<{ user: Mechanic; token: string }>> {
     try {
-      const response = await apiClient.post('/api/auth/login', {
+      const response = await apiClient.post('/auth/login', {
         email,
         password,
         userType: UserType.MECHANIC
@@ -261,7 +261,7 @@ export const AuthService = {
         throw new Error('Refresh token not found');
       }
       
-      const response = await apiClient.post('/api/auth/refresh', {
+      const response = await apiClient.post('/auth/refresh', {
         refreshToken
       });
       
@@ -289,7 +289,7 @@ export const AuthService = {
    */
   async logout(): Promise<void> {
     try {
-      await apiClient.post('/api/auth/logout');
+      await apiClient.post('/auth/logout');
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
@@ -301,7 +301,7 @@ export const AuthService = {
 
   async verifyEmail(code: string): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post('/api/auth/verify-email', { code });
+      const response = await apiClient.post('/auth/verify-email', { code });
       return response.data;
     } catch (error: any) {
       console.error('Verify email error:', error);
@@ -311,7 +311,7 @@ export const AuthService = {
 
   async sendEmailVerification(): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post('/api/auth/send-verification');
+      const response = await apiClient.post('/auth/send-verification');
       return response.data;
     } catch (error: any) {
       console.error('Send email verification error:', error);
@@ -321,7 +321,7 @@ export const AuthService = {
 
   async forgotPassword(email: string): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post('/api/auth/forgot-password', { email });
+      const response = await apiClient.post('/auth/forgot-password', { email });
       return response.data;
     } catch (error: any) {
       console.error('Forgot password error:', error);
@@ -331,7 +331,7 @@ export const AuthService = {
 
   async resetPassword(token: string, newPassword: string): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post('/api/auth/reset-password', { token, newPassword });
+      const response = await apiClient.post('/auth/reset-password', { token, newPassword });
       return response.data;
     } catch (error: any) {
       console.error('Reset password error:', error);
@@ -349,7 +349,7 @@ export const AppointmentService = {
   async getAppointments(status?: AppointmentStatus): Promise<ApiResponse<{ appointments: any[] }>> {
     try {
       const params = status ? { status } : {};
-      const response = await apiClient.get('/api/appointments/mechanic', { params });
+      const response = await apiClient.get('/appointments/mechanic', { params });
       return response.data;
     } catch (error: any) {
       // Cancel edilen istekleri handle et (error logging yapma)
@@ -457,7 +457,7 @@ export const AppointmentService = {
       if (status) params.status = status;
       if (filters) Object.assign(params, filters);
       
-      const response = await apiClient.get('/api/appointments/mechanic', { params });
+      const response = await apiClient.get('/appointments/mechanic', { params });
       return response.data;
     } catch (error: any) {
       // Cancel edilen istekleri handle et (error logging yapma)
@@ -471,7 +471,7 @@ export const AppointmentService = {
 
   async getMechanicAppointmentCounts(): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get('/api/mechanic/appointments/counts');
+      const response = await apiClient.get('/mechanic/appointments/counts');
       return response.data;
     } catch (error: any) {
       console.error('Get appointment counts error:', error);
@@ -571,7 +571,7 @@ export const AppointmentService = {
 
   async getAvailableStatuses(): Promise<ApiResponse<{ statuses: string[] }>> {
     try {
-      const response = await apiClient.get('/api/appointments/available-statuses');
+      const response = await apiClient.get('/appointments/available-statuses');
       return response.data;
     } catch (error: any) {
       console.error('Get available statuses error:', error);
@@ -581,7 +581,7 @@ export const AppointmentService = {
 
   async getTrustedMechanics(): Promise<ApiResponse<{ mechanics: any[] }>> {
     try {
-      const response = await apiClient.get('/api/mechanics/trusted');
+      const response = await apiClient.get('/mechanics/trusted');
       return response.data;
     } catch (error: any) {
       console.error('Get trusted mechanics error:', error);
@@ -619,7 +619,7 @@ export const AppointmentService = {
 
   async getRecentActivity(): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get('/api/mechanic/dashboard/recent-activity');
+      const response = await apiClient.get('/mechanic/dashboard/recent-activity');
       return response.data;
     } catch (error: any) {
       console.error('Get recent activity error:', error);
@@ -629,7 +629,7 @@ export const AppointmentService = {
 
   async getRecentRatings(): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get('/api/mechanic/ratings/recent');
+      const response = await apiClient.get('/mechanic/ratings/recent');
       return response.data;
     } catch (error: any) {
       // Cancel edilen istekleri handle et (error logging yapma)
@@ -643,7 +643,7 @@ export const AppointmentService = {
 
   async getRatingStats(): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get('/api/mechanic/ratings/stats');
+      const response = await apiClient.get('/mechanic/ratings/stats');
       return response.data;
     } catch (error: any) {
       // Cancel edilen istekleri handle et (error logging yapma)
@@ -657,7 +657,7 @@ export const AppointmentService = {
 
   async getAppointmentStats(): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get('/api/mechanic/dashboard/stats');
+      const response = await apiClient.get('/mechanic/dashboard/stats');
       return response.data;
     } catch (error: any) {
       console.error('Get appointment stats error:', error);
@@ -674,7 +674,7 @@ export const ProfileService = {
    */
   async getProfile(): Promise<ApiResponse<Mechanic>> {
     try {
-      const response = await apiClient.get('/api/mechanic/me');
+      const response = await apiClient.get('/mechanic/me');
       return response.data;
     } catch (error: any) {
       console.error('❌ Get profile error:', error);
@@ -698,7 +698,7 @@ export const ProfileService = {
    */
   async updateProfile(data: Partial<Mechanic>): Promise<ApiResponse<Mechanic>> {
     try {
-      const response = await apiClient.put('/api/mechanic/me', data);
+      const response = await apiClient.put('/mechanic/me', data);
       return response.data;
     } catch (error: any) {
       console.error('Update profile error:', error);
@@ -715,7 +715,7 @@ export const ProfileService = {
    */
   async updateWorkingHours(hours: any[]): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.put('/api/users/working-hours', { hours });
+      const response = await apiClient.put('/users/working-hours', { hours });
       return response.data;
     } catch (error: any) {
       console.error('Update working hours error:', error);
@@ -737,7 +737,7 @@ export const ProfileService = {
       const requestBody = { categories };
       console.log('📤 Request body:', requestBody);
       
-      const response = await apiClient.put('/api/users/service-categories', requestBody);
+      const response = await apiClient.put('/users/service-categories', requestBody);
       console.log('📥 Response:', response.data);
       
       return response.data;
@@ -758,7 +758,7 @@ export const ProfileService = {
    */
   async updateUserProfile(data: Partial<Mechanic>): Promise<ApiResponse<Mechanic>> {
     try {
-      const response = await apiClient.put('/api/mechanic/me', data);
+      const response = await apiClient.put('/mechanic/me', data);
       return response.data;
     } catch (error: any) {
       console.error('Update user profile error:', error);
@@ -775,7 +775,7 @@ export const ProfileService = {
    */
   async changePassword(currentPassword: string, newPassword: string): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.put('/api/auth/change-password', {
+      const response = await apiClient.put('/auth/change-password', {
         currentPassword,
         newPassword
       });
@@ -800,7 +800,7 @@ export const ProfileService = {
         throw new Error('Refresh token bulunamadı');
       }
 
-      const response = await apiClient.post('/api/auth/refresh', {
+      const response = await apiClient.post('/auth/refresh', {
         refreshToken
       });
       return response.data;
@@ -819,7 +819,7 @@ export const ProfileService = {
    */
   async logout(): Promise<ApiResponse<void>> {
     try {
-      await apiClient.post('/api/auth/logout');
+      await apiClient.post('/auth/logout');
       await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
       await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
       await AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA);
@@ -843,7 +843,7 @@ export const EarningsService = {
    */
   async getEarningsSummary(): Promise<ApiResponse<{ earnings: any }>> {
     try {
-      const response = await apiClient.get('/api/mechanic-earnings/summary');
+      const response = await apiClient.get('/mechanic-earnings/summary');
       return response.data;
     } catch (error: any) {
       console.error('Get earnings summary error:', error);
@@ -860,7 +860,7 @@ export const EarningsService = {
    */
   async getPaymentHistory(): Promise<ApiResponse<{ payments: any[] }>> {
     try {
-      const response = await apiClient.get('/api/mechanic-earnings/transactions');
+      const response = await apiClient.get('/mechanic-earnings/transactions');
       return response.data;
     } catch (error: any) {
       console.error('Get payment history error:', error);
@@ -917,7 +917,7 @@ export const MessageService = {
    */
   async sendMessage(conversationId: string, recipientId: string, text: string, metadata?: any): Promise<ApiResponse<MessageData>> {
     try {
-      const response = await apiClient.post('/api/message/send', {
+      const response = await apiClient.post('/message/send', {
         receiverId: recipientId, // Backend receiverId bekliyor
         content: text, // Backend content bekliyor
         messageType: 'text',
@@ -940,7 +940,7 @@ export const MessageService = {
   async getConversations(): Promise<ApiResponse<{ conversations: any[] }>> {
     try {
       console.log('🌐 API: Getting conversations...');
-      const response = await apiClient.get('/api/message/conversations');
+      const response = await apiClient.get('/message/conversations');
       console.log('🌐 API Response:', response.data);
       return response.data;
     } catch (error: any) {
@@ -975,7 +975,7 @@ export const MessageService = {
    */
   async getUnreadMessageCount(): Promise<ApiResponse<{ count: number }>> {
     try {
-      const response = await apiClient.get('/api/message/unread-count');
+      const response = await apiClient.get('/message/unread-count');
       return response.data;
     } catch (error: any) {
       // Cancel edilen istekleri handle et (error logging yapma)
@@ -997,7 +997,7 @@ export const MessageService = {
   async pollMessages(lastMessageId?: string): Promise<ApiResponse<MessageData[]>> {
     try {
       const params = lastMessageId ? { lastMessageId } : {};
-      const response = await apiClient.get('/api/message/poll-messages', { params });
+      const response = await apiClient.get('/message/poll-messages', { params });
       return response.data;
     } catch (error: any) {
       console.error('Poll messages error:', error);
@@ -1018,7 +1018,7 @@ export const NotificationService = {
    */
   async getNotifications(): Promise<ApiResponse<{ notifications: NotificationData[] }>> {
     try {
-      const response = await apiClient.get('/api/notifications/mechanic');
+      const response = await apiClient.get('/notifications/mechanic');
       return response.data;
     } catch (error: any) {
       console.error('Get notifications error:', error);
@@ -1063,7 +1063,7 @@ export const CustomerService = {
    */
   async getMechanicCustomers(filters?: any): Promise<ApiResponse<{ customers: any[] }>> {
     try {
-      const response = await apiClient.get('/api/mechanic/customers', { params: filters });
+      const response = await apiClient.get('/mechanic/customers', { params: filters });
       return response.data;
     } catch (error: any) {
       console.error('Get mechanic customers error:', error);
@@ -1104,7 +1104,7 @@ export const FaultReportService = {
    */
   async getMechanicFaultReports(statusFilter?: string): Promise<ApiResponse<{ faultReports: any[] }>> {
     try {
-      const url = statusFilter ? `/api/fault-reports/mechanic/reports?status=${statusFilter}` : '/api/fault-reports/mechanic/reports';
+      const url = statusFilter ? `/api/fault-reports/mechanic/reports?status=${statusFilter}` : '/fault-reports/mechanic/reports';
       const response = await apiClient.get(url);
       return response.data;
     } catch (error: any) {
@@ -1185,7 +1185,7 @@ export const EmergencyService = {
    */
   async getEmergencyTowingRequests(status?: string): Promise<ApiResponse<any>> {
     try {
-      const url = status ? `/api/emergency/towing?status=${status}` : '/api/emergency/towing';
+      const url = status ? `/api/emergency/towing?status=${status}` : '/emergency/towing';
       const response = await apiClient.get(url);
       return response.data;
     } catch (error: any) {
@@ -1216,7 +1216,7 @@ export const SettingsService = {
    */
   async getNotificationSettings(): Promise<ApiResponse<{ settings: any }>> {
     try {
-      const response = await apiClient.get('/api/users/notification-settings');
+      const response = await apiClient.get('/users/notification-settings');
       return response.data;
     } catch (error: any) {
       console.error('Get notification settings error:', error);
@@ -1233,7 +1233,7 @@ export const SettingsService = {
    */
   async getPrivacySettings(): Promise<ApiResponse<{ settings: any }>> {
     try {
-      const response = await apiClient.get('/api/users/privacy-settings');
+      const response = await apiClient.get('/users/privacy-settings');
       return response.data;
     } catch (error: any) {
       console.error('Get privacy settings error:', error);
@@ -1250,7 +1250,7 @@ export const SettingsService = {
    */
   async getJobSettings(): Promise<ApiResponse<{ settings: any }>> {
     try {
-      const response = await apiClient.get('/api/users/job-settings');
+      const response = await apiClient.get('/users/job-settings');
       return response.data;
     } catch (error: any) {
       console.error('Get job settings error:', error);
@@ -1267,7 +1267,7 @@ export const SettingsService = {
    */
   async getAppSettings(): Promise<ApiResponse<{ settings: any }>> {
     try {
-      const response = await apiClient.get('/api/users/app-settings');
+      const response = await apiClient.get('/users/app-settings');
       return response.data;
     } catch (error: any) {
       console.error('Get app settings error:', error);
@@ -1284,7 +1284,7 @@ export const SettingsService = {
    */
   async getSecuritySettings(): Promise<ApiResponse<{ settings: any }>> {
     try {
-      const response = await apiClient.get('/api/users/security-settings');
+      const response = await apiClient.get('/users/security-settings');
       return response.data;
     } catch (error: any) {
       console.error('Get security settings error:', error);
@@ -1301,7 +1301,7 @@ export const SettingsService = {
    */
   async updateNotificationSettings(settings: any): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.put('/api/users/notification-settings', settings);
+      const response = await apiClient.put('/users/notification-settings', settings);
       return response.data;
     } catch (error: any) {
       console.error('Update notification settings error:', error);
@@ -1318,7 +1318,7 @@ export const SettingsService = {
    */
   async updatePrivacySettings(settings: any): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.put('/api/users/privacy-settings', settings);
+      const response = await apiClient.put('/users/privacy-settings', settings);
       return response.data;
     } catch (error: any) {
       console.error('Update privacy settings error:', error);
@@ -1335,7 +1335,7 @@ export const SettingsService = {
    */
   async updateJobSettings(settings: any): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.put('/api/users/job-settings', settings);
+      const response = await apiClient.put('/users/job-settings', settings);
       return response.data;
     } catch (error: any) {
       console.error('Update job settings error:', error);
@@ -1352,7 +1352,7 @@ export const SettingsService = {
    */
   async updateAppSettings(settings: any): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.put('/api/users/app-settings', settings);
+      const response = await apiClient.put('/users/app-settings', settings);
       return response.data;
     } catch (error: any) {
       console.error('Update app settings error:', error);
@@ -1369,7 +1369,7 @@ export const SettingsService = {
    */
   async updateSecuritySettings(settings: any): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.put('/api/users/security-settings', settings);
+      const response = await apiClient.put('/users/security-settings', settings);
       return response.data;
     } catch (error: any) {
       console.error('Update security settings error:', error);
@@ -1390,7 +1390,7 @@ export const WalletService = {
    */
   async getMechanicWallet(): Promise<ApiResponse<{ balance: number; totalEarnings: number; pendingAmount: number }>> {
     try {
-      const response = await apiClient.get('/api/wallet/balance');
+      const response = await apiClient.get('/wallet/balance');
       return response.data;
     } catch (error: any) {
       // Cancel edilen istekleri handle et (error logging yapma)
@@ -1411,7 +1411,7 @@ export const WalletService = {
    */
   async getWalletTransactions(limit: number = 10): Promise<ApiResponse<{ transactions: any[] }>> {
     try {
-      const response = await apiClient.get('/api/wallet/transactions', {
+      const response = await apiClient.get('/wallet/transactions', {
         params: { limit }
       });
       return response.data;
@@ -1430,7 +1430,7 @@ export const WalletService = {
    */
   async requestWithdrawal(amount: number, accountInfo: any): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.post('/api/wallet/withdraw', {
+      const response = await apiClient.post('/wallet/withdraw', {
         amount,
         accountInfo
       });
@@ -1469,7 +1469,7 @@ const TireHotelService = {
     photos?: string[];
   }): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post('/api/tire-storage/store', data);
+      const response = await apiClient.post('/tire-storage/store', data);
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Store tire set error:', error);
@@ -1520,7 +1520,7 @@ const TireHotelService = {
    */
   async getTireDepotStatus(): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get('/api/tire-storage/depot-status');
+      const response = await apiClient.get('/tire-storage/depot-status');
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Get depot status error:', error);
@@ -1537,7 +1537,7 @@ const TireHotelService = {
    */
   async sendSeasonalReminders(season: 'summer' | 'winter'): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post('/api/tire-storage/send-seasonal-reminders', { season });
+      const response = await apiClient.post('/tire-storage/send-seasonal-reminders', { season });
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Send seasonal reminders error:', error);
@@ -1558,7 +1558,7 @@ const TireHotelService = {
     slotsPerRack: number;
   }>): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post('/api/tire-storage/setup-depot', { corridors });
+      const response = await apiClient.post('/tire-storage/setup-depot', { corridors });
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Setup depot error:', error);
@@ -1588,7 +1588,7 @@ const TireHotelService = {
     };
   }): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post('/api/tire-storage/setup-reminders', settings);
+      const response = await apiClient.post('/tire-storage/setup-reminders', settings);
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Setup reminders error:', error);
@@ -1621,7 +1621,7 @@ const BodyworkService = {
     };
   }): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post('/api/bodywork/create', data);
+      const response = await apiClient.post('/bodywork/create', data);
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Create bodywork job error:', error);
@@ -1761,7 +1761,7 @@ const BodyworkService = {
   async getBodyworkJobs(status?: string): Promise<ApiResponse<any>> {
     try {
       const params = status ? { status } : {};
-      const response = await apiClient.get('/api/bodywork/mechanic-jobs', { params });
+      const response = await apiClient.get('/bodywork/mechanic-jobs', { params });
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Get bodywork jobs error:', error);
@@ -1826,7 +1826,7 @@ const BodyworkService = {
     };
   }): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post('/api/bodywork/templates', data);
+      const response = await apiClient.post('/bodywork/templates', data);
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Create template error:', error);
@@ -1847,7 +1847,7 @@ const BodyworkService = {
       if (damageType) params.damageType = damageType;
       if (severity) params.severity = severity;
       
-      const response = await apiClient.get('/api/bodywork/templates', { params });
+      const response = await apiClient.get('/bodywork/templates', { params });
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Get templates error:', error);
@@ -1901,7 +1901,7 @@ const CarWashService = {
     thumbnail?: string;
   }): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post('/api/carwash/packages', data);
+      const response = await apiClient.post('/carwash/packages', data);
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Create car wash package error:', error);
@@ -1919,7 +1919,7 @@ const CarWashService = {
   async getCarWashPackages(packageType?: string): Promise<ApiResponse<any>> {
     try {
       const params = packageType ? { packageType } : {};
-      const response = await apiClient.get('/api/carwash/packages', { params });
+      const response = await apiClient.get('/carwash/packages', { params });
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Get car wash packages error:', error);
@@ -1957,7 +1957,7 @@ const CarWashService = {
     scheduledAt?: Date;
   }): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post('/api/carwash/jobs', data);
+      const response = await apiClient.post('/carwash/jobs', data);
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Create car wash job error:', error);
@@ -2039,7 +2039,7 @@ const CarWashService = {
       if (status) params.status = status;
       if (date) params.date = date;
       
-      const response = await apiClient.get('/api/carwash/jobs', { params });
+      const response = await apiClient.get('/carwash/jobs', { params });
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Get car wash jobs error:', error);
@@ -2095,7 +2095,7 @@ const CarWashService = {
     pointsSystem?: any;
   }): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post('/api/carwash/loyalty-program', data);
+      const response = await apiClient.post('/carwash/loyalty-program', data);
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Setup loyalty program error:', error);
@@ -2112,7 +2112,7 @@ const CarWashService = {
    */
   async getLoyaltyProgram(): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get('/api/carwash/loyalty-program');
+      const response = await apiClient.get('/carwash/loyalty-program');
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
       console.error('Get loyalty program error:', error);

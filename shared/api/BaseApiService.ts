@@ -82,9 +82,10 @@ export class BaseApiService {
           // Add request ID for tracking
           config.headers['X-Request-ID'] = this.generateRequestId();
           
-          } ${config.url}`);
+          console.log(`Request: ${config.method?.toUpperCase()} ${config.url}`);
         } catch (error) {
-          }
+          console.error('Request interceptor error:', error);
+        }
         return config;
       },
       (error) => Promise.reject(error)

@@ -14,6 +14,13 @@ config.resolver.nodeModulesPaths = [
   path.resolve(__dirname, '../shared'),
 ];
 
+// Alias mapping ekle
+config.resolver.alias = {
+  '@': path.resolve(__dirname, 'src'),
+  '@shared': path.resolve(__dirname, 'src/shared'),
+  '@features': path.resolve(__dirname, 'src/features'),
+};
+
 // Ensure that all platforms are included
 config.resolver.platforms = ['ios', 'android', 'native', 'web'];
 

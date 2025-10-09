@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { useAuth } from '@/shared/context';
-import { RootStackParamList } from '@/shared/types';
+import { useAuth } from '../../../shared/context/SharedAuthContext';
+import { RootStackParamList } from '../../../shared/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '@/constants/config';
 
@@ -48,8 +48,18 @@ const AppNavigator = () => {
 
   const checkInitialRoute = async () => {
     try {
-      const onboardingCompleted = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETED);
-      const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      // Storage keys'lerin undefined olmadığından emin ol
+      const onboardingKey = STORAGE_KEYS.ONBOARDING_COMPLETED;
+      const tokenKey = STORAGE_KEYS.AUTH_TOKEN;
+      
+      if (!onboardingKey || !tokenKey) {
+        console.warn('Storage keys are undefined, defaulting to Auth screen');
+        setInitialRoute('Auth');
+        return;
+      }
+      
+      const onboardingCompleted = await AsyncStorage.getItem(onboardingKey);
+      const token = await AsyncStorage.getItem(tokenKey);
 
       // Token varsa ana ekrana git
       if (token) {
@@ -59,6 +69,7 @@ const AppNavigator = () => {
         setInitialRoute('Auth');
       }
     } catch (error) {
+      console.error('Error checking initial route:', error);
       setInitialRoute('Auth'); // Hata durumunda da Auth'a git
     } finally {
       setIsCheckingRoute(false);

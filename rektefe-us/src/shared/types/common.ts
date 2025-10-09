@@ -528,6 +528,66 @@ export type RootStackParamList = {
   Reviews: undefined;
 };
 
+// ===== TAB NAVIGATION TYPES =====
+export type TabParamList = {
+  Home: undefined;
+  TowingService: undefined;
+  RepairService: undefined;
+  WashService: undefined;
+  TireService: undefined;
+  TireHotel: undefined;
+  Bodywork: undefined;
+  CarWash: undefined;
+  Messages: undefined;
+  Reports: undefined;
+  Wallet: undefined;
+  Profile: undefined;
+};
+
+// ===== ROOT STACK NAVIGATION TYPES =====
+export type RootStackParamList = {
+  Onboarding: undefined;
+  Auth: undefined;
+  EmailVerification: { email: string };
+  ForgotPassword: undefined;
+  ResetPassword: undefined;
+  Main: undefined;
+  ChatScreen: undefined;
+  NewMessage: undefined;
+  AppointmentDetail: undefined;
+  Appointments: undefined;
+  Notifications: undefined;
+  NotificationSettings: undefined;
+  Messages: undefined;
+  Wallet: undefined;
+  Support: undefined;
+  FinancialTracking: undefined;
+  Calendar: undefined;
+  Profile: undefined;
+  EditProfile: undefined;
+  WorkingHours: undefined;
+  Settings: undefined;
+  Security: undefined;
+  ServiceAreas: undefined;
+  HelpCenter: undefined;
+  About: undefined;
+  FaultReports: undefined;
+  FaultReportDetail: { faultReportId: string };
+  TowingService: undefined;
+  RepairService: undefined;
+  WashService: undefined;
+  TireService: undefined;
+  EmergencyNotification: undefined;
+  Reports: undefined;
+  EndOfDay: undefined;
+  Customer: undefined;
+  QuickQuote: undefined;
+  Suppliers: undefined;
+  VehicleHistory: undefined;
+  ServiceCatalog: undefined;
+  Reviews: undefined;
+};
+
 // ===== LEGACY TYPE ALIASES =====
 export type RegisterData = RegisterRequest;
 export type VehicleData = MechanicProfileFormData;

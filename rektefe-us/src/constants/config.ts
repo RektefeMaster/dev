@@ -9,8 +9,6 @@ export const API_CONFIG = {
   TIMEOUT: 30000, // 30 saniye timeout - network gecikmeleri için
 };
 
-// Debug logs removed for cleaner output
-
 // Doğrudan export edilen API URL'leri
 export const API_URL = API_CONFIG.BASE_URL;
 export const SOCKET_URL = API_CONFIG.SOCKET_URL;

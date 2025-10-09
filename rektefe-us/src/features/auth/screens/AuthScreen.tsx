@@ -14,20 +14,21 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { RootStackParamList } from '@shared/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 
-import { typography, spacing, borderRadius, shadows, dimensions } from '@/shared/theme';
-import { Button, Input, Card } from '@/shared/components';
-import { useAuth } from '@/shared/context';
-import { useTheme } from '@/shared/context';
+import { typography, spacing, borderRadius, shadows, dimensions } from '@shared/theme';
+import { Button, Input, Card } from '@shared/components';
+import { useAuth } from '../../../../../shared/context/SharedAuthContext';
+import { useTheme } from '@shared/context';
 import { STORAGE_KEYS } from '@/constants/config';
 
 const { width, height } = Dimensions.get('window');
 
 export default function AuthScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const { login, register } = useAuth();
   const { themeColors: colors } = useTheme();
   const styles = createStyles(colors);
@@ -179,7 +180,7 @@ export default function AuthScreen() {
       if (isLogin) {
         const response = await login(formData.email, formData.password);
         if (response.success) {
-          navigation.navigate('Main' as never);
+          navigation.navigate('Main');
         } else {
           Alert.alert('Hata', response.message || 'Giriş başarısız');
         }
@@ -199,7 +200,7 @@ export default function AuthScreen() {
         
         if (response.success) {
           // Kayıt başarılı - E-posta doğrulama ekranına yönlendir
-          navigation.navigate('EmailVerification' as never, { email: formData.email } as never);
+          navigation.navigate('EmailVerification', { email: formData.email });
         } else {
           Alert.alert('Hata', response.message || 'Kayıt başarısız');
         }
@@ -398,7 +399,7 @@ export default function AuthScreen() {
             {isLogin && (
               <TouchableOpacity 
                 style={styles.forgotPasswordButton}
-                onPress={() => navigation.navigate('ForgotPassword' as never)}
+                onPress={() => navigation.navigate('ForgotPassword')}
                 activeOpacity={0.7}
               >
                 <Text style={styles.forgotPasswordText}>

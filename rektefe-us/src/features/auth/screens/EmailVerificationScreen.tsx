@@ -12,8 +12,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { colors, typography, spacing, borderRadius, shadows } from '@/shared/theme';
-import apiService from '@/shared/services/api';
+import { colors, typography, spacing, borderRadius, shadows } from '@shared/theme';
+import { apiService } from '@shared/services';
 
 type EmailVerificationRouteProp = RouteProp<{ params: { email: string } }, 'params'>;
 

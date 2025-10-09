@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useTheme } from '@/shared/context/ThemeContext';
+import { useTheme } from '../context';
 
 interface BackgroundProps {
   children: React.ReactNode;
@@ -8,12 +8,12 @@ interface BackgroundProps {
 }
 
 const Background: React.FC<BackgroundProps> = ({ children, style }) => {
-  const { theme } = useTheme();
+  const { themeColors } = useTheme();
 
   return (
     <View style={[
       styles.container,
-      { backgroundColor: theme.colors.background.primary },
+      { backgroundColor: themeColors.background.primary },
       style
     ]}>
       {children}
