@@ -151,7 +151,23 @@ export default function TireHotelScreen() {
         return;
       }
 
-      const response = await apiService.storeTireSet(storeForm);
+      const requestData = {
+        customerId: storeForm.customerId,
+        vehicleId: storeForm.vehicleId,
+        tireSet: {
+          season: storeForm.season,
+          brand: storeForm.brand,
+          model: storeForm.model,
+          size: storeForm.size,
+          condition: storeForm.condition,
+          treadDepth: storeForm.treadDepth,
+          productionYear: storeForm.productionYear,
+          notes: storeForm.notes,
+        },
+        storageFee: storeForm.storageFee,
+      };
+
+      const response = await apiService.storeTireSet(requestData);
       if (response.success) {
         Alert.alert('Başarılı', 'Lastik seti başarıyla depoya yerleştirildi');
         setShowStoreModal(false);
@@ -511,13 +527,13 @@ export default function TireHotelScreen() {
           <Button
             title="İptal"
             onPress={() => setShowStoreModal(false)}
-            style={[styles.modalButton, styles.cancelButton]}
+            style={StyleSheet.flatten([styles.modalButton, styles.cancelButton])}
             textStyle={styles.cancelButtonText}
           />
           <Button
             title="Yerleştir"
             onPress={handleStoreTireSet}
-            style={[styles.modalButton, styles.confirmButton]}
+            style={StyleSheet.flatten([styles.modalButton, styles.confirmButton])}
           />
         </View>
       </SafeAreaView>
@@ -560,13 +576,13 @@ export default function TireHotelScreen() {
           <Button
             title="İptal"
             onPress={() => setShowRetrieveModal(false)}
-            style={[styles.modalButton, styles.cancelButton]}
+            style={StyleSheet.flatten([styles.modalButton, styles.cancelButton])}
             textStyle={styles.cancelButtonText}
           />
           <Button
             title="Ara"
             onPress={handleRetrieveTireSet}
-            style={[styles.modalButton, styles.confirmButton]}
+            style={StyleSheet.flatten([styles.modalButton, styles.confirmButton])}
           />
         </View>
       </SafeAreaView>
@@ -685,7 +701,7 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   loadingText: {
     marginTop: spacing.md,
-    fontSize: typography.sizes.md,
+    fontSize: typography.fontSize.md,
     color: colors.text.secondary,
   },
   header: {
@@ -698,8 +714,8 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderBottomColor: colors.border.light,
   },
   headerTitle: {
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.bold,
+    fontSize: typography.fontSize.lg,
+    fontWeight: '700',
     color: colors.text.primary,
   },
   tabNavigation: {
@@ -720,12 +736,12 @@ const createStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.primary.main,
   },
   tabButtonText: {
-    fontSize: typography.sizes.sm,
+    fontSize: typography.fontSize.sm,
     color: colors.text.secondary,
   },
   tabButtonTextActive: {
     color: colors.text.inverse,
-    fontWeight: typography.weights.semibold,
+    fontWeight: '600',
   },
   content: {
     flex: 1,
@@ -737,13 +753,13 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginBottom: spacing.lg,
   },
   cardTitle: {
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.bold,
+    fontSize: typography.fontSize.lg,
+    fontWeight: '700',
     color: colors.text.primary,
     marginBottom: spacing.md,
   },
   cardDescription: {
-    fontSize: typography.sizes.sm,
+    fontSize: typography.fontSize.sm,
     color: colors.text.secondary,
     marginBottom: spacing.md,
   },
@@ -761,12 +777,12 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginBottom: spacing.sm,
   },
   summaryValue: {
-    fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold,
+    fontSize: typography.fontSize.xl,
+    fontWeight: '700',
     color: colors.primary.main,
   },
   summaryLabel: {
-    fontSize: typography.sizes.sm,
+    fontSize: typography.fontSize.sm,
     color: colors.text.secondary,
     marginTop: spacing.xs,
   },
@@ -787,7 +803,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginBottom: spacing.sm,
   },
   quickActionText: {
-    fontSize: typography.sizes.sm,
+    fontSize: typography.fontSize.sm,
     color: colors.text.primary,
     marginTop: spacing.xs,
     textAlign: 'center',
@@ -811,8 +827,8 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginBottom: spacing.xs,
   },
   tireSetCustomer: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
+    fontSize: typography.fontSize.md,
+    fontWeight: '600',
     color: colors.text.primary,
   },
   tireSetSeason: {
@@ -821,17 +837,17 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderRadius: borderRadius.sm,
   },
   tireSetSeasonText: {
-    fontSize: typography.sizes.xs,
+    fontSize: typography.fontSize.xs,
     color: colors.text.inverse,
-    fontWeight: typography.weights.semibold,
+    fontWeight: '600',
   },
   tireSetVehicle: {
-    fontSize: typography.sizes.sm,
+    fontSize: typography.fontSize.sm,
     color: colors.text.secondary,
     marginBottom: spacing.xs,
   },
   tireSetDetails: {
-    fontSize: typography.sizes.sm,
+    fontSize: typography.fontSize.sm,
     color: colors.text.secondary,
     marginBottom: spacing.sm,
   },
@@ -841,7 +857,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     alignItems: 'center',
   },
   tireSetLocation: {
-    fontSize: typography.sizes.xs,
+    fontSize: typography.fontSize.xs,
     color: colors.text.tertiary,
   },
   tireSetCondition: {
@@ -850,9 +866,9 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderRadius: borderRadius.sm,
   },
   tireSetConditionText: {
-    fontSize: typography.sizes.xs,
+    fontSize: typography.fontSize.xs,
     color: colors.text.inverse,
-    fontWeight: typography.weights.semibold,
+    fontWeight: '600',
   },
   storageCard: {
     alignItems: 'center',
@@ -877,8 +893,8 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderBottomColor: colors.border.light,
   },
   modalTitle: {
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.bold,
+    fontSize: typography.fontSize.lg,
+    fontWeight: '700',
     color: colors.text.primary,
   },
   modalContent: {
@@ -889,8 +905,8 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginBottom: spacing.lg,
   },
   formLabel: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.semibold,
+    fontSize: typography.fontSize.sm,
+    fontWeight: '600',
     color: colors.text.primary,
     marginBottom: spacing.sm,
   },
@@ -900,7 +916,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    fontSize: typography.sizes.md,
+    fontSize: typography.fontSize.md,
     color: colors.text.primary,
     backgroundColor: colors.background.secondary,
   },
@@ -925,12 +941,12 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderColor: colors.primary.main,
   },
   seasonButtonText: {
-    fontSize: typography.sizes.sm,
+    fontSize: typography.fontSize.sm,
     color: colors.text.secondary,
   },
   seasonButtonTextActive: {
     color: colors.text.inverse,
-    fontWeight: typography.weights.semibold,
+    fontWeight: '600',
   },
   conditionSelector: {
     flexDirection: 'row',
@@ -950,12 +966,12 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderColor: colors.primary.main,
   },
   conditionButtonText: {
-    fontSize: typography.sizes.xs,
+    fontSize: typography.fontSize.xs,
     color: colors.text.secondary,
   },
   conditionButtonTextActive: {
     color: colors.text.inverse,
-    fontWeight: typography.weights.semibold,
+    fontWeight: '600',
   },
   qrScannerButton: {
     flexDirection: 'row',
@@ -969,7 +985,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderStyle: 'dashed',
   },
   qrScannerText: {
-    fontSize: typography.sizes.md,
+    fontSize: typography.fontSize.md,
     color: colors.primary.main,
     marginLeft: spacing.sm,
   },

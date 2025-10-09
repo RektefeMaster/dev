@@ -18,6 +18,7 @@ import { useAuth } from '@/shared/context';
 import apiService from '@/shared/services';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Rating, RatingItem } from '@/shared/types';
+import { colors } from '@/shared/theme';
 import { translateServiceName } from '@/shared/utils/serviceTranslator';
 import { DrawerActions } from '@react-navigation/native';
 import { CardNav } from '@/shared/components';
@@ -1343,13 +1344,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     width: '100%',
   },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'space-between',
-    alignItems: 'stretch',
-    width: '100%',
-  },
   statCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -1392,12 +1386,6 @@ const styles = StyleSheet.create({
   statNumberSmall: {
     fontSize: 20,
     minHeight: 28,
-  },
-  statLabel: {
-    fontSize: 13,
-    color: '#64748B',
-    fontWeight: '600',
-    textAlign: 'center',
   },
 
   quickActionsSection: {
@@ -1875,5 +1863,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.8)',
     fontWeight: '500',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#64748B',
+    textAlign: 'center',
   },
 });

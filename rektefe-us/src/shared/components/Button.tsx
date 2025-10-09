@@ -21,8 +21,8 @@ export interface ButtonProps {
   icon?: keyof typeof Ionicons.glyphMap;
   iconPosition?: 'left' | 'right';
   fullWidth?: boolean;
-  style?: ViewStyle;
-  textStyle?: TextStyle;
+  style?: ViewStyle | ViewStyle[];
+  textStyle?: TextStyle | TextStyle[];
   children?: React.ReactNode;
 }
 

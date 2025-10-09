@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,261 +6,296 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  SafeAreaView,
   Alert,
-  ActivityIndicator,
   Linking,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { useTheme } from '@/shared/context';
 import { useAuth } from '@/shared/context';
-import { Card, Button } from '@/shared/components';
-import { typography, spacing, borderRadius, shadows, dimensions } from '@/shared/theme';
 import apiService from '@/shared/services';
 
-// Haversine mesafe hesaplama (km)
-const haversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-  const R = 6371;
-  const toRad = (d: number) => (d * Math.PI) / 180;
+/**
+ * PLAN.md'ye göre çekici hizmetleri ekranı
+ * - Anlık talep sistemi (CekiciYolla benzeri)
+ * - Acil/Normal önceliklendirme
+ * - Gerçek zamanlı mesafe hesaplama
+ * - Konum paylaşımı ve navigasyon
+ */
+
+// Haversine formülü ile mesafe hesaplama (km)
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371; // Dünya'nın yarıçapı (km)
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
+  
   const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  
+  const c = 2 * Math.asin(Math.sqrt(a));
+  return Math.round(R * c * 10) / 10; // 1 ondalık basamak
 };
 
-interface TowingJob {
-  id: string;
-  customerName: string;
-  customerPhone: string;
-  vehicleInfo: string;
-  vehicleType: 'car' | 'motorcycle' | 'truck' | 'van';
-  vehicleYear: number;
-  vehicleBrand: string;
-  vehicleModel: string;
-  vehiclePlate: string;
-  location: {
-    address: string;
-    coordinates: { lat: number; lng: number };
+interface TowingRequest {
+  _id: string;
+  userId: {
+    _id: string;
+    name: string;
+    surname: string;
+    phone: string;
   };
-  destination: {
-    address: string;
-    coordinates: { lat: number; lng: number };
+  vehicleId?: {
+    brand: string;
+    modelName: string;
+    plateNumber: string;
+    year: number;
   };
-  status: 'pending' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
-  requestedAt: string;
-  estimatedTime?: string;
-  estimatedDistance?: number; // km
-  price?: number;
-  notes?: string;
+  serviceType: string;
+  pickupLocation: {
+    address: string;
+    coordinates: {
+      latitude: number;
+      longitude: number;
+    };
+  };
+  dropoffLocation: {
+    address: string;
+    coordinates: {
+      latitude: number;
+      longitude: number;
+    };
+  };
+  description: string;
+  status: 'TALEP_EDILDI' | 'PLANLANDI' | 'SERVISTE' | 'TAMAMLANDI' | 'IPTAL';
   emergencyLevel: 'low' | 'medium' | 'high';
-  towingType: 'flatbed' | 'wheel_lift' | 'integrated';
-  customerLocation?: { lat: number; lng: number };
-  mechanicLocation?: { lat: number; lng: number };
+  towingType?: 'flatbed' | 'wheel_lift' | 'integrated';
+  estimatedPrice?: number;
+  createdAt: string;
+  updatedAt: string;
+  distance?: number; // Hesaplanan mesafe
 }
 
 export default function TowingServiceScreen() {
   const navigation = useNavigation();
-  const { themeColors: colors } = useTheme();
   const { user } = useAuth();
-  const styles = createStyles(colors);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [jobs, setJobs] = useState<TowingJob[]>([]);
-  const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
-  const [onlyEmergency, setOnlyEmergency] = useState<boolean>(false);
+  const [requests, setRequests] = useState<TowingRequest[]>([]);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'urgent'>('all');
+  const [statusFilter, setStatusFilter] = useState<'active' | 'completed'>('active');
 
-  useEffect(() => {
-    fetchTowingJobs();
-  }, []);
+  // Ustanın konumu
+  const [mechanicLocation, setMechanicLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  const fetchTowingJobs = async () => {
+  useFocusEffect(
+    useCallback(() => {
+      fetchTowingRequests();
+    }, [statusFilter])
+  );
+
+  const fetchTowingRequests = async () => {
     try {
       setLoading(true);
-      const [profileRes, requestsRes] = await Promise.all([
-        apiService.getMechanicProfile(),
-        apiService.getMechanicServiceRequests(),
-      ]);
 
-      const mechLoc = profileRes?.data?.location?.coordinates;
-      const mechLat = mechLoc?.latitude ?? mechLoc?.lat ?? null;
-      const mechLng = mechLoc?.longitude ?? mechLoc?.lng ?? null;
+      // Usta profilinden konum bilgisini al
+      const profileResponse = await apiService.getMechanicProfile();
+      if (profileResponse.success && profileResponse.data?.location?.coordinates) {
+        const coords = profileResponse.data.location.coordinates;
+        const mechLat = coords.latitude ?? coords.lat;
+        const mechLng = coords.longitude ?? coords.lng;
+        if (mechLat && mechLng) {
+          setMechanicLocation({ lat: mechLat, lng: mechLng });
+        }
+      }
 
-      const items: TowingJob[] = (requestsRes.success && Array.isArray(requestsRes.data) ? requestsRes.data : [])
-        .filter((a: any) => a.serviceType === 'towing')
-        .map((a: any) => {
-          const pu = a.pickupLocation?.coordinates || a.pickupLocation;
-          const dp = a.dropoffLocation?.coordinates || a.dropoffLocation;
-          const puLat = pu?.latitude ?? pu?.lat ?? null;
-          const puLng = pu?.longitude ?? pu?.lng ?? null;
-          const dpLat = dp?.latitude ?? dp?.lat ?? null;
-          const dpLng = dp?.longitude ?? dp?.lng ?? null;
+      // Çekici taleplerini getir
+      const response = await apiService.getMechanicServiceRequests();
+      
+      if (response.success && Array.isArray(response.data)) {
+        // Sadece çekici (towing) taleplerini filtrele
+        let towingRequests = response.data.filter(
+          (req: any) => req.serviceType === 'towing' || req.serviceType === 'cekici'
+        );
 
-          let estDist: number | undefined;
-          if (mechLat != null && mechLng != null && puLat != null && puLng != null) {
-            estDist = Math.round(haversine(mechLat, mechLng, puLat, puLng) * 10) / 10;
+        // Duruma göre filtrele
+        if (statusFilter === 'active') {
+          towingRequests = towingRequests.filter(
+            (req: any) => ['TALEP_EDILDI', 'PLANLANDI', 'SERVISTE'].includes(req.status)
+          );
+        } else {
+          towingRequests = towingRequests.filter(
+            (req: any) => ['TAMAMLANDI', 'IPTAL'].includes(req.status)
+          );
+        }
+
+        // Mesafe hesapla ve ekle
+        const enrichedRequests = towingRequests.map((req: any) => {
+          let distance: number | undefined;
+          
+          if (mechanicLocation && req.pickupLocation?.coordinates) {
+            const pickup = req.pickupLocation.coordinates;
+            const pickupLat = pickup.latitude ?? pickup.lat;
+            const pickupLng = pickup.longitude ?? pickup.lng;
+            
+            if (pickupLat && pickupLng) {
+              distance = calculateDistance(
+                mechanicLocation.lat,
+                mechanicLocation.lng,
+                pickupLat,
+                pickupLng
+              );
+            }
           }
 
-          const mapStatus = (s: string) => {
-            switch (s) {
-              case 'TALEP_EDILDI': return 'pending';
-              case 'PLANLANDI': return 'accepted';
-              case 'SERVISTE': return 'in_progress';
-              case 'TAMAMLANDI': return 'completed';
-              case 'IPTAL': return 'cancelled';
-              default: return 'pending';
-            }
-          };
-
           return {
-            id: a._id,
-            customerName: a.userId ? `${a.userId.name || ''} ${a.userId.surname || ''}`.trim() : 'Müşteri',
-            customerPhone: a.userId?.phone || '',
-            vehicleInfo: a.description || '',
-            vehicleType: (a.vehicleType || 'car'),
-            vehicleYear: a.vehicleInfo?.year || 0,
-            vehicleBrand: a.vehicleInfo?.brand || '',
-            vehicleModel: a.vehicleInfo?.modelName || '',
-            vehiclePlate: a.vehicleInfo?.plateNumber || '',
-            location: {
-              address: a.pickupLocation?.address || 'Alış adresi',
-              coordinates: { lat: puLat || 0, lng: puLng || 0 }
-            },
-            destination: {
-              address: a.dropoffLocation?.address || 'Varış adresi',
-              coordinates: { lat: dpLat || 0, lng: dpLng || 0 }
-            },
-            status: mapStatus(a.status),
-            requestedAt: a.createdAt,
-            estimatedTime: undefined,
-            estimatedDistance: estDist,
-            price: a.estimatedPrice || a.price,
-            notes: a.description,
-            emergencyLevel: a.emergencyLevel === 'high' ? 'high' : (a.emergencyLevel === 'low' ? 'low' : 'medium'),
-            towingType: a.towingType === 'flatbed' ? 'flatbed' : (a.towingType === 'integrated' ? 'integrated' : 'wheel_lift'),
-            customerLocation: puLat && puLng ? { lat: puLat, lng: puLng } : undefined,
-            mechanicLocation: mechLat && mechLng ? { lat: mechLat, lng: mechLng } : undefined,
-          } as TowingJob;
+            ...req,
+            distance,
+          };
         });
 
-      items.sort((a, b) => {
-        const pri = (lvl: string) => (lvl === 'high' ? 2 : lvl === 'medium' ? 1 : 0);
-        const pd = pri(b.emergencyLevel) - pri(a.emergencyLevel);
-        if (pd !== 0) return pd;
-        const da = a.estimatedDistance ?? Number.POSITIVE_INFINITY;
-        const db = b.estimatedDistance ?? Number.POSITIVE_INFINITY;
-        return da - db;
-      });
+        // Öncelik sıralaması: 1) Acil seviyesi, 2) Mesafe
+        enrichedRequests.sort((a: any, b: any) => {
+          const priorityOrder = { high: 3, medium: 2, low: 1 };
+          const aPriority = priorityOrder[a.emergencyLevel || 'low'];
+          const bPriority = priorityOrder[b.emergencyLevel || 'low'];
+          
+          if (aPriority !== bPriority) {
+            return bPriority - aPriority; // Yüksek öncelik önce
+          }
+          
+          // Eşit öncelikte mesafeye göre sırala
+          const aDistance = a.distance ?? Infinity;
+          const bDistance = b.distance ?? Infinity;
+          return aDistance - bDistance; // Yakın mesafe önce
+        });
 
-      setJobs(items);
+        setRequests(enrichedRequests);
+      }
     } catch (error) {
-      Alert.alert('Hata', 'Çekici işleri yüklenirken bir hata oluştu');
+      console.error('❌ Çekici talepleri yüklenirken hata:', error);
+      Alert.alert('Hata', 'Çekici talepleri yüklenemedi');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const onRefresh = async () => {
+  const onRefresh = () => {
     setRefreshing(true);
-    await fetchTowingJobs();
-    setRefreshing(false);
+    fetchTowingRequests();
   };
 
-  const handleJobAction = (jobId: string, action: 'accept' | 'start' | 'complete' | 'cancel') => {
+  const handleAcceptRequest = async (requestId: string) => {
     Alert.alert(
-      'İşlem Onayı',
-      `${action === 'accept' ? 'Kabul' : action === 'start' ? 'Başlat' : action === 'complete' ? 'Tamamla' : 'İptal'} etmek istediğinizden emin misiniz?`,
+      'Talebi Kabul Et',
+      'Bu çekici talebini kabul etmek istediğinizden emin misiniz?',
       [
         { text: 'İptal', style: 'cancel' },
-        { text: 'Evet', onPress: () => performJobAction(jobId, action) }
+        {
+          text: 'Kabul Et',
+          onPress: async () => {
+            try {
+              const response = await apiService.updateAppointmentStatus(requestId, 'PLANLANDI');
+              
+              if (response.success) {
+                Alert.alert('Başarılı', 'Talep kabul edildi');
+                fetchTowingRequests();
+              } else {
+                Alert.alert('Hata', response.message || 'Talep kabul edilemedi');
+              }
+            } catch (error) {
+              console.error('❌ Talep kabul hatası:', error);
+              Alert.alert('Hata', 'Bir hata oluştu');
+            }
+          },
+        },
       ]
     );
   };
 
-  const performJobAction = async (jobId: string, action: string) => {
+  const handleStartJob = async (requestId: string) => {
     try {
-      // API çağrısı burada yapılacak
+      const response = await apiService.updateAppointmentStatus(requestId, 'SERVISTE');
       
-      // Mock güncelleme
-      setJobs(prev => prev.map(job => 
-        job.id === jobId 
-          ? { 
-              ...job, 
-              status: action === 'accept' ? 'accepted' : 
-                     action === 'start' ? 'in_progress' : 
-                     action === 'complete' ? 'completed' : 'cancelled'
-            }
-          : job
-      ));
-      
-      Alert.alert('Başarılı', 'İşlem tamamlandı');
+      if (response.success) {
+        Alert.alert('Başarılı', 'İş başlatıldı');
+        fetchTowingRequests();
+      } else {
+        Alert.alert('Hata', response.message || 'İş başlatılamadı');
+      }
     } catch (error) {
-      Alert.alert('Hata', 'İşlem gerçekleştirilemedi');
+      console.error('❌ İş başlatma hatası:', error);
+      Alert.alert('Hata', 'Bir hata oluştu');
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return '#FFA500';
-      case 'accepted': return '#007AFF';
-      case 'in_progress': return '#FF6B35';
-      case 'completed': return '#34C759';
-      case 'cancelled': return '#FF3B30';
-      default: return colors.text.secondary;
-    }
+  const handleCompleteJob = async (requestId: string) => {
+    Alert.alert(
+      'İşi Tamamla',
+      'Bu işi tamamlamak istediğinizden emin misiniz?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Tamamla',
+          onPress: async () => {
+            try {
+              const response = await apiService.updateAppointmentStatus(requestId, 'TAMAMLANDI');
+              
+              if (response.success) {
+                Alert.alert('Başarılı', 'İş tamamlandı');
+                fetchTowingRequests();
+              } else {
+                Alert.alert('Hata', response.message || 'İş tamamlanamadı');
+              }
+            } catch (error) {
+              console.error('❌ İş tamamlama hatası:', error);
+              Alert.alert('Hata', 'Bir hata oluştu');
+            }
+          },
+        },
+      ]
+    );
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'pending': return 'Bekliyor';
-      case 'accepted': return 'Kabul Edildi';
-      case 'in_progress': return 'Devam Ediyor';
-      case 'completed': return 'Tamamlandı';
-      case 'cancelled': return 'İptal Edildi';
-      default: return status;
-    }
+  const handleCancelJob = async (requestId: string) => {
+    Alert.alert(
+      'İptal Et',
+      'Bu işi iptal etmek istediğinizden emin misiniz?',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'İptal Et',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await apiService.updateAppointmentStatus(requestId, 'IPTAL');
+              
+              if (response.success) {
+                Alert.alert('Başarılı', 'İş iptal edildi');
+                fetchTowingRequests();
+              } else {
+                Alert.alert('Hata', response.message || 'İş iptal edilemedi');
+              }
+            } catch (error) {
+              console.error('❌ İş iptal hatası:', error);
+              Alert.alert('Hata', 'Bir hata oluştu');
+            }
+          },
+        },
+      ]
+    );
   };
 
-  const getEmergencyColor = (level: string) => {
-    switch (level) {
-      case 'low': return colors.success;
-      case 'medium': return colors.warning;
-      case 'high': return colors.error;
-      default: return colors.text.secondary;
-    }
-  };
-
-  const getEmergencyText = (level: string) => {
-    switch (level) {
-      case 'low': return 'Normal';
-      case 'medium': return 'Acil';
-      case 'high': return 'Çok Acil';
-      default: return level;
-    }
-  };
-
-  const getTowingTypeText = (type: string) => {
-    switch (type) {
-      case 'flatbed': return 'Düz Platform';
-      case 'wheel_lift': return 'Tekerlek Kaldırma';
-      case 'integrated': return 'Entegre';
-      default: return type;
-    }
-  };
-
-  const openMaps = (coordinates: { lat: number; lng: number }, label: string) => {
-    const lat = coordinates.lat;
-    const lng = coordinates.lng;
-    const apple = `http://maps.apple.com/?daddr=${lat},${lng}&dirflg=d`;
-    const google = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-    Linking.openURL(apple).catch(() => {
-      Linking.openURL(google).catch(() => {
-        Alert.alert('Hata', 'Harita uygulaması açılamadı');
-      });
+  const openNavigation = (latitude: number, longitude: number, label: string) => {
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Hata', 'Harita uygulaması açılamadı');
     });
   };
 
@@ -270,537 +305,679 @@ export default function TowingServiceScreen() {
     });
   };
 
-  const shareLocation = (job: TowingJob) => {
-    const message = `Çekici konumu: ${job.mechanicLocation ? 
-      `https://maps.google.com/?q=${job.mechanicLocation.lat},${job.mechanicLocation.lng}` : 
-      'Konum bilgisi mevcut değil'}`;
-    
-    Alert.alert('Konum Paylaş', message, [
-      { text: 'İptal', style: 'cancel' },
-      { text: 'Paylaş', onPress: () => {
-        // Burada konum paylaşımı yapılacak
-      }}
-    ]);
+  const getStatusInfo = (status: string) => {
+    switch (status) {
+      case 'TALEP_EDILDI':
+        return { text: 'Yeni Talep', color: '#FF9500', icon: 'hourglass-outline' };
+      case 'PLANLANDI':
+        return { text: 'Kabul Edildi', color: '#007AFF', icon: 'checkmark-circle-outline' };
+      case 'SERVISTE':
+        return { text: 'Devam Ediyor', color: '#FF6B35', icon: 'car-sport-outline' };
+      case 'TAMAMLANDI':
+        return { text: 'Tamamlandı', color: '#34C759', icon: 'checkmark-done-outline' };
+      case 'IPTAL':
+        return { text: 'İptal Edildi', color: '#FF3B30', icon: 'close-circle-outline' };
+      default:
+        return { text: status, color: '#8E8E93', icon: 'help-circle-outline' };
+    }
   };
 
-  const renderJobCard = (job: TowingJob) => (
-    <Card key={job.id} variant="elevated" style={styles.jobCard}>
-      {/* Emergency Level Badge */}
-      <View style={styles.emergencyContainer}>
-        <View style={[styles.emergencyBadge, { backgroundColor: getEmergencyColor(job.emergencyLevel) }]}>
-          <Ionicons name="warning" size={14} color="#FFFFFF" />
-          <Text style={styles.emergencyText}>{getEmergencyText(job.emergencyLevel)}</Text>
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(job.status) }]}>
-          <Text style={styles.statusText}>{getStatusText(job.status)}</Text>
-        </View>
-      </View>
+  const getEmergencyInfo = (level: string) => {
+    switch (level) {
+      case 'high':
+        return { text: 'Çok Acil', color: '#FF3B30', icon: 'warning' };
+      case 'medium':
+        return { text: 'Acil', color: '#FF9500', icon: 'alert-circle' };
+      case 'low':
+        return { text: 'Normal', color: '#34C759', icon: 'information-circle' };
+      default:
+        return { text: 'Normal', color: '#8E8E93', icon: 'information-circle' };
+    }
+  };
 
-      {/* Customer Info */}
-      <View style={styles.jobHeader}>
-        <View style={styles.customerInfo}>
-          <Text style={styles.customerName}>{job.customerName}</Text>
-          <TouchableOpacity onPress={() => callCustomer(job.customerPhone)}>
-            <Text style={styles.customerPhone}>{job.customerPhone}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+  const getTowingTypeText = (type?: string) => {
+    switch (type) {
+      case 'flatbed':
+        return 'Düz Platform';
+      case 'wheel_lift':
+        return 'Tekerlek Kaldırma';
+      case 'integrated':
+        return 'Entegre';
+      default:
+        return 'Standart';
+    }
+  };
 
-      {/* Vehicle Details */}
-      <View style={styles.vehicleDetails}>
-        <View style={styles.vehicleInfo}>
-          <Ionicons name="car" size={16} color={colors.text.secondary} />
-          <Text style={styles.vehicleText}>{job.vehicleBrand} {job.vehicleModel} ({job.vehicleYear})</Text>
-        </View>
-        <View style={styles.vehicleInfo}>
-          <Ionicons name="card" size={16} color={colors.text.secondary} />
-          <Text style={styles.vehicleText}>{job.vehiclePlate}</Text>
-        </View>
-        <View style={styles.vehicleInfo}>
-          <Ionicons name="construct" size={16} color={colors.text.secondary} />
-          <Text style={styles.vehicleText}>{getTowingTypeText(job.towingType)}</Text>
-        </View>
-      </View>
+  const renderRequestCard = (request: TowingRequest) => {
+    const statusInfo = getStatusInfo(request.status);
+    const emergencyInfo = getEmergencyInfo(request.emergencyLevel);
+    const pickupCoords = request.pickupLocation.coordinates;
+    const dropoffCoords = request.dropoffLocation.coordinates;
 
-      {/* Location Info with Maps */}
-      <View style={styles.locationInfo}>
-        <TouchableOpacity 
-          style={styles.locationItem}
-          onPress={() => openMaps(job.location.coordinates, 'Alış Konumu')}
-        >
-          <Ionicons name="location" size={16} color={colors.error} />
-          <Text style={styles.locationText}>{job.location.address}</Text>
-          <Ionicons name="navigate" size={14} color={colors.primary} />
-        </TouchableOpacity>
-        
-        <View style={styles.distanceInfo}>
-          <Ionicons name="arrow-down" size={16} color={colors.text.tertiary} />
-          {job.estimatedDistance && (
-            <Text style={styles.distanceText}>{job.estimatedDistance} km</Text>
-          )}
-        </View>
-        
-        <TouchableOpacity 
-          style={styles.locationItem}
-          onPress={() => openMaps(job.destination.coordinates, 'Varış Konumu')}
-        >
-          <Ionicons name="flag" size={16} color={colors.success} />
-          <Text style={styles.locationText}>{job.destination.address}</Text>
-          <Ionicons name="navigate" size={14} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Job Details */}
-      <View style={styles.jobDetailsContainer}>
-        <View style={styles.detailRow}>
-          <Ionicons name="time" size={14} color={colors.text.secondary} />
-          <Text style={styles.detailText}>{new Date(job.requestedAt).toLocaleString('tr-TR')}</Text>
-        </View>
-        {job.estimatedTime && (
-          <View style={styles.detailRow}>
-            <Ionicons name="hourglass" size={14} color={colors.text.secondary} />
-            <Text style={styles.detailText}>Tahmini süre: {job.estimatedTime}</Text>
-          </View>
-        )}
-        {job.price && (
-          <View style={styles.detailRow}>
-            <Ionicons name="cash" size={14} color={colors.text.secondary} />
-            <Text style={styles.detailText}>Fiyat: {job.price} TL</Text>
-          </View>
-        )}
-      </View>
-
-      {job.notes && (
-        <View style={styles.notesContainer}>
-          <Text style={styles.notesText}>{job.notes}</Text>
-        </View>
-      )}
-
-      {/* Action Buttons */}
-      <View style={styles.actionButtonsContainer}>
-        <View style={styles.actionButtons}>
-          {job.status === 'pending' && (
-            <>
-              <Button
-                title="Kabul Et"
-                onPress={() => handleJobAction(job.id, 'accept')}
-                variant="primary"
-                size="small"
-                style={styles.actionButton}
-              />
-              <Button
-                title="İptal"
-                onPress={() => handleJobAction(job.id, 'cancel')}
-                variant="outline"
-                size="small"
-                style={styles.actionButton}
-              />
-            </>
-          )}
-          {job.status === 'accepted' && (
-            <Button
-              title="Başlat"
-              onPress={() => handleJobAction(job.id, 'start')}
-              variant="primary"
-              size="small"
-              style={styles.actionButton}
-            />
-          )}
-          {job.status === 'in_progress' && (
-            <>
-              <Button
-                title="Konum Paylaş"
-                onPress={() => shareLocation(job)}
-                variant="outline"
-                size="small"
-                style={styles.actionButton}
-              />
-              <Button
-                title="Tamamla"
-                onPress={() => handleJobAction(job.id, 'complete')}
-                variant="primary"
-                size="small"
-                style={styles.actionButton}
-              />
-            </>
-          )}
-        </View>
-        
-        {/* Quick Actions */}
-        <View style={styles.quickActions}>
-          <TouchableOpacity 
-            style={styles.quickActionButton}
-            onPress={() => callCustomer(job.customerPhone)}
-          >
-            <Ionicons name="call" size={20} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.quickActionButton}
-            onPress={() => openMaps(job.location.coordinates, 'Alış Konumu')}
-          >
-            <Ionicons name="navigate" size={20} color={colors.primary} />
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Card>
-  );
-
-  const activeJobsAll = jobs.filter(job => ['pending', 'accepted', 'in_progress'].includes(job.status));
-  const activeJobs = onlyEmergency ? activeJobsAll.filter(j => j.emergencyLevel === 'high') : activeJobsAll;
-  const historyJobs = jobs.filter(job => ['completed', 'cancelled'].includes(job.status));
-
-  if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Çekici işleri yükleniyor...</Text>
+      <View key={request._id} style={styles.card}>
+        {/* Header: Emergency & Status */}
+        <View style={styles.cardHeader}>
+          <View style={[styles.emergencyBadge, { backgroundColor: emergencyInfo.color }]}>
+            <Ionicons name={emergencyInfo.icon as any} size={16} color="#FFFFFF" />
+            <Text style={styles.emergencyText}>{emergencyInfo.text}</Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: statusInfo.color }]}>
+            <Ionicons name={statusInfo.icon as any} size={14} color="#FFFFFF" />
+            <Text style={styles.statusText}>{statusInfo.text}</Text>
+          </View>
         </View>
-      </SafeAreaView>
+
+        {/* Customer Info */}
+        <View style={styles.customerSection}>
+          <View style={styles.customerInfo}>
+            <Ionicons name="person" size={20} color="#3B82F6" />
+            <View style={styles.customerDetails}>
+              <Text style={styles.customerName}>
+                {request.userId.name} {request.userId.surname}
+              </Text>
+              <TouchableOpacity onPress={() => callCustomer(request.userId.phone)}>
+                <Text style={styles.customerPhone}>{request.userId.phone}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          {request.distance !== undefined && (
+            <View style={styles.distanceBadge}>
+              <Ionicons name="navigate" size={14} color="#3B82F6" />
+              <Text style={styles.distanceText}>{request.distance} km</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Vehicle Info */}
+        {request.vehicleId && (
+          <View style={styles.vehicleSection}>
+            <Ionicons name="car-sport" size={18} color="#64748B" />
+            <Text style={styles.vehicleText}>
+              {request.vehicleId.brand} {request.vehicleId.modelName} ({request.vehicleId.year})
+            </Text>
+            <Text style={styles.plateText}>{request.vehicleId.plateNumber}</Text>
+          </View>
+        )}
+
+        {/* Towing Type */}
+        {request.towingType && (
+          <View style={styles.towingTypeSection}>
+            <Ionicons name="construct" size={16} color="#64748B" />
+            <Text style={styles.towingTypeText}>{getTowingTypeText(request.towingType)}</Text>
+          </View>
+        )}
+
+        {/* Location Section */}
+        <View style={styles.locationSection}>
+          {/* Pickup */}
+          <TouchableOpacity
+            style={styles.locationItem}
+            onPress={() =>
+              openNavigation(
+                pickupCoords.latitude ?? pickupCoords.lat,
+                pickupCoords.longitude ?? pickupCoords.lng,
+                'Alış Konumu'
+              )
+            }
+          >
+            <View style={styles.locationIcon}>
+              <Ionicons name="location" size={20} color="#EF4444" />
+            </View>
+            <View style={styles.locationDetails}>
+              <Text style={styles.locationLabel}>Alış Konumu</Text>
+              <Text style={styles.locationAddress}>{request.pickupLocation.address}</Text>
+            </View>
+            <Ionicons name="navigate-outline" size={20} color="#3B82F6" />
+          </TouchableOpacity>
+
+          {/* Arrow */}
+          <View style={styles.locationArrow}>
+            <Ionicons name="arrow-down" size={20} color="#CBD5E1" />
+          </View>
+
+          {/* Dropoff */}
+          <TouchableOpacity
+            style={styles.locationItem}
+            onPress={() =>
+              openNavigation(
+                dropoffCoords.latitude ?? dropoffCoords.lat,
+                dropoffCoords.longitude ?? dropoffCoords.lng,
+                'Bırakma Konumu'
+              )
+            }
+          >
+            <View style={styles.locationIcon}>
+              <Ionicons name="flag" size={20} color="#10B981" />
+            </View>
+            <View style={styles.locationDetails}>
+              <Text style={styles.locationLabel}>Bırakma Konumu</Text>
+              <Text style={styles.locationAddress}>{request.dropoffLocation.address}</Text>
+            </View>
+            <Ionicons name="navigate-outline" size={20} color="#3B82F6" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Description */}
+        {request.description && (
+          <View style={styles.descriptionSection}>
+            <Text style={styles.descriptionLabel}>Açıklama:</Text>
+            <Text style={styles.descriptionText}>{request.description}</Text>
+          </View>
+        )}
+
+        {/* Price & Time */}
+        <View style={styles.infoSection}>
+          {request.estimatedPrice && (
+            <View style={styles.infoItem}>
+              <Ionicons name="cash-outline" size={16} color="#64748B" />
+              <Text style={styles.infoText}>₺{request.estimatedPrice}</Text>
+            </View>
+          )}
+          <View style={styles.infoItem}>
+            <Ionicons name="time-outline" size={16} color="#64748B" />
+            <Text style={styles.infoText}>
+              {new Date(request.createdAt).toLocaleDateString('tr-TR', {
+                day: '2-digit',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </Text>
+          </View>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actionSection}>
+          {request.status === 'TALEP_EDILDI' && (
+            <View style={styles.actionButtons}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.acceptButton]}
+                onPress={() => handleAcceptRequest(request._id)}
+              >
+                <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+                <Text style={styles.actionButtonText}>Kabul Et</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.rejectButton]}
+                onPress={() => handleCancelJob(request._id)}
+              >
+                <Ionicons name="close" size={20} color="#FFFFFF" />
+                <Text style={styles.actionButtonText}>Reddet</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {request.status === 'PLANLANDI' && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.startButton]}
+              onPress={() => handleStartJob(request._id)}
+            >
+              <Ionicons name="play" size={20} color="#FFFFFF" />
+              <Text style={styles.actionButtonText}>İşe Başla</Text>
+            </TouchableOpacity>
+          )}
+
+          {request.status === 'SERVISTE' && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.completeButton]}
+              onPress={() => handleCompleteJob(request._id)}
+            >
+              <Ionicons name="checkmark-done" size={20} color="#FFFFFF" />
+              <Text style={styles.actionButtonText}>Tamamla</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
     );
-  }
+  };
+
+  // Filtreleme
+  const filteredRequests = requests.filter((req) => {
+    if (activeFilter === 'urgent') {
+      return req.emergencyLevel === 'high' || req.emergencyLevel === 'medium';
+    }
+    return true;
+  });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
-          </TouchableOpacity>
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Çekici Hizmetleri</Text>
-            <Text style={styles.headerSubtitle}>
-              {activeTab === 'active' ? `${activeJobs.length} aktif iş` : `${historyJobs.length} geçmiş iş`}
-            </Text>
-          </View>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#1E293B" />
+        </TouchableOpacity>
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.headerTitle}>Çekici Hizmetleri</Text>
+          <Text style={styles.headerSubtitle}>
+            {statusFilter === 'active' ? 'Aktif İşler' : 'Tamamlanan İşler'}
+          </Text>
         </View>
+      </View>
 
-        {/* Sadece Acil filtre */}
-        <View style={styles.emergencyFilterRow}>
+      {/* Filters */}
+      <View style={styles.filtersContainer}>
+        {/* Status Filter */}
+        <View style={styles.statusFilterContainer}>
           <TouchableOpacity
-            style={[styles.emergencyFilterBtn, onlyEmergency && { backgroundColor: colors.error, borderColor: colors.error }]}
-            onPress={() => setOnlyEmergency(v => !v)}
+            style={[styles.filterTab, statusFilter === 'active' && styles.filterTabActive]}
+            onPress={() => setStatusFilter('active')}
           >
-            <Ionicons name="warning" size={16} color={onlyEmergency ? '#fff' : colors.error} />
-            <Text style={[styles.emergencyFilterText, onlyEmergency && { color: '#fff' }]}>Sadece Acil</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Tab Buttons */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'active' && styles.activeTabButton]}
-            onPress={() => setActiveTab('active')}
-          >
-            <Text style={[styles.tabText, activeTab === 'active' && styles.activeTabText]}>
-              Aktif İşler
+            <Text
+              style={[styles.filterTabText, statusFilter === 'active' && styles.filterTabTextActive]}
+            >
+              Aktif
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'history' && styles.activeTabButton]}
-            onPress={() => setActiveTab('history')}
+            style={[styles.filterTab, statusFilter === 'completed' && styles.filterTabActive]}
+            onPress={() => setStatusFilter('completed')}
           >
-            <Text style={[styles.tabText, activeTab === 'history' && styles.activeTabText]}>
+            <Text
+              style={[
+                styles.filterTabText,
+                statusFilter === 'completed' && styles.filterTabTextActive,
+              ]}
+            >
               Geçmiş
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Jobs List */}
-        <View style={styles.jobsContainer}>
-          {activeTab === 'active' ? (
-            activeJobs.length > 0 ? (
-              activeJobs.map(renderJobCard)
-            ) : (
-              <View style={styles.emptyContainer}>
-                <Ionicons name="car" size={64} color={colors.text.tertiary} />
-                <Text style={styles.emptyTitle}>Aktif çekici işi yok</Text>
-                <Text style={styles.emptySubtitle}>Yeni işler geldiğinde burada görünecek</Text>
-              </View>
-            )
-          ) : (
-            historyJobs.length > 0 ? (
-              historyJobs.map(renderJobCard)
-            ) : (
-              <View style={styles.emptyContainer}>
-                <Ionicons name="time-outline" size={64} color={colors.text.tertiary} />
-                <Text style={styles.emptyTitle}>Geçmiş iş yok</Text>
-                <Text style={styles.emptySubtitle}>Tamamlanan işler burada görünecek</Text>
-              </View>
-            )
-          )}
-        </View>
+        {/* Urgent Filter */}
+        <TouchableOpacity
+          style={[styles.urgentFilter, activeFilter === 'urgent' && styles.urgentFilterActive]}
+          onPress={() => setActiveFilter(activeFilter === 'urgent' ? 'all' : 'urgent')}
+        >
+          <Ionicons
+            name="warning"
+            size={16}
+            color={activeFilter === 'urgent' ? '#FFFFFF' : '#EF4444'}
+          />
+          <Text
+            style={[
+              styles.urgentFilterText,
+              activeFilter === 'urgent' && styles.urgentFilterTextActive,
+            ]}
+          >
+            Sadece Acil
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Content */}
+      <ScrollView
+        style={styles.scrollView}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        showsVerticalScrollIndicator={false}
+      >
+        {loading && requests.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="hourglass-outline" size={64} color="#CBD5E1" />
+            <Text style={styles.emptyText}>Yükleniyor...</Text>
+          </View>
+        ) : filteredRequests.length > 0 ? (
+          filteredRequests.map(renderRequestCard)
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="car-sport-outline" size={64} color="#CBD5E1" />
+            <Text style={styles.emptyTitle}>
+              {statusFilter === 'active' ? 'Aktif çekici işi yok' : 'Geçmiş iş yok'}
+            </Text>
+            <Text style={styles.emptySubtitle}>
+              {statusFilter === 'active'
+                ? 'Yeni talepler geldiğinde burada görünecek'
+                : 'Tamamlanan işler burada listelenir'}
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const createStyles = (colors: any) => StyleSheet.create({
+const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.primary,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: typography.body1.fontSize,
-    color: colors.text.secondary,
+    backgroundColor: '#F8FAFC',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: dimensions.screenPadding,
-    paddingVertical: spacing.lg,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.secondary,
+    borderBottomColor: '#E2E8F0',
   },
   backButton: {
-    marginRight: spacing.md,
+    marginRight: 16,
   },
-  headerContent: {
+  headerTextContainer: {
     flex: 1,
   },
   headerTitle: {
-    fontSize: typography.h2.fontSize,
+    fontSize: 24,
     fontWeight: '700',
-    color: colors.text.primary,
+    color: '#1E293B',
   },
   headerSubtitle: {
-    fontSize: typography.body2.fontSize,
-    color: colors.text.secondary,
-    marginTop: spacing.xs,
+    fontSize: 14,
+    color: '#64748B',
+    marginTop: 2,
   },
-  emergencyFilterRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: dimensions.screenPadding,
-    marginTop: spacing.sm,
-  },
-  emergencyFilterBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: colors.error,
-    backgroundColor: 'transparent',
-  },
-  emergencyFilterText: {
-    color: colors.error,
-    fontWeight: '700',
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    marginHorizontal: dimensions.screenPadding,
-    marginVertical: spacing.lg,
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.lg,
-    padding: spacing.xs,
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    borderRadius: borderRadius.md,
-  },
-  activeTabButton: {
-    backgroundColor: colors.background.primary,
-    ...shadows.small,
-  },
-  tabText: {
-    fontSize: typography.button.medium.fontSize,
-    fontWeight: '600',
-    color: colors.text.secondary,
-  },
-  activeTabText: {
-    color: colors.text.primary,
-  },
-  jobsContainer: {
-    paddingHorizontal: dimensions.screenPadding,
-    paddingBottom: spacing.xxl,
-  },
-  jobCard: {
-    marginBottom: spacing.md,
-    padding: spacing.lg,
-  },
-  emergencyContainer: {
+  filtersContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  statusFilterContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    padding: 4,
+  },
+  filterTab: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  filterTabActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  filterTabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  filterTabTextActive: {
+    color: '#1E293B',
+  },
+  urgentFilter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#EF4444',
+    backgroundColor: 'transparent',
+  },
+  urgentFilterActive: {
+    backgroundColor: '#EF4444',
+    borderColor: '#EF4444',
+  },
+  urgentFilterText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#EF4444',
+  },
+  urgentFilterTextActive: {
+    color: '#FFFFFF',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 20,
+    marginTop: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
   emergencyBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   emergencyText: {
-    fontSize: typography.caption.small.fontSize,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  statusText: {
+    fontSize: 11,
     fontWeight: '600',
     color: '#FFFFFF',
-    marginLeft: spacing.xs,
   },
-  jobHeader: {
+  customerSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.md,
-  },
-  vehicleDetails: {
-    marginBottom: spacing.md,
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   customerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  customerDetails: {
     flex: 1,
   },
   customerName: {
-    fontSize: typography.h4.fontSize,
+    fontSize: 16,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: '#1E293B',
   },
   customerPhone: {
-    fontSize: typography.body2.fontSize,
-    color: colors.text.secondary,
-    marginTop: spacing.xs,
+    fontSize: 14,
+    color: '#3B82F6',
+    marginTop: 2,
   },
-  statusBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
-  },
-  statusText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  vehicleInfo: {
+  distanceBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    gap: 4,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  distanceText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#3B82F6',
+  },
+  vehicleSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
   },
   vehicleText: {
-    fontSize: typography.body2.fontSize,
-    color: colors.text.primary,
-    marginLeft: spacing.sm,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#475569',
+    flex: 1,
   },
-  locationInfo: {
-    marginBottom: spacing.sm,
+  plateText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  towingTypeSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 16,
+  },
+  towingTypeText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#64748B',
+  },
+  locationSection: {
+    marginBottom: 16,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
   },
   locationItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.xs,
-    paddingVertical: spacing.xs,
+    gap: 12,
+    paddingVertical: 8,
   },
-  locationText: {
-    fontSize: typography.body2.fontSize,
-    color: colors.text.primary,
-    marginLeft: spacing.sm,
+  locationIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  locationDetails: {
     flex: 1,
   },
-  distanceInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: spacing.xs,
-  },
-  distanceText: {
-    fontSize: typography.caption.fontSize,
-    color: colors.text.secondary,
-    marginLeft: spacing.xs,
+  locationLabel: {
+    fontSize: 12,
     fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 2,
   },
-  jobDetailsContainer: {
-    backgroundColor: colors.background.secondary,
-    padding: spacing.sm,
-    borderRadius: borderRadius.sm,
-    marginBottom: spacing.sm,
+  locationAddress: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1E293B',
   },
-  detailRow: {
-    flexDirection: 'row',
+  locationArrow: {
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    paddingVertical: 4,
   },
-  detailText: {
-    fontSize: typography.body2.fontSize,
-    color: colors.text.primary,
-    marginLeft: spacing.sm,
+  descriptionSection: {
+    marginBottom: 16,
+    backgroundColor: '#FEF9F3',
+    borderLeftWidth: 3,
+    borderLeftColor: '#F59E0B',
+    padding: 12,
+    borderRadius: 8,
   },
-  notesContainer: {
-    backgroundColor: colors.background.secondary,
-    padding: spacing.sm,
-    borderRadius: borderRadius.sm,
-    marginBottom: spacing.sm,
+  descriptionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#92400E',
+    marginBottom: 4,
   },
-  notesText: {
-    fontSize: typography.body2.fontSize,
-    color: colors.text.secondary,
-    fontStyle: 'italic',
+  descriptionText: {
+    fontSize: 14,
+    color: '#78350F',
+    lineHeight: 20,
   },
-  actionButtonsContainer: {
+  infoSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
+    marginBottom: 16,
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: colors.border.secondary,
+    borderTopColor: '#F1F5F9',
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  infoText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#64748B',
+  },
+  actionSection: {
+    marginTop: 4,
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    flex: 1,
+    gap: 12,
   },
   actionButton: {
-    minWidth: 80,
-  },
-  quickActions: {
+    flex: 1,
     flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  quickActionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.background.secondary,
-    justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border.secondary,
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  acceptButton: {
+    backgroundColor: '#10B981',
+  },
+  rejectButton: {
+    backgroundColor: '#EF4444',
+  },
+  startButton: {
+    backgroundColor: '#3B82F6',
+  },
+  completeButton: {
+    backgroundColor: '#10B981',
+  },
+  actionButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   emptyContainer: {
     alignItems: 'center',
-    paddingVertical: spacing.xxl,
+    justifyContent: 'center',
+    paddingVertical: 80,
+    paddingHorizontal: 40,
   },
   emptyTitle: {
-    fontSize: typography.h3.fontSize,
-    fontWeight: '600',
-    color: colors.text.primary,
-    marginTop: spacing.lg,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginTop: 16,
   },
   emptySubtitle: {
-    fontSize: typography.body1.fontSize,
-    color: colors.text.secondary,
+    fontSize: 14,
+    color: '#64748B',
     textAlign: 'center',
-    marginTop: spacing.sm,
+    marginTop: 8,
+    lineHeight: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#64748B',
+    marginTop: 16,
   },
 });

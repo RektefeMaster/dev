@@ -479,6 +479,26 @@ export const AppointmentService = {
     }
   },
 
+  /**
+   * Usta için servis taleplerini getir (towing, repair, etc.)
+   */
+  async getMechanicServiceRequests(status?: string, serviceType?: string): Promise<ApiResponse<any>> {
+    try {
+      const params: any = {};
+      if (status) params.status = status;
+      if (serviceType) params.serviceType = serviceType;
+      
+      const response = await apiClient.get('/appointments/mechanic', { params });
+      return response.data;
+    } catch (error: any) {
+      if (axios.isCancel(error)) {
+        return createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, 'Request cancelled', undefined);
+      }
+      console.error('❌ Get service requests error:', error);
+      return createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, 'Servis talepleri alınamadı', error.response?.data?.error?.details);
+    }
+  },
+
   async getAppointmentById(id: string): Promise<ApiResponse<{ appointment: any }>> {
     try {
       const response = await apiClient.get(`/appointments/${id}`);
