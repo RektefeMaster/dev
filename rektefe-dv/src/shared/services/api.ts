@@ -27,7 +27,7 @@ import {
   createSuccessResponse,
   createErrorResponse,
   ErrorCode
-} from '../../../../shared/types';
+} from '../../../shared-lib/types';
 
 // ===== API CLIENT CONFIGURATION =====
 

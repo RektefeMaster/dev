@@ -19,7 +19,7 @@ import {
   Notification as SharedNotification,
   Message as SharedMessage,
   Conversation as SharedConversation
-} from '../../../../shared/types/index';
+} from '../../../shared-lib/types/index';
 
 // ===== RE-EXPORT SHARED TYPES =====
 export type {
