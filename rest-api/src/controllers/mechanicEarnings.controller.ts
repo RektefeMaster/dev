@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { sendResponse } from '../utils/response';
 import { Appointment } from '../models/Appointment';
 import { Types } from 'mongoose';
+import WithdrawalRequest from '../models/WithdrawalRequest';
 
 export class MechanicEarningsController {
   /**
@@ -319,35 +320,24 @@ export class MechanicEarningsController {
    */
   static async getWithdrawals(req: Request, res: Response) {
     try {
+      const userId = (req as any).user?.userId || (req as any).userId;
       const { status } = req.query;
 
-      // TODO: Implement withdrawals logic
-      const mockWithdrawals = [
-        {
-          id: '1',
-          amount: 5000,
-          bankAccount: {
-            bankName: 'Garanti BBVA',
-            accountNumber: '****1234'
-          },
-          status: 'pending',
-          requestDate: new Date(Date.now() - 86400000),
-          notes: 'Acil ihtiyaç'
-        },
-        {
-          id: '2',
-          amount: 3000,
-          bankAccount: {
-            bankName: 'İş Bankası',
-            accountNumber: '****5678'
-          },
-          status: 'TAMAMLANDI',
-          requestDate: new Date(Date.now() - 172800000),
-          completedDate: new Date(Date.now() - 86400000)
-        }
-      ];
+      if (!userId) {
+        return sendResponse(res, 401, 'Kullanıcı kimliği bulunamadı');
+      }
 
-      return sendResponse(res, 200, 'Para çekme talepleri başarıyla getirildi', mockWithdrawals);
+      // Gerçek para çekme taleplerini getir
+      const query: any = { mechanicId: userId };
+      if (status && status !== 'all') {
+        query.status = status;
+      }
+
+      const withdrawals = await WithdrawalRequest.find(query)
+        .sort({ requestDate: -1 })
+        .lean();
+
+      return sendResponse(res, 200, 'Para çekme talepleri başarıyla getirildi', withdrawals);
     } catch (error) {
       return sendResponse(res, 500, 'Sunucu hatası');
     }

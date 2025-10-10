@@ -269,38 +269,10 @@ router.get('/mechanics-by-service/:serviceType', async (req: Request, res: Respo
     .sort({ rating: -1 })
     .lean(); // Performans için lean() ekle
 
-    // Eğer usta yoksa mock data döndür
+    // Gerçek usta verilerini kullan
     let formattedMechanics;
     if (mechanics.length === 0) {
-      formattedMechanics = [
-        {
-          id: 'mock1',
-          name: 'Ahmet Yıkama Servisi',
-          rating: 4.8,
-          address: 'Kadıköy, İstanbul',
-          distance: '1.2 km',
-          image: null,
-          serviceCategories: [serviceType]
-        },
-        {
-          id: 'mock2',
-          name: 'Mehmet Detay Yıkama',
-          rating: 4.6,
-          address: 'Beşiktaş, İstanbul',
-          distance: '2.5 km',
-          image: null,
-          serviceCategories: [serviceType]
-        },
-        {
-          id: 'mock3',
-          name: 'Seramik Yıkama Merkezi',
-          rating: 4.9,
-          address: 'Şişli, İstanbul',
-          distance: '3.1 km',
-          image: null,
-          serviceCategories: [serviceType]
-        }
-      ];
+      formattedMechanics = []; // Mock data kaldırıldı
     } else {
       // Frontend için uygun formata çevir
       formattedMechanics = mechanics.map(mechanic => ({

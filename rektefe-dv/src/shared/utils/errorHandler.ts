@@ -155,13 +155,15 @@ export const withErrorHandling = async <T>(
       showError(errorMessage);
     }
     
-    // Console'a log
-    console.error('API Error:', {
-      type: appError.type,
-      message: appError.message,
-      statusCode: appError.statusCode,
-      originalError: appError.originalError
-    });
+    // Console'a log - sadece development'ta
+    if (__DEV__) {
+      console.error('API Error:', {
+        type: appError.type,
+        message: appError.message,
+        statusCode: appError.statusCode,
+        originalError: appError.originalError
+      });
+    }
     
     return { data: null, error: appError };
   }

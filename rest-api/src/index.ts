@@ -146,6 +146,8 @@ import './models/BodyworkTemplate';
 import './models/CarWashPackage';
 import './models/CarWashJob';
 import './models/CarWashLoyaltyProgram';
+import './models/WithdrawalRequest';
+import './models/Wallet';
 
 // HTTP sunucusu oluştur
 const httpServer = createServer(app);

@@ -51,113 +51,14 @@ export default function CalendarScreen() {
       const response = await apiService.getMechanicAppointments();
       
       if (response.success && response.data) {
-        const appointments = Array.isArray(response.data) 
+        const appointmentsData = Array.isArray(response.data) 
           ? response.data 
           : Array.isArray((response.data as any)?.appointments) 
             ? (response.data as any).appointments 
             : [];
         
-        // Test verisi ekle (geliştirme için)
-        const today = new Date();
-        const tomorrow = new Date(today);
-        tomorrow.setDate(today.getDate() + 1);
-        const dayAfterTomorrow = new Date(today);
-        dayAfterTomorrow.setDate(today.getDate() + 2);
-        
-        const testAppointments: Appointment[] = [
-          {
-            _id: 'test1',
-            appointmentDate: today.toISOString(),
-            timeSlot: '09:00',
-            serviceType: 'Motor Bakımı',
-            status: 'confirmed',
-            mechanicId: 'mech1',
-            userId: 'user1',
-            description: 'Motor bakımı ve yağ değişimi',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            customer: { 
-              _id: 'c1', 
-              name: 'Ahmet', 
-              surname: 'Yılmaz', 
-              email: 'ahmet@test.com', 
-              phone: '05551234567' 
-            },
-            vehicle: { 
-              _id: 'v1', 
-              brand: 'Toyota', 
-              modelName: 'Corolla', 
-              year: 2020, 
-              plateNumber: '34ABC123', 
-              fuelType: 'Benzin', 
-              engineType: '1.6', 
-              transmission: 'Manuel',
-              package: 'Comfort'
-            }
-          },
-          {
-            _id: 'test2',
-            appointmentDate: tomorrow.toISOString(),
-            timeSlot: '14:00',
-            serviceType: 'Fren Balata Değişimi',
-            status: 'pending',
-            mechanicId: 'mech1',
-            userId: 'user2',
-            description: 'Fren balata ve disk değişimi',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            customer: { 
-              _id: 'c2', 
-              name: 'Mehmet', 
-              surname: 'Kaya', 
-              email: 'mehmet@test.com', 
-              phone: '05551234568' 
-            },
-            vehicle: { 
-              _id: 'v2', 
-              brand: 'Honda', 
-              modelName: 'Civic', 
-              year: 2019, 
-              plateNumber: '34DEF456', 
-              fuelType: 'Benzin', 
-              engineType: '1.5', 
-              transmission: 'Otomatik',
-              package: 'Sport'
-            }
-          },
-          {
-            _id: 'test3',
-            appointmentDate: dayAfterTomorrow.toISOString(),
-            timeSlot: '11:30',
-            serviceType: 'Lastik Değişimi',
-            status: 'completed',
-            mechanicId: 'mech1',
-            userId: 'user3',
-            description: '4 lastik değişimi ve balans ayarı',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            customer: { 
-              _id: 'c3', 
-              name: 'Ayşe', 
-              surname: 'Demir', 
-              email: 'ayse@test.com', 
-              phone: '05551234569' 
-            },
-            vehicle: { 
-              _id: 'v3', 
-              brand: 'Ford', 
-              modelName: 'Focus', 
-              year: 2021, 
-              plateNumber: '34GHI789', 
-              fuelType: 'Benzin', 
-              engineType: '1.0', 
-              transmission: 'Manuel',
-              package: 'Trend'
-            }
-          }
-        ];
-        
-        setAppointments([...appointments, ...testAppointments]);
+        // Gerçek API verisini set et
+        setAppointments(appointmentsData);
       } else {
         setAppointments([]);
       }

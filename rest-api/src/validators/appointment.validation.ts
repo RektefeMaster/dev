@@ -11,8 +11,12 @@ export const createAppointmentSchema = Joi.object({
     'string.empty': 'Usta ID\'si gereklidir',
     'any.required': 'Usta ID\'si gereklidir'
   }),
-  serviceType: Joi.string().required().messages({
-    'string.empty': 'Hizmet tipi gereklidir',
+  serviceType: Joi.string().valid(
+    'genel-bakim', 'agir-bakim', 'alt-takim', 'ust-takim', 
+    'kaporta-boya', 'elektrik-elektronik', 'yedek-parca', 
+    'lastik', 'egzoz-emisyon', 'arac-yikama', 'cekici'
+  ).required().messages({
+    'any.only': 'Geçersiz hizmet tipi. Lütfen geçerli bir hizmet tipi seçin.',
     'any.required': 'Hizmet tipi gereklidir'
   }),
   appointmentDate: Joi.date().iso().required().messages({

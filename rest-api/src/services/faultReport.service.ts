@@ -19,6 +19,11 @@ import {
   NotificationData,
   ServiceType
 } from '../types/common';
+import { 
+  getFaultReportServiceCategory,
+  getCategoryQueryValues,
+  buildCategoryFilterQuery
+} from '../utils/serviceCategoryHelper';
 
 // ===== INTERFACES =====
 
@@ -53,7 +58,8 @@ export interface QuoteInput {
 }
 
 // ===== CATEGORY MAPPING CONSTANTS =====
-
+// Frontend ServiceType kod değerlerini Fault Report Türkçe kategorilerine çevirir
+// Not: Fault Report model'i Türkçe kategori isimleri kullanıyor
 const CATEGORY_NAME_MAPPING: { [key: string]: string } = {
   'genel-bakim': 'Genel Bakım',
   'agir-bakim': 'Ağır Bakım',
@@ -85,33 +91,9 @@ export interface MechanicResponseInput {
 // ===== CONSTANTS =====
 
 /**
- * Category to service type mapping
+ * Category mapping artık serviceCategoryHelper.ts'de merkezi olarak yönetiliyor
+ * FAULT_CATEGORY_TO_SERVICE_CATEGORY ve getCategoryQueryValues() kullanın
  */
-// 4 ana hizmet türü - tüm hizmetler bu 4 kategoriye bölünür
-export const CATEGORY_SERVICE_MAPPING: Record<string, string[]> = {
-  // Tamir ve Bakım - tüm mekanik hizmetler
-  'Tamir ve Bakım': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
-  'Genel Bakım': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
-  'Ağır Bakım': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
-  'Alt Takım': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
-  'Üst Takım': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
-  'Kaporta/Boya': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
-  'Elektrik-Elektronik': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
-  'Yedek Parça': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
-  'Egzoz & Emisyon': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
-  
-  // Araç Yıkama
-  'Araç Yıkama': ['Araç Yıkama', 'wash'],
-  
-  // Lastik
-  'Lastik': ['Lastik', 'tire', 'Lastik & Parça'],
-  
-  // Çekici
-  'Çekici': ['Çekici', 'towing', 'Çekici Hizmeti']
-};
-
-// Alias for backward compatibility
-const CATEGORY_MAPPING = CATEGORY_SERVICE_MAPPING;
 
 // ===== SERVICE CLASS =====
 
@@ -402,19 +384,18 @@ export class FaultReportService {
    */
   private static async findNearbyMechanics(faultReport: any): Promise<any[]> {
     try {
-      const serviceTypes = CATEGORY_SERVICE_MAPPING[faultReport.serviceCategory] || [];
+      // Fault category'yi ServiceCategory enum'una çevir
+      const serviceCategory = getFaultReportServiceCategory(faultReport.serviceCategory);
+      
+      // O kategorinin tüm query değerlerini al (enum değeri + Türkçe alternatifleri)
+      const categoryQueryValues = getCategoryQueryValues(serviceCategory);
       
       let query: any = {
         userType: 'mechanic',
-        isAvailable: true
+        isAvailable: true,
+        // ServiceCategory enum değerleri ile ara
+        serviceCategories: { $in: categoryQueryValues }
       };
-
-      // Add service category filter
-      if (serviceTypes.length > 0) {
-        query.$or = serviceTypes.map(serviceType => ({
-          serviceCategories: { $regex: new RegExp(serviceType, 'i') }
-        }));
-      }
 
       // Add location filter if available
       if (faultReport.location?.coordinates) {

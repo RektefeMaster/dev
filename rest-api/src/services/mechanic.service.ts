@@ -3,6 +3,7 @@ import { User } from '../models/User';
 import { AppointmentRating } from '../models/AppointmentRating';
 import mongoose from 'mongoose';
 import { CustomError } from '../middleware/errorHandler';
+import { normalizeToServiceCategory, getCategoryQueryValues } from '../utils/serviceCategoryHelper';
 
 export class MechanicService {
   /**
@@ -256,15 +257,26 @@ export class MechanicService {
    */
   static async searchMechanics(searchTerm: string, city?: string): Promise<any[]> {
     try {
+      // ServiceCategory'ye normalize etmeyi dene
+      const normalizedCategory = normalizeToServiceCategory(searchTerm);
+      
       const searchQuery: any = {
         userType: 'mechanic',
         $or: [
           { name: { $regex: searchTerm, $options: 'i' } },
           { surname: { $regex: searchTerm, $options: 'i' } },
-          { serviceCategories: { $regex: searchTerm, $options: 'i' } },
           { 'location.city': { $regex: searchTerm, $options: 'i' } }
         ]
       };
+
+      // Eğer searchTerm bir ServiceCategory ise, o kategorinin tüm varyasyonlarını ara
+      if (normalizedCategory) {
+        const categoryValues = getCategoryQueryValues(normalizedCategory);
+        searchQuery.$or.push({ serviceCategories: { $in: categoryValues } });
+      } else {
+        // Normal string arama
+        searchQuery.$or.push({ serviceCategories: { $regex: searchTerm, $options: 'i' } });
+      }
 
       if (city) {
         searchQuery['location.city'] = { $regex: city, $options: 'i' };

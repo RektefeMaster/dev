@@ -8,6 +8,11 @@ import { Appointment } from '../models/Appointment';
 import { sendNotificationToUser } from '../utils/socketNotifications';
 import { validateFaultReport, validateQuote, validateSelectQuote, validateMechanicResponse, validateTomorrowResponse, validateContact } from '../validators/faultReport.validation';
 import { TefePointService } from '../services/tefePoint.service';
+import { 
+  getFaultReportServiceCategory,
+  getCategoryQueryValues 
+} from '../utils/serviceCategoryHelper';
+import { FAULT_CATEGORY_TO_SERVICE_CATEGORY } from '../../../shared/types/enums';
 
 // Arıza bildirimi oluştur
 export const createFaultReport = async (req: Request, res: Response) => {
@@ -32,7 +37,8 @@ export const createFaultReport = async (req: Request, res: Response) => {
       location
     } = req.body;
 
-    // rektefe-dv'den gelen kategori isimlerini backend formatına çevir
+    // Frontend'den gelen ServiceType kod değerlerini Fault Report Türkçe kategorilerine çevir
+    // Not: Fault Report model'i Türkçe kategori isimleri kullanıyor
     const categoryNameMapping: { [key: string]: string } = {
       'genel-bakim': 'Genel Bakım',
       'agir-bakim': 'Ağır Bakım',
@@ -62,28 +68,6 @@ export const createFaultReport = async (req: Request, res: Response) => {
     };
 
     const normalizedServiceCategory = categoryNameMapping[serviceCategory] || serviceCategory;
-
-    // 4 ana hizmet türü - tüm hizmetler bu 4 kategoriye bölünür
-    const categoryMapping: { [key: string]: string[] } = {
-      // Tamir ve Bakım - tüm mekanik hizmetler
-      'Genel Bakım': ['Tamir ve Bakım'],
-      'Ağır Bakım': ['Tamir ve Bakım'],
-      'Alt Takım': ['Tamir ve Bakım'],
-      'Üst Takım': ['Tamir ve Bakım'],
-      'Kaporta/Boya': ['Tamir ve Bakım'],
-      'Elektrik-Elektronik': ['Tamir ve Bakım'],
-      'Yedek Parça': ['Tamir ve Bakım'],
-      'Egzoz & Emisyon': ['Tamir ve Bakım'],
-      
-      // Araç Yıkama
-      'Araç Yıkama': ['Araç Yıkama'],
-      
-      // Lastik
-      'Lastik': ['Lastik'],
-      
-      // Çekici
-      'Çekici': ['Çekici']
-    };
 
     const userId = req.user?.userId;
 
@@ -948,50 +932,15 @@ export const getMechanicFaultReports = async (req: Request, res: Response) => {
     const mechanicServiceCategories = mechanic?.serviceCategories || user.serviceCategories || ['repair'];
     const mechanicSupportedBrands = mechanic?.supportedBrands || [];
 
-    // Arıza bildirimi kategorilerini hizmet kategorilerine eşleştir
-    const categoryMapping: { [key: string]: string[] } = {
-      // Repair kategorisi - tüm tamir hizmetlerini kapsar
-      'Ağır Bakım': ['repair'],
-      'Üst Takım': ['repair'],
-      'Alt Takım': ['repair'],
-      'Kaporta/Boya': ['repair'],
-      'Elektrik-Elektronik': ['repair'],
-      'Yedek Parça': ['repair'],
-      'Egzoz & Emisyon': ['repair'],
-      'Ekspertiz': ['repair'],
-      'Sigorta & Kasko': ['repair'],
-      'Genel Bakım': ['repair'],
-      'Motor Tamiri': ['repair'],
-      'Fren Sistemi': ['repair'],
-      // Diğer hizmet kategorileri
-      'Lastik': ['tire'],
-      'Araç Yıkama': ['wash'],
-      'Çekici': ['towing']
-    };
-
-    // Ustanın hizmet kategorilerine uygun arıza bildirimi kategorilerini bul
+    // Ustanın ServiceCategory'lerine göre hangi fault kategorilerini göreceğini belirle
+    // FAULT_CATEGORY_TO_SERVICE_CATEGORY mapping'i kullan
     const allowedFaultCategories: string[] = [];
     
-    // Eğer usta 'repair' kategorisindeyse, sadece repair-related kategorileri ekle
-    if (mechanicServiceCategories.includes('repair')) {
-      allowedFaultCategories.push(
-        'Ağır Bakım', 'Üst Takım', 'Alt Takım', 'Kaporta/Boya',
-        'Elektrik-Elektronik', 'Yedek Parça', 'Egzoz & Emisyon',
-        'Ekspertiz', 'Sigorta & Kasko', 'Genel Bakım',
-        'Motor Tamiri', 'Fren Sistemi'
-      );
-    }
-    
-    // Diğer kategoriler için
-    if (mechanicServiceCategories.includes('tire')) {
-      allowedFaultCategories.push('Lastik');
-    }
-    if (mechanicServiceCategories.includes('wash')) {
-      allowedFaultCategories.push('Araç Yıkama');
-    }
-    if (mechanicServiceCategories.includes('towing')) {
-      allowedFaultCategories.push('Çekici');
-    }
+    Object.entries(FAULT_CATEGORY_TO_SERVICE_CATEGORY).forEach(([faultCat, serviceCat]) => {
+      if (mechanicServiceCategories.includes(serviceCat)) {
+        allowedFaultCategories.push(faultCat);
+      }
+    });
 
     // Temel sorgu - ustanın hizmet kategorisine uygun arıza bildirimleri
     const query: any = {
@@ -1070,29 +1019,11 @@ async function findNearbyMechanics(
   userCity?: string
 ) {
   try {
-    // 4 ana hizmet türü - tüm hizmetler bu 4 kategoriye bölünür
-    const categoryMapping: { [key: string]: string[] } = {
-      // Tamir ve Bakım - tüm mekanik hizmetler
-      'Genel Bakım': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
-      'Ağır Bakım': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
-      'Alt Takım': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
-      'Üst Takım': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
-      'Kaporta/Boya': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
-      'Elektrik-Elektronik': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
-      'Yedek Parça': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
-      'Egzoz & Emisyon': ['Tamir ve Bakım', 'repair', 'Tamir & Bakım'],
-      
-      // Araç Yıkama
-      'Araç Yıkama': ['Araç Yıkama', 'wash'],
-      
-      // Lastik
-      'Lastik': ['Lastik', 'tire', 'Lastik & Parça'],
-      
-      // Çekici
-      'Çekici': ['Çekici', 'towing', 'Çekici Hizmeti']
-    };
-
-    const matchingCategories = categoryMapping[serviceCategory] || [serviceCategory];
+    // Fault category'yi ServiceCategory enum'una çevir
+    const normalizedServiceCategory = getFaultReportServiceCategory(serviceCategory);
+    
+    // O kategorinin tüm query değerlerini al (enum değeri + Türkçe alternatifleri)
+    const matchingCategories = getCategoryQueryValues(normalizedServiceCategory);
 
     // Önce Mechanic modelinde ara
     let mechanics = await Mechanic.find({

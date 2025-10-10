@@ -6,7 +6,7 @@ export interface IMechanic extends IUser {
   // Ustaya özel alanlar
   username: string; // Unique username
   vehicleBrands: string[]; // Bakabileceği/tamir edebileceği araç markaları
-  serviceCategories: string[]; // Uzmanlık alanları (ağır bakım, alt takım, üst takım, kaporta vs.)
+  serviceCategories: string[]; // Ana hizmet kategorileri: 'repair', 'towing', 'wash', 'tire', 'bodywork'
   experience: number;
   rating: number;
   ratingCount: number; // Toplam puan sayısı
@@ -91,7 +91,11 @@ const mechanicSchema = new Schema<IMechanic>({
   // Ustaya özel alanlar
   username: { type: String, required: true, unique: true },
   vehicleBrands: [{ type: String, default: ['Genel'] }], // Bakabileceği/tamir edebileceği araç markaları
-  serviceCategories: [{ type: String, default: ['Genel Bakım'] }], // Uzmanlık alanları
+  serviceCategories: [{ 
+    type: String, 
+    enum: ['repair', 'towing', 'wash', 'tire', 'bodywork'],
+    default: ['repair'] 
+  }], // Ana hizmet kategorileri
   experience: { type: Number, default: 0 },
   rating: { type: Number, default: 0 },
   ratingCount: { type: Number, default: 0 }, // Toplam puan sayısı

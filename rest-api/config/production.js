@@ -35,17 +35,17 @@ module.exports = {
 
   // JWT Configuration
   jwt: {
-    secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-for-production',
+    secret: process.env.JWT_SECRET,
     expiresIn: process.env.JWT_EXPIRE || '7d',
-    refreshSecret: process.env.JWT_REFRESH_SECRET || 'your-super-secret-refresh-key-for-production',
+    refreshSecret: process.env.JWT_REFRESH_SECRET,
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRE || '30d'
   },
 
   // Cloudinary Configuration
   cloudinary: {
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'your-cloudinary-cloud-name',
-    api_key: process.env.CLOUDINARY_API_KEY || 'your-cloudinary-api-key',
-    api_secret: process.env.CLOUDINARY_API_SECRET || 'your-cloudinary-api-secret'
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
   },
 
   // Email Configuration
@@ -55,8 +55,8 @@ module.exports = {
       port: process.env.SMTP_PORT || 587,
       secure: false,
       auth: {
-        user: process.env.SMTP_USER || 'your-email@gmail.com',
-        pass: process.env.SMTP_PASS || 'your-app-password'
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
       }
     }
   },
@@ -64,7 +64,7 @@ module.exports = {
   // Push Notification Configuration
   notifications: {
     expo: {
-      accessToken: process.env.EXPO_ACCESS_TOKEN || 'your-expo-access-token'
+      accessToken: process.env.EXPO_ACCESS_TOKEN
     }
   },
 

@@ -69,8 +69,8 @@ export const useNetworkStatus = () => {
     // İlk connectivity check
     updateNetworkState();
 
-    // Periyodik connectivity check (2 dakikada bir - daha az sıklıkta)
-    const interval = setInterval(updateNetworkState, 120000); // 2 dakika
+    // Periyodik connectivity check (5 dakikada bir - daha az sıklıkta)
+    const interval = setInterval(updateNetworkState, 300000); // 5 dakika
 
     return () => {
       clearInterval(interval);

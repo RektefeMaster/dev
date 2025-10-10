@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Modal, TextInput, Switch, Alert, Platform, Animated, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Modal, TextInput, Switch, Alert, Platform, Animated, ScrollView, KeyboardAvoidingView, Keyboard } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiService, api } from '@/shared/services/api';
@@ -313,7 +313,10 @@ const ProfileScreen = () => {
       </ScrollView>
       {/* Profili Düzenle Modalı */}
       <Modal visible={editModal} animationType="slide" transparent onRequestClose={() => setEditModal(false)}>
-        <View style={styles.modalContainer}>
+        <KeyboardAvoidingView 
+          style={styles.modalContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Profili Düzenle</Text>
             <TextInput
@@ -404,6 +407,9 @@ const ProfileScreen = () => {
               placeholder="Biyografi"
               placeholderTextColor="#666"
               multiline
+              blurOnSubmit={true}
+              returnKeyType="done"
+              onSubmitEditing={() => Keyboard.dismiss()}
             />
             
             {/* Gizlilik Ayarları */}
@@ -450,7 +456,7 @@ const ProfileScreen = () => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

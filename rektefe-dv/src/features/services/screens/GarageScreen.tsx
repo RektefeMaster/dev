@@ -882,6 +882,7 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     padding: 20,
+    overflow: 'visible',
   },
   formDescription: {
     fontSize: 14,
@@ -892,6 +893,8 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     marginBottom: 20,
+    overflow: 'visible',
+    zIndex: 1,
   },
   inputHeader: {
     flexDirection: 'row',
@@ -933,6 +936,9 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     borderRadius: 12,
     backgroundColor: '#fff',
+    zIndex: 10000,
+    elevation: 1000,
+    overflow: 'visible',
   },
   placeholderText: {
     color: '#8E8E93',

@@ -6,10 +6,10 @@ export interface IVehicle extends Document {
   modelName: string;
   year: number;
   plateNumber: string;
-  fuelType: 'Benzin' | 'Dizel' | 'Elektrik' | 'Benzin/Tüp' | 'Hibrit' | 'Hybrid';
-  engineType: string;
-  transmission: string;
-  package: string;
+  fuelType?: 'Benzin' | 'Dizel' | 'Elektrik' | 'Benzin/Tüp' | 'Hibrit' | 'Hybrid' | 'gasoline' | 'diesel' | 'electric' | 'hybrid';
+  engineType?: string;
+  transmission?: string;
+  package?: string;
   color?: string;
   mileage?: number;
   lastMaintenanceDate?: Date;
@@ -34,12 +34,12 @@ const VehicleSchema: Schema = new Schema({
   plateNumber: { type: String, required: true, unique: true },
   fuelType: {
     type: String,
-    required: true,
-    enum: ['Benzin', 'Dizel', 'Elektrik', 'Benzin/Tüp', 'Hibrit', 'Hybrid']
+    required: false,
+    enum: ['Benzin', 'Dizel', 'Elektrik', 'Benzin/Tüp', 'Hibrit', 'Hybrid', 'gasoline', 'diesel', 'electric', 'hybrid']
   },
-  engineType: { type: String, required: true },
-  transmission: { type: String, required: true },
-  package: { type: String, required: true },
+  engineType: { type: String, required: false },
+  transmission: { type: String, required: false },
+  package: { type: String, required: false },
   color: { type: String },
   mileage: { type: Number },
   lastMaintenanceDate: { type: Date },

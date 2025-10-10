@@ -298,8 +298,17 @@ const MechanicDetailScreen: React.FC = () => {
   };
 
   const handleMessage = () => {
-    // Mesaj gönderme işlemi
-    console.log('Mesaj gönderilecek:', mechanicDetails?.name);
+    if (!mechanicDetails) return;
+    
+    navigation.navigate('ChatScreen' as never, {
+      otherParticipant: {
+        _id: mechanicDetails._id || mechanicDetails.id,
+        name: mechanicDetails.name || '',
+        surname: mechanicDetails.surname || '',
+        avatar: mechanicDetails.avatar,
+        userType: 'mechanic'
+      }
+    } as never);
   };
 
   const handleAppointment = () => {

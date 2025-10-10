@@ -4,11 +4,22 @@
 
 // Hizmet isimlerini Türkçe'ye çeviren mapping
 export const serviceNameMapping: { [key: string]: string } = {
-  // Bakım hizmetleri
-  'agir': 'Ağır Bakım',
+  // Bakım hizmetleri - kod değerleri
   'agir-bakim': 'Ağır Bakım',
-  'genel': 'Genel Bakım',
   'genel-bakim': 'Genel Bakım',
+  'alt-takim': 'Alt Takım',
+  'ust-takim': 'Üst Takım',
+  'kaporta-boya': 'Kaporta & Boya',
+  'elektrik-elektronik': 'Elektrik-Elektronik',
+  'yedek-parca': 'Yedek Parça',
+  'lastik': 'Lastik Servisi',
+  'egzoz-emisyon': 'Egzoz & Emisyon',
+  'arac-yikama': 'Araç Yıkama',
+  'cekici': 'Çekici',
+  
+  // Legacy değerler (geriye dönük uyumluluk)
+  'agir': 'Ağır Bakım',
+  'genel': 'Genel Bakım',
   'motor': 'Motor Bakımı',
   'motor-bakimi': 'Motor Bakımı',
   'periyodik': 'Periyodik Bakım',

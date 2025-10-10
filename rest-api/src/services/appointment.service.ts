@@ -702,7 +702,7 @@ export class AppointmentService {
         'pending': ['PLANLANDI', 'IPTAL_EDILDI'],
         'TALEP_EDILDI': ['PLANLANDI', 'IPTAL_EDILDI'],
         'PLANLANDI': ['SERVISTE', 'IPTAL_EDILDI', 'NO_SHOW'],
-        'SERVISTE': ['ODEME_BEKLIYOR'],
+        'SERVISTE': ['ODEME_BEKLIYOR', 'TAMAMLANDI'], // Direkt tamamlanmaya izin ver
         'ODEME_BEKLIYOR': ['TAMAMLANDI', 'IPTAL_EDILDI'],
         'TAMAMLANDI': [], // Tamamlandı'dan başka duruma geçilemez
         'IPTAL_EDILDI': [], // İptal'dan başka duruma geçilemez
@@ -817,18 +817,30 @@ export class AppointmentService {
    */
   static async cancelAppointment(appointmentId: string, userId: string) {
     try {
+      console.log(`[AppointmentService] Cancelling appointment ${appointmentId} for user ${userId}`);
+      
       const appointment = await Appointment.findOneAndUpdate(
-        { _id: appointmentId, userId: new mongoose.Types.ObjectId(userId) },
-        { status: 'IPTAL', updatedAt: new Date() },
+        { 
+          _id: new mongoose.Types.ObjectId(appointmentId), 
+          userId: new mongoose.Types.ObjectId(userId) 
+        },
+        { 
+          status: 'IPTAL_EDILDI', 
+          updatedAt: new Date() 
+        },
         { new: true }
       );
 
+      console.log(`[AppointmentService] Found appointment:`, appointment ? 'YES' : 'NO');
+
       if (!appointment) {
+        console.log(`[AppointmentService] Appointment not found or user mismatch`);
         throw new CustomError('Randevu bulunamadı veya iptal edilemez', 404);
       }
 
       return appointment;
     } catch (error) {
+      console.error(`[AppointmentService] Error cancelling appointment:`, error);
       throw error;
     }
   }

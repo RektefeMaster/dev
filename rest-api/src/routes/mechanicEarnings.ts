@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { auth } from '../middleware/auth';
 import { Appointment } from '../models/Appointment';
+import { MechanicEarningsController } from '../controllers/mechanicEarnings.controller';
 
 const router = Router();
 
@@ -331,42 +332,7 @@ router.get('/transactions', auth, async (req: Request, res: Response) => {
  *       500:
  *         description: Sunucu hatası
  */
-router.post('/withdraw', auth, async (req: Request, res: Response) => {
-  try {
-    const mechanicId = (req as any).user?.userId;
-    const { amount, bankAccount, notes } = req.body;
-
-    if (amount < 50) {
-      return res.status(400).json({
-        success: false,
-        message: 'Para çekme miktarı en az 50 TL olmalıdır.'
-      });
-    }
-
-    const newWithdrawal = {
-      mechanicId,
-      amount,
-      bankAccount,
-      notes,
-      status: 'pending', // Başlangıçta pending olarak ayarla
-      createdAt: new Date()
-    };
-
-    const withdrawal = await newWithdrawal; // Appointment modelini kullanıyoruz
-
-    res.status(200).json({
-      success: true,
-      data: withdrawal,
-      message: 'Para çekme talebi başarıyla oluşturuldu'
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: 'Para çekme talebi oluşturulurken hata oluştu',
-      error: error.message
-    });
-  }
-});
+router.post('/withdraw', auth, MechanicEarningsController.requestWithdrawal);
 
 /**
  * @swagger
@@ -394,25 +360,6 @@ router.post('/withdraw', auth, async (req: Request, res: Response) => {
  *       500:
  *         description: Sunucu hatası
  */
-router.get('/withdrawals', auth, async (req: Request, res: Response) => {
-  try {
-    const mechanicId = (req as any).user?.userId;
-    const status = req.query.status as string || 'pending';
-
-    const withdrawals = await Appointment.find({ mechanicId, type: 'withdrawal', status });
-
-    res.json({
-      success: true,
-      data: withdrawals,
-      message: 'Para çekme talepleri başarıyla getirildi'
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: 'Para çekme talepleri getirilirken hata oluştu',
-      error: error.message
-    });
-  }
-});
+router.get('/withdrawals', auth, MechanicEarningsController.getWithdrawals);
 
 export default router;

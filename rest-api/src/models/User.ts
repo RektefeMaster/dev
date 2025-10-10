@@ -40,7 +40,7 @@ export interface IUser extends Document {
   // Usta/Şöför özel alanları
   username?: string;
   isAdmin?: boolean;
-  serviceCategories?: string[];
+  serviceCategories?: string[]; // ServiceCategory enum değerleri: 'repair', 'towing', 'wash', 'tire', 'bodywork'
   experience?: number;
   rating?: number;
   ratingCount?: number;
@@ -301,6 +301,7 @@ const userSchema = new Schema<IUser>({
   },
   serviceCategories: [{
     type: String,
+    enum: ['repair', 'towing', 'wash', 'tire', 'bodywork'], // ServiceCategory enum değerleri
     default: []
   }],
   experience: {

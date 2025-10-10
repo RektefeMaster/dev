@@ -9,6 +9,9 @@ import {
   Alert,
   ActivityIndicator,
   Switch,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -178,12 +181,18 @@ export default function EditProfileScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView 
-        style={styles.scrollView} 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView 
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
+        <ScrollView 
+          style={styles.scrollView} 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentInsetAdjustmentBehavior="always"
+        >
         {/* Temel Bilgiler */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Temel Bilgiler</Text>
@@ -195,6 +204,8 @@ export default function EditProfileScreen() {
               value={formData.name}
               onChangeText={(text) => handleInputChange('name', text)}
               placeholder="Adınızı girin"
+              blurOnSubmit={false}
+              returnKeyType="next"
             />
           </View>
 
@@ -205,6 +216,8 @@ export default function EditProfileScreen() {
               value={formData.surname}
               onChangeText={(text) => handleInputChange('surname', text)}
               placeholder="Soyadınızı girin"
+              blurOnSubmit={false}
+              returnKeyType="next"
             />
           </View>
 
@@ -216,6 +229,8 @@ export default function EditProfileScreen() {
               onChangeText={(text) => handleInputChange('phone', text)}
               placeholder="Telefon numaranızı girin"
               keyboardType="phone-pad"
+              blurOnSubmit={false}
+              returnKeyType="next"
             />
           </View>
 
@@ -348,21 +363,25 @@ export default function EditProfileScreen() {
               placeholder="Detaylı tarif (örn: tecde mahallesi hayrat sokak yakamoz kule apartmanı kat 7 no 13)"
               multiline
               numberOfLines={3}
+              blurOnSubmit={true}
+              returnKeyType="done"
+              onSubmitEditing={() => Keyboard.dismiss()}
             />
           </View>
         </View>
 
-      </ScrollView>
-      
-      {/* Kaydet Butonu - ScrollView dışında */}
-      <View style={styles.buttonContainer}>
-        <Button
-          title={loading ? 'Kaydediliyor...' : 'Kaydet'}
-          onPress={saveProfile}
-          disabled={loading}
-          style={styles.saveButton}
-        />
-      </View>
+        </ScrollView>
+        
+        {/* Kaydet Butonu - ScrollView dışında */}
+        <View style={styles.buttonContainer}>
+          <Button
+            title={loading ? 'Kaydediliyor...' : 'Kaydet'}
+            onPress={saveProfile}
+            disabled={loading}
+            style={styles.saveButton}
+          />
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -385,6 +404,9 @@ const styles = StyleSheet.create({
     fontSize: typography.h2.fontSize,
     fontWeight: '700',
     color: colors.text.primary.main,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
   scrollView: {
     flex: 1,

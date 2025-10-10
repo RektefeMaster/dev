@@ -96,8 +96,8 @@ const processQueue = (error: any, token: string | null = null) => {
 
 apiClient.interceptors.response.use(
   (response) => {
-    // Sadece önemli endpoint'ler için success log
-    if (response.config.url?.includes('/auth/') || response.config.url?.includes('/mechanic/me')) {
+    // Production'da log'ları kapat
+    if (__DEV__ && (response.config.url?.includes('/auth/') || response.config.url?.includes('/mechanic/me'))) {
       console.log(`✅ API Success: ${response.config.method?.toUpperCase()} ${response.config.url} - ${response.status}`);
     }
     return response;
@@ -109,11 +109,13 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
     
-    // Error response'ları logla
-    console.error(`❌ API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${error.response?.status}`);
-    console.error(`❌ API Error Response:`, error.response?.data);
-    console.error(`❌ API Error Message:`, error.message);
-    console.error(`❌ API Error Code:`, error.code);
+    // Production'da error log'ları sadece development'ta göster
+    if (__DEV__) {
+      console.error(`❌ API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${error.response?.status}`);
+      console.error(`❌ API Error Response:`, error.response?.data);
+      console.error(`❌ API Error Message:`, error.message);
+      console.error(`❌ API Error Code:`, error.code);
+    }
     
     const originalRequest = error.config;
     

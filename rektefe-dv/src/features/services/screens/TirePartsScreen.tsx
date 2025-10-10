@@ -892,6 +892,8 @@ const styles = StyleSheet.create({
   },
   dropdownContainer: {
     marginBottom: 16,
+    overflow: 'visible',
+    zIndex: 1000,
   },
   dropdownLabel: {
     fontSize: 14,
@@ -917,6 +919,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderColor: '#D1D5DB',
     borderWidth: 1,
+    zIndex: 10000,
+    elevation: 1000,
     borderRadius: 8,
     maxHeight: 200,
   },

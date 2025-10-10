@@ -347,10 +347,10 @@ const mechanicCapabilities = [
   // Arıza bildirimleri için özel polling - daha az sıklıkta
   useEffect(() => {
     if (isAuthenticated && user) {
-      // Her 5 dakikada bir arıza bildirimlerini kontrol et
+      // Her 10 dakikada bir arıza bildirimlerini kontrol et (daha az sıklıkta)
       const faultReportInterval = setInterval(() => {
         checkFaultReports();
-      }, 300000); // 5 dakika (300 saniye)
+      }, 600000); // 10 dakika (600 saniye)
 
       return () => clearInterval(faultReportInterval);
     }
@@ -392,12 +392,12 @@ const mechanicCapabilities = [
   };
 
   const startAutoRefresh = () => {
-    // Her 2 dakikada bir veri yenile (daha az sıklıkta)
+    // Her 5 dakikada bir veri yenile (daha az sıklıkta)
     intervalRef.current = setInterval(() => {
       if (isAuthenticated && user && appState.current === 'active') {
         fetchDashboardData(false); // Loading gösterme
       }
-    }, 120000); // 2 dakika (120 saniye)
+    }, 300000); // 5 dakika (300 saniye)
   };
 
   const fetchDashboardData = async (showLoading = true) => {

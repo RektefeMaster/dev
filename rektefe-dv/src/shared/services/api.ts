@@ -407,9 +407,7 @@ export const AppointmentService = {
    */
   async cancelAppointment(id: string): Promise<ApiResponse<{ appointment: any }>> {
     try {
-      const response = await apiClient.put(`/api/appointments/${id}`, {
-        status: AppointmentStatus.CANCELLED
-      });
+      const response = await apiClient.put(`/api/appointments/${id}/cancel`, {});
       return response.data;
     } catch (error: any) {
       console.error('Cancel appointment error:', error);

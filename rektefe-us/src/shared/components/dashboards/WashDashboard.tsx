@@ -59,7 +59,7 @@ const WashDashboard: React.FC<WashDashboardProps> = ({
     for (let hour = 9; hour <= 18; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
         const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        const isOccupied = Math.random() > 0.7; // Mock data
+        const isOccupied = false; // Gerçek veri kullanılacak
         
         slots.push({
           time: timeString,

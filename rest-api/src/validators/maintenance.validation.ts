@@ -7,9 +7,12 @@ export const createAppointmentSchema = Joi.object({
   mechanicId: Joi.string().optional().messages({
     'string.base': 'Mekanik ID\'si string olmalıdır'
   }),
-  serviceType: Joi.string().min(2).max(100).required().messages({
-    'string.min': 'Servis tipi en az 2 karakter olmalıdır',
-    'string.max': 'Servis tipi en fazla 100 karakter olmalıdır',
+  serviceType: Joi.string().valid(
+    'genel-bakim', 'agir-bakim', 'alt-takim', 'ust-takim', 
+    'kaporta-boya', 'elektrik-elektronik', 'yedek-parca', 
+    'lastik', 'egzoz-emisyon', 'arac-yikama', 'cekici'
+  ).required().messages({
+    'any.only': 'Geçersiz hizmet tipi. Lütfen geçerli bir hizmet tipi seçin.',
     'any.required': 'Servis tipi zorunludur'
   }),
   appointmentDate: Joi.string().isoDate().required().messages({

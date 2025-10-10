@@ -6,6 +6,7 @@ import {
   createErrorResponse,
   ApiResponse 
 } from '../../../shared/types/apiResponse';
+import { logger } from '../utils/monitoring';
 
 export interface ApiError extends Error {
   statusCode?: number;
@@ -36,8 +37,8 @@ export const errorHandler = (
   let error = { ...err };
   error.message = err.message;
 
-  // Log error
-  console.error('Error:', {
+  // Log error using Winston logger
+  logger.error('Error:', {
     message: err.message,
     stack: err.stack,
     url: req.url,

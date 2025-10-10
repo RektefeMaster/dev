@@ -1267,7 +1267,12 @@ router.get('/all', async (req: Request, res: Response) => {
     
     let filter: any = {};
     if (city) filter['location.city'] = new RegExp(city as string, 'i');
-    if (specialization) filter['serviceCategories'] = new RegExp(specialization as string, 'i');
+    if (specialization) {
+      filter.$or = [
+        { serviceCategories: { $regex: specialization as string, $options: 'i' } },
+        { serviceCategories: { $in: [specialization as string] } }
+      ];
+    }
     
     const mechanics = await Mechanic.find(filter)
       .select('-password')
@@ -1299,85 +1304,7 @@ router.get('/all', async (req: Request, res: Response) => {
   }
 });
 
-/**
- * @swagger
- * /api/mechanic/search:
- *   get:
- *     summary: Mekanik ara
- *     description: Mekanik adı, uzmanlık alanı veya şehre göre arama yapar
- *     tags:
- *       - Mechanic
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: q
- *         schema:
- *           type: string
- *         description: Arama terimi (isim, uzmanlık, şehir)
- *         example: "Motor"
- *       - in: query
- *         name: name
- *         schema:
- *           type: string
- *         description: Mekanik adı
- *         example: "Ahmet"
- *       - in: query
- *         name: specialization
- *         schema:
- *           type: string
- *         description: Uzmanlık alanı
- *         example: "Motor"
- *       - in: query
- *         name: city
- *         schema:
- *           type: string
- *         description: Şehir
- *         example: "İstanbul"
- *     responses:
- *       200:
- *         description: Arama sonuçları başarıyla getirildi
- *       401:
- *         description: Yetkilendirme hatası
- *       500:
- *         description: Sunucu hatası
- */
-router.get('/search', async (req: Request, res: Response) => {
-  try {
-    const { q, name, specialization, city } = req.query;
-    
-    let filter: any = {};
-    
-    if (q) {
-      filter.$or = [
-        { name: new RegExp(q as string, 'i') },
-        { 'location.city': new RegExp(q as string, 'i') },
-        { serviceCategories: new RegExp(q as string, 'i') }
-      ];
-    }
-    
-    if (name) filter.name = new RegExp(name as string, 'i');
-    if (specialization) filter.serviceCategories = new RegExp(specialization as string, 'i');
-    if (city) filter['location.city'] = new RegExp(city as string, 'i');
-    
-    const mechanics = await Mechanic.find(filter)
-      .select('-password')
-      .sort({ rating: -1, totalServices: -1 })
-      .limit(20);
-    
-    res.json({
-      success: true,
-      data: mechanics,
-      message: 'Arama sonuçları başarıyla getirildi'
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: 'Arama yapılırken hata oluştu',
-      error: error.message
-    });
-  }
-});
+// Duplicate /search route kaldırıldı - MechanicController.searchMechanics (satır 644) kullanılıyor
 
 /**
  * @swagger
@@ -1585,7 +1512,12 @@ router.get('/list', async (req: Request, res: Response) => {
     
     let filter: any = {};
     if (city) filter['location.city'] = new RegExp(city as string, 'i');
-    if (specialization) filter['serviceCategories'] = new RegExp(specialization as string, 'i');
+    if (specialization) {
+      filter.$or = [
+        { serviceCategories: { $regex: specialization as string, $options: 'i' } },
+        { serviceCategories: { $in: [specialization as string] } }
+      ];
+    }
     
     const mechanics = await Mechanic.find(filter)
       .select('-password')

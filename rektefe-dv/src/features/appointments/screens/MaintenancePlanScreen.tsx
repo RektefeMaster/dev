@@ -240,21 +240,9 @@ const MaintenancePlanScreen = () => {
       const endTimeString = `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`;
       const formattedTimeSlot = `${selectedTime}-${endTimeString}`;
       
-      // Service type'ı backend formatına çevir
-      const serviceTypeMapping: { [key: string]: string } = {
-        'agir-bakim': 'Ağır Bakım',
-        'genel-bakim': 'Genel Bakım',
-        'alt-takim': 'Alt Takım Bakımı',
-        'ust-takim': 'Üst Takım Bakımı',
-        'kaporta-boya': 'Kaporta & Boya',
-        'elektrik-elektronik': 'Elektrik-Elektronik',
-        'yedek-parca': 'Yedek Parça Değişimi',
-        'lastik': 'Lastik Servisi',
-        'egzoz-emisyon': 'Egzoz & Emisyon',
-        'arac-yikama': 'Araç Yıkama',
-      };
-      
-      const backendServiceType = serviceTypeMapping[selectedService] || selectedService;
+      // Service type'ı backend formatına çevir (kod değerlerini kullan)
+      // selectedService zaten kod değeri (agir-bakim, genel-bakim, etc.)
+      const backendServiceType = selectedService;
       
       const appointmentData = {
         vehicleId: selectedVehicle,

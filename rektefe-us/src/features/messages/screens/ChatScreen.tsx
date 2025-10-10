@@ -610,13 +610,13 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
     ]).start();
   }, [isAuthenticated, conversationId]); // conversationId değiştiğinde de çalışsın
 
-  // Mesajları düzenli olarak yenile (15 saniyede bir - daha az sıklıkta)
+  // Mesajları düzenli olarak yenile (30 saniyede bir - daha az sıklıkta)
   useEffect(() => {
     if (!isAuthenticated || conversationId.startsWith('temp_')) return;
 
     const interval = setInterval(() => {
       fetchMessages();
-    }, 15000); // 15 saniye
+    }, 30000); // 30 saniye
 
     return () => clearInterval(interval);
   }, [isAuthenticated, conversationId, fetchMessages]);

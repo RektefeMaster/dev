@@ -22,25 +22,22 @@ export const createVehicleSchema = Joi.object({
     'string.pattern.base': 'Geçerli bir plaka formatı giriniz (örn: 34ABC123, 06A1234)',
     'any.required': 'Plaka numarası zorunludur'
   }),
-  fuelType: Joi.string().valid('Benzin', 'Dizel', 'Elektrik', 'Benzin/Tüp', 'Hibrit', 'Hybrid').required().messages({
-    'any.only': 'Yakıt tipi geçerli değil. Seçenekler: Benzin, Dizel, Elektrik, Benzin/Tüp, Hibrit, Hybrid',
-    'any.required': 'Yakıt tipi zorunludur'
+  fuelType: Joi.string().valid('Benzin', 'Dizel', 'Elektrik', 'Benzin/Tüp', 'Hibrit', 'Hybrid', 'gasoline', 'diesel', 'electric', 'hybrid').optional().messages({
+    'any.only': 'Yakıt tipi geçerli değil. Seçenekler: Benzin, Dizel, Elektrik, Benzin/Tüp, Hibrit, Hybrid'
   }),
-  engineType: Joi.string().min(2).max(50).required().messages({
+  engineType: Joi.string().min(2).max(50).optional().messages({
     'string.min': 'Motor tipi en az 2 karakter olmalıdır',
-    'string.max': 'Motor tipi en fazla 50 karakter olmalıdır',
-    'any.required': 'Motor tipi zorunludur'
+    'string.max': 'Motor tipi en fazla 50 karakter olmalıdır'
   }),
-  transmission: Joi.string().min(2).max(50).required().messages({
+  transmission: Joi.string().min(2).max(50).optional().messages({
     'string.min': 'Vites tipi en az 2 karakter olmalıdır',
-    'string.max': 'Vites tipi en fazla 50 karakter olmalıdır',
-    'any.required': 'Vites tipi zorunludur'
+    'string.max': 'Vites tipi en fazla 50 karakter olmalıdır'
   }),
-  package: Joi.string().min(2).max(100).required().messages({
+  package: Joi.string().min(2).max(100).optional().messages({
     'string.min': 'Paket en az 2 karakter olmalıdır',
-    'string.max': 'Paket en fazla 100 karakter olmalıdır',
-    'any.required': 'Paket zorunludur'
+    'string.max': 'Paket en fazla 100 karakter olmalıdır'
   }),
+  color: Joi.string().min(2).max(30).optional(),
   mileage: Joi.number().integer().min(0).max(9999999).optional().messages({
     'number.base': 'Kilometre sayı olmalıdır',
     'number.integer': 'Kilometre tam sayı olmalıdır',

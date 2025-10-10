@@ -1,10 +1,11 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { ServiceCategory as ServiceCategoryEnum } from '../../../shared/types/enums';
 
 export interface IServiceCategory extends Document {
   name: string;
   description: string;
   icon?: string;
-  type: 'towing' | 'repair' | 'wash' | 'tire' | 'maintenance' | 'bodywork'; // Hizmet tipi
+  type: ServiceCategoryEnum; // Ana hizmet kategorisi (repair, towing, wash, tire, bodywork)
   subCategories?: string[]; // Alt kategoriler (örn: ağır bakım, alt takım, üst takım, kaporta vs.)
   isActive: boolean;
   createdAt: Date;
@@ -28,7 +29,7 @@ const serviceCategorySchema = new Schema<IServiceCategory>({
   },
   type: {
     type: String,
-    enum: ['towing', 'repair', 'wash', 'tire', 'maintenance', 'bodywork'],
+    enum: Object.values(ServiceCategoryEnum),
     required: true
   },
   subCategories: [{

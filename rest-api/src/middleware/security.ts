@@ -183,8 +183,9 @@ export const authValidation = {
 export const appointmentValidation = {
   create: Joi.object({
     serviceType: Joi.string()
-      .min(2)
-      .max(100)
+      .valid('genel-bakim', 'agir-bakim', 'alt-takim', 'ust-takim', 
+             'kaporta-boya', 'elektrik-elektronik', 'yedek-parca', 
+             'lastik', 'egzoz-emisyon', 'arac-yikama', 'cekici')
       .required(),
     appointmentDate: Joi.date()
       .iso()

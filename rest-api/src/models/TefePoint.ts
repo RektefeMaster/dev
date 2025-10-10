@@ -130,7 +130,7 @@ const TefePointSchema = new Schema<ITefePoint>({
 TefePointSchema.index({ 'transactions.date': -1 });
 TefePointSchema.index({ 'transactions.status': 1 });
 
-// Hizmet kategorileri ve kazanım oranları
+// Hizmet kategorileri ve kazanım oranları - ServiceCategory enum'una uygun
 export const SERVICE_CATEGORIES: IServiceCategory[] = [
   {
     category: 'towing',
@@ -138,52 +138,53 @@ export const SERVICE_CATEGORIES: IServiceCategory[] = [
     description: 'Çekici Hizmeti'
   },
   {
-    category: 'tire_service',
+    category: 'tire',
     multiplier: 0.03, // %3 - Orta kâr
-    description: 'Lastik Hizmeti'
+    description: 'Lastik Servisi'
   },
   {
-    category: 'wash_service',
+    category: 'wash',
     multiplier: 0.04, // %4 - Orta kâr
     description: 'Araç Yıkama'
   },
   {
-    category: 'maintenance',
-    multiplier: 0.05, // %5 - Orta-yüksek kâr
-    description: 'Genel Bakım'
+    category: 'repair',
+    multiplier: 0.06, // %6 - Yüksek kâr (genel bakım, motor, elektrik, vb.)
+    description: 'Tamir ve Bakım'
   },
   {
-    category: 'engine_repair',
-    multiplier: 0.07, // %7 - Yüksek kâr, yüksek kazanım
-    description: 'Motor Rektefiyesi'
-  },
-  {
-    category: 'transmission_repair',
-    multiplier: 0.08, // %8 - Çok yüksek kâr
-    description: 'Şanzıman Rektefiyesi'
-  },
-  {
-    category: 'electrical_repair',
-    multiplier: 0.06, // %6 - Yüksek kâr
-    description: 'Elektrik Rektefiyesi'
-  },
-  {
-    category: 'body_repair',
+    category: 'bodywork',
     multiplier: 0.09, // %9 - En yüksek kâr, en yüksek kazanım
-    description: 'Kaporta Rektefiyesi'
+    description: 'Kaporta & Boya'
   }
 ];
 
-// TefePuan hesaplama fonksiyonu
+// TefePuan hesaplama fonksiyonu - ServiceCategory enum'una uygun
 export const calculateTefePoints = (amount: number, serviceCategory: string): number => {
-  const category = SERVICE_CATEGORIES.find(cat => cat.category === serviceCategory);
+  // ServiceCategory enum değerine normalize et
+  // serviceCategory direkt enum değeri ('repair', 'towing', etc.) veya Türkçe isim olabilir
+  let normalizedCategory = serviceCategory.toLowerCase();
+  
+  // Türkçe isimlerden enum değerine çevir
+  if (serviceCategory.includes('Tamir') || serviceCategory.includes('Bakım') || serviceCategory.includes('repair')) {
+    normalizedCategory = 'repair';
+  } else if (serviceCategory.includes('Çekici') || serviceCategory.includes('towing')) {
+    normalizedCategory = 'towing';
+  } else if (serviceCategory.includes('Yıkama') || serviceCategory.includes('wash')) {
+    normalizedCategory = 'wash';
+  } else if (serviceCategory.includes('Lastik') || serviceCategory.includes('tire')) {
+    normalizedCategory = 'tire';
+  } else if (serviceCategory.includes('Kaporta') || serviceCategory.includes('Boya') || serviceCategory.includes('bodywork')) {
+    normalizedCategory = 'bodywork';
+  }
+  
+  const category = SERVICE_CATEGORIES.find(cat => cat.category === normalizedCategory);
   if (!category) {
     // Varsayılan kategori - %5
     return Math.floor(amount * 0.05);
   }
   
-  // 1000 TL'ye 50 TefePuan ortalama için ayarlama
-  // Gerçek hesaplama: amount * multiplier
+  // 1000 TL'ye kazanım: amount * multiplier
   return Math.floor(amount * category.multiplier);
 };
 

@@ -153,7 +153,7 @@ const AppointmentsScreen = () => {
     fetchAppointments();
   }, []); // Sadece component mount olduğunda çalışsın
 
-  // Her dakika randevu saatlerini güncelle
+  // Her 5 dakikada randevu saatlerini güncelle (daha az sıklıkta)
   useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date();
@@ -166,7 +166,7 @@ const AppointmentsScreen = () => {
       });
       
       setTimeUntilAppointment(newTimeUntilAppointment);
-    }, 60000); // Her dakika güncelle
+    }, 300000); // Her 5 dakika güncelle
 
     return () => clearInterval(interval);
   }, [appointments]); // appointments değişince sadece interval'i güncelle

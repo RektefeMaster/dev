@@ -28,7 +28,7 @@ async function getToken() {
         userType: user.userType,
         email: user.email 
       }, 
-      'default-secret-key-for-development', 
+      process.env.JWT_SECRET || 'development-only-secret', 
       { expiresIn: '1h' }
     );
     

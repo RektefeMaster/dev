@@ -6,6 +6,36 @@ const router = Router();
 
 /**
  * @swagger
+ * /api/notifications:
+ *   get:
+ *     summary: Kullanıcının bildirimlerini getir (userType'a göre)
+ *     description: Giriş yapan kullanıcının bildirimlerini otomatik userType'a göre getirir
+ *     tags:
+ *       - Notifications
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Bildirimler başarıyla getirildi
+ *       401:
+ *         description: Yetkilendirme hatası
+ */
+router.get('/', auth, async (req, res) => {
+  try {
+    const userType = (req as any).user?.userType;
+    
+    if (userType === 'mechanic') {
+      return NotificationController.getMechanicNotifications(req, res);
+    } else {
+      return NotificationController.getDriverNotifications(req, res);
+    }
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * @swagger
  * /api/notifications/driver:
  *   get:
  *     summary: Şoförün bildirimlerini getir

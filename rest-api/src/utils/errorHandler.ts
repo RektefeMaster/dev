@@ -199,13 +199,15 @@ export class ErrorHandler {
       }
     };
 
-    // Log error for debugging (except client errors)
+    // Log error for debugging (except client errors) - use Winston logger
     if (statusCode >= 500) {
-      console.error('Server Error:', {
-        errorCode,
-        message,
-        details,
-        timestamp: new Date().toISOString()
+      import('../utils/monitoring').then(({ logger }) => {
+        logger.error('Server Error:', {
+          errorCode,
+          message,
+          details,
+          timestamp: new Date().toISOString()
+        });
       });
     }
 
