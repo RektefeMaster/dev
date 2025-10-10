@@ -1,17 +1,9 @@
-// Shared Components
-export * from './components';
+// Shared library for rektefe-dv
+// Import specific modules directly instead of using this barrel export
+// to avoid duplicate export errors
 
-// Shared API Services
-export * from './api';
+// Example:
+// import { ErrorCode } from './shared-lib/types';
+// import { BaseApiService } from './shared-lib/api';
 
-// Shared Context
-export * from './context';
-
-// Shared Services
-// Services folder is empty, no exports needed
-
-// Shared Types
-export * from './types';
-
-// Shared Utils
-export * from './utils';
+export {};

@@ -210,7 +210,27 @@ export class BaseApiService {
         return false;
       }
       
-      const payload = JSON.parse(atob(parts[1]));
+      // Base64 decode for React Native (atob doesn't exist)
+      const base64Decode = (str: string): string => {
+        if (typeof atob !== 'undefined') return atob(str);
+        const base64abc = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+        let result = '', buffer = 0, bitsCollected = 0;
+        for (let i = 0; i < str.length; i++) {
+          const char = str[i];
+          if (char === '=') break;
+          const charIndex = base64abc.indexOf(char);
+          if (charIndex === -1) continue;
+          buffer = (buffer << 6) | charIndex;
+          bitsCollected += 6;
+          if (bitsCollected >= 8) {
+            bitsCollected -= 8;
+            result += String.fromCharCode((buffer >> bitsCollected) & 0xff);
+          }
+        }
+        return result;
+      };
+      
+      const payload = JSON.parse(base64Decode(parts[1]));
       
       if (!payload.exp) {
         return false;

@@ -2,6 +2,8 @@
  * JWT Token yardımcı fonksiyonları
  */
 
+import { base64Decode } from './base64';
+
 export interface TokenPayload {
   userId: string;
   userType: 'driver' | 'mechanic';
@@ -24,8 +26,8 @@ export const decodeToken = (token: string): TokenPayload | null => {
       return null;
     }
 
-    // Payload'ı decode et
-    const payload = JSON.parse(atob(parts[1]));
+    // Payload'ı decode et (React Native uyumlu)
+    const payload = JSON.parse(base64Decode(parts[1]));
     return payload as TokenPayload;
   } catch (error) {
     console.error('Token decode hatası:', error);

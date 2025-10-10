@@ -8,6 +8,7 @@ import { withErrorHandling } from '@/shared/utils/errorHandler';
 import { Notification } from '@/shared/types/common';
 import { UserProfile } from './UserProfile';
 import { QuickActions } from './QuickActions';
+import { base64Decode } from '@/shared/utils/base64';
 
 interface GreetingHeaderProps {
   userName: string;
@@ -51,8 +52,8 @@ export const GreetingHeader: React.FC<GreetingHeaderProps> = ({ userName, favori
     try {
       const token = await AsyncStorage.getItem('token');
       if (token) {
-        // JWT token'dan user ID'yi çıkar
-        const payload = JSON.parse(atob(token.split('.')[1]));
+        // JWT token'dan user ID'yi çıkar (React Native uyumlu)
+        const payload = JSON.parse(base64Decode(token.split('.')[1]));
         setUserId(payload.userId);
       }
     } catch (error) {
