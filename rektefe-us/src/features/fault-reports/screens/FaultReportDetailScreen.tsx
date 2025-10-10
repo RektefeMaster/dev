@@ -11,6 +11,10 @@ import {
   Linking,
   TextInput,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -556,66 +560,86 @@ const FaultReportDetailScreen: React.FC = () => {
         transparent={true}
         onRequestClose={() => setShowQuoteForm(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Fiyat Teklifi Ver</Text>
-              <TouchableOpacity onPress={() => setShowQuoteForm(false)}>
-                <Ionicons name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.formContainer}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Fiyat (₺) *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={quoteAmount}
-                  onChangeText={setQuoteAmount}
-                  placeholder="Fiyat giriniz"
-                  keyboardType="numeric"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Süre (Opsiyonel)</Text>
-                <TextInput
-                  style={styles.input}
-                  value={estimatedDuration}
-                  onChangeText={setEstimatedDuration}
-                  placeholder="Örn: 2-3 gün, 1 hafta"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Usta Notu</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  value={notes}
-                  onChangeText={setNotes}
-                  placeholder="Müşteriye gönderilecek not..."
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-            </View>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowQuoteForm(false)}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.keyboardAvoidingView}
               >
-                <Text style={styles.cancelButtonText}>İptal</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.submitButton]}
-                onPress={handleQuoteFormSubmit}
-              >
-                <Text style={styles.submitButtonText}>Gönder</Text>
-              </TouchableOpacity>
-            </View>
+                <View style={styles.modalContent}>
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Fiyat Teklifi Ver</Text>
+                    <TouchableOpacity onPress={() => setShowQuoteForm(false)}>
+                      <Ionicons name="close" size={24} color="#6B7280" />
+                    </TouchableOpacity>
+                  </View>
+
+                  <ScrollView 
+                    style={styles.formContainer}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                  >
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Fiyat (₺) *</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={quoteAmount}
+                        onChangeText={setQuoteAmount}
+                        placeholder="Fiyat giriniz"
+                        keyboardType="numeric"
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                      />
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Süre (Opsiyonel)</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={estimatedDuration}
+                        onChangeText={setEstimatedDuration}
+                        placeholder="Örn: 2-3 gün, 1 hafta"
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                      />
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Usta Notu</Text>
+                      <TextInput
+                        style={[styles.input, styles.textArea]}
+                        value={notes}
+                        onChangeText={setNotes}
+                        placeholder="Müşteriye gönderilecek not..."
+                        multiline
+                        numberOfLines={3}
+                        returnKeyType="done"
+                        blurOnSubmit={true}
+                        onSubmitEditing={Keyboard.dismiss}
+                      />
+                    </View>
+
+                    <View style={styles.modalButtons}>
+                      <TouchableOpacity
+                        style={[styles.modalButton, styles.cancelButton]}
+                        onPress={() => setShowQuoteForm(false)}
+                      >
+                        <Text style={styles.cancelButtonText}>İptal</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.modalButton, styles.submitButton]}
+                        onPress={handleQuoteFormSubmit}
+                      >
+                        <Text style={styles.submitButtonText}>Gönder</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </ScrollView>
+                </View>
+              </KeyboardAvoidingView>
+            </TouchableWithoutFeedback>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
 
       {/* Usta Seçenekleri Modal */}
@@ -1054,6 +1078,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  keyboardAvoidingView: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalContent: {
     backgroundColor: '#FFFFFF',

@@ -13,6 +13,10 @@ import {
   TextInput,
   FlatList,
   Linking,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -557,77 +561,97 @@ export default function SuppliersScreen() {
             </TouchableOpacity>
           </View>
           
-          <ScrollView style={styles.modalContent}>
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Tedarikçi Adı *</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="Tedarikçi adı girin"
-                value={formData.name}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, name: text }))}
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Telefon *</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="Telefon numarası girin"
-                value={formData.phone}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, phone: text }))}
-                keyboardType="phone-pad"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>E-posta</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="E-posta adresi girin"
-                value={formData.email}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, email: text }))}
-                keyboardType="email-address"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Adres</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="Adres girin"
-                value={formData.address}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, address: text }))}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Uzmanlık Alanları</Text>
-              <View style={styles.specialtiesGrid}>
-                {specialties.map(renderSpecialtyOption)}
-              </View>
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Notlar</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="Notlar girin"
-                value={formData.notes}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, notes: text }))}
-                multiline
-                numberOfLines={4}
-              />
-            </View>
-
-            <TouchableOpacity 
-              style={styles.saveButton}
-              onPress={handleUpdateSupplier}
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.keyboardAvoidingView}
+          >
+            <ScrollView 
+              style={styles.modalContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.saveButtonText}>Güncelle</Text>
-            </TouchableOpacity>
-          </ScrollView>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Tedarikçi Adı *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Tedarikçi adı girin"
+                  value={formData.name}
+                  onChangeText={(text) => setFormData(prev => ({ ...prev, name: text }))}
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Telefon *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Telefon numarası girin"
+                  value={formData.phone}
+                  onChangeText={(text) => setFormData(prev => ({ ...prev, phone: text }))}
+                  keyboardType="phone-pad"
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>E-posta</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="E-posta adresi girin"
+                  value={formData.email}
+                  onChangeText={(text) => setFormData(prev => ({ ...prev, email: text }))}
+                  keyboardType="email-address"
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Adres</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Adres girin"
+                  value={formData.address}
+                  onChangeText={(text) => setFormData(prev => ({ ...prev, address: text }))}
+                  multiline
+                  numberOfLines={3}
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Uzmanlık Alanları</Text>
+                <View style={styles.specialtiesGrid}>
+                  {specialties.map(renderSpecialtyOption)}
+                </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Notlar</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Notlar girin"
+                  value={formData.notes}
+                  onChangeText={(text) => setFormData(prev => ({ ...prev, notes: text }))}
+                  multiline
+                  numberOfLines={4}
+                  returnKeyType="done"
+                  blurOnSubmit={true}
+                  onSubmitEditing={Keyboard.dismiss}
+                />
+              </View>
+
+              <TouchableOpacity 
+                style={styles.saveButton}
+                onPress={handleUpdateSupplier}
+              >
+                <Text style={styles.saveButtonText}>Güncelle</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
@@ -828,6 +852,9 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     backgroundColor: colors.background.primary,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
   modalHeader: {
     flexDirection: 'row',

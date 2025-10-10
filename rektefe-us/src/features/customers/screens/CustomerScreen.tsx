@@ -12,6 +12,10 @@ import {
   Modal,
   TextInput,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -575,49 +579,65 @@ export default function CustomerScreen() {
         animationType="slide"
         onRequestClose={() => setShowNoteModal(false)}
       >
-        <View style={styles.noteModalOverlay}>
-          <View style={styles.noteModal}>
-            <View style={styles.noteModalHeader}>
-              <Text style={styles.noteModalTitle}>Not Ekle</Text>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setShowNoteModal(false)}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.noteModalOverlay}>
+            <TouchableWithoutFeedback>
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.keyboardAvoidingView}
               >
-                <Ionicons name="close" size={24} color={colors.text.primary} />
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.noteModalContent}>
-              <TextInput
-                style={styles.noteInput}
-                placeholder="Müşteri hakkında not yazın..."
-                placeholderTextColor={colors.text.tertiary}
-                value={newNote}
-                onChangeText={setNewNote}
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-              />
-              
-              <View style={styles.noteModalActions}>
-                <TouchableOpacity 
-                  style={styles.cancelButton}
-                  onPress={() => setShowNoteModal(false)}
-                >
-                  <Text style={styles.cancelButtonText}>İptal</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={[styles.saveButton, !newNote.trim() && styles.saveButtonDisabled]}
-                  onPress={addNote}
-                  disabled={!newNote.trim()}
-                >
-                  <Text style={styles.saveButtonText}>Kaydet</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+                <View style={styles.noteModal}>
+                  <View style={styles.noteModalHeader}>
+                    <Text style={styles.noteModalTitle}>Not Ekle</Text>
+                    <TouchableOpacity
+                      style={styles.closeButton}
+                      onPress={() => setShowNoteModal(false)}
+                    >
+                      <Ionicons name="close" size={24} color={colors.text.primary} />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <ScrollView 
+                    style={styles.noteModalContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                  >
+                    <TextInput
+                      style={styles.noteInput}
+                      placeholder="Müşteri hakkında not yazın..."
+                      placeholderTextColor={colors.text.tertiary}
+                      value={newNote}
+                      onChangeText={setNewNote}
+                      multiline
+                      numberOfLines={4}
+                      textAlignVertical="top"
+                      returnKeyType="done"
+                      blurOnSubmit={true}
+                      onSubmitEditing={Keyboard.dismiss}
+                    />
+                    
+                    <View style={styles.noteModalActions}>
+                      <TouchableOpacity 
+                        style={styles.cancelButton}
+                        onPress={() => setShowNoteModal(false)}
+                      >
+                        <Text style={styles.cancelButtonText}>İptal</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        style={[styles.saveButton, !newNote.trim() && styles.saveButtonDisabled]}
+                        onPress={addNote}
+                        disabled={!newNote.trim()}
+                      >
+                        <Text style={styles.saveButtonText}>Kaydet</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </ScrollView>
+                </View>
+              </KeyboardAvoidingView>
+            </TouchableWithoutFeedback>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </SafeAreaView>
   );
@@ -1014,6 +1034,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  keyboardAvoidingView: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   noteModal: {
     width: width * 0.9,

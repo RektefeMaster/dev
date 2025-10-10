@@ -12,6 +12,10 @@ import {
   Modal,
   TextInput,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -560,68 +564,88 @@ export default function VehicleHistoryScreen() {
             </TouchableOpacity>
           </View>
           
-          <ScrollView style={styles.modalContent}>
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Hizmet Türü *</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="Örn: Motor Yağı Değişimi"
-                value={historyForm.serviceType}
-                onChangeText={(text) => setHistoryForm(prev => ({ ...prev, serviceType: text }))}
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Açıklama *</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="Yapılan işlemlerin detayı"
-                value={historyForm.description}
-                onChangeText={(text) => setHistoryForm(prev => ({ ...prev, description: text }))}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Fiyat (₺)</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="0"
-                value={historyForm.price}
-                onChangeText={(text) => setHistoryForm(prev => ({ ...prev, price: text }))}
-                keyboardType="numeric"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Kilometre</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="0"
-                value={historyForm.mileage}
-                onChangeText={(text) => setHistoryForm(prev => ({ ...prev, mileage: text }))}
-                keyboardType="numeric"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Tarih</Text>
-              <TextInput
-                style={styles.formInput}
-                value={historyForm.date}
-                onChangeText={(text) => setHistoryForm(prev => ({ ...prev, date: text }))}
-                placeholder="YYYY-MM-DD"
-              />
-            </View>
-
-            <TouchableOpacity 
-              style={styles.saveButton}
-              onPress={handleAddHistoryEntry}
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.keyboardAvoidingView}
+          >
+            <ScrollView 
+              style={styles.modalContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.saveButtonText}>Kaydet</Text>
-            </TouchableOpacity>
-          </ScrollView>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Hizmet Türü *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Örn: Motor Yağı Değişimi"
+                  value={historyForm.serviceType}
+                  onChangeText={(text) => setHistoryForm(prev => ({ ...prev, serviceType: text }))}
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Açıklama *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Yapılan işlemlerin detayı"
+                  value={historyForm.description}
+                  onChangeText={(text) => setHistoryForm(prev => ({ ...prev, description: text }))}
+                  multiline
+                  numberOfLines={3}
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Fiyat (₺)</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="0"
+                  value={historyForm.price}
+                  onChangeText={(text) => setHistoryForm(prev => ({ ...prev, price: text }))}
+                  keyboardType="numeric"
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Kilometre</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="0"
+                  value={historyForm.mileage}
+                  onChangeText={(text) => setHistoryForm(prev => ({ ...prev, mileage: text }))}
+                  keyboardType="numeric"
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Tarih</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={historyForm.date}
+                  onChangeText={(text) => setHistoryForm(prev => ({ ...prev, date: text }))}
+                  placeholder="YYYY-MM-DD"
+                  returnKeyType="done"
+                  blurOnSubmit={true}
+                  onSubmitEditing={Keyboard.dismiss}
+                />
+              </View>
+
+              <TouchableOpacity 
+                style={styles.saveButton}
+                onPress={handleAddHistoryEntry}
+              >
+                <Text style={styles.saveButtonText}>Kaydet</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
 
@@ -1070,6 +1094,9 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     backgroundColor: colors.background.primary,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
   modalHeader: {
     flexDirection: 'row',

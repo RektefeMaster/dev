@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Modal, TextInput, Switch, Alert, Platform, Animated, ScrollView, KeyboardAvoidingView, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Modal, TextInput, Switch, Alert, Platform, Animated, ScrollView, KeyboardAvoidingView, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiService, api } from '@/shared/services/api';
@@ -313,150 +313,170 @@ const ProfileScreen = () => {
       </ScrollView>
       {/* Profili Düzenle Modalı */}
       <Modal visible={editModal} animationType="slide" transparent onRequestClose={() => setEditModal(false)}>
-        <KeyboardAvoidingView 
-          style={styles.modalContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Profili Düzenle</Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  fontSize: (() => {
-                    const text = editData.name || '';
-                    if (text.length > 15) return 14;
-                    if (text.length > 12) return 16;
-                    return 18;
-                  })()
-                }
-              ]}
-              value={editData.name || ''}
-              onChangeText={v => handleEditChange('name', v)}
-              placeholder="Ad"
-              placeholderTextColor="#666"
-            />
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  fontSize: (() => {
-                    const text = editData.email || '';
-                    if (text.length > 25) return 12;
-                    if (text.length > 20) return 14;
-                    return 16;
-                  })()
-                }
-              ]}
-              value={editData.email || ''}
-              onChangeText={v => handleEditChange('email', v)}
-              placeholder="E-posta"
-              placeholderTextColor="#666"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  fontSize: (() => {
-                    const text = editData.phone || '';
-                    if (text.length > 15) return 12;
-                    if (text.length > 12) return 14;
-                    return 16;
-                  })()
-                }
-              ]}
-              value={editData.phone || ''}
-              onChangeText={v => handleEditChange('phone', v)}
-              placeholder="Telefon"
-              placeholderTextColor="#666"
-              keyboardType="phone-pad"
-            />
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  fontSize: (() => {
-                    const text = editData.city || '';
-                    if (text.length > 15) return 12;
-                    if (text.length > 12) return 14;
-                    return 16;
-                  })()
-                }
-              ]}
-              value={editData.city || ''}
-              onChangeText={v => handleEditChange('city', v)}
-              placeholder="Şehir"
-              placeholderTextColor="#666"
-            />
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  fontSize: (() => {
-                    const text = editData.bio || '';
-                    if (text.length > 50) return 12;
-                    if (text.length > 30) return 14;
-                    return 16;
-                  })()
-                }
-              ]}
-              value={editData.bio || ''}
-              onChangeText={v => handleEditChange('bio', v)}
-              placeholder="Biyografi"
-              placeholderTextColor="#666"
-              multiline
-              blurOnSubmit={true}
-              returnKeyType="done"
-              onSubmitEditing={() => Keyboard.dismiss()}
-            />
-            
-            {/* Gizlilik Ayarları */}
-            <View style={styles.privacySection}>
-              <Text style={styles.privacyTitle}>Gizlilik Ayarları</Text>
-              
-              <View style={styles.privacyRow}>
-                <Text style={styles.privacyLabel}>E-posta Gizli</Text>
-                <Switch
-                  value={editData.emailHidden || false}
-                  onValueChange={(value) => handleEditChange('emailHidden', value)}
-                  trackColor={{ false: '#767577', true: '#007AFF' }}
-                  thumbColor={editData.emailHidden ? '#fff' : '#f4f3f4'}
-                />
-              </View>
-              
-              <View style={styles.privacyRow}>
-                <Text style={styles.privacyLabel}>Telefon Gizli</Text>
-                <Switch
-                  value={editData.phoneHidden || false}
-                  onValueChange={(value) => handleEditChange('phoneHidden', value)}
-                  trackColor={{ false: '#767577', true: '#007AFF' }}
-                  thumbColor={editData.phoneHidden ? '#fff' : '#f4f3f4'}
-                />
-              </View>
-              
-              <View style={styles.privacyRow}>
-                <Text style={styles.privacyLabel}>Tefe Puanları Gizli</Text>
-                <Switch
-                  value={editData.tefeHidden || false}
-                  onValueChange={(value) => handleEditChange('tefeHidden', value)}
-                  trackColor={{ false: '#767577', true: '#007AFF' }}
-                  thumbColor={editData.tefeHidden ? '#fff' : '#f4f3f4'}
-                />
-              </View>
-            </View>
-            
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 }}>
-              <TouchableOpacity style={[styles.button, { backgroundColor: '#ccc', flex: 1, marginRight: 8 }]} onPress={() => setEditModal(false)}>
-                <Text style={[styles.buttonText, { color: '#333' }]}>İptal</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, { backgroundColor: '#007AFF', flex: 1, marginLeft: 8 }]} onPress={handleSaveProfile}>
-                <Text style={styles.buttonText}>Kaydet</Text>
-              </TouchableOpacity>
-            </View>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalContainer}>
+            <TouchableWithoutFeedback>
+              <KeyboardAvoidingView 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.keyboardAvoidingView}
+              >
+                <View style={styles.modalContent}>
+                  <ScrollView
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.scrollContent}
+                  >
+                    <Text style={styles.modalTitle}>Profili Düzenle</Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          fontSize: (() => {
+                            const text = editData.name || '';
+                            if (text.length > 15) return 14;
+                            if (text.length > 12) return 16;
+                            return 18;
+                          })()
+                        }
+                      ]}
+                      value={editData.name || ''}
+                      onChangeText={v => handleEditChange('name', v)}
+                      placeholder="Ad"
+                      placeholderTextColor="#666"
+                      returnKeyType="next"
+                      blurOnSubmit={false}
+                    />
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          fontSize: (() => {
+                            const text = editData.email || '';
+                            if (text.length > 25) return 12;
+                            if (text.length > 20) return 14;
+                            return 16;
+                          })()
+                        }
+                      ]}
+                      value={editData.email || ''}
+                      onChangeText={v => handleEditChange('email', v)}
+                      placeholder="E-posta"
+                      placeholderTextColor="#666"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      returnKeyType="next"
+                      blurOnSubmit={false}
+                    />
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          fontSize: (() => {
+                            const text = editData.phone || '';
+                            if (text.length > 15) return 12;
+                            if (text.length > 12) return 14;
+                            return 16;
+                          })()
+                        }
+                      ]}
+                      value={editData.phone || ''}
+                      onChangeText={v => handleEditChange('phone', v)}
+                      placeholder="Telefon"
+                      placeholderTextColor="#666"
+                      keyboardType="phone-pad"
+                      returnKeyType="next"
+                      blurOnSubmit={false}
+                    />
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          fontSize: (() => {
+                            const text = editData.city || '';
+                            if (text.length > 15) return 12;
+                            if (text.length > 12) return 14;
+                            return 16;
+                          })()
+                        }
+                      ]}
+                      value={editData.city || ''}
+                      onChangeText={v => handleEditChange('city', v)}
+                      placeholder="Şehir"
+                      placeholderTextColor="#666"
+                      returnKeyType="next"
+                      blurOnSubmit={false}
+                    />
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          fontSize: (() => {
+                            const text = editData.bio || '';
+                            if (text.length > 50) return 12;
+                            if (text.length > 30) return 14;
+                            return 16;
+                          })()
+                        }
+                      ]}
+                      value={editData.bio || ''}
+                      onChangeText={v => handleEditChange('bio', v)}
+                      placeholder="Biyografi"
+                      placeholderTextColor="#666"
+                      multiline
+                      blurOnSubmit={true}
+                      returnKeyType="done"
+                      onSubmitEditing={() => Keyboard.dismiss()}
+                    />
+                    
+                    {/* Gizlilik Ayarları */}
+                    <View style={styles.privacySection}>
+                      <Text style={styles.privacyTitle}>Gizlilik Ayarları</Text>
+                      
+                      <View style={styles.privacyRow}>
+                        <Text style={styles.privacyLabel}>E-posta Gizli</Text>
+                        <Switch
+                          value={editData.emailHidden || false}
+                          onValueChange={(value) => handleEditChange('emailHidden', value)}
+                          trackColor={{ false: '#767577', true: '#007AFF' }}
+                          thumbColor={editData.emailHidden ? '#fff' : '#f4f3f4'}
+                        />
+                      </View>
+                      
+                      <View style={styles.privacyRow}>
+                        <Text style={styles.privacyLabel}>Telefon Gizli</Text>
+                        <Switch
+                          value={editData.phoneHidden || false}
+                          onValueChange={(value) => handleEditChange('phoneHidden', value)}
+                          trackColor={{ false: '#767577', true: '#007AFF' }}
+                          thumbColor={editData.phoneHidden ? '#fff' : '#f4f3f4'}
+                        />
+                      </View>
+                      
+                      <View style={styles.privacyRow}>
+                        <Text style={styles.privacyLabel}>Tefe Puanları Gizli</Text>
+                        <Switch
+                          value={editData.tefeHidden || false}
+                          onValueChange={(value) => handleEditChange('tefeHidden', value)}
+                          trackColor={{ false: '#767577', true: '#007AFF' }}
+                          thumbColor={editData.tefeHidden ? '#fff' : '#f4f3f4'}
+                        />
+                      </View>
+                    </View>
+                    
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 }}>
+                      <TouchableOpacity style={[styles.button, { backgroundColor: '#ccc', flex: 1, marginRight: 8 }]} onPress={() => setEditModal(false)}>
+                        <Text style={[styles.buttonText, { color: '#333' }]}>İptal</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.button, { backgroundColor: '#007AFF', flex: 1, marginLeft: 8 }]} onPress={handleSaveProfile}>
+                        <Text style={styles.buttonText}>Kaydet</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </ScrollView>
+                </View>
+              </KeyboardAvoidingView>
+            </TouchableWithoutFeedback>
           </View>
-        </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
       </Modal>
     </View>
   );
@@ -736,6 +756,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  keyboardAvoidingView: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   modalContent: {
     backgroundColor: '#fff',

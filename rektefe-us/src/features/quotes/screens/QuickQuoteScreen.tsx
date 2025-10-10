@@ -12,6 +12,10 @@ import {
   Modal,
   TextInput,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -428,93 +432,115 @@ export default function QuickQuoteScreen() {
         animationType="slide"
         onRequestClose={() => setShowItemModal(false)}
       >
-        <View style={styles.itemModalOverlay}>
-          <View style={styles.itemModal}>
-            <View style={styles.itemModalHeader}>
-              <Text style={styles.itemModalTitle}>
-                {editingItem?.id === 'new' ? 'Hizmet Ekle' : 'Hizmet Düzenle'}
-              </Text>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setShowItemModal(false)}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.itemModalOverlay}>
+            <TouchableWithoutFeedback>
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.keyboardAvoidingView}
               >
-                <Ionicons name="close" size={24} color={colors.text.primary} />
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.itemModalContent}>
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Hizmet Adı *</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Hizmet adı"
-                  placeholderTextColor={colors.text.tertiary}
-                  value={editingItem?.service || ''}
-                  onChangeText={(text) => editingItem && saveQuoteItem({ service: text })}
-                />
-              </View>
-              
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Açıklama</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Hizmet açıklaması"
-                  placeholderTextColor={colors.text.tertiary}
-                  value={editingItem?.description || ''}
-                  onChangeText={(text) => editingItem && saveQuoteItem({ description: text })}
-                />
-              </View>
-              
-              <View style={styles.inputRow}>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Birim Fiyat *</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="0"
-                    placeholderTextColor={colors.text.tertiary}
-                    value={editingItem?.price?.toString() || ''}
-                    onChangeText={(text) => {
-                      const price = parseFloat(text) || 0;
-                      editingItem && saveQuoteItem({ price });
-                    }}
-                    keyboardType="numeric"
-                  />
+                <View style={styles.itemModal}>
+                  <View style={styles.itemModalHeader}>
+                    <Text style={styles.itemModalTitle}>
+                      {editingItem?.id === 'new' ? 'Hizmet Ekle' : 'Hizmet Düzenle'}
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.closeButton}
+                      onPress={() => setShowItemModal(false)}
+                    >
+                      <Ionicons name="close" size={24} color={colors.text.primary} />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <ScrollView 
+                    style={styles.itemModalContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                  >
+                    <View style={styles.inputContainer}>
+                      <Text style={styles.inputLabel}>Hizmet Adı *</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        placeholder="Hizmet adı"
+                        placeholderTextColor={colors.text.tertiary}
+                        value={editingItem?.service || ''}
+                        onChangeText={(text) => editingItem && saveQuoteItem({ service: text })}
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                      />
+                    </View>
+                    
+                    <View style={styles.inputContainer}>
+                      <Text style={styles.inputLabel}>Açıklama</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        placeholder="Hizmet açıklaması"
+                        placeholderTextColor={colors.text.tertiary}
+                        value={editingItem?.description || ''}
+                        onChangeText={(text) => editingItem && saveQuoteItem({ description: text })}
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                      />
+                    </View>
+                    
+                    <View style={styles.inputRow}>
+                      <View style={styles.inputContainer}>
+                        <Text style={styles.inputLabel}>Birim Fiyat *</Text>
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder="0"
+                          placeholderTextColor={colors.text.tertiary}
+                          value={editingItem?.price?.toString() || ''}
+                          onChangeText={(text) => {
+                            const price = parseFloat(text) || 0;
+                            editingItem && saveQuoteItem({ price });
+                          }}
+                          keyboardType="numeric"
+                          returnKeyType="next"
+                          blurOnSubmit={false}
+                        />
+                      </View>
+                      <View style={styles.inputContainer}>
+                        <Text style={styles.inputLabel}>Miktar *</Text>
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder="1"
+                          placeholderTextColor={colors.text.tertiary}
+                          value={editingItem?.quantity?.toString() || ''}
+                          onChangeText={(text) => {
+                            const quantity = parseInt(text) || 1;
+                            editingItem && saveQuoteItem({ quantity });
+                          }}
+                          keyboardType="numeric"
+                          returnKeyType="done"
+                          blurOnSubmit={true}
+                          onSubmitEditing={Keyboard.dismiss}
+                        />
+                      </View>
+                    </View>
+                    
+                    <View style={styles.itemModalActions}>
+                      <TouchableOpacity 
+                        style={styles.cancelButton}
+                        onPress={() => setShowItemModal(false)}
+                      >
+                        <Text style={styles.cancelButtonText}>İptal</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        style={[styles.saveButton, (!editingItem?.service || !editingItem?.price) && styles.saveButtonDisabled]}
+                        onPress={() => setShowItemModal(false)}
+                        disabled={!editingItem?.service || !editingItem?.price}
+                      >
+                        <Text style={styles.saveButtonText}>Kaydet</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </ScrollView>
                 </View>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Miktar *</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="1"
-                    placeholderTextColor={colors.text.tertiary}
-                    value={editingItem?.quantity?.toString() || ''}
-                    onChangeText={(text) => {
-                      const quantity = parseInt(text) || 1;
-                      editingItem && saveQuoteItem({ quantity });
-                    }}
-                    keyboardType="numeric"
-                  />
-                </View>
-              </View>
-              
-              <View style={styles.itemModalActions}>
-                <TouchableOpacity 
-                  style={styles.cancelButton}
-                  onPress={() => setShowItemModal(false)}
-                >
-                  <Text style={styles.cancelButtonText}>İptal</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={[styles.saveButton, (!editingItem?.service || !editingItem?.price) && styles.saveButtonDisabled]}
-                  onPress={() => setShowItemModal(false)}
-                  disabled={!editingItem?.service || !editingItem?.price}
-                >
-                  <Text style={styles.saveButtonText}>Kaydet</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+              </KeyboardAvoidingView>
+            </TouchableWithoutFeedback>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </SafeAreaView>
   );
@@ -839,6 +865,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  keyboardAvoidingView: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   itemModal: {
     width: width * 0.9,

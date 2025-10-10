@@ -1,29 +1,28 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Modal,
-  TextInput,
   Alert,
   SafeAreaView,
-  ActivityIndicator,
+  Modal,
+  TextInput,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
-import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/config';
 import { useFocusEffect } from '@react-navigation/native';
 import Background from '@/shared/components/Background';
 import { BackButton } from '@/shared/components';
 import LottieView from 'lottie-react-native';
-import DropDownPicker from 'react-native-dropdown-picker';
-import carData from '@/constants/carData.json';
 import { useAuth } from '@/context/AuthContext';
+import carData from '@/constants/carData.json';
 
 interface Vehicle {
   _id: string;
@@ -43,37 +42,46 @@ interface Vehicle {
 }
 
 const GarageScreen = () => {
-  const { token, userId, validateToken } = useAuth();
+  const { token, userId } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newVehicle, setNewVehicle] = useState<Partial<Vehicle>>({});
   const [loading, setLoading] = useState(true);
   const hasFetchedRef = useRef(false);
-  const [brandOpen, setBrandOpen] = useState(false);
-  const [modelOpen, setModelOpen] = useState(false);
-  const [packageOpen, setPackageOpen] = useState(false);
-  const [fuelOpen, setFuelOpen] = useState(false);
-  const [transmissionOpen, setTransmissionOpen] = useState(false);
 
-  const [brandValue, setBrandValue] = useState<string | null>(null);
-  const [modelNameValue, setModelNameValue] = useState<string | null>(null);
-  const [packageValue, setPackageValue] = useState<string | null>(null);
-  const [fuelValue, setFuelValue] = useState<string | null>(null);
-  const [transmissionValue, setTransmissionValue] = useState<string | null>(null);
+  // Refs for scroll
+  const scrollViewRef = useRef<ScrollView>(null);
 
-  const [brandItems, setBrandItems] = useState<{label: string, value: string}[]>(carData.map(c => ({ label: c.brand, value: c.brand })));
-  const [modelItems, setModelItems] = useState<{label: string, value: string}[]>([]);
-  const [packageItems, setPackageItems] = useState<{label: string, value: string}[]>([]);
-  const [fuelItems, setFuelItems] = useState<{label: string, value: string}[]>([]);
-  const [transmissionItems, setTransmissionItems] = useState<{label: string, value: string}[]>([]);
+  // Form state
+  const [formData, setFormData] = useState({
+    brand: '',
+    model: '',
+    package: '',
+    year: '',
+    fuelType: '',
+    transmission: '',
+    mileage: '',
+    plateNumber: ''
+  });
 
-  // Backend ile uyumlu yakıt tipi dönüştürücü
-  const normalizeFuelType = (fuel: string): string => {
-    if (!fuel) return fuel;
-    if (fuel === 'Plug-in Hybrid') return 'Hybrid';
-    if (fuel === 'LPG') return 'Benzin/Tüp';
-    return fuel;
-  };
+  // Search states
+  const [brandSearch, setBrandSearch] = useState('');
+  const [modelSearch, setModelSearch] = useState('');
+
+  // Available options
+  const [availableModels, setAvailableModels] = useState<any[]>([]);
+  const [availablePackages, setAvailablePackages] = useState<string[]>([]);
+  const [availableFuelTypes, setAvailableFuelTypes] = useState<string[]>([]);
+  const [availableTransmissions, setAvailableTransmissions] = useState<string[]>([]);
+
+  // Filtered brands based on search
+  const filteredBrands = carData.filter(brand => 
+    brand.brand.toLowerCase().includes(brandSearch.toLowerCase())
+  );
+
+  // Filtered models based on search
+  const filteredModels = availableModels.filter(model =>
+    model.name.toLowerCase().includes(modelSearch.toLowerCase())
+  );
 
   useFocusEffect(
     React.useCallback(() => {
@@ -84,66 +92,14 @@ const GarageScreen = () => {
     }, [userId])
   );
 
-  useEffect(() => {
-    if (brandValue) {
-      const selectedBrand = carData.find(c => c.brand === brandValue);
-      if (selectedBrand) {
-        // Model adı uzunluk kontrolü ile filtreleme
-        const validModels = selectedBrand.models.filter(m => m.name.length >= 2);
-        if (validModels.length === 0) {
-          Alert.alert(
-            'Uyarı', 
-            `${brandValue} markasında geçerli model bulunamadı. Model adları en az 2 karakter olmalıdır.`
-          );
-          setBrandValue(null);
-          return;
-        }
-        setModelItems(validModels.map(m => ({ label: m.name, value: m.name })));
-      } else {
-        setModelItems([]);
-      }
-      setModelNameValue(null);
-      setPackageValue(null);
-      setFuelValue(null);
-      setTransmissionValue(null);
-      setPackageItems([]);
-      setFuelItems([]);
-      setTransmissionItems([]);
-    }
-  }, [brandValue]);
-
-  useEffect(() => {
-    if (brandValue && modelNameValue) {
-      const selectedBrand = carData.find(c => c.brand === brandValue);
-      const selectedModel = selectedBrand?.models.find(m => m.name === modelNameValue);
-      if (selectedModel) {
-        setPackageItems(selectedModel.packages.map(p => ({ label: p, value: p })));
-        setFuelItems(selectedModel.fuelTypes.map(f => ({ label: f, value: normalizeFuelType(f) })));
-        setTransmissionItems(selectedModel.transmissions.map(t => ({ label: t, value: t })));
-      } else {
-        setPackageItems([]);
-        setFuelItems([]);
-        setTransmissionItems([]);
-      }
-      setPackageValue(null);
-      setFuelValue(null);
-      setTransmissionValue(null);
-    }
-  }, [modelNameValue]);
-
   const fetchVehicles = async () => {
     try {
-      
-      // Token kontrolü
       if (!token) {
         setVehicles([]);
         return;
       }
       
-      // Token validasyonu kaldırıldı - AuthContext zaten kontrol ediyor
-      
       setLoading(true);
-      // Use API_URL from config
       const [vehiclesRes, userRes] = await Promise.all([
         axios.get(`${API_URL}/vehicles`, { 
           headers: { Authorization: `Bearer ${token}` },
@@ -155,7 +111,6 @@ const GarageScreen = () => {
         }),
       ]);
 
-      // API response formatı: { success: true, data: {...} }
       const favoriteVehicleId = userRes.data.data?.favoriteVehicle;
       if (vehiclesRes.data && vehiclesRes.data.success && vehiclesRes.data.data) {
         setVehicles(vehiclesRes.data.data.map((v: any) => ({ ...v, isFavorite: v._id === favoriteVehicleId })));
@@ -169,72 +124,153 @@ const GarageScreen = () => {
     }
   };
 
+  // Brand seçildiğinde modelleri güncelle ve model seçimine geç
+  const handleBrandChange = (brand: string) => {
+    setFormData(prev => ({
+      ...prev,
+      brand,
+      model: '',
+      package: '',
+      fuelType: '',
+      transmission: ''
+    }));
+
+    const selectedBrand = carData.find(b => b.brand === brand);
+    if (selectedBrand) {
+      setAvailableModels(selectedBrand.models);
+    } else {
+      setAvailableModels([]);
+    }
+    setAvailablePackages([]);
+    setAvailableFuelTypes([]);
+    setAvailableTransmissions([]);
+
+    // Model seçimine kaydır
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: 200, animated: true });
+    }, 100);
+  };
+
+  // Model seçildiğinde paket, yakıt ve vites seçeneklerini güncelle ve paket seçimine geç
+  const handleModelChange = (model: string) => {
+    setFormData(prev => ({
+      ...prev,
+      model,
+      package: '',
+      fuelType: '',
+      transmission: ''
+    }));
+
+    const selectedBrand = carData.find(b => b.brand === formData.brand);
+    const selectedModel = selectedBrand?.models.find(m => m.name === model);
+    
+    if (selectedModel) {
+      setAvailablePackages(selectedModel.packages);
+      setAvailableFuelTypes(selectedModel.fuelTypes);
+      setAvailableTransmissions(selectedModel.transmissions);
+    } else {
+      setAvailablePackages([]);
+      setAvailableFuelTypes([]);
+      setAvailableTransmissions([]);
+    }
+
+    // Paket seçimine kaydır
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: 400, animated: true });
+    }, 100);
+  };
+
+  // Paket seçildiğinde yakıt türü seçimine geç
+  const handlePackageChange = (packageName: string) => {
+    setFormData(prev => ({ ...prev, package: packageName }));
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: 600, animated: true });
+    }, 100);
+  };
+
+  // Yakıt türü seçildiğinde vites türü seçimine geç
+  const handleFuelTypeChange = (fuelType: string) => {
+    setFormData(prev => ({ ...prev, fuelType }));
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: 800, animated: true });
+    }, 100);
+  };
+
+  // Vites türü seçildiğinde yıl inputuna odaklan
+  const handleTransmissionChange = (transmission: string) => {
+    setFormData(prev => ({ ...prev, transmission }));
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: 1000, animated: true });
+    }, 100);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      brand: '',
+      model: '',
+      package: '',
+      year: '',
+      fuelType: '',
+      transmission: '',
+      mileage: '',
+      plateNumber: ''
+    });
+    setBrandSearch('');
+    setModelSearch('');
+    setAvailableModels([]);
+    setAvailablePackages([]);
+    setAvailableFuelTypes([]);
+    setAvailableTransmissions([]);
+  };
+
+  const handleCloseModal = () => {
+    // Klavyeyi kapat
+    Keyboard.dismiss();
+    
+    // Form doluysa onay iste
+    const hasData = formData.brand || formData.model || formData.package || 
+                    formData.year || formData.plateNumber || formData.mileage;
+    
+    if (hasData) {
+      Alert.alert(
+        'Formu Kapat',
+        'Girdiğiniz bilgiler kaybolacak. Emin misiniz?',
+        [
+          { text: 'Vazgeç', style: 'cancel' },
+          { 
+            text: 'Kapat', 
+            style: 'destructive',
+            onPress: () => {
+              resetForm();
+              setShowAddModal(false);
+            }
+          }
+        ]
+      );
+    } else {
+      resetForm();
+      setShowAddModal(false);
+    }
+  };
+
   const handleAddVehicle = async () => {
-    // Validation kontrolleri
-    if (!brandValue) {
-      Alert.alert('Uyarı', 'Lütfen marka seçin.');
+    // Validation
+    if (!formData.brand || !formData.model || !formData.package || !formData.year || 
+        !formData.fuelType || !formData.transmission || !formData.plateNumber) {
+      Alert.alert('Uyarı', 'Lütfen tüm gerekli alanları doldurun.');
       return;
     }
     
-    if (!modelNameValue) {
-      Alert.alert('Uyarı', 'Lütfen model seçin.');
-      return;
-    }
-    
-    if (!packageValue) {
-      Alert.alert('Uyarı', 'Lütfen paket seçin.');
-      return;
-    }
-    
-    if (!newVehicle.year) {
-      Alert.alert('Uyarı', 'Lütfen yıl girin.');
-      return;
-    }
-    
-    if (newVehicle.year < 1900 || newVehicle.year > new Date().getFullYear() + 1) {
-      Alert.alert('Uyarı', 'Lütfen geçerli bir yıl girin (1900-' + (new Date().getFullYear() + 1) + ').');
-      return;
-    }
-    
-    if (!fuelValue) {
-      Alert.alert('Uyarı', 'Lütfen yakıt türü seçin.');
-      return;
-    }
-    
-    if (!transmissionValue) {
-      Alert.alert('Uyarı', 'Lütfen vites türü seçin.');
-      return;
-    }
-    
-    if (!newVehicle.plateNumber) {
-      Alert.alert('Uyarı', 'Lütfen plaka numarası girin.');
-      return;
-    }
-    
-    // Plaka formatı kontrolü (34ABC123 formatı)
-    const plateRegex = /^[0-9]{2}[A-Z]{1,3}[0-9]{2,4}$/;
-    if (!plateRegex.test(newVehicle.plateNumber)) {
-      Alert.alert('Uyarı', 'Lütfen geçerli plaka formatı girin (örn: 34ABC123, 06A1234).');
-      return;
-    }
-    
-    // Model adı uzunluk kontrolü
-    if (modelNameValue.length < 2) {
-      Alert.alert('Uyarı', 'Model adı en az 2 karakter olmalıdır. Lütfen farklı bir model seçin.');
-      return;
-    }
-    
-    // Debug için gönderilecek veriyi logla
     const vehicleData = {
-      brand: brandValue,
-      modelName: modelNameValue,
-      package: packageValue,
-      year: newVehicle.year,
+      brand: formData.brand,
+      modelName: formData.model,
+      package: formData.package,
+      year: Number(formData.year),
       engineType: 'Bilinmiyor',
-      fuelType: normalizeFuelType(fuelValue as string),
-      transmission: transmissionValue,
-      plateNumber: newVehicle.plateNumber,
-      mileage: newVehicle.mileage || 0, // ✅ MILEAGE ALANI EKLENDİ!
+      fuelType: formData.fuelType === 'LPG' ? 'Benzin/Tüp' : formData.fuelType === 'Plug-in Hybrid' ? 'Hybrid' : formData.fuelType,
+      transmission: formData.transmission,
+      plateNumber: formData.plateNumber,
+      mileage: Number(formData.mileage) || 0,
     };
     
     try {
@@ -242,58 +278,17 @@ const GarageScreen = () => {
         headers: { Authorization: `Bearer ${token}` } 
       });
       
-      // API response formatı kontrol et
       if (response.data && response.data.success && response.data.data) {
         setVehicles([...vehicles, response.data.data]);
       } else {
         setVehicles([...vehicles, response.data]);
       }
       
-      setNewVehicle({});
-      setBrandValue(null);
-      setModelNameValue(null);
-      setPackageValue(null);
-      setFuelValue(null);
-      setTransmissionValue(null);
+      resetForm();
       setShowAddModal(false);
       Alert.alert('Başarılı', 'Araç başarıyla eklendi.');
     } catch (error: any) {
-      let errorMessage = 'Araç eklenirken bir hata oluştu.';
-      let errorTitle = 'Hata';
-      
-      if (error.response?.status === 400) {
-        errorTitle = 'Validation Hatası';
-        if (error.response?.data?.errors) {
-          // Validation hatalarını daha kullanıcı dostu hale getir
-          const errors = error.response.data.errors;
-          if (typeof errors === 'string') {
-            errorMessage = errors;
-          } else if (typeof errors === 'object') {
-            const errorList = Object.values(errors).join('\n• ');
-            errorMessage = `Lütfen aşağıdaki hataları düzeltin:\n\n• ${errorList}`;
-          }
-        } else if (error.response?.data?.message) {
-          errorMessage = error.response.data.message;
-        }
-      } else if (error.response?.status === 401) {
-        errorTitle = 'Yetki Hatası';
-        errorMessage = 'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.';
-      } else if (error.response?.status === 403) {
-        errorTitle = 'Erişim Hatası';
-        errorMessage = 'Bu işlem için yetkiniz bulunmuyor.';
-      } else if (error.response?.status === 409) {
-        errorTitle = 'Çakışma Hatası';
-        errorMessage = 'Bu plaka numarası zaten kullanılıyor.';
-      } else if (error.response?.status >= 500) {
-        errorTitle = 'Sunucu Hatası';
-        errorMessage = 'Sunucuda bir hata oluştu. Lütfen daha sonra tekrar deneyin.';
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.response?.data) {
-        errorMessage = JSON.stringify(error.response.data);
-      }
-      
-      Alert.alert(errorTitle, errorMessage);
+      Alert.alert('Hata', 'Araç eklenirken bir hata oluştu.');
     }
   };
 
@@ -304,22 +299,19 @@ const GarageScreen = () => {
       Alert.alert('Başarılı', 'Araç başarıyla silindi.');
     } catch (error) {
       Alert.alert('Hata', 'Araç silinirken bir hata oluştu.');
-      }
+    }
   };
 
   const handleSetFavorite = async (vehicleId: string) => {
-    // 1. Önce ekranda anında güncelle
     setVehicles(prev =>
       prev.map(v => ({ ...v, isFavorite: v._id === vehicleId ? !v.isFavorite : false }))
     );
 
     try {
       await axios.put(`${API_URL}/vehicles/${vehicleId}/favorite`, {}, { headers: { Authorization: `Bearer ${token}` } });
-      // Backend'den güncel veriyi al
       await fetchVehicles();
     } catch (error) {
       Alert.alert('Hata', 'Favori araç seçilirken bir hata oluştu.');
-      // Hata olursa geri yükle
       await fetchVehicles();
     }
   };
@@ -327,47 +319,23 @@ const GarageScreen = () => {
   const renderVehicleCard = (vehicle: Vehicle) => (
     <View key={vehicle._id} style={[styles.vehicleCard, vehicle.isFavorite && styles.favoriteCard]}>
       <View style={styles.vehicleHeader}>
-        <MaterialCommunityIcons name="car" size={32} color="#007AFF" />
+        <View style={styles.carIconContainer}>
+          <MaterialCommunityIcons name="car-side" size={28} color="#007AFF" />
+        </View>
         <View style={styles.vehicleTitle}>
-          <Text style={[
-            styles.vehicleBrand,
-            {
-              fontSize: (() => {
-                const text = vehicle.brand || '';
-                if (text.length > 15) return 14;
-                if (text.length > 12) return 16;
-                return 18;
-              })()
-            }
-          ]}>{vehicle.brand}</Text>
-          <Text style={[
-            styles.vehicleModel,
-            {
-              fontSize: (() => {
-                const text = vehicle.modelName || '';
-                if (text.length > 20) return 12;
-                if (text.length > 15) return 14;
-                return 16;
-              })()
-            }
-          ]}>{vehicle.modelName}</Text>
-          <Text style={[
-            styles.vehiclePlate,
-            {
-              fontSize: (() => {
-                const text = vehicle.plateNumber || '';
-                if (text.length > 10) return 12;
-                if (text.length > 8) return 14;
-                return 16;
-              })()
-            }
-          ]}>{vehicle.plateNumber}</Text>
+          <Text style={styles.vehicleBrand}>{vehicle.brand}</Text>
+          <Text style={styles.vehicleModel}>{vehicle.modelName}</Text>
+          <Text style={styles.vehiclePlate}>{vehicle.plateNumber}</Text>
         </View>
         <TouchableOpacity
           style={styles.favoriteButton}
           onPress={() => handleSetFavorite(vehicle._id)}
         >
-          <MaterialCommunityIcons name={vehicle.isFavorite ? 'star' : 'star-outline'} size={28} color={vehicle.isFavorite ? '#FFD700' : '#bbb'} />
+          <MaterialCommunityIcons 
+            name={vehicle.isFavorite ? 'star' : 'star-outline'} 
+            size={24} 
+            color={vehicle.isFavorite ? '#FFD700' : '#ccc'} 
+          />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.deleteButton}
@@ -382,26 +350,45 @@ const GarageScreen = () => {
             );
           }}
         >
-          <MaterialCommunityIcons name="delete" size={24} color="#FF3B30" />
+          <MaterialCommunityIcons name="delete-outline" size={22} color="#FF3B30" />
         </TouchableOpacity>
       </View>
       
       <View style={styles.vehicleDetails}>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Paket:</Text>
+          <View style={styles.detailLabelContainer}>
+            <MaterialCommunityIcons name="package-variant" size={16} color="#666" />
+            <Text style={styles.detailLabel}>Paket</Text>
+          </View>
           <Text style={styles.detailValue}>{vehicle.package}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Yıl:</Text>
+          <View style={styles.detailLabelContainer}>
+            <MaterialCommunityIcons name="calendar" size={16} color="#666" />
+            <Text style={styles.detailLabel}>Yıl</Text>
+          </View>
           <Text style={styles.detailValue}>{vehicle.year}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Yakıt:</Text>
+          <View style={styles.detailLabelContainer}>
+            <MaterialCommunityIcons name="gas-station" size={16} color="#666" />
+            <Text style={styles.detailLabel}>Yakıt</Text>
+          </View>
           <Text style={styles.detailValue}>{vehicle.fuelType}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Kilometre:</Text>
-          <Text style={styles.detailValue}>{vehicle.mileage} km</Text>
+          <View style={styles.detailLabelContainer}>
+            <MaterialCommunityIcons name="speedometer" size={16} color="#666" />
+            <Text style={styles.detailLabel}>Kilometre</Text>
+          </View>
+          <Text style={styles.detailValue}>{vehicle.mileage.toLocaleString('tr-TR')} km</Text>
+        </View>
+        <View style={styles.detailRow}>
+          <View style={styles.detailLabelContainer}>
+            <MaterialCommunityIcons name="car-shift-pattern" size={16} color="#666" />
+            <Text style={styles.detailLabel}>Vites</Text>
+          </View>
+          <Text style={styles.detailValue}>{vehicle.transmission}</Text>
         </View>
       </View>
     </View>
@@ -418,9 +405,6 @@ const GarageScreen = () => {
             style={{ width: 120, height: 120 }}
           />
           <Text style={styles.loadingText}>Araçlar yükleniyor...</Text>
-          <Text style={[styles.loadingText, { fontSize: 12, marginTop: 8 }]}>
-            Token: {token ? 'Mevcut' : 'Yok'} | UserId: {userId ? 'Mevcut' : 'Yok'}
-          </Text>
         </View>
       </SafeAreaView>
     );
@@ -429,17 +413,20 @@ const GarageScreen = () => {
   return (
     <SafeAreaView style={{flex:1}}>
       <Background>
-        <ScrollView style={{flex:1}} contentContainerStyle={{padding: 20, paddingBottom: 100}} showsVerticalScrollIndicator={false}>
+        <ScrollView style={{flex:1}} contentContainerStyle={{paddingBottom: 100}} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <BackButton />
-            <Text style={styles.title}>Garajım</Text>
+            <View style={styles.headerTop}>
+              <BackButton />
+              <Text style={styles.title}>Garajım</Text>
+              <View style={{ width: 40 }} />
+            </View>
             <TouchableOpacity
               style={[styles.addButton, !token && styles.disabledButton]}
               onPress={() => setShowAddModal(true)}
               disabled={!token}
             >
               <MaterialCommunityIcons name="plus" size={24} color={token ? "#fff" : "#ccc"} />
-              <Text style={[styles.addButtonText, !token && styles.disabledButtonText]}>Araç Ekle</Text>
+              <Text style={[styles.addButtonText, !token && styles.disabledButtonText]}>Yeni Araç Ekle</Text>
             </TouchableOpacity>
           </View>
 
@@ -450,14 +437,6 @@ const GarageScreen = () => {
                 {!token ? 'Oturum açmanız gerekiyor.' : 'Henüz araç eklenmemiş.'}
                 {token && '\nYeni bir araç eklemek için "Araç Ekle" butonuna tıklayın.'}
               </Text>
-              {!token && (
-                <Text style={[styles.emptyStateText, { fontSize: 14, marginTop: 16, opacity: 0.8 }]}>
-                  Lütfen önce giriş yapın
-                </Text>
-              )}
-              <Text style={[styles.emptyStateText, { fontSize: 12, marginTop: 16, opacity: 0.7 }]}>
-                Debug: Token: {token ? 'Mevcut' : 'Yok'} | UserId: {userId ? 'Mevcut' : 'Yok'}
-              </Text>
             </View>
           ) : (
             <View style={styles.vehiclesContainer}>
@@ -465,240 +444,369 @@ const GarageScreen = () => {
             </View>
           )}
 
+          {/* Araç Ekleme Modal */}
           <Modal
             visible={showAddModal}
             animationType="slide"
             transparent={true}
-            onRequestClose={() => setShowAddModal(false)}
+            onRequestClose={handleCloseModal}
           >
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContainer}>
-                <KeyboardAvoidingView 
-                  behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                  style={styles.modalKeyboardView}
-                >
-                  <View style={styles.modalHeader}>
-                    <View style={styles.modalHeaderContent}>
-                      <MaterialCommunityIcons name="car-plus" size={28} color="#007AFF" />
-                      <Text style={styles.modalTitle}>Yeni Araç Ekle</Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.closeButton}
-                      onPress={() => setShowAddModal(false)}
-                    >
-                      <MaterialCommunityIcons name="close" size={24} color="#666" />
-                    </TouchableOpacity>
-                  </View>
-                  
-                  <ScrollView 
-                    style={styles.modalScrollView}
-                    contentContainerStyle={styles.modalScrollContent}
-                    showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps="handled"
-                    nestedScrollEnabled={true}
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View style={styles.modalOverlay}>
+                <TouchableWithoutFeedback>
+                  <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={styles.keyboardAvoidingView}
                   >
-                    <View style={styles.formContainer}>
-                      <Text style={styles.formDescription}>
-                        Aracınızın bilgilerini eksiksiz doldurun
-                      </Text>
+                    <View style={styles.modalContainer}>
+                      <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>Yeni Araç Ekle</Text>
+                        <TouchableOpacity onPress={handleCloseModal} style={styles.closeButton}>
+                          <MaterialCommunityIcons name="close" size={24} color="#1a1a1a" />
+                        </TouchableOpacity>
+                      </View>
 
-                      {/* Marka Seçimi */}
-                      <View style={styles.inputGroup}>
-                        <View style={styles.inputHeader}>
-                          <MaterialCommunityIcons name="car" size={20} color="#007AFF" />
-                          <Text style={styles.inputLabel}>Marka</Text>
-                        </View>
-                        <DropDownPicker
-                          open={brandOpen}
-                          value={brandValue}
-                          items={brandItems}
-                          setOpen={setBrandOpen}
-                          setValue={setBrandValue}
-                          setItems={setBrandItems}
-                          placeholder="Marka seçin"
-                          style={styles.modernInput}
-                          dropDownContainerStyle={styles.dropdownContainer}
-                          zIndex={5000}
-                          searchable={true}
-                          searchPlaceholder="Marka ara..."
-                          placeholderStyle={styles.placeholderText}
-                          textStyle={styles.dropdownText}
-                        />
-                      </View>
-                
-                      {/* Model Seçimi */}
-                      <View style={styles.inputGroup}>
-                        <View style={styles.inputHeader}>
-                          <MaterialCommunityIcons name="car-info" size={20} color="#007AFF" />
-                          <Text style={styles.inputLabel}>Model</Text>
-                        </View>
-                        <DropDownPicker
-                          open={modelOpen}
-                          value={modelNameValue}
-                          items={modelItems}
-                          setOpen={setModelOpen}
-                          setValue={setModelNameValue}
-                          setItems={setModelItems}
-                          placeholder="Model seçin"
-                          style={[styles.modernInput, !brandValue && styles.disabledInput]}
-                          dropDownContainerStyle={styles.dropdownContainer}
-                          zIndex={4000}
-                          disabled={!brandValue}
-                          searchable={true}
-                          searchPlaceholder="Model ara..."
-                          placeholderStyle={styles.placeholderText}
-                          textStyle={styles.dropdownText}
-                        />
-                      </View>
-                
-                      {/* Paket Seçimi */}
-                      <View style={styles.inputGroup}>
-                        <View style={styles.inputHeader}>
-                          <MaterialCommunityIcons name="package-variant" size={20} color="#007AFF" />
-                          <Text style={styles.inputLabel}>Paket</Text>
-                        </View>
-                        <DropDownPicker
-                          open={packageOpen}
-                          value={packageValue}
-                          items={packageItems}
-                          setOpen={setPackageOpen}
-                          setValue={setPackageValue}
-                          setItems={setPackageItems}
-                          placeholder="Paket seçin"
-                          style={[styles.modernInput, !modelNameValue && styles.disabledInput]}
-                          dropDownContainerStyle={styles.dropdownContainer}
-                          zIndex={3500}
-                          disabled={!modelNameValue}
-                          searchable={true}
-                          searchPlaceholder="Paket ara..."
-                          placeholderStyle={styles.placeholderText}
-                          textStyle={styles.dropdownText}
-                        />
-                      </View>
-                
-                      {/* Yıl Girişi */}
-                      <View style={styles.inputGroup}>
-                        <View style={styles.inputHeader}>
-                          <MaterialCommunityIcons name="calendar" size={20} color="#007AFF" />
-                          <Text style={styles.inputLabel}>Yıl</Text>
-                        </View>
-                        <TextInput
-                          style={styles.modernTextInput}
-                          placeholder="2024"
-                          value={newVehicle.year ? String(newVehicle.year) : ''}
-                          onChangeText={(text) => setNewVehicle({ ...newVehicle, year: Number(text) })}
-                          keyboardType="numeric"
-                          placeholderTextColor="#8E8E93"
-                          maxLength={4}
-                        />
-                      </View>
-                
-                      {/* Yakıt Türü Seçimi */}
-                      <View style={styles.inputGroup}>
-                        <View style={styles.inputHeader}>
-                          <MaterialCommunityIcons name="fuel" size={20} color="#007AFF" />
-                          <Text style={styles.inputLabel}>Yakıt Türü</Text>
-                        </View>
-                        <DropDownPicker
-                          open={fuelOpen}
-                          value={fuelValue}
-                          items={fuelItems}
-                          setOpen={setFuelOpen}
-                          setValue={setFuelValue}
-                          setItems={setFuelItems}
-                          placeholder="Yakıt türü seçin"
-                          style={[styles.modernInput, !modelNameValue && styles.disabledInput]}
-                          dropDownContainerStyle={styles.dropdownContainer}
-                          zIndex={3000}
-                          disabled={!modelNameValue}
-                          searchable={true}
-                          searchPlaceholder="Yakıt türü ara..."
-                          placeholderStyle={styles.placeholderText}
-                          textStyle={styles.dropdownText}
-                        />
-                      </View>
-                
-                      {/* Vites Türü Seçimi */}
-                      <View style={styles.inputGroup}>
-                        <View style={styles.inputHeader}>
-                          <MaterialCommunityIcons name="cog" size={20} color="#007AFF" />
-                          <Text style={styles.inputLabel}>Vites Türü</Text>
-                        </View>
-                        <DropDownPicker
-                          open={transmissionOpen}
-                          value={transmissionValue}
-                          items={transmissionItems}
-                          setOpen={setTransmissionOpen}
-                          setValue={setTransmissionValue}
-                          setItems={setTransmissionItems}
-                          placeholder="Vites türü seçin"
-                          style={[styles.modernInput, !modelNameValue && styles.disabledInput]}
-                          dropDownContainerStyle={styles.dropdownContainer}
-                          zIndex={2500}
-                          disabled={!modelNameValue}
-                          searchable={true}
-                          searchPlaceholder="Vites türü ara..."
-                          placeholderStyle={styles.placeholderText}
-                          textStyle={styles.dropdownText}
-                        />
-                      </View>
-                
-                      {/* Kilometre Girişi */}
-                      <View style={styles.inputGroup}>
-                        <View style={styles.inputHeader}>
-                          <MaterialCommunityIcons name="speedometer" size={20} color="#007AFF" />
-                          <Text style={styles.inputLabel}>Kilometre</Text>
-                        </View>
-                        <TextInput
-                          style={styles.modernTextInput}
-                          placeholder="150000"
-                          value={newVehicle.mileage ? String(newVehicle.mileage) : ''}
-                          onChangeText={(text) => setNewVehicle({ ...newVehicle, mileage: Number(text) })}
-                          keyboardType="numeric"
-                          placeholderTextColor="#8E8E93"
-                        />
-                      </View>
-                
-                      {/* Plaka Girişi */}
-                      <View style={styles.inputGroup}>
-                        <View style={styles.inputHeader}>
-                          <MaterialCommunityIcons name="car-tag" size={20} color="#007AFF" />
-                          <Text style={styles.inputLabel}>Plaka Numarası</Text>
-                        </View>
-                        <TextInput
-                          style={styles.modernTextInput}
-                          placeholder="34ABC123"
-                          value={newVehicle.plateNumber}
-                          onChangeText={(text) => setNewVehicle({ ...newVehicle, plateNumber: text.toUpperCase() })}
-                          autoCapitalize="characters"
-                          keyboardType="default"
-                          maxLength={9}
-                          placeholderTextColor="#8E8E93"
-                        />
-                      </View>
+                {/* Progress Indicator */}
+                <View style={styles.progressContainer}>
+                  <View style={styles.progressStep}>
+                    <View style={[styles.progressDot, formData.brand && styles.progressDotActive]}>
+                      <Text style={[styles.progressDotText, formData.brand && styles.progressDotTextActive]}>1</Text>
                     </View>
-                  </ScrollView>
-                  
-                  {/* Modern Butonlar */}
-                  <View style={styles.modalFooter}>
-                    <TouchableOpacity
-                      style={styles.cancelButtonModern}
-                      onPress={() => setShowAddModal(false)}
-                    >
-                      <MaterialCommunityIcons name="close" size={20} color="#666" />
-                      <Text style={styles.cancelButtonTextModern}>İptal</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.saveButtonModern}
-                      onPress={handleAddVehicle}
-                    >
-                      <MaterialCommunityIcons name="check" size={20} color="#fff" />
-                      <Text style={styles.saveButtonTextModern}>Araç Ekle</Text>
-                    </TouchableOpacity>
+                    <Text style={[styles.progressLabel, formData.brand && styles.progressLabelActive]}>Marka</Text>
                   </View>
-                </KeyboardAvoidingView>
+                  <View style={[styles.progressLine, formData.brand && styles.progressLineActive]} />
+                  <View style={styles.progressStep}>
+                    <View style={[styles.progressDot, formData.model && styles.progressDotActive]}>
+                      <Text style={[styles.progressDotText, formData.model && styles.progressDotTextActive]}>2</Text>
+                    </View>
+                    <Text style={[styles.progressLabel, formData.model && styles.progressLabelActive]}>Model</Text>
+                  </View>
+                  <View style={[styles.progressLine, formData.model && styles.progressLineActive]} />
+                  <View style={styles.progressStep}>
+                    <View style={[styles.progressDot, formData.package && formData.fuelType && formData.transmission && styles.progressDotActive]}>
+                      <Text style={[styles.progressDotText, formData.package && formData.fuelType && formData.transmission && styles.progressDotTextActive]}>3</Text>
+                    </View>
+                    <Text style={[styles.progressLabel, formData.package && formData.fuelType && formData.transmission && styles.progressLabelActive]}>Özellikler</Text>
+                  </View>
+                  <View style={[styles.progressLine, formData.package && formData.fuelType && formData.transmission && styles.progressLineActive]} />
+                  <View style={styles.progressStep}>
+                    <View style={[styles.progressDot, formData.year && formData.plateNumber && styles.progressDotActive]}>
+                      <Text style={[styles.progressDotText, formData.year && formData.plateNumber && styles.progressDotTextActive]}>4</Text>
+                    </View>
+                    <Text style={[styles.progressLabel, formData.year && formData.plateNumber && styles.progressLabelActive]}>Detay</Text>
+                  </View>
+                </View>
+                
+                <ScrollView 
+                  ref={scrollViewRef}
+                  style={styles.modalContent} 
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {/* Marka Seçimi */}
+                  <View style={styles.inputGroup}>
+                    <View style={styles.labelContainer}>
+                      <Text style={styles.inputLabel}>Marka</Text>
+                      {formData.brand && <MaterialCommunityIcons name="check-circle" size={18} color="#34C759" />}
+                    </View>
+                    <View style={styles.searchInputContainer}>
+                      <MaterialCommunityIcons name="magnify" size={20} color="#666" style={styles.searchIcon} />
+                      <TextInput
+                        style={styles.searchInput}
+                        placeholder="Marka ara (örn: Ford, Audi)"
+                        placeholderTextColor="#999"
+                        value={brandSearch}
+                        onChangeText={setBrandSearch}
+                        autoCapitalize="none"
+                      />
+                      {brandSearch.length > 0 && (
+                        <TouchableOpacity onPress={() => setBrandSearch('')}>
+                          <MaterialCommunityIcons name="close-circle" size={20} color="#999" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    {formData.brand && (
+                      <View style={styles.selectedValueContainer}>
+                        <Text style={styles.selectedValueLabel}>Seçilen:</Text>
+                        <Text style={styles.selectedValue}>{formData.brand}</Text>
+                      </View>
+                    )}
+                    <ScrollView 
+                      style={styles.pickerScrollContainer} 
+                      nestedScrollEnabled={true}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      <View style={styles.pickerContainer}>
+                        {filteredBrands.length > 0 ? (
+                          filteredBrands.map((brand, index) => (
+                            <TouchableOpacity
+                              key={index}
+                              style={[
+                                styles.pickerItem,
+                                formData.brand === brand.brand && styles.pickerItemSelected
+                              ]}
+                              onPress={() => {
+                                handleBrandChange(brand.brand);
+                                setBrandSearch('');
+                              }}
+                            >
+                              <Text style={[
+                                styles.pickerItemText,
+                                formData.brand === brand.brand && styles.pickerItemTextSelected
+                              ]}>
+                                {brand.brand}
+                              </Text>
+                            </TouchableOpacity>
+                          ))
+                        ) : (
+                          <Text style={styles.noResultText}>Sonuç bulunamadı</Text>
+                        )}
+                      </View>
+                    </ScrollView>
+                  </View>
+
+                  {/* Model Seçimi */}
+                  {formData.brand && (
+                    <View style={styles.inputGroup}>
+                      <View style={styles.labelContainer}>
+                        <Text style={styles.inputLabel}>Model</Text>
+                        {formData.model && <MaterialCommunityIcons name="check-circle" size={18} color="#34C759" />}
+                      </View>
+                      <View style={styles.searchInputContainer}>
+                        <MaterialCommunityIcons name="magnify" size={20} color="#666" style={styles.searchIcon} />
+                        <TextInput
+                          style={styles.searchInput}
+                          placeholder="Model ara (örn: Focus, Corolla)"
+                          placeholderTextColor="#999"
+                          value={modelSearch}
+                          onChangeText={setModelSearch}
+                          autoCapitalize="none"
+                        />
+                        {modelSearch.length > 0 && (
+                          <TouchableOpacity onPress={() => setModelSearch('')}>
+                            <MaterialCommunityIcons name="close-circle" size={20} color="#999" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                      {formData.model && (
+                        <View style={styles.selectedValueContainer}>
+                          <Text style={styles.selectedValueLabel}>Seçilen:</Text>
+                          <Text style={styles.selectedValue}>{formData.model}</Text>
+                        </View>
+                      )}
+                      <ScrollView 
+                        style={styles.pickerScrollContainer} 
+                        nestedScrollEnabled={true}
+                        showsVerticalScrollIndicator={false}
+                      >
+                        <View style={styles.pickerContainer}>
+                          {filteredModels.length > 0 ? (
+                            filteredModels.map((model, index) => (
+                              <TouchableOpacity
+                                key={index}
+                                style={[
+                                  styles.pickerItem,
+                                  formData.model === model.name && styles.pickerItemSelected
+                                ]}
+                                onPress={() => {
+                                  handleModelChange(model.name);
+                                  setModelSearch('');
+                                }}
+                              >
+                                <Text style={[
+                                  styles.pickerItemText,
+                                  formData.model === model.name && styles.pickerItemTextSelected
+                                ]}>
+                                  {model.name}
+                                </Text>
+                              </TouchableOpacity>
+                            ))
+                          ) : (
+                            <Text style={styles.noResultText}>Sonuç bulunamadı</Text>
+                          )}
+                        </View>
+                      </ScrollView>
+                    </View>
+                  )}
+
+                  {/* Paket, Yakıt ve Vites */}
+                  {formData.model && (
+                    <>
+                      <View style={styles.inputGroup}>
+                        <View style={styles.labelContainer}>
+                          <Text style={styles.inputLabel}>Paket</Text>
+                          {formData.package && <MaterialCommunityIcons name="check-circle" size={18} color="#34C759" />}
+                        </View>
+                        {formData.package && (
+                          <View style={styles.selectedValueContainer}>
+                            <Text style={styles.selectedValueLabel}>Seçilen:</Text>
+                            <Text style={styles.selectedValue}>{formData.package}</Text>
+                          </View>
+                        )}
+                        <ScrollView 
+                          style={styles.pickerScrollContainer} 
+                          nestedScrollEnabled={true}
+                          showsVerticalScrollIndicator={false}
+                        >
+                          <View style={styles.pickerContainer}>
+                            {availablePackages.map((packageName, index) => (
+                              <TouchableOpacity
+                                key={index}
+                                style={[
+                                  styles.pickerItem,
+                                  formData.package === packageName && styles.pickerItemSelected
+                                ]}
+                                onPress={() => handlePackageChange(packageName)}
+                              >
+                                <Text style={[
+                                  styles.pickerItemText,
+                                  formData.package === packageName && styles.pickerItemTextSelected
+                                ]}>
+                                  {packageName}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </ScrollView>
+                      </View>
+
+                      <View style={styles.inputGroup}>
+                        <View style={styles.labelContainer}>
+                          <Text style={styles.inputLabel}>Yakıt Türü</Text>
+                          {formData.fuelType && <MaterialCommunityIcons name="check-circle" size={18} color="#34C759" />}
+                        </View>
+                        {formData.fuelType && (
+                          <View style={styles.selectedValueContainer}>
+                            <Text style={styles.selectedValueLabel}>Seçilen:</Text>
+                            <Text style={styles.selectedValue}>{formData.fuelType}</Text>
+                          </View>
+                        )}
+                        <View style={styles.pickerContainer}>
+                          {availableFuelTypes.map((fuelType, index) => (
+                            <TouchableOpacity
+                              key={index}
+                              style={[
+                                styles.pickerItem,
+                                formData.fuelType === fuelType && styles.pickerItemSelected
+                              ]}
+                              onPress={() => handleFuelTypeChange(fuelType)}
+                            >
+                              <Text style={[
+                                styles.pickerItemText,
+                                formData.fuelType === fuelType && styles.pickerItemTextSelected
+                              ]}>
+                                {fuelType}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+
+                      <View style={styles.inputGroup}>
+                        <View style={styles.labelContainer}>
+                          <Text style={styles.inputLabel}>Vites Türü</Text>
+                          {formData.transmission && <MaterialCommunityIcons name="check-circle" size={18} color="#34C759" />}
+                        </View>
+                        {formData.transmission && (
+                          <View style={styles.selectedValueContainer}>
+                            <Text style={styles.selectedValueLabel}>Seçilen:</Text>
+                            <Text style={styles.selectedValue}>{formData.transmission}</Text>
+                          </View>
+                        )}
+                        <View style={styles.pickerContainer}>
+                          {availableTransmissions.map((transmission, index) => (
+                            <TouchableOpacity
+                              key={index}
+                              style={[
+                                styles.pickerItem,
+                                formData.transmission === transmission && styles.pickerItemSelected
+                              ]}
+                              onPress={() => handleTransmissionChange(transmission)}
+                            >
+                              <Text style={[
+                                styles.pickerItemText,
+                                formData.transmission === transmission && styles.pickerItemTextSelected
+                              ]}>
+                                {transmission}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+                    </>
+                  )}
+
+                  {/* Yıl, Kilometre, Plaka */}
+                  <View style={styles.inputGroup}>
+                    <View style={styles.labelContainer}>
+                      <Text style={styles.inputLabel}>Yıl</Text>
+                      {formData.year && <MaterialCommunityIcons name="check-circle" size={18} color="#34C759" />}
+                    </View>
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="2024"
+                      placeholderTextColor="#999"
+                      value={formData.year}
+                      onChangeText={(text) => setFormData(prev => ({ ...prev, year: text }))}
+                      keyboardType="numeric"
+                      maxLength={4}
+                      returnKeyType="done"
+                      blurOnSubmit={true}
+                      onSubmitEditing={Keyboard.dismiss}
+                    />
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <View style={styles.labelContainer}>
+                      <Text style={styles.inputLabel}>Kilometre (İsteğe bağlı)</Text>
+                      {formData.mileage && <MaterialCommunityIcons name="check-circle" size={18} color="#34C759" />}
+                    </View>
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="150000"
+                      placeholderTextColor="#999"
+                      value={formData.mileage}
+                      onChangeText={(text) => setFormData(prev => ({ ...prev, mileage: text }))}
+                      keyboardType="numeric"
+                      returnKeyType="done"
+                      blurOnSubmit={true}
+                      onSubmitEditing={Keyboard.dismiss}
+                    />
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <View style={styles.labelContainer}>
+                      <Text style={styles.inputLabel}>Plaka Numarası</Text>
+                      {formData.plateNumber && <MaterialCommunityIcons name="check-circle" size={18} color="#34C759" />}
+                    </View>
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="34ABC123"
+                      placeholderTextColor="#999"
+                      value={formData.plateNumber}
+                      onChangeText={(text) => setFormData(prev => ({ ...prev, plateNumber: text.toUpperCase() }))}
+                      autoCapitalize="characters"
+                      maxLength={9}
+                      returnKeyType="done"
+                      blurOnSubmit={true}
+                      onSubmitEditing={Keyboard.dismiss}
+                    />
+                  </View>
+                </ScrollView>
+                
+                <View style={styles.modalFooter}>
+                  <TouchableOpacity style={styles.cancelButton} onPress={handleCloseModal}>
+                    <Text style={styles.cancelButtonText}>İptal</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.saveButton} onPress={handleAddVehicle}>
+                    <Text style={styles.saveButtonText}>Araç Ekle</Text>
+                  </TouchableOpacity>
+                </View>
+                    </View>
+                  </KeyboardAvoidingView>
+                </TouchableWithoutFeedback>
               </View>
-            </View>
+            </TouchableWithoutFeedback>
           </Modal>
         </ScrollView>
       </Background>
@@ -708,10 +816,6 @@ const GarageScreen = () => {
 
 const styles = StyleSheet.create({
   safeArea: {
-    flex: 1,
-    backgroundColor: '#f5f7fa',
-  },
-  container: {
     flex: 1,
     backgroundColor: '#f5f7fa',
   },
@@ -726,336 +830,155 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   header: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    marginBottom: 20,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: '800',
     color: '#fff',
     flex: 1,
     textAlign: 'center',
+    letterSpacing: 0.5,
   },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#007AFF',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 16,
     shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 10,
   },
   addButtonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     marginLeft: 8,
+    letterSpacing: 0.3,
   },
   emptyState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 32,
-    marginTop: 64,
+    padding: 40,
+    marginTop: 80,
   },
   emptyStateText: {
-    marginTop: 16,
-    fontSize: 16,
+    marginTop: 20,
+    fontSize: 17,
     color: '#f5f7fa',
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 26,
+    fontWeight: '500',
   },
   vehiclesContainer: {
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingTop: 8,
   },
   vehicleCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 20,
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 10,
     borderWidth: 2,
     borderColor: 'transparent',
   },
   vehicleHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 18,
+  },
+  carIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#e8f4ff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   vehicleTitle: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 14,
   },
   vehicleBrand: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#222',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1a1a1a',
+    letterSpacing: 0.3,
   },
   vehicleModel: {
     fontSize: 16,
     color: '#666',
-    marginTop: 2,
+    marginTop: 3,
+    fontWeight: '500',
   },
   vehiclePlate: {
     fontSize: 15,
     color: '#007AFF',
-    fontWeight: '700',
-    marginTop: 2,
+    fontWeight: '800',
+    marginTop: 4,
+    letterSpacing: 1,
   },
   deleteButton: {
-    padding: 8,
+    padding: 10,
+    backgroundColor: '#fff0f0',
+    borderRadius: 12,
   },
   vehicleDetails: {
     borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: 16,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 18,
+    gap: 10,
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  detailLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   detailLabel: {
     fontSize: 14,
     color: '#666',
+    fontWeight: '600',
   },
   detailValue: {
-    fontSize: 14,
-    color: '#222',
-    fontWeight: '500',
-  },
-  // Modern Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
-    minHeight: '70%',
-  },
-  modalKeyboardView: {
-    flex: 1,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  modalHeaderContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 20,
+    fontSize: 15,
+    color: '#1a1a1a',
     fontWeight: '700',
-    color: '#333',
-    marginLeft: 12,
-  },
-  closeButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#f5f5f5',
-  },
-  modalScrollView: {
-    flex: 1,
-  },
-  modalScrollContent: {
-    paddingBottom: 20,
-  },
-  formContainer: {
-    padding: 20,
-    overflow: 'visible',
-  },
-  formDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 24,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  inputGroup: {
-    marginBottom: 20,
-    overflow: 'visible',
-    zIndex: 1,
-  },
-  inputHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  inputLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginLeft: 8,
-  },
-  modernInput: {
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    minHeight: 48,
-  },
-  modernTextInput: {
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    fontSize: 16,
-    color: '#333',
-    minHeight: 48,
-  },
-  disabledInput: {
-    backgroundColor: '#f5f5f5',
-    borderColor: '#e0e0e0',
-  },
-  dropdownContainer: {
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-    borderRadius: 12,
-    backgroundColor: '#fff',
-    zIndex: 10000,
-    elevation: 1000,
-    overflow: 'visible',
-  },
-  placeholderText: {
-    color: '#8E8E93',
-    fontSize: 16,
-  },
-  dropdownText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    gap: 12,
-  },
-  cancelButtonModern: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-    backgroundColor: '#fff',
-    gap: 8,
-  },
-  cancelButtonTextModern: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
-  },
-  saveButtonModern: {
-    flex: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: '#007AFF',
-    gap: 8,
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  saveButtonTextModern: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  input: {
-    backgroundColor: '#f2f2f7',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
-    fontSize: 17,
-    borderWidth: 0,
-    color: '#1c1c1e',
-    shadowColor: 'transparent',
-    elevation: 0,
-  },
-  inputLabel: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '600',
-    marginLeft: 4,
-    marginBottom: 8,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-    marginHorizontal: 4,
-  },
-  modalButtonText: {
-    fontSize: 17,
-    fontWeight: '600',
-    letterSpacing: 0.1,
-  },
-  cancelButton: {
-    backgroundColor: '#f2f2f7',
-    borderWidth: 0,
-  },
-  saveButton: {
-    backgroundColor: '#007AFF',
-    borderWidth: 0,
-    shadowColor: 'transparent',
-    elevation: 0,
-  },
-  cancelButtonText: {
-    color: '#007AFF',
-    fontSize: 17,
-    fontWeight: '600',
-    letterSpacing: 0.1,
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: 0.1,
   },
   favoriteButton: {
-    marginHorizontal: 8,
+    marginHorizontal: 10,
+    backgroundColor: '#fff9e6',
+    padding: 10,
+    borderRadius: 12,
   },
   favoriteCard: {
     borderWidth: 2,
     borderColor: '#FFD700',
+    backgroundColor: '#fffef8',
   },
   disabledButton: {
     backgroundColor: '#ccc',
@@ -1064,7 +987,246 @@ const styles = StyleSheet.create({
   disabledButtonText: {
     color: '#999',
   },
-
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'flex-end',
+  },
+  keyboardAvoidingView: {
+    width: '100%',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '92%',
+    minHeight: '75%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1a1a1a',
+    flex: 1,
+    textAlign: 'center',
+    letterSpacing: 0.3,
+  },
+  closeButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f5',
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#f8f9fa',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e8ecf0',
+  },
+  progressStep: {
+    alignItems: 'center',
+  },
+  progressDot: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#e8ecf0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  progressDotActive: {
+    backgroundColor: '#007AFF',
+  },
+  progressDotText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#999',
+  },
+  progressDotTextActive: {
+    color: '#fff',
+  },
+  progressLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#999',
+  },
+  progressLabelActive: {
+    color: '#007AFF',
+  },
+  progressLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: '#e8ecf0',
+    marginHorizontal: 4,
+  },
+  progressLineActive: {
+    backgroundColor: '#007AFF',
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  inputGroup: {
+    marginBottom: 24,
+  },
+  labelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  selectedValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e8f4ff',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#007AFF',
+  },
+  selectedValueLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#007AFF',
+    marginRight: 8,
+  },
+  selectedValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#e8ecf0',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: '#fafbfc',
+    marginBottom: 12,
+  },
+  searchIcon: {
+    marginRight: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#1a1a1a',
+    fontWeight: '500',
+  },
+  pickerScrollContainer: {
+    maxHeight: 140,
+    marginBottom: 8,
+  },
+  noResultText: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    paddingVertical: 20,
+    fontStyle: 'italic',
+  },
+  pickerContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  pickerItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#e0e0e0',
+    backgroundColor: '#fff',
+    marginBottom: 8,
+  },
+  pickerItemSelected: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  pickerItemText: {
+    fontSize: 14,
+    color: '#1a1a1a',
+    fontWeight: '600',
+  },
+  pickerItemTextSelected: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  textInput: {
+    borderWidth: 2,
+    borderColor: '#e8ecf0',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: '#fafbfc',
+    fontSize: 16,
+    color: '#1a1a1a',
+    fontWeight: '500',
+    minHeight: 52,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    gap: 12,
+    backgroundColor: '#fff',
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+  },
+  saveButton: {
+    flex: 2,
+    paddingVertical: 16,
+    borderRadius: 14,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+    shadowColor: '#007AFF',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  cancelButtonText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#666',
+  },
+  saveButtonText: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 0.3,
+  },
 });
 
-export default GarageScreen; 
+export default GarageScreen;

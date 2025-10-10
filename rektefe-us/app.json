@@ -36,7 +36,8 @@
         "CALL_PHONE",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE"
-      ]
+      ],
+      "softwareKeyboardLayoutMode": "pan"
     },
     "newArchEnabled": true,
     "plugins": [

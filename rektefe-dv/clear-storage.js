@@ -1,13 +1,13 @@
 /**
- * REKTEFE-US - AsyncStorage Temizleme Script'i
+ * REKTEFE-DV - AsyncStorage Temizleme Script'i
  * 
  * Bu script AsyncStorage'daki tüm verileri temizler.
- * Kullanım: Expo Go'da bu dosyayı çalıştırın veya app başlangıcında aktive edin
+ * Kullanım: Expo Go'da bu dosyayı çalıştırın
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const clearAllStorage = async () => {
+export async function clearAllStorage() {
   try {
     console.log('🗑️  AsyncStorage temizleniyor...');
     
@@ -15,7 +15,7 @@ export const clearAllStorage = async () => {
     const keys = await AsyncStorage.getAllKeys();
     console.log(`📊 Toplam ${keys.length} key bulundu:`, keys);
     
-    // Tüm storage'ı tamamen temizle
+    // Tüm key'leri sil
     await AsyncStorage.clear();
     
     console.log('✅ AsyncStorage tamamen temizlendi!');
@@ -23,10 +23,16 @@ export const clearAllStorage = async () => {
     
     return true;
   } catch (error) {
-    console.error('❌ Storage temizleme hatası:', error);
+    console.error('❌ AsyncStorage temizlenirken hata:', error);
     return false;
   }
-};
+}
 
-// App başlangıcında çalıştır (ihtiyaç olduğunda aktive edin)
-// clearAllStorage();
+// React Native'de kullanım için export
+export default clearAllStorage;
+
+// Node.js'de direkt çalıştırma
+if (typeof module !== 'undefined' && module.exports) {
+  clearAllStorage();
+}
+
