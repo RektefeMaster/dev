@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { auth } from '../middleware/auth';
+import { auth } from '../middleware/optimizedAuth';
 import { TefePointController } from '../controllers/tefePoint.controller';
 import { validate } from '../middleware/validate';
 import Joi from 'joi';

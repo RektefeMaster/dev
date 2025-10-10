@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { Request, Response } from 'express';
-import { auth } from '../middleware/auth';
+import { auth } from '../middleware/optimizedAuth';
 
 const router = express.Router();
 

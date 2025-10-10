@@ -356,7 +356,8 @@ export class BodyworkService {
       const jobs = await BodyworkJob.find(query)
         .populate('customerId', 'name surname phone email')
         .populate('vehicleId', 'brand modelName plateNumber year')
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .lean(); // 🚀 OPTIMIZE: Memory optimization
 
       return {
         success: true,

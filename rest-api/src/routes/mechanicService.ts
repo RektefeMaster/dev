@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { auth } from '../middleware/auth';
+import { auth } from '../middleware/optimizedAuth';
 import { ServiceCategory } from '../models/ServiceCategory';
 import { User } from '../models/User';
 import { MechanicService } from '../services/mechanic.service';

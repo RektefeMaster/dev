@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { auth } from '../middleware/auth';
+import { auth } from '../middleware/optimizedAuth';
 import { AuthRequest } from '../types/auth.d';
 import { ResponseHandler } from '../utils/response';
 

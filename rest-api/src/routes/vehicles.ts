@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { auth } from '../middleware/auth';
+import { auth } from '../middleware/optimizedAuth';
 import { validate } from '../middleware/validate';
 import { createVehicleSchema } from '../validators/vehicle.validation';
 import { VehicleController } from '../controllers/vehicle.controller';

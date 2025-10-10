@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { auth } from '../middleware/auth';
+import { auth } from '../middleware/optimizedAuth';
 import { Appointment } from '../models/Appointment';
 import { User } from '../models/User';
 import { Types } from 'mongoose';
@@ -275,7 +275,8 @@ router.get('/history', auth, async (req: Request, res: Response) => {
       .populate('mechanicId', 'shopName')
       .sort({ 'referralInfo.timestamp': -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean(); // 🚀 OPTIMIZE: Memory optimization
 
     const total = await Appointment.countDocuments(query);
 

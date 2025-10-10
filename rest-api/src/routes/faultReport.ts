@@ -1,5 +1,5 @@
 import express from 'express';
-import { auth } from '../middleware/auth';
+import { auth } from '../middleware/optimizedAuth';
 import { requireRole } from '../middleware/roleAuth';
 import { UserType } from '../../../shared/types/enums';
 // Dynamic import to avoid circular dependency issues

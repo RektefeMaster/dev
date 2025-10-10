@@ -88,13 +88,14 @@ export class TireStorageService {
    */
   static async findTireSetByBarcode(barcode: string, mechanicId: string) {
     try {
-      const tireStorage = await TireStorage.findOne({ 
+      const tireStorage = await TireStorage.findOne({
         barcode, 
         mechanicId,
         status: 'stored'
       })
       .populate('customerId', 'name surname phone email')
-      .populate('vehicleId', 'brand modelName plateNumber year');
+      .populate('vehicleId', 'brand modelName plateNumber year')
+      .lean(); // 🚀 OPTIMIZE: Memory optimization
 
       if (!tireStorage) {
         throw new CustomError('Lastik seti bulunamadı', 404);

@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { auth } from '../middleware/auth';
+import { auth } from '../middleware/optimizedAuth';
 import { AppointmentRatingController } from '../controllers/appointmentRating.controller';
 import { checkRatingTimeLimit } from '../middleware/ratingTimeCheck';
 

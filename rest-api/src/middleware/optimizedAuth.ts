@@ -170,7 +170,7 @@ export const optionalAuth: RequestHandler = async (req: Request, res: Response, 
         req.deviceInfo = extractDeviceInfo(req);
       } catch (jwtError) {
         // Optional auth'da JWT hatalarını ignore et
-        console.log('Optional auth JWT error:', jwtError);
+        // JWT errors are silently ignored in optional auth
       }
     }
     

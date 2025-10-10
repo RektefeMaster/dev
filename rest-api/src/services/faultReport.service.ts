@@ -200,16 +200,47 @@ export class FaultReportService {
    */
   static async getFaultReportById(id: string, userId?: string) {
     try {
-      const query: any = { _id: id };
-      if (userId) query.userId = userId;
+      const matchQuery: any = { _id: new mongoose.Types.ObjectId(id) };
+      if (userId) matchQuery.userId = new mongoose.Types.ObjectId(userId);
 
-      const report = await FaultReport.findOne(query)
-        .populate('userId', 'name surname phone email')
-        .populate('vehicleId', 'brand modelName year plateNumber fuelType')
-        .populate('quotes.mechanicId', 'name surname phone shopName location rating')
-        .populate('mechanicResponses.mechanicId', 'name surname phone shopName')
-        .populate('selectedQuote.mechanicId', 'name surname phone shopName location')
-        .lean();
+      // 🚀 OPTIMIZE: 5 populate yerine 1 aggregate query!
+      const [report] = await FaultReport.aggregate([
+        { $match: matchQuery },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'userId',
+            foreignField: '_id',
+            as: 'userDetails',
+            pipeline: [{ $project: { name: 1, surname: 1, phone: 1, email: 1 } }]
+          }
+        },
+        {
+          $lookup: {
+            from: 'vehicles',
+            localField: 'vehicleId',
+            foreignField: '_id',
+            as: 'vehicleDetails',
+            pipeline: [{ $project: { brand: 1, modelName: 1, year: 1, plateNumber: 1, fuelType: 1 } }]
+          }
+        },
+        {
+          $lookup: {
+            from: 'mechanics',
+            localField: 'quotes.mechanicId',
+            foreignField: '_id',
+            as: 'quoteMechanics',
+            pipeline: [{ $project: { name: 1, surname: 1, phone: 1, shopName: 1, location: 1, rating: 1 } }]
+          }
+        },
+        {
+          $addFields: {
+            userId: { $arrayElemAt: ['$userDetails', 0] },
+            vehicleId: { $arrayElemAt: ['$vehicleDetails', 0] }
+          }
+        },
+        { $project: { userDetails: 0, vehicleDetails: 0 } }
+      ]);
 
       if (!report) {
         throw new Error('Fault report not found');

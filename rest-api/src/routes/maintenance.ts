@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import mongoose from 'mongoose';
-import { auth } from '../middleware/auth';
+import { auth } from '../middleware/optimizedAuth';
 
 const router = Router();
 

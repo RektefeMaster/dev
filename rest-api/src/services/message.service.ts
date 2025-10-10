@@ -112,7 +112,8 @@ export class MessageService {
       })
       .populate('participants', 'name surname profileImage avatar userType')
       .populate('lastMessage')
-      .sort({ lastMessageAt: -1 });
+      .sort({ lastMessageAt: -1 })
+      .lean(); // 🚀 OPTIMIZE: Memory optimization
 
       console.log(`📊 Found ${conversations.length} conversations in DB`);
 
@@ -214,7 +215,8 @@ export class MessageService {
         .populate('senderId', 'name surname profileImage avatar')
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(limit);
+        .limit(limit)
+        .lean(); // 🚀 OPTIMIZE: Memory optimization
       
       return messages.reverse(); // En eski mesajlar önce gelsin
     } catch (error) {

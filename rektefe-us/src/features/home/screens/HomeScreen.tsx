@@ -381,7 +381,7 @@ const mechanicCapabilities = [
     }, [isAuthenticated, user?._id])
   );
 
-  const handleAppStateChange = (nextAppState: AppStateStatus) => {
+  const handleAppStateChange = useCallback((nextAppState: AppStateStatus) => {
     if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
       // App aktif olduğunda veri yenile
       if (isAuthenticated && user) {
@@ -389,16 +389,16 @@ const mechanicCapabilities = [
       }
     }
     appState.current = nextAppState;
-  };
+  }, [isAuthenticated, user]); // 🚀 OPTIMIZE: useCallback
 
-  const startAutoRefresh = () => {
+  const startAutoRefresh = useCallback(() => {
     // Her 5 dakikada bir veri yenile (daha az sıklıkta)
     intervalRef.current = setInterval(() => {
       if (isAuthenticated && user && appState.current === 'active') {
         fetchDashboardData(false); // Loading gösterme
       }
     }, 300000); // 5 dakika (300 saniye)
-  };
+  }, [isAuthenticated, user]); // 🚀 OPTIMIZE: useCallback
 
   const fetchDashboardData = async (showLoading = true) => {
     try {

@@ -335,7 +335,8 @@ export class CarWashService {
         .populate('customerId', 'name surname phone email')
         .populate('vehicleId', 'brand modelName plateNumber year')
         .populate('packageId', 'name packageType')
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .lean(); // 🚀 OPTIMIZE: Memory optimization
 
       return {
         success: true,

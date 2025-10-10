@@ -233,7 +233,8 @@ export const getUserFaultReports = async (req: Request, res: Response) => {
       .populate('selectedQuote.mechanicId', 'name surname shopName phone')
       .sort({ createdAt: -1 })
       .limit(Number(limit) * 1)
-      .skip((Number(page) - 1) * Number(limit));
+      .skip((Number(page) - 1) * Number(limit))
+      .lean(); // 🚀 OPTIMIZE: Memory optimization
 
     const total = await FaultReport.countDocuments(query);
 
@@ -265,7 +266,8 @@ export const getFaultReportById = async (req: Request, res: Response) => {
       .populate('vehicleId', 'brand modelName plateNumber year color')
       .populate('quotes.mechanicId', 'name surname shopName phone rating experience')
       .populate('selectedQuote.mechanicId', 'name surname shopName phone rating experience')
-      .populate('appointmentId');
+      .populate('appointmentId')
+      .lean(); // 🚀 OPTIMIZE: Memory optimization
 
     if (!faultReport) {
       return res.status(404).json({

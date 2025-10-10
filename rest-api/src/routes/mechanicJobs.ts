@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { auth } from '../middleware/auth';
+import { auth } from '../middleware/optimizedAuth';
 import { validate } from '../middleware/validate';
 import { requireMechanic } from '../middleware/roleAuth';
 import { MechanicJobsController } from '../controllers/mechanicJobs.controller';

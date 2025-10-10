@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { auth } from '../middleware/auth';
+import { auth } from '../middleware/optimizedAuth';
 import { BodyworkService } from '../services/bodywork.service';
 import { validate } from '../middleware/validate';
 import Joi from 'joi';

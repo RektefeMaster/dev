@@ -46,7 +46,7 @@ export class AppointmentRatingController {
       }
 
       // İlgili randevuyu doğrula ve mekanik bilgisini randevudan al
-      const appointment = await Appointment.findById(appointmentId).populate('mechanicId', '_id');
+      const appointment = await Appointment.findById(appointmentId).populate('mechanicId', '_id').lean(); // 🚀 OPTIMIZE
       if (!appointment) {
         return res.status(404).json({ success: false, message: 'Randevu bulunamadı' });
       }
@@ -224,7 +224,8 @@ export class AppointmentRatingController {
         .select('_id appointmentId userId mechanicId rating comment createdAt updatedAt')
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(limit);
+        .limit(limit)
+        .lean(); // 🚀 OPTIMIZE: Memory optimization
 
       // Null userId'li rating'leri filtrele
       const validRatings = ratings.filter(rating => {

@@ -8,6 +8,7 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { notificationService } from './src/features/notifications/services';
 import { BaseApiService } from '../shared/api/BaseApiService';
 import { API_CONFIG, STORAGE_KEYS } from './src/constants/config';
+import ErrorBoundary from './src/shared/components/ErrorBoundary';
 
 // Concrete API Service implementation
 class MechanicApiService extends BaseApiService {
@@ -156,27 +157,29 @@ export default function App() {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <ThemeProvider>
-        <SharedAuthProvider config={{
-          userType: 'mechanic',
-          appName: 'Rektefe US',
-          storageKeys: {
-            AUTH_TOKEN: STORAGE_KEYS.AUTH_TOKEN,
-            REFRESH_TOKEN: STORAGE_KEYS.REFRESH_TOKEN,
-            USER_ID: STORAGE_KEYS.USER_ID,
-            USER_DATA: STORAGE_KEYS.USER_DATA,
-            ERROR_LOGS: STORAGE_KEYS.ERROR_LOGS,
-            ONBOARDING_COMPLETED: STORAGE_KEYS.ONBOARDING_COMPLETED,
-          },
-          apiService: apiService,
-        }}>
-          <SettingsProvider>
-            <AppNavigator />
-            <StatusBar style="auto" />
-          </SettingsProvider>
-        </SharedAuthProvider>
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <SharedAuthProvider config={{
+            userType: 'mechanic',
+            appName: 'Rektefe US',
+            storageKeys: {
+              AUTH_TOKEN: STORAGE_KEYS.AUTH_TOKEN,
+              REFRESH_TOKEN: STORAGE_KEYS.REFRESH_TOKEN,
+              USER_ID: STORAGE_KEYS.USER_ID,
+              USER_DATA: STORAGE_KEYS.USER_DATA,
+              ERROR_LOGS: STORAGE_KEYS.ERROR_LOGS,
+              ONBOARDING_COMPLETED: STORAGE_KEYS.ONBOARDING_COMPLETED,
+            },
+            apiService: apiService,
+          }}>
+            <SettingsProvider>
+              <AppNavigator />
+              <StatusBar style="auto" />
+            </SettingsProvider>
+          </SharedAuthProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }

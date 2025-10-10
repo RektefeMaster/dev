@@ -392,7 +392,8 @@ export class MechanicService {
     try {
       const mechanics = await Mechanic.find({ city: { $regex: city, $options: 'i' } })
         .populate('userId', 'name surname email avatar')
-        .sort({ rating: -1, isAvailable: -1 });
+        .sort({ rating: -1, isAvailable: -1 })
+        .lean(); // 🚀 OPTIMIZE: Memory optimization
       
       return mechanics;
     } catch (error) {
@@ -409,7 +410,8 @@ export class MechanicService {
         specialization: { $regex: specialization, $options: 'i' } 
       })
         .populate('userId', 'name surname email avatar')
-        .sort({ rating: -1, isAvailable: -1 });
+        .sort({ rating: -1, isAvailable: -1 })
+        .lean(); // 🚀 OPTIMIZE: Memory optimization
       
       return mechanics;
     } catch (error) {

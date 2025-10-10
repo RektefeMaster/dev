@@ -45,7 +45,7 @@ export class MechanicEarningsController {
         mechanicId: new Types.ObjectId(mechanicId as string),
         appointmentDate: { $gte: start, $lte: end },
         status: { $in: ['PLANLANDI', 'TAMAMLANDI', 'SERVISTE'] }
-      }).populate('userId', 'name surname').populate('vehicleId', 'brand modelName plateNumber');
+      }).populate('userId', 'name surname').populate('vehicleId', 'brand modelName plateNumber').lean(); // 🚀 OPTIMIZE
 
       // Kazançları hesapla
       const earnings = appointments.map(apt => ({

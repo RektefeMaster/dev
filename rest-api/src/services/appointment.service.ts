@@ -177,7 +177,8 @@ export class AppointmentService {
       const appointments = await Appointment.find({ userId })
         .populate('mechanicId', 'name surname rating experience city shopName shopType')
         .populate('vehicleId', 'brand modelName year plateNumber fuelType engineType transmission package color mileage lastMaintenanceDate nextMaintenanceDate')
-        .sort({ appointmentDate: -1 });
+        .sort({ appointmentDate: -1 })
+        .lean(); // 🚀 OPTIMIZE: Memory optimization
 
       return appointments;
     } catch (error) {
@@ -406,7 +407,8 @@ export class AppointmentService {
       })
         .populate('userId', 'name surname phone email')
         .populate('vehicleId', 'brand modelName year plateNumber fuelType engineType transmission package color mileage lastMaintenanceDate nextMaintenanceDate')
-        .sort({ appointmentDate: -1, createdAt: -1 });
+        .sort({ appointmentDate: -1, createdAt: -1 })
+        .lean(); // 🚀 OPTIMIZE: Memory optimization
 
       // Frontend formatına çevir
       const formattedAppointments = appointments.map(appointment => {

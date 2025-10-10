@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { auth } from '../middleware/auth';
+import { auth } from '../middleware/optimizedAuth';
 import { validate } from '../middleware/validate';
 import { updateMechanicProfileSchema } from '../validators/maintenance.validation';
 import { MechanicController } from '../controllers/mechanic.controller';
@@ -133,21 +133,16 @@ router.get('/wallet', auth, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
     if (!userId) {
-      console.error('❌ [Backend] User ID bulunamadı');
       return res.status(401).json({ success: false, message: 'Kullanıcı ID bulunamadı' });
     }
-
-    console.log('🔍 [Backend] Wallet endpoint çağrıldı - UserId:', userId);
     
     // Wallet modelini al veya oluştur
-    let wallet = await Wallet.findOne({ userId });
-    console.log('💰 [Backend] Wallet bulundu:', wallet ? 'Evet' : 'Hayır');
+    let wallet = await Wallet.findOne({ userId }).lean();
     
     if (!wallet) {
-      console.log('🆕 [Backend] Yeni wallet oluşturuluyor...');
-      wallet = new Wallet({ userId, balance: 0 });
-      await wallet.save();
-      console.log('✅ [Backend] Yeni wallet oluşturuldu:', wallet._id);
+      const newWallet = new Wallet({ userId, balance: 0 });
+      await newWallet.save();
+      wallet = newWallet.toObject();
     }
 
     // Tarih aralıklarını belirle
@@ -156,89 +151,38 @@ router.get('/wallet', auth, async (req: Request, res: Response) => {
     const firstDayOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastDayOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
     
-    console.log('📅 [Backend] Tarih aralıkları:');
-    console.log('📅 [Backend] Şu an:', now.toISOString());
-    console.log('📅 [Backend] Bu ay başı:', firstDayOfMonth.toISOString());
-    console.log('📅 [Backend] Geçen ay başı:', firstDayOfLastMonth.toISOString());
-    console.log('📅 [Backend] Geçen ay sonu:', lastDayOfLastMonth.toISOString());
+    // 🚀 OPTIMIZE: 5 query yerine 1 aggregate query!
+    const [stats] = await Appointment.aggregate([
+      { $match: { mechanicId: new Types.ObjectId(userId) } },
+      {
+        $facet: {
+          allCount: [{ $count: 'count' }],
+          thisMonth: [
+            { $match: { status: 'TAMAMLANDI', createdAt: { $gte: firstDayOfMonth } } },
+            { $group: { _id: null, count: { $sum: 1 }, earnings: { $sum: { $ifNull: ['$finalPrice', '$price'] } } } }
+          ],
+          lastMonth: [
+            { $match: { status: 'TAMAMLANDI', createdAt: { $gte: firstDayOfLastMonth, $lte: lastDayOfLastMonth } } },
+            { $group: { _id: null, count: { $sum: 1 }, earnings: { $sum: { $ifNull: ['$finalPrice', '$price'] } } } }
+          ],
+          pending: [
+            { $match: { status: { $in: ['ONAYLANDI', 'BEKLEMEDE'] } } },
+            { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: { $ifNull: ['$finalPrice', '$price'] } } } }
+          ],
+          allTime: [
+            { $match: { status: 'TAMAMLANDI' } },
+            { $group: { _id: null, count: { $sum: 1 }, earnings: { $sum: { $ifNull: ['$finalPrice', '$price'] } } } }
+          ]
+        }
+      }
+    ]);
     
-    // Önce tüm appointment'ları getir ve debug et
-    const allAppointments = await Appointment.find({
-      mechanicId: new Types.ObjectId(userId)
-    });
-    
-    console.log('📊 [Backend] Tüm appointment sayısı:', allAppointments.length);
-    console.log('📊 [Backend] Tüm appointment detayları:', allAppointments.length, 'adet');
-    
-    // Bu ayın tamamlanmış appointment'ları (createdAt kullanarak test)
-    const thisMonthAppointments = await Appointment.find({
-      mechanicId: new Types.ObjectId(userId),
-      status: 'TAMAMLANDI',
-      createdAt: { $gte: firstDayOfMonth }
-    });
-    
-    // Geçen ayın tamamlanmış appointment'ları
-    const lastMonthAppointments = await Appointment.find({
-      mechanicId: new Types.ObjectId(userId),
-      status: 'TAMAMLANDI',
-      createdAt: { $gte: firstDayOfLastMonth, $lte: lastDayOfLastMonth }
-    });
-    
-    // Bekleyen appointment'lar
-    const pendingAppointments = await Appointment.find({
-      mechanicId: new Types.ObjectId(userId),
-      status: { $in: ['ONAYLANDI', 'BEKLEMEDE'] }
-    });
-    
-    // Tüm zamanların tamamlanmış appointment'ları
-    const allTimeAppointments = await Appointment.find({
-      mechanicId: new Types.ObjectId(userId),
-      status: 'TAMAMLANDI'
-    });
-    
-    // Gerçek hesaplamalar
-    const thisMonthEarnings = thisMonthAppointments.reduce((sum, apt) => 
-      sum + (apt.finalPrice || apt.price || 0), 0);
-    
-    const lastMonthEarnings = lastMonthAppointments.reduce((sum, apt) => 
-      sum + (apt.finalPrice || apt.price || 0), 0);
-    
-    const pendingAmount = pendingAppointments.reduce((sum, apt) => 
-      sum + (apt.finalPrice || apt.price || 0), 0);
-    
-    const totalEarnings = allTimeAppointments.reduce((sum, apt) => 
-      sum + (apt.finalPrice || apt.price || 0), 0);
-    
-    const realBalance = totalEarnings; // Toplam kazanç = balance
-
-    console.log('📊 [Backend] Bu ay appointment sayısı:', thisMonthAppointments.length);
-    console.log('📊 [Backend] Bu ay appointment detayları:', thisMonthAppointments.map(apt => ({
-      id: apt._id,
-      status: apt.status,
-      price: apt.price,
-      finalPrice: apt.finalPrice,
-      appointmentDate: apt.appointmentDate,
-      completionDate: apt.completionDate,
-      createdAt: apt.createdAt
-    })));
-    
-    console.log('📊 [Backend] Bekleyen appointment sayısı:', pendingAppointments.length);
-    console.log('📊 [Backend] Bekleyen appointment detayları:', pendingAppointments.map(apt => ({
-      id: apt._id,
-      status: apt.status,
-      price: apt.price,
-      finalPrice: apt.finalPrice
-    })));
-    
-    console.log('📊 [Backend] Tüm zamanlar appointment sayısı:', allTimeAppointments.length);
-    
-    console.log('💰 [Backend] Wallet modelindeki balance:', wallet.balance);
-    console.log('💰 [Backend] Hesaplanan balance:', realBalance);
-    console.log('📊 [Backend] Bu ay kazanç:', thisMonthEarnings);
-    console.log('📊 [Backend] Geçen ay kazanç:', lastMonthEarnings);
-    console.log('📊 [Backend] Bekleyen tutar:', pendingAmount);
-    console.log('📊 [Backend] Toplam kazanç:', totalEarnings);
-    console.log('📊 [Backend] Wallet transaction sayısı:', wallet.transactions.length);
+    // Hesaplamalar (aggregate sonuçlarından)
+    const thisMonthEarnings = stats.thisMonth[0]?.earnings || 0;
+    const lastMonthEarnings = stats.lastMonth[0]?.earnings || 0;
+    const pendingAmount = stats.pending[0]?.amount || 0;
+    const totalEarnings = stats.allTime[0]?.earnings || 0;
+    const realBalance = totalEarnings;
     
     // Gerçek verilerle response döndür
     const responseData = {

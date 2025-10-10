@@ -14,6 +14,9 @@ import helmet from 'helmet';
 import compression from 'compression';
 import { DatabaseOptimizationService } from './services/databaseOptimization.service';
 import { securityHeaders, requestId } from './middleware/optimizedAuth';
+import Logger from './utils/logger';
+import { apiLimiter } from './middleware/rateLimiter';
+import { requestTimeout } from './middleware/requestTimeout';
 import { 
   initializeMonitoring, 
   requestLogger, 
@@ -75,8 +78,12 @@ app.use(compression());
 // Custom middleware'ler
 app.use(requestId);
 app.use(securityHeaders);
+app.use(requestTimeout(30000)); // 🚀 STABILITY: 30 saniye request timeout
 app.use(monitoringMiddleware);
 app.use(requestLogger);
+
+// Rate limiting (tüm API route'ları için)
+app.use('/api/', apiLimiter);
 
 // CORS configuration
 import { MONGODB_URI, MONGODB_OPTIONS, PORT as CONFIG_PORT, CORS_ORIGIN, JWT_SECRET } from './config';
@@ -108,6 +115,7 @@ app.use(cors({
 app.use(express.json());
 
 // Sadece önemli istekleri logla (development modunda)
+// Production'da requestLogger kullanılıyor (monitoring.ts'den)
 if (process.env.NODE_ENV === 'development') {
   app.use((req, res, next) => {
     // Mesaj polling isteklerini loglamadan geç
@@ -115,7 +123,7 @@ if (process.env.NODE_ENV === 'development') {
                             req.path.includes('/poll-messages');
     
     if (!isMessagePolling) {
-      console.log(`${req.method} ${req.path} - ${new Date().toISOString()}`);
+      Logger.devOnly(`${req.method} ${req.path} - ${new Date().toISOString()}`);
     }
     next();
   });
@@ -364,40 +372,136 @@ app.use(errorHandler);
 // MongoDB bağlantısını başlat ve server'ı başlat
 async function startServer() {
   try {
-    console.log('MongoDB bağlantısı başlatılıyor...');
+    Logger.info('MongoDB bağlantısı başlatılıyor...');
     await mongoose.connect(MONGODB_URI, MONGODB_OPTIONS);
-    console.log('✅ MongoDB bağlantısı başarılı');
+    Logger.info('✅ MongoDB bağlantısı başarılı');
     
     // Database optimization'ı başlat
-    console.log('🚀 Database optimization başlatılıyor...');
+    Logger.info('🚀 Database optimization başlatılıyor...');
     try {
       await DatabaseOptimizationService.createOptimizedIndexes();
-      console.log('✅ Database optimization tamamlandı');
+      Logger.info('✅ Database optimization tamamlandı');
     } catch (optimizationError) {
-      console.warn('⚠️ Database optimization hatası (devam ediliyor):', optimizationError);
+      Logger.warn('⚠️ Database optimization hatası (devam ediliyor):', optimizationError);
     }
     
     // Monitoring sistemini başlat
-    console.log('📊 Monitoring sistemi başlatılıyor...');
+    Logger.info('📊 Monitoring sistemi başlatılıyor...');
     try {
       initializeMonitoring();
-      console.log('✅ Monitoring sistemi başlatıldı');
+      Logger.info('✅ Monitoring sistemi başlatıldı');
     } catch (monitoringError) {
-      console.warn('⚠️ Monitoring sistemi hatası (devam ediliyor):', monitoringError);
+      Logger.warn('⚠️ Monitoring sistemi hatası (devam ediliyor):', monitoringError);
     }
     
     // MongoDB bağlantısı başarılı olduktan sonra server'ı başlat
     httpServer.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Server ${PORT} portunda çalışıyor`);
-      console.log('✅ MongoDB bağlantısı ve server hazır');
-      console.log(`📚 API Documentation: http://localhost:${PORT}/docs`);
+      Logger.info(`🚀 Server ${PORT} portunda çalışıyor`);
+      Logger.info('✅ MongoDB bağlantısı ve server hazır');
+      Logger.info(`📚 API Documentation: http://localhost:${PORT}/docs`);
     });
   } catch (err) {
-    console.error('❌ MongoDB bağlantı hatası:', err);
-    console.error('MongoDB URI:', MONGODB_URI);
+    Logger.error('❌ MongoDB bağlantı hatası:', err);
+    Logger.error('MongoDB URI:', MONGODB_URI);
     process.exit(1);
   }
 }
+
+// ===== GRACEFUL SHUTDOWN =====
+// Production'da güvenli kapanma için signal handler'lar
+
+const gracefulShutdown = async (signal: string) => {
+  Logger.info(`\n${signal} sinyali alındı. Graceful shutdown başlıyor...`);
+  
+  try {
+    // 1. Yeni HTTP request'leri kabul etmeyi durdur
+    Logger.info('1️⃣ HTTP server kapatılıyor...');
+    httpServer.close(() => {
+      Logger.info('✅ HTTP server kapatıldı (yeni request kabul edilmiyor)');
+    });
+    
+    // 2. Socket.IO bağlantılarını kapat
+    Logger.info('2️⃣ Socket.IO bağlantıları kapatılıyor...');
+    io.close(() => {
+      Logger.info('✅ Socket.IO kapatıldı');
+    });
+    
+    // 3. Aktif request'lerin bitmesi için kısa bir süre bekle
+    Logger.info('3️⃣ Aktif request\'ler tamamlanıyor (max 10 saniye)...');
+    await new Promise(resolve => setTimeout(resolve, 10000));
+    
+    // 4. MongoDB bağlantısını düzgün kapat
+    Logger.info('4️⃣ MongoDB bağlantısı kapatılıyor...');
+    await mongoose.connection.close(false);
+    Logger.info('✅ MongoDB bağlantısı kapatıldı');
+    
+    Logger.info('✅ Graceful shutdown tamamlandı!\n');
+    process.exit(0);
+  } catch (error) {
+    Logger.error('❌ Graceful shutdown hatası:', error);
+    process.exit(1);
+  }
+};
+
+// Signal handler'ları ekle
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Uncaught exception handler
+process.on('uncaughtException', (error: Error) => {
+  Logger.error('❌ Uncaught Exception:', error);
+  Logger.error('Stack:', error.stack);
+  gracefulShutdown('UNCAUGHT_EXCEPTION');
+});
+
+// Unhandled rejection handler  
+process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+  Logger.error('❌ Unhandled Rejection:', reason);
+  Logger.error('Promise:', promise);
+  gracefulShutdown('UNHANDLED_REJECTION');
+});
+
+// ===== DATABASE CONNECTION MONITORING =====
+// MongoDB bağlantı durumunu izle ve otomatik yeniden bağlan
+
+mongoose.connection.on('connected', () => {
+  Logger.info('✅ MongoDB bağlantısı kuruldu');
+});
+
+mongoose.connection.on('error', (err: Error) => {
+  Logger.error('❌ MongoDB bağlantı hatası:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  Logger.warn('⚠️ MongoDB bağlantısı kesildi');
+  Logger.info('🔄 5 saniye sonra otomatik yeniden bağlanma deneniyor...');
+  
+  // Otomatik yeniden bağlanma
+  setTimeout(async () => {
+    try {
+      Logger.info('🔄 MongoDB yeniden bağlanıyor...');
+      await mongoose.connect(MONGODB_URI, MONGODB_OPTIONS);
+      Logger.info('✅ MongoDB başarıyla yeniden bağlandı');
+    } catch (reconnectError) {
+      Logger.error('❌ Yeniden bağlanma başarısız:', reconnectError);
+      Logger.info('🔄 10 saniye sonra tekrar denenecek...');
+      
+      // Başarısızsa 10 saniye sonra tekrar dene
+      setTimeout(async () => {
+        try {
+          await mongoose.connect(MONGODB_URI, MONGODB_OPTIONS);
+          Logger.info('✅ MongoDB 2. denemede bağlandı');
+        } catch (error) {
+          Logger.error('❌ 2. deneme de başarısız. Manuel müdahale gerekli.');
+        }
+      }, 10000);
+    }
+  }, 5000);
+});
+
+mongoose.connection.on('reconnected', () => {
+  Logger.info('✅ MongoDB yeniden bağlandı (reconnected event)');
+});
 
 // Server'ı başlat
 export { app };

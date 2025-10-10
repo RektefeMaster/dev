@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { auth } from '../middleware/auth';
+import { auth } from '../middleware/optimizedAuth';
 import { User } from '../models/User';
 import { Appointment } from '../models/Appointment';
 import { Types } from 'mongoose';

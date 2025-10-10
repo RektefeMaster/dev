@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { auth } from '../middleware/auth';
+import { auth } from '../middleware/optimizedAuth';
 import { Message } from '../models/Message';
 import { Conversation } from '../models/Conversation';
 import { MessageService } from '../services/message.service';

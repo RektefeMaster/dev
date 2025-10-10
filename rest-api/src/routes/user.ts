@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { User } from '../models/User';
 import { Appointment } from '../models/Appointment';
-import { auth } from '../middleware/auth';
+import { auth } from '../middleware/optimizedAuth';
 import mongoose from 'mongoose';
 import { ResponseHandler } from '../utils/response';
 import { Notification } from '../models/Notification'; // Added missing import

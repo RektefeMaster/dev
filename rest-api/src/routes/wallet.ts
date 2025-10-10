@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { auth } from '../middleware/auth';
+import { auth } from '../middleware/optimizedAuth';
 import { Wallet } from '../models/Wallet';
 import { WalletController } from '../controllers/wallet.controller';
 import { Appointment } from '../models/Appointment';

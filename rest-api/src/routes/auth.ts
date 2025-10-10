@@ -1,8 +1,9 @@
 import { Router } from 'express';
-import { auth } from '../middleware/auth';
+import { auth } from '../middleware/optimizedAuth';
 import { validate } from '../middleware/validate';
 import { registerSchema, loginSchema } from '../validators/auth.validation';
 import { AuthController } from '../controllers/auth.controller';
+import { authLimiter, strictLimiter } from '../middleware/rateLimiter';
 import { Request, Response } from 'express';
 import { User } from '../models/User';
 import bcrypt from 'bcryptjs';
@@ -136,7 +137,7 @@ router.get('/', (req: Request, res: Response) => {
  *       500:
  *         description: Sunucu hatası
  */
-router.post('/register', validate(registerSchema), AuthController.register);
+router.post('/register', authLimiter, validate(registerSchema), AuthController.register);
 
 /**
  * @swagger
@@ -192,7 +193,7 @@ router.post('/register', validate(registerSchema), AuthController.register);
  *       500:
  *         description: Sunucu hatası
  */
-router.post('/login', validate(loginSchema), AuthController.login);
+router.post('/login', authLimiter, validate(loginSchema), AuthController.login);
 
 /**
  * @swagger

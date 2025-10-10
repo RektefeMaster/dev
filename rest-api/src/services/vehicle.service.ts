@@ -47,7 +47,8 @@ export class VehicleService {
 
       const vehicles = await Vehicle.find({ userId: new mongoose.Types.ObjectId(userId) })
         .populate('userId', 'name surname email')
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .lean(); // 🚀 OPTIMIZE: Memory optimization
       
       return vehicles;
     } catch (error) {
