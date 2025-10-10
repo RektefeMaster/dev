@@ -4,8 +4,13 @@
  */
 
 import mongoose from 'mongoose';
-import * as bcrypt from 'bcrypt';
+const bcrypt = require('bcrypt');
 import { MONGODB_URI } from '../config';
+
+// Model'leri import et (schema registration için gerekli)
+import '../models/User';
+import '../models/Driver';
+import '../models/Mechanic';
 
 interface DefaultUser {
   email: string;
@@ -49,7 +54,13 @@ export async function seedDefaultUsers(): Promise<void> {
   try {
     console.log('🌱 Default kullanıcılar kontrol ediliyor...');
     
-    // User model'ini al
+    // MongoDB bağlantısını kontrol et
+    if (mongoose.connection.readyState !== 1) {
+      console.log('⚠️ MongoDB bağlantısı yok, seeding atlanıyor');
+      return;
+    }
+    
+    // User model'ini al (artık registered)
     const User = mongoose.model('User');
     
     for (const userData of DEFAULT_USERS) {
