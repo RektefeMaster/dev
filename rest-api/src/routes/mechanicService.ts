@@ -3,6 +3,8 @@ import { auth } from '../middleware/auth';
 import { ServiceCategory } from '../models/ServiceCategory';
 import { User } from '../models/User';
 import { MechanicService } from '../services/mechanic.service';
+import { normalizeToServiceCategory, getCategoryQueryValues, getServiceCategoryFromServiceType } from '../utils/serviceCategoryHelper';
+import { ServiceType as ServiceTypeEnum } from '../../../shared/types/enums';
 
 /**
  * @swagger
@@ -674,19 +676,57 @@ router.get('/mechanics', async (req: Request, res: Response) => {
     let filteredMechanics = allMechanics;
     
     if (serviceCategory) {
-      filteredMechanics = filteredMechanics.filter(mechanic => 
-        mechanic.serviceCategories?.includes(serviceCategory as string) || 
-        mechanic.serviceCategories?.includes('Tümü')
-      );
+      // serviceCategory ServiceType kodu olabilir (agir-bakim) veya ServiceCategory (repair)
+      // Önce ServiceType enum'unda var mı kontrol et
+      const serviceCategoryStr = serviceCategory as string;
+      let targetServiceCategory;
+      
+      // ServiceType kodu mu? (agir-bakim, genel-bakim, etc.)
+      if (Object.values(ServiceTypeEnum).includes(serviceCategoryStr as any)) {
+        // ServiceType -> ServiceCategory mapping kullan
+        targetServiceCategory = getServiceCategoryFromServiceType(serviceCategoryStr as any);
+      } else {
+        // ServiceCategory veya Türkçe isim
+        targetServiceCategory = normalizeToServiceCategory(serviceCategoryStr);
+      }
+      
+      if (targetServiceCategory) {
+        // Normalize edilmiş kategorinin tüm varyasyonlarını al
+        const categoryValues = getCategoryQueryValues(targetServiceCategory);
+        
+        filteredMechanics = filteredMechanics.filter(mechanic => {
+          const mechanicCats = mechanic.serviceCategories || [];
+          // Mechanic'in kategorilerinden herhangi biri categoryValues içinde var mı?
+          return mechanicCats.some((cat: string) => 
+            categoryValues.some(val => 
+              val.toLowerCase() === cat.toLowerCase() || 
+              cat.toLowerCase().includes(val.toLowerCase())
+            )
+          ) || mechanicCats.includes('Tümü');
+        });
+      } else {
+        // Normalize edilemezse direkt string match
+        filteredMechanics = filteredMechanics.filter(mechanic => 
+          mechanic.serviceCategories?.includes(serviceCategoryStr) || 
+          mechanic.serviceCategories?.includes('Tümü')
+        );
+      }
     }
     
-    if (vehicleBrand) {
-      filteredMechanics = filteredMechanics.filter(mechanic => 
-        mechanic.carBrands?.includes(vehicleBrand as string) || 
-        mechanic.carBrands?.includes('Genel') ||
-        mechanic.carBrands?.includes('Tüm Markalar')
-      );
-    }
+    // vehicleBrand filtresini geçici olarak devre dışı bırak
+    // Çünkü kullanıcı sadece hizmet türüne göre usta arıyor
+    // if (vehicleBrand) {
+    //   filteredMechanics = filteredMechanics.filter(mechanic => {
+    //     const carBrands = mechanic.carBrands || [];
+    //     if (carBrands.length === 0 || 
+    //         carBrands.includes('Genel') || 
+    //         carBrands.includes('Tüm Markalar') ||
+    //         carBrands.includes(vehicleBrand as string)) {
+    //       return true;
+    //     }
+    //     return false;
+    //   });
+    // }
     
     if (city) {
       filteredMechanics = filteredMechanics.filter(mechanic => 

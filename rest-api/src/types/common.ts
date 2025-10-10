@@ -89,10 +89,6 @@ export interface NotificationData {
   type: 'fault_report' | 'appointment' | 'message' | 'payment';
 }
 
-export enum ServiceType {
-  MAINTENANCE = 'maintenance',
-  REPAIR = 'repair',
-  TOWING = 'towing',
-  WASH = 'wash',
-  TIRE = 'tire'
-}
+// ServiceType artık shared/types/enums.ts'de merkezi olarak tanımlı
+// Re-export for backward compatibility
+export { ServiceType, ServiceCategory } from '../../../shared/types/enums';

@@ -198,7 +198,7 @@ const MaintenancePlanScreen = () => {
           console.log('🔍 MaintenancePlanScreen: Araç markası:', brand);
           
           const response = await axios.get(`${API_URL}/mechanic-services/mechanics`, {
-            params: { serviceCategory: backendServiceCategory, vehicleBrand: brand },
+            params: { serviceCategory: backendServiceCategory },
             headers: { Authorization: `Bearer ${token}` },
           });
           
