@@ -13,6 +13,7 @@ import { errorHandler, notFound } from './middleware/errorHandler';
 import helmet from 'helmet';
 import compression from 'compression';
 import { DatabaseOptimizationService } from './services/databaseOptimization.service';
+import { seedDefaultUsers } from './scripts/seedDefaultUsers';
 import { securityHeaders, requestId } from './middleware/optimizedAuth';
 import Logger from './utils/logger';
 import { apiLimiter } from './middleware/rateLimiter';
@@ -383,6 +384,15 @@ async function startServer() {
       Logger.info('✅ Database optimization tamamlandı');
     } catch (optimizationError) {
       Logger.warn('⚠️ Database optimization hatası (devam ediliyor):', optimizationError);
+    }
+    
+    // Default kullanıcıları seed et
+    Logger.info('🌱 Default kullanıcılar kontrol ediliyor...');
+    try {
+      await seedDefaultUsers();
+      Logger.info('✅ Default kullanıcılar hazır');
+    } catch (seedError) {
+      Logger.warn('⚠️ Default kullanıcı seed hatası (devam ediliyor):', seedError);
     }
     
     // Monitoring sistemini başlat
