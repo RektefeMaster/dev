@@ -4,7 +4,7 @@
  */
 
 import mongoose from 'mongoose';
-const bcrypt = require('bcrypt');
+import * as bcrypt from 'bcryptjs';
 import { MONGODB_URI } from '../config';
 
 // Model'leri import et (schema registration için gerekli)
