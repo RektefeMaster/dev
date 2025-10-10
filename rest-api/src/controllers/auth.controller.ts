@@ -1,23 +1,41 @@
 import { Request, Response, NextFunction } from 'express';
-import { AuthService } from '../services/auth.service';
+import { OptimizedAuthService, JWTService } from '../services/optimizedAuth.service';
 import { ResponseHandler } from '../utils/response';
 import { asyncHandler } from '../middleware/errorHandler';
 
 export class AuthController {
   // Kullanıcı kaydı
   static register = asyncHandler(async (req: Request, res: Response) => {
-    const result = await AuthService.register(req.body);
+    const result = await OptimizedAuthService.register(req.body);
     
-    return ResponseHandler.created(res, result, 'Kayıt başarılı!');
+    return ResponseHandler.created(res, {
+      userId: result.userId,
+      userType: result.userType,
+      token: result.accessToken,
+      refreshToken: result.refreshToken,
+      user: result.user
+    }, 'Kayıt başarılı!');
   });
 
   // Kullanıcı girişi
   static login = asyncHandler(async (req: Request, res: Response) => {
     const { email, password, userType } = req.body;
     
-    const result = await AuthService.login(email, password, userType);
+    const deviceInfo = {
+      deviceId: req.headers['x-device-id'] as string,
+      ipAddress: req.ip || req.connection.remoteAddress as string,
+      userAgent: req.headers['user-agent']
+    };
     
-    return ResponseHandler.success(res, result, 'Giriş başarılı!');
+    const result = await OptimizedAuthService.login(email, password, userType, deviceInfo);
+    
+    return ResponseHandler.success(res, {
+      userId: result.userId,
+      userType: result.userType,
+      token: result.accessToken,
+      refreshToken: result.refreshToken,
+      user: result.user
+    }, 'Giriş başarılı!');
   });
 
   // Token yenileme
@@ -33,11 +51,15 @@ export class AuthController {
       return ResponseHandler.badRequest(res, 'Refresh token gerekli');
     }
     
-    const result = await AuthService.refreshToken(refreshToken);
+    const result = await OptimizedAuthService.refreshToken(refreshToken);
     
-    console.log('✅ Refresh token başarılı, yeni token preview:', result.token.substring(0, 20) + '...');
+    console.log('✅ Refresh token başarılı, yeni token preview:', result.accessToken.substring(0, 20) + '...');
     
-    return ResponseHandler.success(res, result, 'Token yenilendi');
+    return ResponseHandler.success(res, {
+      token: result.accessToken,
+      refreshToken: result.refreshToken,
+      user: result.user
+    }, 'Token yenilendi');
   });
 
   // Çıkış yapma
@@ -49,8 +71,10 @@ export class AuthController {
       return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı');
     }
     
-    const result = await AuthService.logout(userId, token);
+    if (token) {
+      JWTService.revokeToken(token, userId);
+    }
     
-    return ResponseHandler.success(res, result, 'Çıkış başarılı');
+    return ResponseHandler.success(res, { message: 'Başarıyla çıkış yapıldı' }, 'Çıkış başarılı');
   });
 }
