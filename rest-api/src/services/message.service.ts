@@ -207,7 +207,7 @@ export class MessageService {
   }
 
   // Belirli bir sohbetin mesajlarını getir
-  static async getMessages(conversationId: string, page: number = 1, limit: number = 50): Promise<IMessage[]> {
+  static async getMessages(conversationId: string, page: number = 1, limit: number = 50): Promise<any[]> {
     try {
       const skip = (page - 1) * limit;
       

@@ -388,7 +388,7 @@ export class MechanicService {
   /**
    * Şehir bazında mekanikleri getir
    */
-  static async getMechanicsByCity(city: string): Promise<IMechanic[]> {
+  static async getMechanicsByCity(city: string): Promise<any[]> {
     try {
       const mechanics = await Mechanic.find({ city: { $regex: city, $options: 'i' } })
         .populate('userId', 'name surname email avatar')
@@ -404,7 +404,7 @@ export class MechanicService {
   /**
    * Uzmanlık alanına göre mekanikleri getir
    */
-  static async getMechanicsBySpecialization(specialization: string): Promise<IMechanic[]> {
+  static async getMechanicsBySpecialization(specialization: string): Promise<any[]> {
     try {
       const mechanics = await Mechanic.find({ 
         specialization: { $regex: specialization, $options: 'i' } 

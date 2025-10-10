@@ -38,7 +38,7 @@ export class VehicleService {
   /**
    * Kullanıcının araçlarını getir
    */
-  static async getUserVehicles(userId: string): Promise<IVehicle[]> {
+  static async getUserVehicles(userId: string): Promise<any[]> {
     try {
       // ObjectId validation
       if (!mongoose.Types.ObjectId.isValid(userId)) {
