@@ -157,16 +157,16 @@ export class JWTService {
         throw new CustomError('Geçersiz token tipi', 401, ErrorCode.INVALID_TOKEN);
       }
 
-      // Token version kontrolü
-      const currentVersion = TokenBlacklistService.getTokenVersion(decoded.userId);
-      if (decoded.version !== currentVersion) {
-        throw new CustomError('Token versiyonu geçersiz', 401, ErrorCode.TOKEN_EXPIRED);
-      }
+      // Token version kontrolü (GEÇİCİ OLARAK DEVRE DIŞI - Redis implement edilene kadar)
+      // const currentVersion = TokenBlacklistService.getTokenVersion(decoded.userId);
+      // if (decoded.version !== currentVersion) {
+      //   throw new CustomError('Token versiyonu geçersiz', 401, ErrorCode.TOKEN_EXPIRED);
+      // }
 
-      // Blacklist kontrolü
-      if (TokenBlacklistService.isTokenBlacklisted(token)) {
-        throw new CustomError('Token blacklist\'te', 401, ErrorCode.INVALID_TOKEN);
-      }
+      // Blacklist kontrolü (GEÇİCİ OLARAK DEVRE DIŞI - Redis implement edilene kadar)
+      // if (TokenBlacklistService.isTokenBlacklisted(token)) {
+      //   throw new CustomError('Token blacklist\'te', 401, ErrorCode.INVALID_TOKEN);
+      // }
 
       return {
         userId: decoded.userId,
@@ -195,16 +195,16 @@ export class JWTService {
         throw new CustomError('Geçersiz refresh token tipi', 401, ErrorCode.INVALID_TOKEN);
       }
 
-      // Token version kontrolü
-      const currentVersion = TokenBlacklistService.getTokenVersion(decoded.userId);
-      if (decoded.version !== currentVersion) {
-        throw new CustomError('Refresh token versiyonu geçersiz', 401, ErrorCode.TOKEN_EXPIRED);
-      }
+      // Token version kontrolü (GEÇİCİ OLARAK DEVRE DIŞI - Redis implement edilene kadar)
+      // const currentVersion = TokenBlacklistService.getTokenVersion(decoded.userId);
+      // if (decoded.version !== currentVersion) {
+      //   throw new CustomError('Refresh token versiyonu geçersiz', 401, ErrorCode.TOKEN_EXPIRED);
+      // }
 
       return {
         userId: decoded.userId,
         userType: decoded.userType,
-        tokenVersion: decoded.version,
+        tokenVersion: decoded.version || 0,
         deviceId: decoded.deviceId,
         ipAddress: decoded.ipAddress,
         userAgent: decoded.userAgent
