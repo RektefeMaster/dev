@@ -183,21 +183,43 @@ const ProfileScreen = () => {
       <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         {/* Profile Stats Cards */}
         <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <MaterialCommunityIcons name="star" size={24} color={themeColors.accent.main} />
-            <Text style={styles.statNumber}>4.8</Text>
-            <Text style={styles.statLabel}>Değerlendirme</Text>
-          </View>
-          <View style={styles.statCard}>
-            <MaterialCommunityIcons name="calendar-check" size={24} color={themeColors.success.main} />
-            <Text style={styles.statNumber}>127</Text>
-            <Text style={styles.statLabel}>Tamamlanan</Text>
-          </View>
-          <View style={styles.statCard}>
-            <MaterialCommunityIcons name="clock-outline" size={24} color={themeColors.info.main} />
-            <Text style={styles.statNumber}>2</Text>
-            <Text style={styles.statLabel}>Aktif</Text>
-          </View>
+          {user?.userType === 'driver' ? (
+            <>
+              <View style={styles.statCard}>
+                <MaterialCommunityIcons name="car" size={24} color={themeColors.primary.main} />
+                <Text style={styles.statNumber}>{user?.vehicles?.length || 0}</Text>
+                <Text style={styles.statLabel}>Araçlarım</Text>
+              </View>
+              <View style={styles.statCard}>
+                <MaterialCommunityIcons name="calendar-check" size={24} color={themeColors.success.main} />
+                <Text style={styles.statNumber}>24</Text>
+                <Text style={styles.statLabel}>Hizmet Aldım</Text>
+              </View>
+              <View style={styles.statCard}>
+                <MaterialCommunityIcons name="star" size={24} color={themeColors.accent.main} />
+                <Text style={styles.statNumber}>4.9</Text>
+                <Text style={styles.statLabel}>Müşteri Puanı</Text>
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={styles.statCard}>
+                <MaterialCommunityIcons name="star" size={24} color={themeColors.accent.main} />
+                <Text style={styles.statNumber}>4.8</Text>
+                <Text style={styles.statLabel}>Değerlendirme</Text>
+              </View>
+              <View style={styles.statCard}>
+                <MaterialCommunityIcons name="calendar-check" size={24} color={themeColors.success.main} />
+                <Text style={styles.statNumber}>127</Text>
+                <Text style={styles.statLabel}>Tamamlanan</Text>
+              </View>
+              <View style={styles.statCard}>
+                <MaterialCommunityIcons name="clock-outline" size={24} color={themeColors.info.main} />
+                <Text style={styles.statNumber}>2</Text>
+                <Text style={styles.statLabel}>Aktif İş</Text>
+              </View>
+            </>
+          )}
         </View>
         
         {/* Profile Completion Card */}
