@@ -151,7 +151,6 @@ export default function AppointmentDetailScreen() {
         
         setAppointment(fallbackAppointment);
         console.log('✅ Using fallback appointment data');
-        console.log('🔍 Fallback appointment status:', fallbackAppointment.status);
       }
     } catch (error: any) {
       const errorMessage = apiService.handleError(error);
@@ -615,27 +614,43 @@ export default function AppointmentDetailScreen() {
         ))}
 
         {/* Action Buttons */}
-        {(() => {
-          console.log('🔍 Appointment Status Debug:', appointment.status);
-          console.log('🔍 Status Check - pending:', appointment.status === 'pending');
-          console.log('🔍 Status Check - TALEP_EDILDI:', appointment.status === 'TALEP_EDILDI');
-          console.log('🔍 Should show buttons:', (appointment.status === 'pending' || appointment.status === 'TALEP_EDILDI'));
-          return (appointment.status === 'pending' || appointment.status === 'TALEP_EDILDI');
-        })() && (
+        {(appointment.status === 'pending' || appointment.status === 'TALEP_EDILDI') && (
           <View style={styles.actionSection}>
             <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: '#10B981' }]}
+              style={[styles.actionButton, { 
+                backgroundColor: '#059669',
+                shadowColor: '#059669',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+                elevation: 6,
+              }]}
               onPress={handleApprove}
               disabled={processing}
+              activeOpacity={0.85}
             >
-              <Text style={styles.actionButtonText}>Kabul Et</Text>
+              <Ionicons name="checkmark-circle" size={22} color="white" style={{ marginRight: 10 }} />
+              <Text style={[styles.actionButtonText, { color: 'white' }]}>
+                Kabul Et
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: '#EF4444' }]}
+              style={[styles.actionButton, { 
+                backgroundColor: '#DC2626',
+                shadowColor: '#DC2626',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+                elevation: 6,
+              }]}
               onPress={() => setShowRejectModal(true)}
               disabled={processing}
+              activeOpacity={0.85}
             >
-              <Text style={styles.actionButtonText}>Reddet</Text>
+              <Ionicons name="close-circle" size={22} color="white" style={{ marginRight: 10 }} />
+              <Text style={[styles.actionButtonText, { color: 'white' }]}>
+                Reddet
+              </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -1260,11 +1275,19 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: spacing.xs,
+    ...shadows.sm,
   },
   actionButtonText: {
-    fontSize: typography.body2.fontSize,
-    fontWeight: '600',
+    fontSize: typography.body.fontSize,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,

@@ -460,7 +460,7 @@ export const AppointmentService = {
    */
   async rejectAppointment(id: string, reason?: string): Promise<ApiResponse<{ appointment: any }>> {
     try {
-      const response = await apiClient.put(`/appointments/${id}/reject`, { reason });
+      const response = await apiClient.put(`/appointments/${id}/reject`, { rejectionReason: reason });
       return response.data;
     } catch (error: any) {
       console.error('Reject appointment error:', error);
@@ -533,7 +533,7 @@ export const AppointmentService = {
 
   async approveAppointment(id: string, data?: any): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post(`/appointments/${id}/approve`, data);
+      const response = await apiClient.put(`/appointments/${id}/approve`, data);
       return response.data;
     } catch (error: any) {
       console.error('Approve appointment error:', error);
