@@ -151,6 +151,7 @@ export default function AppointmentDetailScreen() {
         
         setAppointment(fallbackAppointment);
         console.log('✅ Using fallback appointment data');
+        console.log('🔍 Fallback appointment status:', fallbackAppointment.status);
       }
     } catch (error: any) {
       const errorMessage = apiService.handleError(error);
@@ -614,7 +615,13 @@ export default function AppointmentDetailScreen() {
         ))}
 
         {/* Action Buttons */}
-        {(appointment.status === 'pending' || appointment.status === 'TALEP_EDILDI') && (
+        {(() => {
+          console.log('🔍 Appointment Status Debug:', appointment.status);
+          console.log('🔍 Status Check - pending:', appointment.status === 'pending');
+          console.log('🔍 Status Check - TALEP_EDILDI:', appointment.status === 'TALEP_EDILDI');
+          console.log('🔍 Should show buttons:', (appointment.status === 'pending' || appointment.status === 'TALEP_EDILDI'));
+          return (appointment.status === 'pending' || appointment.status === 'TALEP_EDILDI');
+        })() && (
           <View style={styles.actionSection}>
             <Button
               title="Kabul Et"
