@@ -85,33 +85,45 @@ export default function RepairServiceScreen() {
           appointment.status === 'completed'
         );
         
-        const formattedJobs = repairAppointments.map(appointment => ({
-          _id: appointment._id,
-          customerId: {
-            name: appointment.userId?.name || 'Müşteri',
-            surname: appointment.userId?.surname || '',
-            phone: appointment.userId?.phone || ''
-          },
-          vehicleId: {
-            brand: appointment.vehicleId?.brand || '',
-            modelName: appointment.vehicleId?.modelName || '',
-            plateNumber: appointment.vehicleId?.plateNumber || ''
-          },
-          serviceType: appointment.serviceType,
-          description: appointment.description || appointment.notes || '',
-          photos: [],
-          priority: 'medium' as 'medium',
-          status: (appointment.status === 'confirmed' ? 'pending' : 
-                  appointment.status === 'in-progress' ? 'accepted' :
-                  appointment.status === 'payment-pending' ? 'in_progress' :
-                  appointment.status === 'completed' ? 'completed' : 'pending') as 'pending' | 'accepted' | 'in_progress' | 'completed',
-          estimatedDuration: appointment.estimatedDuration || '2 saat',
-          price: appointment.price || 0,
-          location: appointment.location || { address: '', city: '', coordinates: [0, 0] as [number, number] },
-          scheduledDate: appointment.appointmentDate || new Date().toISOString(),
-          createdAt: appointment.createdAt || appointment.appointmentDate,
-          updatedAt: appointment.updatedAt || new Date().toISOString()
-        }));
+        const formattedJobs = repairAppointments.map(appointment => {
+          // Fiyat önceliği: finalPrice > price > quotedPrice
+          const appointmentPrice = appointment.finalPrice || appointment.price || appointment.quotedPrice || 0;
+          
+          console.log(`📊 Randevu fiyat bilgisi (${appointment._id.slice(-6)}):`, {
+            finalPrice: appointment.finalPrice,
+            price: appointment.price,
+            quotedPrice: appointment.quotedPrice,
+            kullanilan: appointmentPrice
+          });
+          
+          return {
+            _id: appointment._id,
+            customerId: {
+              name: appointment.userId?.name || 'Müşteri',
+              surname: appointment.userId?.surname || '',
+              phone: appointment.userId?.phone || ''
+            },
+            vehicleId: {
+              brand: appointment.vehicleId?.brand || '',
+              modelName: appointment.vehicleId?.modelName || '',
+              plateNumber: appointment.vehicleId?.plateNumber || ''
+            },
+            serviceType: appointment.serviceType,
+            description: appointment.description || appointment.notes || '',
+            photos: [],
+            priority: 'medium' as 'medium',
+            status: (appointment.status === 'confirmed' ? 'pending' : 
+                    appointment.status === 'in-progress' ? 'accepted' :
+                    appointment.status === 'payment-pending' ? 'in_progress' :
+                    appointment.status === 'completed' ? 'completed' : 'pending') as 'pending' | 'accepted' | 'in_progress' | 'completed',
+            estimatedDuration: appointment.estimatedDuration || '2 saat',
+            price: appointmentPrice,
+            location: appointment.location || { address: '', city: '', coordinates: [0, 0] as [number, number] },
+            scheduledDate: appointment.appointmentDate || new Date().toISOString(),
+            createdAt: appointment.createdAt || appointment.appointmentDate,
+            updatedAt: appointment.updatedAt || new Date().toISOString()
+          };
+        });
         
         setRepairJobs(formattedJobs);
       } else {
@@ -250,7 +262,9 @@ export default function RepairServiceScreen() {
 
       if (response?.success) {
         console.log('✅ Randevu durumu başarıyla güncellendi');
-        await fetchRepairJobs(false);
+        // 500ms bekle ve refresh et (backend'in kaydetmesi için)
+        await new Promise<void>(resolve => setTimeout(() => resolve(), 500));
+        await fetchRepairJobs(true); // showLoading=true ile yenile
       } else {
         console.log('❌ Randevu durumu güncellenemedi:', response?.message);
         Alert.alert('Hata', response?.message || 'Randevu durumu güncellenemedi');
