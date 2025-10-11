@@ -969,6 +969,9 @@ export const apiService = {
       } as any);
 
       const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      console.log('📸 Upload token:', token ? `${token.substring(0, 20)}...` : 'NO TOKEN');
+      console.log('📸 Upload URL:', `${API_CONFIG.BASE_URL}/users/profile-photo`);
+      
       const response = await axios.post(
         `${API_CONFIG.BASE_URL}/users/profile-photo`,
         formData,
@@ -977,11 +980,14 @@ export const apiService = {
             'Content-Type': 'multipart/form-data',
             'Authorization': `Bearer ${token}`,
           },
+          timeout: 30000,
         }
       );
       return response.data;
     } catch (error: any) {
-      console.error('Upload profile photo error:', error);
+      console.error('📸 Upload profile photo error:', error);
+      console.error('📸 Error response:', error.response?.data);
+      console.error('📸 Error status:', error.response?.status);
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Profil fotoğrafı yüklenemedi',
@@ -1004,6 +1010,9 @@ export const apiService = {
       } as any);
 
       const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      console.log('📸 Upload token:', token ? `${token.substring(0, 20)}...` : 'NO TOKEN');
+      console.log('📸 Upload URL:', `${API_CONFIG.BASE_URL}/users/cover-photo`);
+      
       const response = await axios.post(
         `${API_CONFIG.BASE_URL}/users/cover-photo`,
         formData,
@@ -1012,11 +1021,14 @@ export const apiService = {
             'Content-Type': 'multipart/form-data',
             'Authorization': `Bearer ${token}`,
           },
+          timeout: 30000,
         }
       );
       return response.data;
     } catch (error: any) {
-      console.error('Upload cover photo error:', error);
+      console.error('📸 Upload cover photo error:', error);
+      console.error('📸 Error response:', error.response?.data);
+      console.error('📸 Error status:', error.response?.status);
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Kapak fotoğrafı yüklenemedi',
