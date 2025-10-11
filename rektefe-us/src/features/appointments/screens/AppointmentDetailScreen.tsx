@@ -623,20 +623,20 @@ export default function AppointmentDetailScreen() {
           return (appointment.status === 'pending' || appointment.status === 'TALEP_EDILDI');
         })() && (
           <View style={styles.actionSection}>
-            <Button
-              title="Kabul Et"
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: '#10B981' }]}
               onPress={handleApprove}
-              loading={processing}
-              style={[styles.actionButton, { backgroundColor: colors.success }] as any}
-              textStyle={styles.actionButtonText}
-            />
-            <Button
-              title="Reddet"
+              disabled={processing}
+            >
+              <Text style={styles.actionButtonText}>Kabul Et</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: '#EF4444' }]}
               onPress={() => setShowRejectModal(true)}
-              loading={processing}
-              style={[styles.actionButton, { backgroundColor: colors.error }] as any}
-              textStyle={styles.actionButtonText}
-            />
+              disabled={processing}
+            >
+              <Text style={styles.actionButtonText}>Reddet</Text>
+            </TouchableOpacity>
           </View>
         )}
 
