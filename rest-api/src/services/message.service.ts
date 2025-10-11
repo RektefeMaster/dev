@@ -118,27 +118,10 @@ export class MessageService {
       console.log(`📊 Found ${conversations.length} conversations in DB`);
 
       const result = await Promise.all(conversations.map(async (conv) => {
-        // Eğer participants array'inde sadece 1 kişi varsa, düzelt
-        if (conv.participants?.length === 1) {
-          // Conversation'ı yeniden oluştur
-          const otherParticipantId = conv.participants[0]._id.toString() === userId ? 
-            '68bf07ffea20171f7866de46' : // Hardcoded for now, should be dynamic
-            userId;
-          
-          conv.participants = [conv.participants[0]._id, otherParticipantId as any];
-          try {
-            await conv.save();
-          } catch (error: any) {
-            if (error.name === 'VersionError') {
-              const freshConv = await Conversation.findById(conv._id);
-              if (freshConv) {
-                freshConv.participants = [freshConv.participants[0]._id, otherParticipantId as any];
-                await freshConv.save();
-              }
-            } else {
-              throw error;
-            }
-          }
+        // Participants array kontrolü - en az 2 katılımcı olmalı
+        if (!conv.participants || conv.participants.length < 2) {
+          console.log(`⚠️ Conversation ${conv._id} has invalid participants array, skipping`);
+          return null;
         }
         
         // Diğer katılımcıyı bul (userId'den farklı olan)
@@ -149,7 +132,8 @@ export class MessageService {
         });
         
         if (!otherParticipant) {
-          return null; // Geçersiz sohbet
+          console.log(`⚠️ Conversation ${conv._id} has no other participant, skipping`);
+          return null;
         }
 
         // Eğer otherParticipant bilgileri eksikse, User modelinden çek
@@ -188,7 +172,7 @@ export class MessageService {
           otherParticipant: participantInfo,
           lastMessage: conv.lastMessage,
           lastMessageAt: conv.lastMessageAt,
-          unreadCount: conv.unreadCount ? conv.unreadCount.get(userId) || 0 : 0
+          unreadCount: conv.unreadCount ? (conv.unreadCount[userId] || 0) : 0
         };
         
         return conversationData;
