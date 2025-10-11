@@ -270,28 +270,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         // User data'yı kaydet
         if (user) {
+          // UserType kontrolü - rektefe-us uygulaması için 'mechanic' olmalı
+          if (user.userType !== 'mechanic') {
+            console.log('❌ UserType mechanic değil:', user.userType);
+            // Token'ları ve user data'yı temizle
+            await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+            await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+            await AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA);
+            
+            return { 
+              success: false, 
+              message: 'Bu hesap mechanic hesabı değil. Lütfen driver uygulamasını kullanın.' 
+            } as ApiResponse<any>;
+          }
+          
           setUser(user);
           await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
           await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'true');
-          
-          // UserType kontrolü - rektefe-us uygulaması için 'mechanic' olmalı
-          if (user.userType !== 'mechanic') {
-            console.log('⚠️ UserType mechanic değil, güncelleniyor...', user.userType);
-            try {
-              const updateResponse = await apiService.updateUserProfile({ userType: 'mechanic' });
-              if (updateResponse.success) {
-                console.log('✅ UserType mechanic olarak güncellendi');
-                // Güncellenmiş user data'yı al
-                const updatedUser = { ...user, userType: 'mechanic' };
-                setUser(updatedUser);
-                await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUser));
-              } else {
-                console.log('❌ UserType güncellenemedi:', updateResponse.message);
-              }
-            } catch (updateError) {
-              console.log('❌ UserType güncelleme hatası:', updateError);
-            }
-          }
           
           // Login sonrası profil kontrolü
           try {

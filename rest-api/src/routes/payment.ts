@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import mongoose from 'mongoose';
 import { auth } from '../middleware/optimizedAuth';
 import { Wallet } from '../models/Wallet';
 import { TefePointService } from '../services/tefePoint.service';
@@ -52,50 +53,75 @@ router.post('/simulate-payment', auth, async (req: Request, res: Response) => {
     const paymentStatus = Math.random() > 0.1 ? 'completed' : 'failed'; // %90 başarı oranı
 
     if (paymentStatus === 'completed') {
-      // Başarılı ödeme - cüzdandan düş
-      wallet.balance -= amount;
+      // MongoDB transaction başlat - race condition önleme
+      const session = await mongoose.startSession();
       
-      // İşlem kaydı ekle
-      const transaction = {
-        type: 'debit' as const,
-        amount: amount,
-        description: description || `${serviceType} hizmet ödemesi`,
-        date: new Date(),
-        status: 'completed' as const,
-        paymentId: paymentId,
-        appointmentId: appointmentId
-      };
-
-      wallet.transactions.push(transaction);
-      await wallet.save();
-
-      // TEFE puan kazandır
       try {
-        const tefePointResult = await TefePointService.processPaymentTefePoints({
-          userId,
-          amount,
-          paymentType: 'other',
-          serviceCategory: serviceType || 'maintenance',
-          description: description || `${serviceType} hizmet ödemesi`,
-          serviceId: paymentId,
-          appointmentId: appointmentId
-        });
-
-        } catch (tefeError) {
-        }
-
-      res.json({
-        success: true,
-        message: 'Ödeme başarıyla tamamlandı',
-        data: {
-          paymentId: paymentId,
+        session.startTransaction();
+        
+        // İşlem kaydı ekle
+        const transaction = {
+          type: 'debit' as const,
           amount: amount,
-          status: 'completed',
-          newBalance: wallet.balance,
-          transaction: transaction,
-          tefePointsEarned: true
+          description: description || `${serviceType} hizmet ödemesi`,
+          date: new Date(),
+          status: 'completed' as const,
+          paymentId: paymentId,
+          appointmentId: appointmentId
+        };
+
+        // Wallet'ı atomik olarak güncelle (new: true ile güncellenmiş dökümanı döndürür)
+        const updatedWallet = await Wallet.findOneAndUpdate(
+          { userId },
+          {
+            $inc: { balance: -amount }, // Balance'ı atomik olarak azalt
+            $push: { transactions: transaction } // Transaction'ı atomik olarak ekle
+          },
+          { session, new: true }
+        );
+        
+        // Transaction'ı commit et
+        await session.commitTransaction();
+        
+        // Güncellenmiş wallet'ı kullan
+        wallet = updatedWallet;
+        
+        // TEFE puan kazandır (transaction dışında, başarısızlık ödemeyi engellemez)
+        try {
+          await TefePointService.processPaymentTefePoints({
+            userId,
+            amount,
+            paymentType: 'other',
+            serviceCategory: serviceType || 'maintenance',
+            description: description || `${serviceType} hizmet ödemesi`,
+            serviceId: paymentId,
+            appointmentId: appointmentId
+          });
+        } catch (tefeError) {
+          // TefePuan hatası ödemeyi engellemesin
         }
-      });
+
+        res.json({
+          success: true,
+          message: 'Ödeme başarıyla tamamlandı',
+          data: {
+            paymentId: paymentId,
+            amount: amount,
+            status: 'completed',
+            newBalance: wallet?.balance || 0,
+            transaction: transaction,
+            tefePointsEarned: true
+          }
+        });
+        
+      } catch (transactionError) {
+        // Transaction başarısız, rollback yap
+        await session.abortTransaction();
+        throw transactionError;
+      } finally {
+        // Session'ı kapat
+        session.endSession();
+      }
     } else {
       // Başarısız ödeme
       res.json({

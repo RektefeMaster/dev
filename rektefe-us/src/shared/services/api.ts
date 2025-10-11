@@ -46,7 +46,7 @@ apiClient.interceptors.request.use(
       
       // Token yoksa ve auth gerektiren endpoint ise isteği iptal et
       if (!token && config.url && !config.url.includes('/auth/')) {
-        // Silent cancellation - no logging
+        console.log('⚠️ Token yok - istek iptal ediliyor:', config.url);
         const cancelToken = axios.CancelToken.source();
         cancelToken.cancel('No authentication token');
         config.cancelToken = cancelToken.token;
@@ -147,7 +147,7 @@ apiClient.interceptors.response.use(
         
         // Refresh token endpoint'ini çağır
         const response = await axios.post(
-          `${API_CONFIG.BASE_URL}/api/auth/refresh-token`,
+          `${API_CONFIG.BASE_URL}/auth/refresh-token`,
           { refreshToken }
         );
 
@@ -283,7 +283,7 @@ export const AuthService = {
         throw new Error('Refresh token not found');
       }
       
-      const response = await apiClient.post('/auth/refresh', {
+      const response = await apiClient.post('/auth/refresh-token', {
         refreshToken
       });
       
@@ -844,30 +844,6 @@ export const ProfileService = {
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Şifre değiştirilemedi',
-        error.response?.data?.error?.details
-      );
-    }
-  },
-
-  /**
-   * Token yenileme
-   */
-  async refreshToken(): Promise<ApiResponse<{ token: string; refreshToken: string }>> {
-    try {
-      const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
-      if (!refreshToken) {
-        throw new Error('Refresh token bulunamadı');
-      }
-
-      const response = await apiClient.post('/auth/refresh', {
-        refreshToken
-      });
-      return response.data;
-    } catch (error: any) {
-      console.error('Refresh token error:', error);
-      return createErrorResponse(
-        ErrorCode.INTERNAL_SERVER_ERROR,
-        'Token yenilenemedi',
         error.response?.data?.error?.details
       );
     }

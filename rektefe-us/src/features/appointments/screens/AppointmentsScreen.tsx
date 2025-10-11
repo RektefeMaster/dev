@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,932 +6,370 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Modal,
+  StatusBar,
   TextInput,
   Alert,
-  Linking,
-  Clipboard,
   ActivityIndicator,
   Dimensions,
-  StatusBar,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/shared/context';
 import { useAuth } from '@/shared/context';
 import apiService from '@/shared/services';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import BackButton from '@/shared/components/BackButton';
-import { translateServiceName } from '@/shared/utils/serviceTranslator';
-import { getServiceCategory, getJobTypeText, getStatusText } from '@/shared/utils/serviceTypeHelpers';
-import { colors as themeColors, typography, spacing, borderRadius as br, shadows, dimensions as themeDimensions } from '@/shared/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { colors as themeColors, typography, spacing, borderRadius, shadows } from '@/shared/theme';
 
 const { width } = Dimensions.get('window');
 
-// Randevu durumları
-type RandevuDurum = 'TALEP_EDILDI' | 'PLANLANDI' | 'SERVISTE' | 'ODEME_BEKLIYOR' | 'TAMAMLANDI' | 'IPTAL' | 'NO_SHOW';
+// Modern renk paleti
+const COLORS = {
+  primary: '#2563EB',
+  secondary: '#64748B',
+  success: '#10B981',
+  warning: '#F59E0B',
+  danger: '#EF4444',
+  background: '#F8FAFC',
+  surface: '#FFFFFF',
+  text: {
+    primary: '#1E293B',
+    secondary: '#64748B',
+    tertiary: '#94A3B8',
+  },
+  border: '#E2E8F0',
+  shadow: 'rgba(0, 0, 0, 0.08)',
+};
 
-interface Randevu {
+interface Appointment {
   _id: string;
-  musteri: { ad: string; tel: string };
-  arac: { plaka: string; marka: string; model: string; km?: number };
-  isTuru: string;
-  randevuZamani: string;
-  durum: RandevuDurum;
-  parcaBekleniyor?: boolean;
-  notlar?: string[];
-  medya?: { foto: number; video: number; ses: number };
-  kalemler?: any[];
-  kdvDahil?: boolean;
-  araOnaylar?: { aciklama: string; tutar: number; onay: 'BEKLIYOR' | 'KABUL' | 'RET' }[];
-  odemeLink?: string;
-  odemeRef?: string;
-  olusturmaZamani: string;
-  kapatmaZamani?: string;
-  price?: number;
-  customer?: { name: string; surname: string; phone: string };
-  vehicle?: { brand: string; modelName: string; plateNumber: string };
+  customer: {
+    name: string;
+    surname: string;
+    phone: string;
+  };
+  vehicle: {
+    brand: string;
+    modelName: string;
+    plateNumber: string;
+  };
   serviceType: string;
   appointmentDate: string;
   timeSlot: string;
+  status: string;
   description?: string;
-  mechanicNotes?: string;
+  price?: number;
   createdAt: string;
 }
 
-const DURUM_TABLARI = [
-  { key: 'TALEP_EDILDI', label: 'Yeni', color: '#FF9500', icon: 'clock-outline' },
-  { key: 'PLANLANDI', label: 'Planlandı', color: '#007AFF', icon: 'calendar-check' },
-  { key: 'SERVISTE', label: 'Serviste', color: '#FF6B35', icon: 'wrench' },
-  { key: 'ODEME_BEKLIYOR', label: 'Ödeme', color: '#9C27B0', icon: 'credit-card' },
-  { key: 'TAMAMLANDI', label: 'Tamamlandı', color: '#34C759', icon: 'check-circle' },
-];
+interface StatusCount {
+  total: number;
+  pending: number;
+  confirmed: number;
+  inProgress: number;
+  completed: number;
+}
+
+const STATUS_CONFIG = {
+  pending: { label: 'Bekleyen', color: COLORS.warning, icon: 'time-outline' },
+  confirmed: { label: 'Onaylandı', color: COLORS.primary, icon: 'checkmark-circle-outline' },
+  inProgress: { label: 'Devam Ediyor', color: COLORS.secondary, icon: 'construct-outline' },
+  completed: { label: 'Tamamlandı', color: COLORS.success, icon: 'checkmark-done-outline' },
+};
 
 const AppointmentsScreen = () => {
   const { themeColors: colors } = useTheme();
-  const { isAuthenticated, user, token } = useAuth();
-  const [randevular, setRandevular] = useState<Randevu[]>([]);
+  const { isAuthenticated, user } = useAuth();
+  const navigation = useNavigation();
+
+  // State
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedDurum, setSelectedDurum] = useState<RandevuDurum>('TALEP_EDILDI');
-  const [counts, setCounts] = useState<Record<RandevuDurum, number>>({
-    TALEP_EDILDI: 0,
-    PLANLANDI: 0,
-    SERVISTE: 0,
-    ODEME_BEKLIYOR: 0,
-    TAMAMLANDI: 0,
-    IPTAL: 0,
-    NO_SHOW: 0,
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [statusCounts, setStatusCounts] = useState<StatusCount>({
+    total: 0,
+    pending: 0,
+    confirmed: 0,
+    inProgress: 0,
+    completed: 0,
   });
-  const [search, setSearch] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
-  
-  // Price Increase Modal States
-  const [showPriceModal, setShowPriceModal] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState<Randevu | null>(null);
-  const [additionalAmount, setAdditionalAmount] = useState('');
-  const [selectedReason, setSelectedReason] = useState('');
-  const [customReason, setCustomReason] = useState('');
-  const [priceModalLoading, setPriceModalLoading] = useState(false);
-
-  const predefinedReasons = [
-    { id: 'extra_parts', title: 'Ek Parça Gerekli', icon: 'cog', color: '#FF9500' },
-    { id: 'additional_work', title: 'Ek İş Gerekli', icon: 'wrench', color: '#007AFF' },
-    { id: 'complexity', title: 'İş Karmaşıklığı', icon: 'alert-circle', color: '#FF3B30' },
-    { id: 'time_extension', title: 'Süre Uzaması', icon: 'clock', color: '#34C759' },
-    { id: 'material_cost', title: 'Malzeme Maliyeti', icon: 'package-variant', color: '#AF52DE' },
-    { id: 'labor_cost', title: 'İşçilik Maliyeti', icon: 'account-hard-hat', color: '#FFCC00' },
-    { id: 'custom', title: 'Diğer', icon: 'text-box', color: '#8E8E93' }
-  ];
-
-  // Tarihe göre sıralanmış randevular
-  const sortedRandevular = useMemo(() => {
-    return [...randevular].sort((a, b) => new Date(a.appointmentDate).getTime() - new Date(b.appointmentDate).getTime());
-  }, [randevular]);
 
   // Filtrelenmiş randevular
-  const filteredRandevular = useMemo(() => {
-    if (!search.trim()) return sortedRandevular;
-    
-    const searchTerm = search.toLowerCase();
-    return sortedRandevular.filter(randevu => {
-      const customerName = `${randevu.customer?.name || ''} ${randevu.customer?.surname || ''}`.toLowerCase();
-      const vehiclePlate = randevu.vehicle?.plateNumber?.toLowerCase() || '';
-      const serviceType = randevu.serviceType?.toLowerCase() || '';
-      
-      return customerName.includes(searchTerm) || 
-             vehiclePlate.includes(searchTerm) || 
-             serviceType.includes(searchTerm);
-    });
-  }, [sortedRandevular, search]);
+  const filteredAppointments = useMemo(() => {
+    let filtered = appointments;
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchRandevular(selectedDurum);
-      fetchCounts();
+    // Durum filtresi
+    if (selectedStatus) {
+      filtered = filtered.filter(app => app.status === selectedStatus);
     }
-  }, [isAuthenticated, selectedDurum]);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (isAuthenticated) {
-        fetchRandevular(selectedDurum);
-        fetchCounts();
-      }
-    }, [isAuthenticated, selectedDurum])
-  );
+    // Arama filtresi
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(app => 
+        app.customer.name.toLowerCase().includes(query) ||
+        app.customer.surname.toLowerCase().includes(query) ||
+        app.vehicle.plateNumber.toLowerCase().includes(query) ||
+        app.vehicle.brand.toLowerCase().includes(query) ||
+        app.vehicle.modelName.toLowerCase().includes(query) ||
+        app.serviceType.toLowerCase().includes(query)
+      );
+    }
 
-  const mapTRtoEN = (d: RandevuDurum): string => ({
-    TALEP_EDILDI: 'pending',
-    PLANLANDI: 'confirmed',
-    SERVISTE: 'in-progress',
-    ODEME_BEKLIYOR: 'payment-pending',
-    TAMAMLANDI: 'completed',
-    IPTAL: 'cancelled',
-    NO_SHOW: 'no-show'
-  }[d] || d.toLowerCase());
+    return filtered;
+  }, [appointments, selectedStatus, searchQuery]);
 
-  const normalizeServiceType = (raw?: string) => {
-    if (!raw) return '';
-    return translateServiceName(raw);
-  };
+  // Veri yükleme
+  const loadAppointments = useCallback(async () => {
+    if (!isAuthenticated || !user) return;
 
-  const fetchRandevular = async (durum: RandevuDurum) => {
     try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await apiService.getMechanicAppointments(mapTRtoEN(durum), {});
-      
-      if (response.success) {
-        const data = (response.data as any) || [];
-        const list = Array.isArray(data) ? data : [];
-        
-        const mapped: Randevu[] = list.map((a: any) => ({
-          _id: a._id,
-          musteri: { ad: a.customer?.name || '', tel: a.customer?.phone || '' },
-          arac: { plaka: a.vehicle?.plateNumber || '', marka: a.vehicle?.brand || '', model: a.vehicle?.modelName || '' },
-          isTuru: normalizeServiceType(a.serviceType),
-          randevuZamani: a.appointmentDate,
-          durum: ({
-            pending: 'TALEP_EDILDI',
-            confirmed: 'PLANLANDI',
-            'in-progress': 'SERVISTE',
-            'payment-pending': 'ODEME_BEKLIYOR',
-            completed: 'TAMAMLANDI',
-            cancelled: 'IPTAL',
-            'no-show': 'TALEP_EDILDI' // no-show'u da TALEP_EDILDI olarak göster
-          } as any)[a.status] || 'TALEP_EDILDI',
-          parcaBekleniyor: a.parcaBekleniyor,
-          price: a.price,
-          customer: a.customer,
-          vehicle: a.vehicle,
-          serviceType: a.serviceType,
-          appointmentDate: a.appointmentDate,
-          timeSlot: a.timeSlot,
-          description: a.description,
-          mechanicNotes: a.mechanicNotes,
-          olusturmaZamani: a.createdAt,
-          createdAt: a.createdAt,
-          odemeLink: a.odemeLink,
-          odemeRef: a.odemeRef
-        } as Randevu));
-        setRandevular(mapped);
-      } else {
-        setRandevular([]);
-        setError(response.message || 'Veri alınamadı');
+      const response = await apiService.getMechanicAppointments();
+      if (response.success && response.data) {
+        const appointmentsData = Array.isArray(response.data) ? response.data : [];
+        setAppointments(appointmentsData);
+
+        // Durum sayılarını hesapla
+        const counts = appointmentsData.reduce((acc, app) => {
+          acc.total++;
+          if (app.status === 'pending') acc.pending++;
+          else if (app.status === 'confirmed') acc.confirmed++;
+          else if (app.status === 'inProgress') acc.inProgress++;
+          else if (app.status === 'completed') acc.completed++;
+          return acc;
+        }, { total: 0, pending: 0, confirmed: 0, inProgress: 0, completed: 0 });
+
+        setStatusCounts(counts);
       }
-    } catch (e: any) {
-      setError('Randevular yüklenirken bir hata oluştu');
-      setRandevular([]);
+    } catch (error) {
+      console.error('Randevular yüklenirken hata:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [isAuthenticated, user]);
 
-  const fetchCounts = async () => {
-    try {
-      const response = await apiService.getMechanicAppointmentCounts();
-      
-      if (response.success && response.data) {
-        setCounts({
-          TALEP_EDILDI: response.data.pending || 0,
-          PLANLANDI: response.data.confirmed || 0,
-          SERVISTE: response.data['in-progress'] || 0,
-          ODEME_BEKLIYOR: response.data['payment-pending'] || 0,
-          TAMAMLANDI: response.data.completed || 0,
-          IPTAL: response.data.cancelled || 0,
-          NO_SHOW: response.data['no-show'] || 0,
-        });
-      }
-    } catch (error) {
-      }
-  };
+  // Refresh
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadAppointments();
+  }, [loadAppointments]);
 
-  const onRefresh = async () => {
-    try {
-      setRefreshing(true);
-      await Promise.all([fetchRandevular(selectedDurum), fetchCounts()]);
-    } catch (error) {
-      console.log('❌ onRefresh error:', error);
-    } finally {
-      setRefreshing(false);
-    }
-  };
+  // Focus effect
+  useFocusEffect(
+    useCallback(() => {
+      loadAppointments();
+    }, [loadAppointments])
+  );
 
-  const getDurumColor = (durum: RandevuDurum) => {
-    const tab = DURUM_TABLARI.find(t => t.key === durum);
-    return tab?.color || colors.text.secondary;
-  };
-
-  const getDurumText = (durum: RandevuDurum) => {
-    const tab = DURUM_TABLARI.find(t => t.key === durum);
-    return tab?.label || durum;
-  };
-
-  const formatTarih = (tarih: string) => {
-    const date = new Date(tarih);
-    return date.toLocaleDateString('tr-TR', {
+  // Randevu kartı render
+  const renderAppointmentCard = ({ item }: { item: Appointment }) => {
+    const statusConfig = STATUS_CONFIG[item.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending;
+    const appointmentDate = new Date(item.appointmentDate);
+    const formattedDate = appointmentDate.toLocaleDateString('tr-TR', {
       day: '2-digit',
       month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      year: 'numeric'
     });
-  };
 
-  const formatSaat = (tarih: string) => {
-    const date = new Date(tarih);
-    return date.toLocaleTimeString('tr-TR', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const handleStatusChange = async (randevuId: string, newStatus: RandevuDurum) => {
-    try {
-      const response = await apiService.updateAppointmentStatus(randevuId, mapTRtoEN(newStatus) as any);
-      
-      if (response.success) {
-        Alert.alert('Başarılı', 'Randevu durumu güncellendi');
-        fetchRandevular(selectedDurum);
-      } else {
-        Alert.alert('Hata', response.message || 'Durum güncellenirken bir hata oluştu');
-      }
-    } catch (error: any) {
-      Alert.alert('Bağlantı Hatası', 'İnternet bağlantınızı kontrol edin ve tekrar deneyin.');
-    }
-  };
-
-  const openPriceModal = (randevu: Randevu) => {
-    setSelectedAppointment(randevu);
-    setAdditionalAmount('');
-    setSelectedReason('');
-    setCustomReason('');
-    setShowPriceModal(true);
-  };
-
-  const closePriceModal = () => {
-    setShowPriceModal(false);
-    setSelectedAppointment(null);
-    setAdditionalAmount('');
-    setSelectedReason('');
-    setCustomReason('');
-  };
-
-  const handlePriceIncrease = async () => {
-    if (!selectedAppointment) return;
-
-    if (!additionalAmount || parseFloat(additionalAmount) <= 0) {
-      Alert.alert('Hata', 'Geçerli bir ek tutar giriniz');
-      return;
-    }
-
-    if (!selectedReason) {
-      Alert.alert('Hata', 'Lütfen fiyat artırma sebebini seçiniz');
-      return;
-    }
-
-    if (selectedReason === 'custom' && !customReason.trim()) {
-      Alert.alert('Hata', 'Lütfen özel sebep açıklaması yazınız');
-      return;
-    }
-
-    try {
-      setPriceModalLoading(true);
-
-      const amount = parseFloat(additionalAmount);
-      const reason = selectedReason === 'custom' ? customReason : selectedReason;
-
-      const response = await apiService.updateAppointmentPriceIncrease(selectedAppointment._id, amount, reason);
-
-      if (response.data.success) {
-        const responseData = response.data;
-        const newTotalPrice = responseData.data.priceIncrease.newTotalPrice;
-        
-        Alert.alert(
-          '💰 Fiyat Başarıyla Artırıldı!',
-          `Ek tutar: ${parseFloat(additionalAmount).toLocaleString('tr-TR')} TL\nYeni toplam: ${newTotalPrice.toLocaleString('tr-TR')} TL`,
-          [
-            {
-              text: 'Tamam',
-              onPress: () => {
-                closePriceModal();
-                fetchRandevular(selectedDurum);
-              }
-            }
-          ]
-        );
-      } else {
-        Alert.alert('Hata', response.data.message || 'Fiyat artırılırken bir hata oluştu');
-      }
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || 'Bir hata oluştu';
-      Alert.alert('Hata', errorMessage);
-    } finally {
-      setPriceModalLoading(false);
-    }
-  };
-
-  const renderRandevuCard = (randevu: Randevu) => {
-    const durumColor = getDurumColor(randevu.durum);
-    const isUrgent = randevu.durum === 'TALEP_EDILDI' && new Date(randevu.appointmentDate) < new Date(Date.now() + 24 * 60 * 60 * 1000);
-    
     return (
-      <View
-        key={randevu._id}
-        style={[
-          styles.modernCard,
-          { 
-            backgroundColor: colors.background.primary,
-            borderColor: colors.neutral[200],
-            shadowColor: isUrgent ? durumColor : colors.shadow.dark,
-          }
-        ]}
-      >
-        {/* Card Header */}
-        <View style={[styles.modernCardHeader, { borderBottomColor: colors.neutral[100] }]}>
-          <View style={styles.customerSection}>
-            <View style={[styles.avatarContainer, { backgroundColor: colors.primary.ultraLight }]}>
-              <MaterialCommunityIcons name="account" size={24} color={colors.primary.main} />
-            </View>
-            <View style={styles.customerDetails}>
-              <Text style={[styles.modernCustomerName, { color: colors.text.primary }]}>
-                {randevu.customer?.name} {randevu.customer?.surname}
-              </Text>
-              <Text style={[styles.modernCustomerPhone, { color: colors.text.secondary }]}>
-                {randevu.customer?.phone}
-              </Text>
-            </View>
+      <TouchableOpacity style={styles.appointmentCard}>
+        {/* Header */}
+        <View style={styles.cardHeader}>
+          <View style={styles.customerInfo}>
+            <Text style={styles.customerName}>
+              {item.customer.name} {item.customer.surname}
+            </Text>
+            <Text style={styles.customerPhone}>{item.customer.phone}</Text>
           </View>
-          <View style={[styles.modernStatusBadge, { backgroundColor: durumColor }]}>
-            <MaterialCommunityIcons 
-              name={DURUM_TABLARI.find(t => t.key === randevu.durum)?.icon as any || 'circle'} 
-              size={14} 
-              color="#FFFFFF" 
-            />
-            <Text style={[styles.modernStatusText, { color: '#FFFFFF' }]}>
-              {getDurumText(randevu.durum)}
+          <View style={[styles.statusBadge, { backgroundColor: statusConfig.color + '15' }]}>
+            <Ionicons name={statusConfig.icon as any} size={16} color={statusConfig.color} />
+            <Text style={[styles.statusText, { color: statusConfig.color }]}>
+              {statusConfig.label}
             </Text>
           </View>
         </View>
 
-        {/* Vehicle & Service Info */}
-        <View style={styles.infoSection}>
-          <View style={styles.infoRow}>
-            <View style={[styles.infoIconContainer, { backgroundColor: colors.success.ultraLight }]}>
-              <MaterialCommunityIcons name="car" size={18} color={colors.success.main} />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, { color: colors.text.secondary }]}>Araç</Text>
-              <Text style={[styles.infoValue, { color: colors.text.primary }]}>
-                {randevu.vehicle?.brand} {randevu.vehicle?.modelName}
-              </Text>
-              <Text style={[styles.infoSubValue, { color: colors.text.tertiary }]}>
-                {randevu.vehicle?.plateNumber}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.infoRow}>
-            <View style={[styles.infoIconContainer, { backgroundColor: colors.warning.ultraLight }]}>
-              <MaterialCommunityIcons name="wrench" size={18} color={colors.warning.main} />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, { color: colors.text.secondary }]}>Hizmet</Text>
-              <Text style={[styles.infoValue, { color: colors.text.primary }]}>
-                {randevu.isTuru}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.infoRow}>
-            <View style={[styles.infoIconContainer, { backgroundColor: colors.primary.ultraLight }]}>
-              <MaterialCommunityIcons name="clock-outline" size={18} color={colors.primary.main} />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, { color: colors.text.secondary }]}>Tarih & Saat</Text>
-              <Text style={[styles.infoValue, { color: colors.text.primary }]}>
-                {formatTarih(randevu.appointmentDate)}
-              </Text>
-            </View>
+        {/* Vehicle Info */}
+        <View style={styles.vehicleInfo}>
+          <Ionicons name="car-outline" size={20} color={COLORS.secondary} />
+          <View style={styles.vehicleDetails}>
+            <Text style={styles.vehicleText}>
+              {item.vehicle.brand} {item.vehicle.modelName}
+            </Text>
+            <Text style={styles.plateText}>{item.vehicle.plateNumber}</Text>
           </View>
         </View>
 
-        {/* Description */}
-        {randevu.description && (
-          <View style={[styles.descriptionSection, { borderTopColor: colors.neutral[100] }]}>
-            <View style={styles.descriptionHeader}>
-              <MaterialCommunityIcons name="text-box-outline" size={16} color={colors.text.secondary} />
-              <Text style={[styles.descriptionLabel, { color: colors.text.secondary }]}>Açıklama</Text>
-            </View>
-            <Text style={[styles.modernDescriptionText, { color: colors.text.primary }]} numberOfLines={3}>
-              {randevu.description}
-            </Text>
+        {/* Service Info */}
+        <View style={styles.serviceInfo}>
+          <Ionicons name="construct-outline" size={20} color={COLORS.secondary} />
+          <Text style={styles.serviceText}>{item.serviceType}</Text>
+        </View>
+
+        {/* Date & Time */}
+        <View style={styles.dateTimeInfo}>
+          <Ionicons name="calendar-outline" size={20} color={COLORS.secondary} />
+          <Text style={styles.dateTimeText}>
+            {formattedDate} - {item.timeSlot}
+          </Text>
+        </View>
+
+        {/* Price */}
+        {item.price && (
+          <View style={styles.priceInfo}>
+            <Ionicons name="cash-outline" size={20} color={COLORS.success} />
+            <Text style={styles.priceText}>{item.price.toLocaleString('tr-TR')} ₺</Text>
           </View>
         )}
-
-        {/* Price Section */}
-        <View style={[styles.priceSection, { backgroundColor: colors.success.ultraLight, borderTopColor: colors.neutral[100] }]}>
-          <View style={styles.priceInfo}>
-            <MaterialCommunityIcons name="currency-try" size={20} color={colors.success.main} />
-            <View style={styles.priceDetails}>
-              <Text style={[styles.priceLabel, { color: colors.text.secondary }]}>Toplam Tutar</Text>
-              <Text style={[styles.modernPriceText, { color: colors.success.main }]}>
-                {randevu.price && randevu.price > 0
-                  ? new Intl.NumberFormat('tr-TR', {
-                      style: 'currency',
-                      currency: 'TRY',
-                    }).format(Number(randevu.price))
-                  : 'Fiyat Belirtilmemiş'
-                }
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Action Buttons */}
-        <View style={[styles.modernActions, { borderTopColor: colors.neutral[100] }]}>
-          {randevu.durum === 'TALEP_EDILDI' && (
-            <>
-              <TouchableOpacity
-                style={[styles.modernActionButton, { backgroundColor: colors.success.main }]}
-                onPress={() => handleStatusChange(randevu._id, 'PLANLANDI')}
-              >
-                <MaterialCommunityIcons name="check" size={18} color="#FFFFFF" />
-                <Text style={styles.modernActionText}>Kabul Et</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modernActionButton, { backgroundColor: colors.error.main }]}
-                onPress={() => handleStatusChange(randevu._id, 'IPTAL')}
-              >
-                <MaterialCommunityIcons name="close" size={18} color="#FFFFFF" />
-                <Text style={styles.modernActionText}>Reddet</Text>
-              </TouchableOpacity>
-            </>
-          )}
-          
-          {randevu.durum === 'PLANLANDI' && (
-            <TouchableOpacity
-              style={[styles.modernActionButton, { backgroundColor: colors.primary.main }]}
-              onPress={() => handleStatusChange(randevu._id, 'SERVISTE')}
-            >
-              <MaterialCommunityIcons name="play" size={18} color="#FFFFFF" />
-              <Text style={styles.modernActionText}>Başlat</Text>
-            </TouchableOpacity>
-          )}
-          
-          {randevu.durum === 'SERVISTE' && (
-            <>
-              <TouchableOpacity
-                style={[styles.modernActionButton, { backgroundColor: colors.warning.main }]}
-                onPress={() => openPriceModal(randevu)}
-              >
-                <MaterialCommunityIcons name="currency-try" size={18} color="#FFFFFF" />
-                <Text style={styles.modernActionText}>Fiyat Artır</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modernActionButton, { backgroundColor: colors.success.main }]}
-                onPress={() => handleStatusChange(randevu._id, 'ODEME_BEKLIYOR')}
-              >
-                <MaterialCommunityIcons name="check-circle" size={18} color="#FFFFFF" />
-                <Text style={styles.modernActionText}>Tamamla</Text>
-              </TouchableOpacity>
-            </>
-          )}
-          
-          {randevu.durum === 'ODEME_BEKLIYOR' && (
-            <TouchableOpacity
-              style={[styles.modernActionButton, { backgroundColor: colors.success.main }]}
-              onPress={() => handleStatusChange(randevu._id, 'TAMAMLANDI')}
-            >
-              <MaterialCommunityIcons name="check-all" size={18} color="#FFFFFF" />
-              <Text style={styles.modernActionText}>Finalize Et</Text>
-            </TouchableOpacity>
-          )}
-          
-          {/* İptal butonu - TAMAMLANDI hariç tüm durumlarda */}
-          {randevu.durum !== 'TAMAMLANDI' && randevu.durum !== 'IPTAL' && (
-            <TouchableOpacity
-              style={[styles.modernActionButton, { backgroundColor: colors.error.main }]}
-              onPress={() => {
-                Alert.alert(
-                  'Randevuyu İptal Et',
-                  'Bu randevuyu iptal etmek istediğinizden emin misiniz?',
-                  [
-                    { text: 'Hayır', style: 'cancel' },
-                    { 
-                      text: 'Evet, İptal Et', 
-                      style: 'destructive',
-                      onPress: () => handleStatusChange(randevu._id, 'IPTAL')
-                    }
-                  ]
-                );
-              }}
-            >
-              <MaterialCommunityIcons name="close-circle" size={18} color="#FFFFFF" />
-              <Text style={styles.modernActionText}>İptal Et</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
-  if (loading && !refreshing) {
+  // Durum filtresi render
+  const renderStatusFilter = () => {
+    const statuses = [
+      { key: null, label: 'Tümü', count: statusCounts.total },
+      { key: 'pending', label: 'Bekleyen', count: statusCounts.pending },
+      { key: 'confirmed', label: 'Onaylandı', count: statusCounts.confirmed },
+      { key: 'inProgress', label: 'Devam Ediyor', count: statusCounts.inProgress },
+      { key: 'completed', label: 'Tamamlandı', count: statusCounts.completed },
+    ];
+
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]} edges={['top']}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.background.primary} />
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        style={styles.statusFilter}
+        contentContainerStyle={styles.statusFilterContent}
+      >
+        {statuses.map((status) => (
+          <TouchableOpacity
+            key={status.key || 'all'}
+            style={[
+              styles.statusButton,
+              selectedStatus === status.key && styles.statusButtonActive
+            ]}
+            onPress={() => setSelectedStatus(status.key)}
+          >
+            <Text style={[
+              styles.statusButtonText,
+              selectedStatus === status.key && styles.statusButtonTextActive
+            ]}>
+              {status.label}
+            </Text>
+            <View style={[
+              styles.statusCount,
+              selectedStatus === status.key && styles.statusCountActive
+            ]}>
+              <Text style={[
+                styles.statusCountText,
+                selectedStatus === status.key && styles.statusCountTextActive
+              ]}>
+                {status.count}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    );
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary.main} />
-          <Text style={[styles.loadingText, { color: colors.text.secondary }]}>
-            Randevular yükleniyor...
-          </Text>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Randevular yükleniyor...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  // Hizmet kategorisine göre başlık
-  const serviceCategory = getServiceCategory(user?.serviceCategories);
-  const jobTypeText = getJobTypeText(serviceCategory);
-
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background.primary} />
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.background.primary }]}>
-        <View style={styles.headerContent}>
-          <View style={styles.headerTop}>
-            <BackButton />
-            <Text style={[styles.title, { color: colors.text.primary.main }]}>{jobTypeText.plural}</Text>
-            <TouchableOpacity
-              style={[styles.filterButton, { backgroundColor: colors.background.secondary, borderColor: colors.border.secondary }]}
-              onPress={() => setShowFilters(!showFilters)}
-            >
-              <MaterialCommunityIcons name="filter" size={20} color={colors.text.primary.main} />
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.statsContainer}>
-            <View style={[styles.statCard, { backgroundColor: colors.neutral[50], borderColor: colors.neutral[200] }]}>
-              <View style={[styles.statIcon, { backgroundColor: colors.primary.main }]}>
-                <MaterialCommunityIcons name="calendar-multiple" size={20} color="#FFFFFF" />
-              </View>
-              <Text style={[styles.statNumber, { color: colors.text.primary }]}>
-                {Object.values(counts).reduce((a, b) => a + b, 0)}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.text.secondary }]}>Toplam</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: colors.success.ultraLight, borderColor: colors.success.light }]}>
-              <View style={[styles.statIcon, { backgroundColor: colors.success.main }]}>
-                <MaterialCommunityIcons name="check-circle" size={20} color="#FFFFFF" />
-              </View>
-              <Text style={[styles.statNumber, { color: colors.success.main }]}>
-                {counts.SERVISTE + counts.ODEME_BEKLIYOR}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.text.secondary }]}>Aktif</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: colors.warning.ultraLight, borderColor: colors.warning.light }]}>
-              <View style={[styles.statIcon, { backgroundColor: colors.warning.main }]}>
-                <MaterialCommunityIcons name="clock" size={20} color="#FFFFFF" />
-              </View>
-              <Text style={[styles.statNumber, { color: colors.warning.main }]}>
-                {counts.TALEP_EDILDI}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.text.secondary }]}>Bekleyen</Text>
-            </View>
-          </View>
-        </View>
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Tamir İşleri</Text>
+        <TouchableOpacity style={styles.filterButton}>
+          <Ionicons name="filter-outline" size={24} color={COLORS.text.primary} />
+        </TouchableOpacity>
       </View>
 
-      {/* Search */}
-      <View style={[styles.searchContainer, { backgroundColor: colors.background.primary }]}>
-        <View style={[styles.searchBox, { backgroundColor: colors.neutral[50], borderColor: colors.neutral[200] }]}>
-          <MaterialCommunityIcons name="magnify" size={20} color={colors.text.secondary} />
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search-outline" size={20} color={COLORS.text.tertiary} />
           <TextInput
-            style={[styles.searchInput, { color: colors.text.primary }]}
+            style={styles.searchInput}
             placeholder="Müşteri, plaka veya hizmet ara..."
-            placeholderTextColor={colors.text.secondary}
-            value={search}
-            onChangeText={setSearch}
-            returnKeyType="search"
+            placeholderTextColor={COLORS.text.tertiary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')}>
-              <MaterialCommunityIcons name="close-circle" size={20} color={colors.text.secondary} />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color={COLORS.text.tertiary} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      {/* Status Tabs */}
-      <View style={[styles.tabsContainer, { backgroundColor: colors.background.primary }]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsContent}>
-          {DURUM_TABLARI.map(tab => (
-            <TouchableOpacity
-              key={tab.key}
-              style={[
-                styles.tab,
-                {
-                  backgroundColor: selectedDurum === tab.key ? tab.color : colors.neutral[50],
-                  borderColor: selectedDurum === tab.key ? tab.color : colors.neutral[200],
-                  borderWidth: selectedDurum === tab.key ? 2 : 1,
-                }
-              ]}
-              onPress={() => {
-                setSelectedDurum(tab.key as RandevuDurum);
-                fetchRandevular(tab.key as RandevuDurum);
-              }}
-            >
-              <View style={styles.tabContent}>
-                <MaterialCommunityIcons
-                  name={tab.icon as any}
-                  size={20}
-                  color={selectedDurum === tab.key ? colors.text.inverse : colors.text.primary}
-                />
-                <Text style={[
-                  styles.tabText,
-                  { color: selectedDurum === tab.key ? colors.text.inverse : colors.text.primary }
-                ]}>
-                  {tab.label}
-                </Text>
-                {counts[tab.key as RandevuDurum] > 0 && (
-                  <View style={[
-                    styles.tabBadge,
-                    { backgroundColor: selectedDurum === tab.key ? colors.text.inverse : colors.error.main }
-                  ]}>
-                    <Text style={[
-                      styles.tabBadgeText,
-                      { color: selectedDurum === tab.key ? tab.color : colors.text.inverse }
-                    ]}>
-                      {counts[tab.key as RandevuDurum]}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+      {/* Status Filter */}
+      {renderStatusFilter()}
+
+      {/* Quick Actions */}
+      <View style={styles.quickActions}>
+        <TouchableOpacity style={styles.actionButton}>
+          <Ionicons name="add-circle" size={24} color={COLORS.primary} />
+          <Text style={styles.actionButtonText}>Yeni</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionButton}>
+          <Ionicons name="calendar-outline" size={24} color={COLORS.secondary} />
+          <Text style={styles.actionButtonText}>Planlandı</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionButton}>
+          <Ionicons name="construct-outline" size={24} color={COLORS.secondary} />
+          <Text style={styles.actionButtonText}>Seç</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Content */}
-      <View style={styles.content}>
-        {error ? (
-          <View style={styles.errorContainer}>
-            <View style={[styles.errorIconContainer, { backgroundColor: colors.error.ultraLight }]}>
-              <MaterialCommunityIcons name="alert-circle" size={48} color={colors.error.main} />
-            </View>
-            <Text style={[styles.errorTitle, { color: colors.text.primary }]}>Bir Hata Oluştu</Text>
-            <Text style={[styles.errorText, { color: colors.text.secondary }]}>{error}</Text>
-            <TouchableOpacity
-              style={[styles.retryButton, { backgroundColor: colors.primary.main }]}
-              onPress={() => fetchRandevular(selectedDurum)}
-            >
-              <MaterialCommunityIcons name="refresh" size={20} color={colors.text.inverse} />
-              <Text style={[styles.retryButtonText, { color: colors.text.inverse }]}>Tekrar Dene</Text>
-            </TouchableOpacity>
-          </View>
-        ) : filteredRandevular.length === 0 ? (
+      {/* Appointments List */}
+      <FlatList
+        data={filteredAppointments}
+        renderItem={renderAppointmentCard}
+        keyExtractor={(item) => item._id}
+        contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[COLORS.primary]}
+            tintColor={COLORS.primary}
+          />
+        }
+        ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <View style={[styles.emptyIconContainer, { backgroundColor: colors.neutral[50] }]}>
-              <MaterialCommunityIcons 
-                name={search ? "magnify" : "calendar-blank"} 
-                size={64} 
-                color={colors.text.secondary} 
-              />
-            </View>
-            <Text style={[styles.emptyTitle, { color: colors.text.primary }]}>
-              {search ? 'Arama sonucu bulunamadı' : 'Bu kategoride randevu yok'}
+            <Ionicons name="calendar-outline" size={64} color={COLORS.text.tertiary} />
+            <Text style={styles.emptyTitle}>Randevu bulunamadı</Text>
+            <Text style={styles.emptySubtitle}>
+              {searchQuery ? 'Arama kriterlerinize uygun randevu bulunamadı' : 'Henüz randevu kaydı bulunmuyor'}
             </Text>
-            <Text style={[styles.emptySubtitle, { color: colors.text.secondary }]}>
-              {search ? 'Farklı anahtar kelimeler deneyin' : 'Yeni randevular geldiğinde burada görünecek'}
-            </Text>
-            {search && (
-              <TouchableOpacity
-                style={[styles.clearSearchButton, { backgroundColor: colors.neutral[100] }]}
-                onPress={() => setSearch('')}
-              >
-                <Text style={[styles.clearSearchText, { color: colors.text.primary }]}>Aramayı Temizle</Text>
-              </TouchableOpacity>
-            )}
           </View>
-        ) : (
-          <ScrollView
-            style={styles.scrollView}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                colors={[colors.primary.main]}
-                tintColor={colors.primary.main}
-              />
-            }
-            showsVerticalScrollIndicator={false}
-          >
-            {filteredRandevular.map(renderRandevuCard)}
-          </ScrollView>
-        )}
-      </View>
-
-      {/* Price Increase Modal */}
-      <Modal
-        visible={showPriceModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={closePriceModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.background.primary }]}>
-            {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
-                Fiyat Artırma
-              </Text>
-              <TouchableOpacity onPress={closePriceModal} style={styles.modalCloseButton}>
-                <MaterialCommunityIcons name="close" size={24} color={colors.text.secondary} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Current Price */}
-            {selectedAppointment && (
-              <View style={[styles.currentPriceCard, { backgroundColor: colors.background.card }]}>
-                <MaterialCommunityIcons name="currency-try" size={20} color={colors.primary.main} />
-                <Text style={[styles.currentPriceText, { color: colors.text.primary }]}>
-                  Mevcut Fiyat: {selectedAppointment.price && selectedAppointment.price > 0 
-                    ? new Intl.NumberFormat('tr-TR', {
-                        style: 'currency',
-                        currency: 'TRY',
-                      }).format(Number(selectedAppointment.price))
-                    : 'Fiyat Belirtilmemiş'
-                  }
-                </Text>
-              </View>
-            )}
-
-            {/* Additional Amount */}
-            <View style={styles.modalSection}>
-              <Text style={[styles.modalSectionTitle, { color: colors.text.primary }]}>
-                Ek Tutar (TL)
-              </Text>
-              <TextInput
-                style={[styles.modalInput, { 
-                  backgroundColor: colors.background.card,
-                  color: colors.text.primary,
-                  borderColor: colors.border.primary
-                }]}
-                placeholder="Ek tutarı giriniz..."
-                placeholderTextColor={colors.text.secondary}
-                value={additionalAmount}
-                onChangeText={setAdditionalAmount}
-                keyboardType="numeric"
-                maxLength={10}
-              />
-            </View>
-
-            {/* Reason Selection */}
-            <View style={styles.modalSection}>
-              <Text style={[styles.modalSectionTitle, { color: colors.text.primary }]}>
-                Fiyat Artırma Sebebi
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.reasonScroll}>
-                {predefinedReasons.map((reason) => (
-                  <TouchableOpacity
-                    key={reason.id}
-                    style={[
-                      styles.reasonChip,
-                      { backgroundColor: colors.background.card },
-                      selectedReason === reason.id && {
-                        backgroundColor: reason.color,
-                        borderColor: reason.color
-                      }
-                    ]}
-                    onPress={() => setSelectedReason(reason.id)}
-                  >
-                    <MaterialCommunityIcons
-                      name={reason.icon as any}
-                      size={16}
-                      color={selectedReason === reason.id ? '#FFFFFF' : reason.color}
-                    />
-                    <Text style={[
-                      styles.reasonChipText,
-                      { color: selectedReason === reason.id ? '#FFFFFF' : colors.text.primary }
-                    ]}>
-                      {reason.title}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-
-            {/* Custom Reason */}
-            {selectedReason === 'custom' && (
-              <View style={styles.modalSection}>
-                <Text style={[styles.modalSectionTitle, { color: colors.text.primary }]}>
-                  Özel Sebep
-                </Text>
-                <TextInput
-                  style={[styles.modalTextArea, { 
-                    backgroundColor: colors.background.card,
-                    color: colors.text.primary,
-                    borderColor: colors.border.primary
-                  }]}
-                  placeholder="Fiyat artırma sebebini açıklayın..."
-                  placeholderTextColor={colors.text.secondary}
-                  value={customReason}
-                  onChangeText={setCustomReason}
-                  multiline
-                  numberOfLines={2}
-                  textAlignVertical="top"
-                />
-              </View>
-            )}
-
-            {/* Summary */}
-            {additionalAmount && parseFloat(additionalAmount) > 0 && selectedAppointment && (
-              <View style={[styles.priceSummary, { backgroundColor: colors.background.card }]}>
-                <Text style={[styles.summaryTitle, { color: colors.text.primary }]}>Özet</Text>
-                <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>Mevcut:</Text>
-                  <Text style={[styles.summaryValue, { color: colors.text.primary }]}>
-                    {selectedAppointment.price && selectedAppointment.price > 0 
-                      ? new Intl.NumberFormat('tr-TR', {
-                          style: 'currency',
-                          currency: 'TRY',
-                        }).format(Number(selectedAppointment.price))
-                      : 'Fiyat Belirtilmemiş'
-                    }
-                  </Text>
-                </View>
-                <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>Ek Tutar:</Text>
-                  <Text style={[styles.summaryValue, { color: colors.success.main }]}>
-                    +{new Intl.NumberFormat('tr-TR', {
-                      style: 'currency',
-                      currency: 'TRY',
-                    }).format(parseFloat(additionalAmount))}
-                  </Text>
-                </View>
-                <View style={[styles.summaryRow, styles.summaryTotal]}>
-                  <Text style={[styles.summaryLabel, { color: colors.text.primary, fontWeight: 'bold' }]}>Yeni Toplam:</Text>
-                  <Text style={[styles.summaryValue, { color: colors.primary.main, fontWeight: 'bold' }]}>
-                    {new Intl.NumberFormat('tr-TR', {
-                      style: 'currency',
-                      currency: 'TRY',
-                    }).format((selectedAppointment.price || 0) + parseFloat(additionalAmount || '0'))}
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            {/* Action Buttons */}
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton, { backgroundColor: '#F3F4F6' }]}
-                onPress={closePriceModal}
-              >
-                <Text style={[styles.modalButtonText, { color: '#374151' }]}>İptal</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.modalButton, 
-                  styles.confirmButton, 
-                  { backgroundColor: additionalAmount && parseFloat(additionalAmount) > 0 && selectedReason && (selectedReason !== 'custom' || customReason.trim()) ? '#10B981' : '#D1D5DB' }
-                ]}
-                onPress={handlePriceIncrease}
-                disabled={priceModalLoading || !additionalAmount || parseFloat(additionalAmount) <= 0 || !selectedReason || (selectedReason === 'custom' && !customReason.trim())}
-              >
-                <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>
-                  {priceModalLoading ? 'Gönderiliyor...' : 'Fiyatı Artır'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        }
+      />
     </SafeAreaView>
   );
 };
@@ -939,531 +377,246 @@ const AppointmentsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: COLORS.background,
   },
   header: {
-    paddingHorizontal: themeDimensions.screenPadding,
-    paddingVertical: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: themeColors.border.primary,
-  },
-  headerContent: {
-    gap: spacing.lg,
-  },
-  headerTop: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  title: {
-    fontSize: typography.h2.fontSize,
-    fontWeight: '700',
-    flex: 1,
-    textAlign: 'center',
-  },
-  filterButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  statCard: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.md,
-    borderRadius: br.lg,
-    borderWidth: 1,
-    ...shadows.small,
-  },
-  statIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  statNumber: {
-    fontSize: typography.h4.fontSize,
-    fontWeight: '700',
-    marginBottom: spacing.xs,
-  },
-  statLabel: {
-    fontSize: typography.caption.large.fontSize,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  searchContainer: {
-    paddingHorizontal: themeDimensions.screenPadding,
-    paddingVertical: spacing.lg,
-  },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    borderRadius: br.lg,
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  backButton: {
+    padding: spacing.sm,
+  },
+  headerTitle: {
+    fontSize: typography.h3.fontSize,
+    fontWeight: typography.h3.fontWeight,
+    color: COLORS.text.primary,
+  },
+  filterButton: {
+    padding: spacing.sm,
+  },
+  searchContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: COLORS.surface,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderWidth: 1,
-    gap: spacing.md,
-    ...shadows.small,
+    borderColor: COLORS.border,
   },
   searchInput: {
     flex: 1,
-    fontSize: typography.body1.fontSize,
+    marginLeft: spacing.sm,
+    fontSize: typography.body.fontSize,
+    color: COLORS.text.primary,
   },
-  tabsContainer: {
-    paddingVertical: spacing.lg,
+  statusFilter: {
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
-  tabsContent: {
-    paddingHorizontal: themeDimensions.screenPadding,
-    gap: spacing.md,
-  },
-  tab: {
+  statusFilterContent: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    borderRadius: 20,
-    marginRight: spacing.md,
-    ...shadows.small,
   },
-  tabContent: {
+  statusButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-  },
-  tabText: {
-    fontSize: typography.body3.fontSize,
-    fontWeight: '600',
-  },
-  tabBadge: {
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-  },
-  tabBadgeText: {
-    fontSize: typography.caption.large.fontSize,
-    fontWeight: '600',
-  },
-  content: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-    paddingBottom: 20,
-  },
-  // Modern Card Styles
-  modernCard: {
-    marginHorizontal: themeDimensions.screenPadding,
-    marginVertical: spacing.sm,
-    borderRadius: br.xl,
-    borderWidth: 1,
-    ...shadows.medium,
-    overflow: 'hidden',
-  },
-  modernCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: themeDimensions.screenPadding,
-    paddingVertical: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: themeColors.border.primary,
-  },
-  customerSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  avatarContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  customerDetails: {
-    flex: 1,
-  },
-  modernCustomerName: {
-    fontSize: typography.h4.fontSize,
-    fontWeight: '700',
-    marginBottom: spacing.xs,
-  },
-  modernCustomerPhone: {
-    fontSize: typography.body3.fontSize,
-    fontWeight: '500',
-  },
-  modernStatusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    borderRadius: borderRadius.full,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 20,
-    gap: spacing.sm,
-    ...shadows.small,
+    marginRight: spacing.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  modernStatusText: {
-    fontSize: typography.caption.large.fontSize,
-    fontWeight: '700',
-    textTransform: 'uppercase',
+  statusButtonActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
-  infoSection: {
-    paddingHorizontal: themeDimensions.screenPadding,
-    paddingVertical: spacing.lg,
+  statusButtonText: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: '500',
+    color: COLORS.text.secondary,
+    marginRight: spacing.xs,
   },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: spacing.lg,
+  statusButtonTextActive: {
+    color: COLORS.surface,
   },
-  infoIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F8FAFC',
-    justifyContent: 'center',
+  statusCount: {
+    backgroundColor: COLORS.text.tertiary,
+    borderRadius: borderRadius.full,
+    minWidth: 20,
+    height: 20,
     alignItems: 'center',
-    marginRight: 12,
+    justifyContent: 'center',
   },
-  infoContent: {
+  statusCountActive: {
+    backgroundColor: COLORS.surface,
+  },
+  statusCountText: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: '600',
+    color: COLORS.surface,
+  },
+  statusCountTextActive: {
+    color: COLORS.primary,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.background,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    marginHorizontal: spacing.xs,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  actionButtonText: {
+    fontSize: typography.body.fontSize,
+    fontWeight: '500',
+    color: COLORS.text.secondary,
+    marginLeft: spacing.xs,
+  },
+  listContainer: {
+    padding: spacing.lg,
+  },
+  appointmentCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...shadows.sm,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
+  },
+  customerInfo: {
     flex: 1,
   },
-  infoLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
+  customerName: {
+    fontSize: typography.h4.fontSize,
+    fontWeight: typography.h4.fontWeight,
+    color: COLORS.text.primary,
+    marginBottom: spacing.xs,
   },
-  infoValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
+  customerPhone: {
+    fontSize: typography.body.fontSize,
+    color: COLORS.text.secondary,
   },
-  infoSubValue: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  descriptionSection: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-  },
-  descriptionHeader: {
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
   },
-  descriptionLabel: {
-    fontSize: 12,
+  statusText: {
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginLeft: 6,
+    marginLeft: spacing.xs,
   },
-  modernDescriptionText: {
-    fontSize: 14,
-    lineHeight: 20,
+  vehicleInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  vehicleDetails: {
+    marginLeft: spacing.sm,
+  },
+  vehicleText: {
+    fontSize: typography.body.fontSize,
     fontWeight: '500',
+    color: COLORS.text.primary,
   },
-  priceSection: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    backgroundColor: '#F8FAFC',
+  plateText: {
+    fontSize: typography.caption.fontSize,
+    color: COLORS.text.secondary,
+  },
+  serviceInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  serviceText: {
+    fontSize: typography.body.fontSize,
+    color: COLORS.text.secondary,
+    marginLeft: spacing.sm,
+  },
+  dateTimeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  dateTimeText: {
+    fontSize: typography.body.fontSize,
+    color: COLORS.text.secondary,
+    marginLeft: spacing.sm,
   },
   priceInfo: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  priceDetails: {
-    marginLeft: 12,
-  },
-  priceLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  modernPriceText: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  modernActions: {
-    flexDirection: 'row',
-    paddingHorizontal: themeDimensions.screenPadding,
-    paddingVertical: spacing.lg,
-    gap: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: themeColors.border.primary,
-  },
-  modernActionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: br.lg,
-    gap: spacing.sm,
-    minHeight: 48,
-    ...shadows.button,
-  },
-  acceptAction: {
-    backgroundColor: '#10B981',
-  },
-  rejectAction: {
-    backgroundColor: '#EF4444',
-  },
-  startAction: {
-    backgroundColor: '#3B82F6',
-  },
-  completeAction: {
-    backgroundColor: '#10B981',
-  },
-  priceAction: {
-    backgroundColor: '#F59E0B',
-  },
-  finalizeAction: {
-    backgroundColor: '#10B981',
-  },
-  cancelAction: {
-    backgroundColor: '#EF4444',
-  },
-  modernActionText: {
-    fontSize: typography.body3.fontSize,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 40,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  modalCloseButton: {
-    padding: 4,
-  },
-  currentPriceCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  currentPriceText: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalSection: {
-    marginBottom: 20,
-  },
-  modalSectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  modalInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  modalTextArea: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    minHeight: 60,
-  },
-  reasonScroll: {
-    marginHorizontal: -20,
-    paddingHorizontal: 20,
-  },
-  reasonChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    marginRight: 8,
-  },
-  reasonChipText: {
-    marginLeft: 6,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  priceSummary: {
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginBottom: 20,
-  },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  summaryTotal: {
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    paddingTop: 8,
-    marginTop: 8,
-  },
-  summaryLabel: {
-    fontSize: 14,
-  },
-  summaryValue: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    // backgroundColor set dynamically
-  },
-  confirmButton: {
-    // backgroundColor set dynamically
-  },
-  modalButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+  priceText: {
+    fontSize: typography.h4.fontSize,
+    fontWeight: typography.h4.fontWeight,
+    color: COLORS.success,
+    marginLeft: spacing.sm,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 16,
   },
   loadingText: {
-    fontSize: 16,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-    gap: 20,
-  },
-  errorIconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  retryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  retryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.body.fontSize,
+    color: COLORS.text.secondary,
+    marginTop: spacing.md,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
-    gap: 20,
-  },
-  emptyIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingVertical: spacing.xxl,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    textAlign: 'center',
+    fontSize: typography.h4.fontSize,
+    fontWeight: typography.h4.fontWeight,
+    color: COLORS.text.primary,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
   },
   emptySubtitle: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
+    color: COLORS.text.secondary,
     textAlign: 'center',
-    lineHeight: 22,
-  },
-  clearSearchButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 20,
-    marginTop: 8,
-  },
-  clearSearchText: {
-    fontSize: 14,
-    fontWeight: '600',
+    paddingHorizontal: spacing.lg,
   },
 });
 

@@ -208,15 +208,21 @@ io.use((socket, next) => {
   }
 });
 
-// Socket.IO hata yönetimi (sadece gerçek hatalarda)
+// Socket.IO hata yönetimi
 io.engine.on('connection_error', (err) => {
-  });
+  if (process.env.NODE_ENV === 'development') {
+    Logger.warn('Socket.IO connection error:', err.message);
+  }
+});
 
 // Kullanıcı bağlantısı ve oda mantığı
 io.on('connection', (socket: Socket) => {
   // Bağlantı hatası
   socket.on('error', (error: any) => {
-    });
+    if (process.env.NODE_ENV === 'development') {
+      Logger.warn('Socket error:', error.message || error);
+    }
+  });
   
   // Bağlanırken kendi odasına otomatik katıl
   try {
