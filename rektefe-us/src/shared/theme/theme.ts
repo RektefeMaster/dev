@@ -175,6 +175,7 @@ export const createTheme = (isDark: boolean = false) => {
       input: 12,
       modal: 20,
       avatar: 25,
+      full: 9999,
     },
 
     // iOS tarzında tipografi
@@ -299,6 +300,7 @@ export const createTheme = (isDark: boolean = false) => {
       
       // Caption metinleri
       caption: {
+        fontSize: 12,
         large: {
           fontSize: 12,
           fontWeight: '400' as const,
@@ -344,6 +346,13 @@ export const createTheme = (isDark: boolean = false) => {
     // Gölgeler
     shadows: {
       // Hafif gölgeler
+      sm: {
+        shadowColor: isDark ? themeColors.shadow : '#000000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: isDark ? 0.2 : 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+      },
       small: {
         shadowColor: isDark ? themeColors.shadow : '#000000',
         shadowOffset: { width: 0, height: 1 },
