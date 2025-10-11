@@ -65,6 +65,7 @@ import reportsRoutes from './routes/reports';
 import loyalCustomersRoutes from './routes/loyalCustomers';
 import vehicleHistoryRoutes from './routes/vehicleHistory';
 import jobReferralsRoutes from './routes/jobReferrals';
+import adminRoutes from './routes/admin';
 import mechanicReportsRoutes from './routes/mechanicReports';
 
 // .env dosyasını yükle
@@ -359,6 +360,7 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/loyal-customers', loyalCustomersRoutes);
 app.use('/api/vehicle-history', vehicleHistoryRoutes);
 app.use('/api/job-referrals', jobReferralsRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 

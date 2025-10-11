@@ -272,8 +272,8 @@ const CustomTabBar = ({ state, descriptors, navigation }: TabBarProps) => {
     
     switch (route.name) {
       case 'Home':
-        icon = 'home';
-        label = 'Ana Sayfa';
+        icon = 'construct';
+        label = 'Tamir';
         break;
       case 'TowingService':
         icon = 'car';
@@ -441,26 +441,48 @@ const TabNavigator = () => {
 
   // Debug: Kullanıcının hizmet kategorilerini logla
   useEffect(() => {
+    console.log('='.repeat(60));
     console.log('🔍 TabNavigator Debug:');
-    console.log('User:', user?.email);
-    console.log('ServiceCategories:', userCapabilities);
-  }, [userCapabilities, user?.email]);
+    console.log('User Email:', user?.email);
+    console.log('User Object:', JSON.stringify(user, null, 2));
+    console.log('ServiceCategories:', JSON.stringify(userCapabilities));
+    console.log('ServiceCategories Type:', typeof userCapabilities);
+    console.log('ServiceCategories Length:', userCapabilities.length);
+    console.log('Is Array:', Array.isArray(userCapabilities));
+    
+    // Test edilecek kontroller
+    console.log('\n🔎 Kontroller:');
+    console.log('includes("repair"):', userCapabilities.includes('repair'));
+    console.log('includes("towing"):', userCapabilities.includes('towing'));
+    console.log('includes("wash"):', userCapabilities.includes('wash'));
+    console.log('includes("tire"):', userCapabilities.includes('tire'));
+    console.log('includes("tamir-bakim"):', userCapabilities.includes('tamir-bakim'));
+    console.log('includes("cekici"):', userCapabilities.includes('cekici'));
+    console.log('='.repeat(60));
+  }, [userCapabilities, user?.email, user]);
 
   // Ana hizmeti belirle (öncelik sırasına göre)
   const getPrimaryService = () => {
-    // Tamir & Bakım için varsayılan Home ekranını kullan
-    if (userCapabilities.includes('tamir-bakim') || userCapabilities.includes('repair') || userCapabilities.includes('Genel Bakım')) {
+    console.log('🎯 getPrimaryService - userCapabilities:', userCapabilities);
+    
+    // Backend'den gelen format: ["tamir-bakim", "arac-yikama", "lastik", "cekici"]
+    if (userCapabilities.includes('tamir-bakim')) {
+      console.log('✅ Primary Service: Home (Tamir)');
       return 'Home';
     }
-    if (userCapabilities.includes('cekici') || userCapabilities.includes('towing') || userCapabilities.includes('Çekici Hizmeti')) {
+    if (userCapabilities.includes('cekici')) {
+      console.log('✅ Primary Service: TowingService');
       return 'TowingService';
     }
-    if (userCapabilities.includes('arac-yikama') || userCapabilities.includes('wash') || userCapabilities.includes('Yıkama Hizmeti')) {
+    if (userCapabilities.includes('arac-yikama')) {
+      console.log('✅ Primary Service: CarWash');
       return 'CarWash';
     }
-    if (userCapabilities.includes('lastik') || userCapabilities.includes('tire') || userCapabilities.includes('Lastik & Parça')) {
+    if (userCapabilities.includes('lastik')) {
+      console.log('✅ Primary Service: TireService');
       return 'TireService';
     }
+    console.log('⚠️ Default Service: Home');
     return 'Home';
   };
 
@@ -478,7 +500,7 @@ const TabNavigator = () => {
         initialRouteName={primaryService}
       >
       {/* Ana Sayfa - Tamir & Bakım kategorisi için */}
-      {(userCapabilities.includes('tamir-bakim') || userCapabilities.includes('repair') || userCapabilities.includes('Genel Bakım')) && (
+      {userCapabilities.includes('tamir-bakim') && (
         <Tab.Screen 
           name="Home" 
           component={HomeScreen}
@@ -492,7 +514,7 @@ const TabNavigator = () => {
       )}
 
       {/* Çekici Hizmeti */}
-      {(userCapabilities.includes('cekici') || userCapabilities.includes('towing')) && (
+      {userCapabilities.includes('cekici') && (
         <Tab.Screen 
           name="TowingService" 
           component={require('../features/services/screens/TowingServiceScreen').default}
@@ -506,7 +528,7 @@ const TabNavigator = () => {
       )}
 
       {/* Lastik Hizmeti */}
-      {(userCapabilities.includes('lastik') || userCapabilities.includes('tire')) && (
+      {userCapabilities.includes('lastik') && (
         <Tab.Screen 
           name="TireService" 
           component={require('../features/services/screens/TireServiceScreen').default}
@@ -520,7 +542,7 @@ const TabNavigator = () => {
       )}
 
       {/* Araç Yıkama Hizmeti */}
-      {(userCapabilities.includes('arac-yikama') || userCapabilities.includes('car-wash') || userCapabilities.includes('wash')) && (
+      {userCapabilities.includes('arac-yikama') && (
         <Tab.Screen
           name="CarWash"
           component={require('../features/carwash/screens/CarWashScreen').default}
@@ -528,20 +550,6 @@ const TabNavigator = () => {
             title: 'Yıkama',
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="water" size={size} color={color} />
-            ),
-          }}
-        />
-      )}
-
-      {/* Kaporta Hizmeti */}
-      {(userCapabilities.includes('kaporta') || userCapabilities.includes('kaporta-boya') || userCapabilities.includes('bodywork')) && (
-        <Tab.Screen 
-          name="Bodywork" 
-          component={require('../features/bodywork/screens/BodyworkScreen').default}
-          options={{
-            title: 'Kaporta',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="construct" size={size} color={color} />
             ),
           }}
         />

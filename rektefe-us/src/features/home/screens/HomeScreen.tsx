@@ -651,16 +651,28 @@ const mechanicCapabilities = [
   const getPrimaryServiceText = useMemo(() => {
     const userCapabilities = user?.serviceCategories || [];
     
+    console.log('🔍 HomeScreen getPrimaryServiceText Debug:');
+    console.log('User serviceCategories:', userCapabilities);
+    
     // Öncelik sırası: repair > towing > wash > tire
-    if (userCapabilities.includes('repair') || userCapabilities.includes('Genel Bakım')) {
-      return 'Randevular';
-    } else if (userCapabilities.includes('towing') || userCapabilities.includes('Çekici Hizmeti')) {
+    // Backend'den gelen format: 'repair', 'towing', 'wash', 'tire', 'bodywork'
+    if (userCapabilities.includes('repair') || userCapabilities.includes('tamir-bakim') || userCapabilities.includes('Genel Bakım')) {
+      console.log('✅ Hizmet: Tamir & Bakım Randevuları');
+      return 'Tamir & Bakım Randevuları';
+    } else if (userCapabilities.includes('towing') || userCapabilities.includes('cekici') || userCapabilities.includes('Çekici Hizmeti')) {
+      console.log('✅ Hizmet: Çekici İşleri');
       return 'Çekici İşleri';
-    } else if (userCapabilities.includes('wash') || userCapabilities.includes('Yıkama Hizmeti')) {
+    } else if (userCapabilities.includes('wash') || userCapabilities.includes('arac-yikama') || userCapabilities.includes('Yıkama Hizmeti')) {
+      console.log('✅ Hizmet: Yıkama İşleri');
       return 'Yıkama İşleri';
-    } else if (userCapabilities.includes('tire') || userCapabilities.includes('Lastik & Parça')) {
+    } else if (userCapabilities.includes('tire') || userCapabilities.includes('lastik') || userCapabilities.includes('Lastik & Parça')) {
+      console.log('✅ Hizmet: Lastik İşleri');
       return 'Lastik İşleri';
+    } else if (userCapabilities.includes('bodywork') || userCapabilities.includes('kaporta')) {
+      console.log('✅ Hizmet: Kaporta İşleri');
+      return 'Kaporta İşleri';
     } else {
+      console.log('⚠️ Varsayılan: Randevular');
       return 'Randevular';
     }
   }, [user?.serviceCategories]);
@@ -669,15 +681,18 @@ const mechanicCapabilities = [
     // Kullanıcının hizmet kategorisine göre öncelik sırasına göre yönlendir
     const userCapabilities = user?.serviceCategories || [];
     
-    // Öncelik sırası: repair > towing > wash > tire
-    if (userCapabilities.includes('repair') || userCapabilities.includes('Genel Bakım')) {
+    // Öncelik sırası: repair > towing > wash > tire > bodywork
+    // Backend'den gelen format: 'repair', 'towing', 'wash', 'tire', 'bodywork'
+    if (userCapabilities.includes('repair') || userCapabilities.includes('tamir-bakim') || userCapabilities.includes('Genel Bakım')) {
       navigation.navigate('Appointments');
-    } else if (userCapabilities.includes('towing') || userCapabilities.includes('Çekici Hizmeti')) {
+    } else if (userCapabilities.includes('towing') || userCapabilities.includes('cekici') || userCapabilities.includes('Çekici Hizmeti')) {
       navigation.navigate('TowingService');
-    } else if (userCapabilities.includes('wash') || userCapabilities.includes('Yıkama Hizmeti')) {
-      navigation.navigate('WashService');
-    } else if (userCapabilities.includes('tire') || userCapabilities.includes('Lastik & Parça')) {
+    } else if (userCapabilities.includes('wash') || userCapabilities.includes('arac-yikama') || userCapabilities.includes('Yıkama Hizmeti')) {
+      navigation.navigate('CarWash');
+    } else if (userCapabilities.includes('tire') || userCapabilities.includes('lastik') || userCapabilities.includes('Lastik & Parça')) {
       navigation.navigate('TireService');
+    } else if (userCapabilities.includes('bodywork') || userCapabilities.includes('kaporta')) {
+      navigation.navigate('Bodywork');
     } else {
       navigation.navigate('Appointments');
     }
