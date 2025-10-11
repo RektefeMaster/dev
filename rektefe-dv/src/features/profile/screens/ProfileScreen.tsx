@@ -139,175 +139,213 @@ const ProfileScreen = () => {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f7f7f7' }}>
-      {/* Dalgalı SVG Gradient Header */}
-      <View style={{ position: 'relative', backgroundColor: 'transparent' }}>
-        <LinearGradient colors={["#5AC8FA", "#007AFF"]} style={styles.headerGradient}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={26} color="#222" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Profilim</Text>
-          <TouchableOpacity style={styles.editIconBtn} onPress={() => setEditModal(true)}>
-            <Feather name="settings" size={22} color="#222" />
-          </TouchableOpacity>
-        </LinearGradient>
-        {/* Dalgalı SVG */}
-        <Svg height="60" width="100%" viewBox="0 0 400 60" style={styles.headerWave}>
-          <Path
-            d="M0,30 Q100,60 200,30 T400,30 V60 H0 Z"
-            fill="#f7f7f7"
-            opacity={0.98}
-          />
-        </Svg>
-        {/* Parlayan, drop-shadow'lu profil fotoğrafı */}
-        <View style={styles.avatarWrap}>
-          <Animated.View style={{ transform: [{ scale: avatarScale }] }}>
-            <LinearGradient colors={["#fffbe6", "#FFD700", "#5AC8FA"]} style={styles.avatarGlow}>
+    <View style={styles.container}>
+      {/* Modern Header */}
+      <View style={styles.headerContainer}>
+        <LinearGradient colors={[themeColors.primary.main, themeColors.primary.dark]} style={styles.headerGradient}>
+          <View style={styles.headerTop}>
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+              <Ionicons name="arrow-back" size={24} color={themeColors.background.primary} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Profilim</Text>
+            <TouchableOpacity style={styles.editIconBtn} onPress={() => setEditModal(true)}>
+              <Feather name="edit-3" size={20} color={themeColors.background.primary} />
+            </TouchableOpacity>
+          </View>
+          
+          {/* Profile Avatar Section */}
+          <View style={styles.profileSection}>
+            <Animated.View style={{ transform: [{ scale: avatarScale }] }}>
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPressIn={() => Animated.spring(avatarScale, { toValue: 0.95, useNativeDriver: true }).start()}
                 onPressOut={() => Animated.spring(avatarScale, { toValue: 1, useNativeDriver: true }).start()}
-                style={styles.avatarTouch}
+                style={styles.avatarContainer}
               >
-                <Image source={user?.avatar ? { uri: user.avatar } : defaultAvatar} style={styles.avatarBig} />
+                <Image source={user?.avatar ? { uri: user.avatar } : defaultAvatar} style={styles.avatar} />
+                <View style={styles.avatarEditBadge}>
+                  <Feather name="camera" size={12} color={themeColors.background.primary} />
+                </View>
               </TouchableOpacity>
-            </LinearGradient>
-          </Animated.View>
-        </View>
+            </Animated.View>
+            
+            <View style={styles.profileInfo}>
+              <Text style={styles.userName}>{user?.name} {user?.surname}</Text>
+              <Text style={styles.userRole}>{user?.userType === 'driver' ? 'Şöför' : 'Usta'}</Text>
+              <View style={styles.verificationBadge}>
+                <MaterialCommunityIcons name="check-decagram" size={16} color={themeColors.success.main} />
+                <Text style={styles.verificationText}>Doğrulanmış Hesap</Text>
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
       </View>
-      <ScrollView contentContainerStyle={{ paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
-        {/* Kullanıcı kartı ve hoş geldin mesajı */}
-        <View style={styles.userCard}>
-          <Text style={[
-            styles.welcomeText,
-            {
-              fontSize: (() => {
-                const text = `Hoş geldin, ${user?.name} ${user?.surname}!`;
-                if (text.length > 30) return 16;
-                if (text.length > 25) return 18;
-                return 20;
-              })()
-            }
-          ]}>
-            Hoş geldin, <Text style={{ color: '#007AFF', fontWeight: 'bold' }}>{user?.name} {user?.surname}</Text>!
-          </Text>
-          {/* Profil tamamlama progress barı */}
-          <View style={styles.progressBarWrap}>
-            <View style={styles.progressBarBg}>
-              <View style={[styles.progressBarFill, { width: `${profileCompletion * 100}%` }]} />
-            </View>
-            <Text style={styles.progressText}>{Math.round(profileCompletion * 100)}% Profil Tamamlandı</Text>
+      <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+        {/* Profile Stats Cards */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <MaterialCommunityIcons name="star" size={24} color={themeColors.accent.main} />
+            <Text style={styles.statNumber}>4.8</Text>
+            <Text style={styles.statLabel}>Değerlendirme</Text>
           </View>
-          {user?.city && <Text style={styles.cityText}>{user.city}</Text>}
-          <Text style={styles.memberText}>Üyelik: {new Date(user?.createdAt).toLocaleDateString('tr-TR')}</Text>
-          {/* Premium/rozet örneği */}
-          {user?.isPremium && (
-            <View style={styles.premiumBadge}>
-              <MaterialCommunityIcons name="crown" size={18} color="#FFD700" />
-              <Text style={styles.premiumText}>Premium</Text>
+          <View style={styles.statCard}>
+            <MaterialCommunityIcons name="calendar-check" size={24} color={themeColors.success.main} />
+            <Text style={styles.statNumber}>127</Text>
+            <Text style={styles.statLabel}>Tamamlanan</Text>
+          </View>
+          <View style={styles.statCard}>
+            <MaterialCommunityIcons name="clock-outline" size={24} color={themeColors.info.main} />
+            <Text style={styles.statNumber}>2</Text>
+            <Text style={styles.statLabel}>Aktif</Text>
+          </View>
+        </View>
+        
+        {/* Profile Completion Card */}
+        <View style={styles.completionCard}>
+          <View style={styles.completionHeader}>
+            <MaterialCommunityIcons name="account-check" size={20} color={themeColors.primary.main} />
+            <Text style={styles.completionTitle}>Profil Tamamlama</Text>
+          </View>
+          <View style={styles.progressContainer}>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: `${profileCompletion * 100}%` }]} />
             </View>
+            <Text style={styles.progressText}>{Math.round(profileCompletion * 100)}% Tamamlandı</Text>
+          </View>
+          {profileCompletion < 1 && (
+            <Text style={styles.completionHint}>Profilinizi tamamlamak için eksik bilgileri doldurun</Text>
           )}
         </View>
-        {/* Bilgi kartları */}
-        <View style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <MaterialCommunityIcons name="email-outline" size={20} color="#007AFF" />
-            <Text style={styles.infoLabel}>E-posta:</Text>
-            {showEmail ? (
-              <Text 
-                style={[
-                  styles.infoValue, 
-                  { 
-                    color: '#23242a', 
-                    fontWeight: 'bold', 
-                    marginLeft: 6,
-                    fontSize: (() => {
-                      const text = user?.email || '';
-                      if (text.length > 25) return 12;
-                      if (text.length > 20) return 14;
-                      return 16;
-                    })()
-                  }
-                ]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {user?.email}
-              </Text>
-            ) : (
-              <Text style={styles.infoValueMuted}>Gizli</Text>
-            )}
+        {/* Contact Information Card */}
+        <View style={styles.contactCard}>
+          <View style={styles.cardHeader}>
+            <MaterialCommunityIcons name="card-account-details" size={20} color={themeColors.primary.main} />
+            <Text style={styles.cardTitle}>İletişim Bilgileri</Text>
           </View>
-          <View style={styles.infoRow}>
-            <Feather name="phone" size={20} color="#007AFF" />
-            <Text style={styles.infoLabel}>Telefon:</Text>
-            {showPhone ? (
-              <Text 
-                style={[
-                  styles.infoValue,
-                  {
-                    fontSize: (() => {
-                      const text = user?.phone || 'Tanımlanmamış';
-                      if (text.length > 15) return 12;
-                      if (text.length > 12) return 14;
-                      return 16;
-                    })()
-                  }
-                ]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {user?.phone || 'Tanımlanmamış'}
-              </Text>
-            ) : (
-              <Text style={styles.infoValueMuted}>Gizli</Text>
-            )}
+          
+          <View style={styles.contactRow}>
+            <View style={styles.contactIcon}>
+              <MaterialCommunityIcons name="email-outline" size={18} color={themeColors.text.secondary} />
+            </View>
+            <View style={styles.contactInfo}>
+              <Text style={styles.contactLabel}>E-posta</Text>
+              {showEmail ? (
+                <Text style={styles.contactValue} numberOfLines={1} ellipsizeMode="tail">
+                  {user?.email}
+                </Text>
+              ) : (
+                <Text style={styles.contactValueHidden}>Gizli</Text>
+              )}
+            </View>
+            <MaterialCommunityIcons name="eye-off" size={16} color={themeColors.text.tertiary} />
           </View>
+          
+          <View style={styles.contactRow}>
+            <View style={styles.contactIcon}>
+              <Feather name="phone" size={18} color={themeColors.text.secondary} />
+            </View>
+            <View style={styles.contactInfo}>
+              <Text style={styles.contactLabel}>Telefon</Text>
+              {showPhone ? (
+                <Text style={styles.contactValue} numberOfLines={1} ellipsizeMode="tail">
+                  {user?.phone || 'Tanımlanmamış'}
+                </Text>
+              ) : (
+                <Text style={styles.contactValueHidden}>Gizli</Text>
+              )}
+            </View>
+            <MaterialCommunityIcons name="eye-off" size={16} color={themeColors.text.tertiary} />
+          </View>
+          
           {user?.city && (
-            <View style={styles.infoRow}>
-              <MaterialCommunityIcons name="map-marker-outline" size={20} color="#007AFF" />
-              <Text style={styles.infoLabel}>Şehir:</Text>
-              <Text 
-                style={[
-                  styles.infoValue,
-                  {
-                    fontSize: (() => {
-                      const text = user.city || '';
-                      if (text.length > 15) return 12;
-                      if (text.length > 12) return 14;
-                      return 16;
-                    })()
-                  }
-                ]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {user.city}
-              </Text>
+            <View style={styles.contactRow}>
+              <View style={styles.contactIcon}>
+                <MaterialCommunityIcons name="map-marker-outline" size={18} color={themeColors.text.secondary} />
+              </View>
+              <View style={styles.contactInfo}>
+                <Text style={styles.contactLabel}>Şehir</Text>
+                <Text style={styles.contactValue}>{user.city}</Text>
+              </View>
+              <MaterialCommunityIcons name="map" size={16} color={themeColors.text.tertiary} />
             </View>
           )}
         </View>
-        {/* Ayarlar ve aksiyonlar */}
-        <View style={styles.settingsCard}>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('ChangePassword' as never)}>
-            <Feather name="lock" size={18} color="#fff" />
-            <Text style={styles.actionBtnText}>Şifre Değiştir</Text>
+        
+        {/* Membership Info Card */}
+        <View style={styles.membershipCard}>
+          <View style={styles.cardHeader}>
+            <MaterialCommunityIcons name="account-clock" size={20} color={themeColors.accent.main} />
+            <Text style={styles.cardTitle}>Üyelik Bilgileri</Text>
+          </View>
+          <View style={styles.membershipContent}>
+            <View style={styles.membershipRow}>
+              <Text style={styles.membershipLabel}>Üyelik Tarihi</Text>
+              <Text style={styles.membershipValue}>{new Date(user?.createdAt).toLocaleDateString('tr-TR')}</Text>
+            </View>
+            <View style={styles.membershipRow}>
+              <Text style={styles.membershipLabel}>Kullanıcı Tipi</Text>
+              <View style={styles.userTypeBadge}>
+                <Text style={styles.userTypeText}>{user?.userType === 'driver' ? 'Şöför' : 'Usta'}</Text>
+              </View>
+            </View>
+            {user?.isPremium && (
+              <View style={styles.premiumBadge}>
+                <MaterialCommunityIcons name="crown" size={18} color={themeColors.accent.main} />
+                <Text style={styles.premiumText}>Premium Üye</Text>
+              </View>
+            )}
+          </View>
+        </View>
+        {/* Quick Actions */}
+        <View style={styles.actionsCard}>
+          <View style={styles.cardHeader}>
+            <MaterialCommunityIcons name="cog-outline" size={20} color={themeColors.primary.main} />
+            <Text style={styles.cardTitle}>Hızlı İşlemler</Text>
+          </View>
+          
+          <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('ChangePassword' as never)}>
+            <View style={styles.actionIcon}>
+              <Feather name="lock" size={18} color={themeColors.warning.main} />
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>Şifre Değiştir</Text>
+              <Text style={styles.actionSubtitle}>Hesap güvenliğinizi artırın</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={themeColors.text.tertiary} />
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#34C759' }]} onPress={() => navigation.navigate('ChangeEmail' as never)}>
-            <Feather name="mail" size={18} color="#fff" />
-            <Text style={styles.actionBtnText}>E-posta Değiştir</Text>
+          
+          <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('ChangeEmail' as never)}>
+            <View style={styles.actionIcon}>
+              <Feather name="mail" size={18} color={themeColors.success.main} />
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>E-posta Değiştir</Text>
+              <Text style={styles.actionSubtitle}>E-posta adresinizi güncelleyin</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={themeColors.text.tertiary} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.actionRow}>
+            <View style={styles.actionIcon}>
+              <MaterialCommunityIcons name="bell-outline" size={18} color={themeColors.info.main} />
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>Bildirim Ayarları</Text>
+              <Text style={styles.actionSubtitle}>Bildirim tercihlerinizi yönetin</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={themeColors.text.tertiary} />
           </TouchableOpacity>
         </View>
         
-        {/* Çıkış Butonu */}
+        {/* Logout Button */}
         <View style={styles.logoutSection}>
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <View style={styles.logoutButtonContent}>
-              <Feather name="log-out" size={20} color="#fff" />
-              <Text style={styles.logoutButtonText}>Güvenli Çıkış</Text>
+            <View style={styles.logoutIcon}>
+              <Feather name="log-out" size={20} color={themeColors.background.primary} />
             </View>
-            <View style={styles.logoutSubtext}>
-              <Text style={styles.logoutSubtextText}>Hesabınızdan güvenli bir şekilde çıkış yapın</Text>
+            <View style={styles.logoutContent}>
+              <Text style={styles.logoutTitle}>Güvenli Çıkış</Text>
+              <Text style={styles.logoutSubtitle}>Hesabınızdan güvenli bir şekilde çıkış yapın</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -514,273 +552,377 @@ const ProfileScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  headerGradient: {
-    height: 220,
-    borderBottomLeftRadius: 60,
-    borderBottomRightRadius: 60,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+  // Container
+  container: {
+    flex: 1,
+    backgroundColor: themeColors.background.primary,
+  },
+  
+  // Header Styles
+  headerContainer: {
     position: 'relative',
-    marginBottom: 60,
   },
-  headerWave: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: -1,
-    zIndex: 2,
+  headerGradient: {
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: spacing.xxl,
   },
-  headerTitle: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-    textShadowColor: 'rgba(0,0,0,0.55)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 6,
-    zIndex: 3,
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 70 : 48,
-    left: 0,
-    right: 0,
-    textAlign: 'center',
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
   },
   backButton: {
-    position: 'absolute',
-    left: 18,
-    top: Platform.OS === 'ios' ? 60 : 40,
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 4,
-    zIndex: 10,
+    ...shadows.small,
+  },
+  headerTitle: {
+    ...typography.h3,
+    color: themeColors.background.primary,
+    fontWeight: typography.fontWeights.bold,
   },
   editIconBtn: {
-    position: 'absolute',
-    right: 18,
-    top: Platform.OS === 'ios' ? 60 : 40,
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 4,
-    zIndex: 10,
+    ...shadows.small,
   },
-  avatarWrap: {
+  
+  // Profile Section
+  profileSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginRight: spacing.lg,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: themeColors.background.primary,
+    ...shadows.medium,
+  },
+  avatarEditBadge: {
     position: 'absolute',
-    left: 0,
+    bottom: 0,
     right: 0,
-    bottom: -55,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: themeColors.primary.main,
     alignItems: 'center',
-    zIndex: 20,
-    height: 120,
-    overflow: 'visible',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: themeColors.background.primary,
   },
-  avatarGlow: {
-    borderRadius: 70,
-    padding: 6,
-    shadowColor: '#FFD700',
-    shadowOpacity: 0.25,
-    shadowRadius: 18,
-    elevation: 12,
+  profileInfo: {
+    flex: 1,
   },
-  avatarTouch: {
-    shadowColor: '#007AFF',
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    elevation: 8,
-    borderRadius: 60,
-  },
-  avatarBig: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-    borderColor: '#fff',
-    backgroundColor: '#fff',
-  },
-  userCard: {
-    alignItems: 'center',
-    marginTop: 120,
-    marginBottom: 18,
-  },
-  welcomeText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#23242a',
+  userName: {
+    ...typography.h4,
+    color: themeColors.background.primary,
+    fontWeight: typography.fontWeights.bold,
     marginBottom: 4,
   },
-  bioText: {
-    fontSize: 15,
-    color: '#888',
-    marginBottom: 6,
+  userRole: {
+    ...typography.body2,
+    color: themeColors.background.primary,
+    opacity: 0.9,
+    marginBottom: spacing.sm,
+  },
+  verificationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.sm,
+    alignSelf: 'flex-start',
+  },
+  verificationText: {
+    ...typography.caption.large,
+    color: themeColors.background.primary,
+    marginLeft: 4,
+    fontWeight: typography.fontWeights.medium,
+  },
+  
+  // Scroll Container
+  scrollContainer: {
+    paddingBottom: spacing.xxl,
+    paddingTop: spacing.lg,
+  },
+  
+  // Stats Container
+  statsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: themeColors.background.card,
+    borderRadius: borderRadius.card,
+    padding: spacing.md,
+    alignItems: 'center',
+    ...shadows.card,
+  },
+  statNumber: {
+    ...typography.h3,
+    color: themeColors.text.primary,
+    fontWeight: typography.fontWeights.bold,
+    marginTop: spacing.sm,
+  },
+  statLabel: {
+    ...typography.caption.large,
+    color: themeColors.text.secondary,
     textAlign: 'center',
+    marginTop: 4,
   },
-  progressBarWrap: {
-    width: '80%',
+  
+  // Completion Card
+  completionCard: {
+    backgroundColor: themeColors.background.card,
+    borderRadius: borderRadius.card,
+    padding: spacing.lg,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    ...shadows.card,
+  },
+  completionHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.md,
   },
-  progressBarBg: {
-    width: '100%',
-    height: 10,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 8,
+  completionTitle: {
+    ...typography.h4,
+    color: themeColors.text.primary,
+    marginLeft: spacing.sm,
+    fontWeight: typography.fontWeights.semibold,
+  },
+  progressContainer: {
+    marginBottom: spacing.sm,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: themeColors.background.secondary,
+    borderRadius: 4,
     overflow: 'hidden',
-    marginBottom: 4,
+    marginBottom: spacing.sm,
   },
-  progressBarFill: {
-    height: 10,
-    backgroundColor: '#5AC8FA',
-    borderRadius: 8,
+  progressFill: {
+    height: '100%',
+    backgroundColor: themeColors.primary.main,
+    borderRadius: 4,
   },
   progressText: {
-    fontSize: 12,
-    color: '#007AFF',
-    fontWeight: 'bold',
+    ...typography.caption.large,
+    color: themeColors.text.secondary,
+    textAlign: 'center',
   },
-  cityText: {
-    fontSize: 15,
-    color: '#007AFF',
+  completionHint: {
+    ...typography.caption.small,
+    color: themeColors.text.tertiary,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  
+  // Contact Card
+  contactCard: {
+    backgroundColor: themeColors.background.card,
+    borderRadius: borderRadius.card,
+    padding: spacing.lg,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    ...shadows.card,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  cardTitle: {
+    ...typography.h4,
+    color: themeColors.text.primary,
+    marginLeft: spacing.sm,
+    fontWeight: typography.fontWeights.semibold,
+  },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: themeColors.border.primary,
+  },
+  contactIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: themeColors.background.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  contactInfo: {
+    flex: 1,
+  },
+  contactLabel: {
+    ...typography.caption.large,
+    color: themeColors.text.secondary,
     marginBottom: 2,
   },
-  memberText: {
-    fontSize: 13,
-    color: '#888',
-    marginBottom: 6,
+  contactValue: {
+    ...typography.body2,
+    color: themeColors.text.primary,
+    fontWeight: typography.fontWeights.medium,
+  },
+  contactValueHidden: {
+    ...typography.body2,
+    color: themeColors.text.tertiary,
+    fontStyle: 'italic',
+  },
+  
+  // Membership Card
+  membershipCard: {
+    backgroundColor: themeColors.background.card,
+    borderRadius: borderRadius.card,
+    padding: spacing.lg,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    ...shadows.card,
+  },
+  membershipContent: {
+    gap: spacing.md,
+  },
+  membershipRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  membershipLabel: {
+    ...typography.body2,
+    color: themeColors.text.secondary,
+  },
+  membershipValue: {
+    ...typography.body2,
+    color: themeColors.text.primary,
+    fontWeight: typography.fontWeights.medium,
+  },
+  userTypeBadge: {
+    backgroundColor: themeColors.primary.ultraLight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.sm,
+  },
+  userTypeText: {
+    ...typography.caption.large,
+    color: themeColors.primary.main,
+    fontWeight: typography.fontWeights.semibold,
   },
   premiumBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fffbe6',
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginTop: 6,
-    shadowColor: '#FFD700',
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 2,
+    backgroundColor: themeColors.accent.ultraLight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.sm,
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
   },
   premiumText: {
-    color: '#FFD700',
-    fontWeight: 'bold',
-    marginLeft: 6,
+    ...typography.caption.large,
+    color: themeColors.accent.main,
+    fontWeight: typography.fontWeights.semibold,
+    marginLeft: spacing.sm,
   },
-  infoCard: {
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    marginHorizontal: 18,
-    padding: 18,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+  
+  // Actions Card
+  actionsCard: {
+    backgroundColor: themeColors.background.card,
+    borderRadius: borderRadius.card,
+    padding: spacing.lg,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    ...shadows.card,
   },
-  infoRow: {
+  actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: themeColors.border.primary,
   },
-  infoLabel: {
-    fontWeight: 'bold',
-    color: '#23242a',
-    marginLeft: 8,
-    marginRight: 4,
-    fontSize: 15,
-    flex: 1,
-  },
-  infoValue: {
-    color: '#23242a',
-    fontSize: 15,
-    flex: 1,
-  },
-  infoValueMuted: {
-    color: '#888',
-    fontSize: 15,
-    fontStyle: 'italic',
-    flex: 1,
-  },
-  settingsCard: {
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    marginHorizontal: 18,
-    padding: 18,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  actionBtn: {
-    flexDirection: 'row',
+  actionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: themeColors.background.secondary,
     alignItems: 'center',
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    marginTop: 12,
     justifyContent: 'center',
-    shadowColor: '#007AFF',
-    shadowOpacity: 0.10,
-    shadowRadius: 6,
-    elevation: 2,
+    marginRight: spacing.md,
   },
-  actionBtnText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginLeft: 8,
+  actionContent: {
+    flex: 1,
   },
+  actionTitle: {
+    ...typography.body2,
+    color: themeColors.text.primary,
+    fontWeight: typography.fontWeights.medium,
+    marginBottom: 2,
+  },
+  actionSubtitle: {
+    ...typography.caption.large,
+    color: themeColors.text.secondary,
+  },
+  
+  // Logout Section
   logoutSection: {
-    marginHorizontal: 18,
-    marginBottom: 24,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xxl,
   },
   logoutButton: {
-    backgroundColor: '#FF3B30',
-    borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    shadowColor: '#FF3B30',
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: '#FF453A',
-  },
-  logoutButtonContent: {
+    backgroundColor: themeColors.error.main,
+    borderRadius: borderRadius.card,
+    padding: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
+    ...shadows.medium,
   },
-  logoutButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 18,
-    marginLeft: 8,
-  },
-  logoutSubtext: {
+  logoutIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
   },
-  logoutSubtextText: {
-    color: '#fff',
-    fontSize: 13,
+  logoutContent: {
+    flex: 1,
+  },
+  logoutTitle: {
+    ...typography.h4,
+    color: themeColors.background.primary,
+    fontWeight: typography.fontWeights.semibold,
+    marginBottom: 2,
+  },
+  logoutSubtitle: {
+    ...typography.caption.large,
+    color: themeColors.background.primary,
     opacity: 0.9,
-    textAlign: 'center',
   },
   // Modal Styles
   modalContainer: {
