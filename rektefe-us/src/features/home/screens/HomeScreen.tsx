@@ -325,12 +325,11 @@ const mechanicCapabilities = [
     return [...capabilityItems, ...workManagementItems, ...financialItems, ...accountItems];
   }, [user?.serviceCategories, navigation]); // Sadece user capabilities değiştiğinde yeniden hesapla
 
+  // İlk mount'ta auto refresh başlat, ama veri çekme!
+  // Veri çekmeyi useFocusEffect'e bırak (tekrar çağrılmasın)
   useEffect(() => {
     if (isAuthenticated && user) {
-      fetchDashboardData();
       startAutoRefresh();
-    } else {
-      setLoading(false);
     }
 
     // App state değişikliklerini dinle

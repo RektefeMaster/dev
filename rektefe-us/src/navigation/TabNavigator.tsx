@@ -272,8 +272,8 @@ const CustomTabBar = ({ state, descriptors, navigation }: TabBarProps) => {
     
     switch (route.name) {
       case 'Home':
-        icon = 'construct';
-        label = 'Tamir';
+        icon = 'home';
+        label = 'Ana Sayfa';
         break;
       case 'TowingService':
         icon = 'car';
@@ -452,37 +452,17 @@ const TabNavigator = () => {
     
     // Test edilecek kontroller
     console.log('\n🔎 Kontroller:');
-    console.log('includes("repair"):', userCapabilities.includes('repair'));
-    console.log('includes("towing"):', userCapabilities.includes('towing'));
-    console.log('includes("wash"):', userCapabilities.includes('wash'));
-    console.log('includes("tire"):', userCapabilities.includes('tire'));
-    console.log('includes("tamir-bakim"):', userCapabilities.includes('tamir-bakim'));
-    console.log('includes("cekici"):', userCapabilities.includes('cekici'));
+        console.log('includes("repair"):', userCapabilities.includes('repair'));
+        console.log('includes("towing"):', userCapabilities.includes('towing'));
+        console.log('includes("wash"):', userCapabilities.includes('wash'));
+        console.log('includes("tire"):', userCapabilities.includes('tire'));
+        console.log('includes("bodywork"):', userCapabilities.includes('bodywork'));
     console.log('='.repeat(60));
   }, [userCapabilities, user?.email, user]);
 
-  // Ana hizmeti belirle (öncelik sırasına göre)
+  // Ana hizmeti belirle (herkes için ana sayfa)
   const getPrimaryService = () => {
-    console.log('🎯 getPrimaryService - userCapabilities:', userCapabilities);
-    
-    // Backend'den gelen format: ["tamir-bakim", "arac-yikama", "lastik", "cekici"]
-    if (userCapabilities.includes('tamir-bakim')) {
-      console.log('✅ Primary Service: Home (Tamir)');
-      return 'Home';
-    }
-    if (userCapabilities.includes('cekici')) {
-      console.log('✅ Primary Service: TowingService');
-      return 'TowingService';
-    }
-    if (userCapabilities.includes('arac-yikama')) {
-      console.log('✅ Primary Service: CarWash');
-      return 'CarWash';
-    }
-    if (userCapabilities.includes('lastik')) {
-      console.log('✅ Primary Service: TireService');
-      return 'TireService';
-    }
-    console.log('⚠️ Default Service: Home');
+    console.log('🎯 getPrimaryService - Her zaman Home (Ana Sayfa)');
     return 'Home';
   };
 
@@ -499,22 +479,20 @@ const TabNavigator = () => {
         }}
         initialRouteName={primaryService}
       >
-      {/* Ana Sayfa - Tamir & Bakım kategorisi için */}
-      {userCapabilities.includes('tamir-bakim') && (
-        <Tab.Screen 
-          name="Home" 
-          component={HomeScreen}
-          options={{
-            title: 'Tamir',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="construct" size={size} color={color} />
-            ),
-          }}
-        />
-      )}
+      {/* Ana Sayfa - Herkes için */}
+      <Tab.Screen 
+        name="Home" 
+        component={HomeScreen}
+        options={{
+          title: 'Ana Sayfa',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home" size={size} color={color} />
+          ),
+        }}
+      />
 
       {/* Çekici Hizmeti */}
-      {userCapabilities.includes('cekici') && (
+      {userCapabilities.includes('towing') && (
         <Tab.Screen 
           name="TowingService" 
           component={require('../features/services/screens/TowingServiceScreen').default}
@@ -528,7 +506,7 @@ const TabNavigator = () => {
       )}
 
       {/* Lastik Hizmeti */}
-      {userCapabilities.includes('lastik') && (
+      {userCapabilities.includes('tire') && (
         <Tab.Screen 
           name="TireService" 
           component={require('../features/services/screens/TireServiceScreen').default}
@@ -542,7 +520,7 @@ const TabNavigator = () => {
       )}
 
       {/* Araç Yıkama Hizmeti */}
-      {userCapabilities.includes('arac-yikama') && (
+      {userCapabilities.includes('wash') && (
         <Tab.Screen
           name="CarWash"
           component={require('../features/carwash/screens/CarWashScreen').default}
