@@ -20,6 +20,7 @@ interface DefaultUser {
   phone: string;
   userType: 'driver' | 'mechanic';
   isAdmin?: boolean;
+  serviceCategories?: string[];
 }
 
 const DEFAULT_USERS: DefaultUser[] = [
@@ -37,7 +38,8 @@ const DEFAULT_USERS: DefaultUser[] = [
     name: 'Test',
     surname: 'Mechanic',
     phone: '5551234568',
-    userType: 'mechanic'
+    userType: 'mechanic',
+    serviceCategories: ['repair'] // Sadece tamir-bakım hizmeti
   },
   {
     email: 'admin@rektefe.com',
@@ -88,6 +90,7 @@ export async function seedDefaultUsers(): Promise<void> {
           phoneVerified: true,
           isActive: true,
           isAvailable: true,
+          serviceCategories: userData.serviceCategories || [],
           createdAt: new Date(),
           updatedAt: new Date()
         });
@@ -146,6 +149,22 @@ export async function seedDefaultUsers(): Promise<void> {
         }
       } else {
         console.log(`👤 ${userData.email} kullanıcısı zaten mevcut`);
+        
+        // Eğer serviceCategories tanımlıysa ve kullanıcı mechanic ise güncelle
+        if (userData.serviceCategories && userData.userType === 'mechanic') {
+          const currentCategories = existingUser.serviceCategories || [];
+          const needsUpdate = JSON.stringify(currentCategories.sort()) !== JSON.stringify(userData.serviceCategories.sort());
+          
+          if (needsUpdate) {
+            console.log(`🔄 ${userData.email} kullanıcısının serviceCategories güncelleniyor...`);
+            console.log(`   Eski: ${JSON.stringify(currentCategories)}`);
+            console.log(`   Yeni: ${JSON.stringify(userData.serviceCategories)}`);
+            
+            existingUser.serviceCategories = userData.serviceCategories;
+            await existingUser.save();
+            console.log(`✅ ${userData.email} kullanıcısının serviceCategories güncellendi`);
+          }
+        }
       }
     }
     
