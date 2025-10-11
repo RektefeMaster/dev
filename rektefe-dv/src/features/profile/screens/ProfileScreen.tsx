@@ -192,13 +192,13 @@ const ProfileScreen = () => {
               </View>
               <View style={styles.statCard}>
                 <MaterialCommunityIcons name="calendar-check" size={24} color={themeColors.success.main} />
-                <Text style={styles.statNumber}>24</Text>
-                <Text style={styles.statLabel}>Hizmet Aldım</Text>
+                <Text style={styles.statNumber}>12</Text>
+                <Text style={styles.statLabel}>Randevularım</Text>
               </View>
               <View style={styles.statCard}>
-                <MaterialCommunityIcons name="star" size={24} color={themeColors.accent.main} />
-                <Text style={styles.statNumber}>4.9</Text>
-                <Text style={styles.statLabel}>Müşteri Puanı</Text>
+                <MaterialCommunityIcons name="map-marker" size={24} color={themeColors.info.main} />
+                <Text style={styles.statNumber}>{user?.city ? '1' : '0'}</Text>
+                <Text style={styles.statLabel}>Şehir</Text>
               </View>
             </>
           ) : (
