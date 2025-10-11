@@ -412,38 +412,22 @@ const mechanicCapabilities = [
         setLoading(true);
       }
       
-      // Paralel olarak tüm verileri çek
+      // Sadece temel verileri çek - rate limit için optimize edildi
       const [
-        todayAppointmentsRes,
-        todayCompletedRes,
-        activityRes,
-        ratingsRes,
-        ratingStatsRes,
-        appointmentStatsRes,
-        faultReportsRes,
-        notificationsRes,
-        conversationsRes,
-        pendingAppointmentsRes
+        appointmentsRes,
+        statsRes
       ] = await Promise.allSettled([
-        apiService.getMechanicAppointments('confirmed'),
-        apiService.getMechanicAppointments('completed'),
-        apiService.getRecentActivity(),
-        apiService.getRecentRatings(),
-        apiService.getRatingStats(),
-        apiService.getAppointmentStats(),
-        apiService.getMechanicFaultReports('pending'),
-        apiService.getNotifications(),
-        apiService.getConversations(),
-        apiService.getMechanicAppointments('pending')
+        apiService.getMechanicAppointments(), // Tüm randevular tek seferde
+        apiService.getAppointmentStats() // Temel istatistikler
       ]);
 
-      // Bugünkü onaylanan randevular
-      if (todayAppointmentsRes.status === 'fulfilled' && todayAppointmentsRes.value.success && todayAppointmentsRes.value.data) {
-        const appointments = Array.isArray(todayAppointmentsRes.value.data) 
-          ? todayAppointmentsRes.value.data 
+      // Randevuları işle
+      if (appointmentsRes.status === 'fulfilled' && appointmentsRes.value.success && appointmentsRes.value.data) {
+        const appointments = Array.isArray(appointmentsRes.value.data) 
+          ? appointmentsRes.value.data 
           : [];
         
-        // Sadece bugünkü randevuları filtrele
+        // Bugünkü randevuları filtrele
         const today = new Date();
         const todayAppointments = appointments.filter(appointment => {
           const appointmentDate = new Date(appointment.appointmentDate);
@@ -451,146 +435,38 @@ const mechanicCapabilities = [
         });
         
         setTodayAppointments(todayAppointments);
-        setStats(prev => ({
-          ...prev,
-          todayConfirmedAppointments: todayAppointments.length
-        }));
-      }
-
-      // Bugünkü kazanç hesapla
-      if (todayCompletedRes.status === 'fulfilled' && todayCompletedRes.value.success && todayCompletedRes.value.data) {
-        const completedAppointments = Array.isArray(todayCompletedRes.value.data) 
-          ? todayCompletedRes.value.data 
-          : [];
         
-        const today = new Date();
-        const todayCompleted = completedAppointments.filter(appointment => {
-          const appointmentDate = new Date(appointment.appointmentDate);
-          return appointmentDate.toDateString() === today.toDateString();
-        });
-        
-        const todayEarnings = todayCompleted.reduce((total, appointment) => {
-          return total + (appointment.price || 0);
-        }, 0);
+        // Durum sayılarını hesapla
+        const pendingCount = appointments.filter(app => app.status === 'pending').length;
+        const confirmedCount = appointments.filter(app => app.status === 'confirmed').length;
+        const completedCount = appointments.filter(app => app.status === 'completed').length;
         
         setStats(prev => ({
           ...prev,
-          todayEarnings
+          todayConfirmedAppointments: confirmedCount,
+          activeJobs: pendingCount + confirmedCount
         }));
       }
 
-      // Son aktiviteler
-      if (activityRes.status === 'fulfilled' && activityRes.value.success && activityRes.value.data) {
-        // Backend'den gelen veri formatını kontrol et
-        let activities = [];
-        const data = activityRes.value.data;
-        if ('activities' in data && data.activities) {
-          // Eğer data.activities varsa (mechanic/dashboard/recent-activity endpoint'i)
-          activities = Array.isArray(data.activities) 
-            ? data.activities 
-            : [];
-        } else if (Array.isArray(data)) {
-          // Eğer data direkt array ise (activity/recent endpoint'i)
-          activities = data;
-        }
-        
-        // Debug log removed - data format issue resolved
-        
-        // Mevcut activity formatını yeni formata dönüştür
-        const formattedActivities = activities.map((activity) => ({
-          _id: activity.id || activity._id,
-          type: activity.type || 'appointment_created',
-          description: activity.title || activity.description || getActivityDescription(activity.type || 'appointment_created'),
-          createdAt: activity.time ? new Date(activity.time) : activity.date ? new Date(activity.date) : new Date(),
-          appointmentId: activity.id || activity._id,
-          amount: activity.amount,
-          status: activity.status
-        }));
-        setRecentActivity(formattedActivities);
-      }
-
-      // Son değerlendirmeler
-      if (ratingsRes.status === 'fulfilled' && ratingsRes.value.success && ratingsRes.value.data) {
-        const ratings = Array.isArray(ratingsRes.value.data) 
-          ? ratingsRes.value.data 
-          : [];
-        setRecentRatings(ratings);
-      }
-
-      // Rating istatistikleri
-      if (ratingStatsRes.status === 'fulfilled' && ratingStatsRes.value.success && ratingStatsRes.value.data) {
-        const { averageRating, totalRatings } = ratingStatsRes.value.data;
+      // İstatistikleri işle
+      if (statsRes.status === 'fulfilled' && statsRes.value.success && statsRes.value.data) {
+        const { activeJobs, todayEarnings, rating, averageRating, totalRatings } = statsRes.value.data;
         setStats(prev => ({
           ...prev,
-          averageRating: averageRating || 0,
+          activeJobs: activeJobs || 0,
+          todayEarnings: todayEarnings || 0,
+          averageRating: rating || averageRating || 0,
           totalRatings: totalRatings || 0
         }));
       }
 
-      // Appointment istatistikleri (aktif iş sayısı için)
-      if (appointmentStatsRes.status === 'fulfilled' && appointmentStatsRes.value.success && appointmentStatsRes.value.data) {
-        const { activeJobs, todayEarnings: statsTodayEarnings, rating } = appointmentStatsRes.value.data;
-        setStats(prev => ({
-          ...prev,
-          activeJobs: activeJobs || 0,
-          todayEarnings: statsTodayEarnings || prev.todayEarnings,
-          averageRating: rating || prev.averageRating
-        }));
-      }
-
-      // Arıza bildirimleri sayısı
-      if (faultReportsRes.status === 'fulfilled' && faultReportsRes.value.success && faultReportsRes.value.data) {
-        const faultReports = Array.isArray(faultReportsRes.value.data) 
-          ? faultReportsRes.value.data 
-          : [];
-        setFaultReportsCount(faultReports.length);
-      }
-
-      // Okunmamış bildirim sayısı
-      if (notificationsRes.status === 'fulfilled' && notificationsRes.value.success && notificationsRes.value.data) {
-        // Backend'den gelen veri formatını kontrol et
-        let notifications = [];
-        const data = notificationsRes.value.data;
-        if ('notifications' in data && data.notifications) {
-          // Eğer data.notifications varsa (notifications/mechanic endpoint'i)
-          notifications = Array.isArray(data.notifications) 
-            ? data.notifications 
-            : [];
-        } else if (Array.isArray(data)) {
-          // Eğer data direkt array ise
-          notifications = data;
-        }
-        
-        // Debug log removed - data format issue resolved
-        
-        const unreadCount = notifications.filter((notification) => 
-          !notification.read && !notification.isRead
-        ).length;
-        
-        setUnreadNotificationCount(unreadCount);
-      }
-
-      // Okunmamış mesaj sayısı
-      if (conversationsRes.status === 'fulfilled' && conversationsRes.value.success && conversationsRes.value.data) {
-        const conversations = Array.isArray(conversationsRes.value.data) 
-          ? conversationsRes.value.data 
-          : [];
-        
-        const unreadMessages = conversations.reduce((total: number, conversation: any) => {
-          return total + (conversation.unreadCount || 0);
-        }, 0);
-        
-        setUnreadMessagesCount(unreadMessages);
-      }
-
-      // Onay bekleyen randevu sayısı
-      if (pendingAppointmentsRes.status === 'fulfilled' && pendingAppointmentsRes.value.success && pendingAppointmentsRes.value.data) {
-        const pendingAppointments = Array.isArray(pendingAppointmentsRes.value.data) 
-          ? pendingAppointmentsRes.value.data 
-          : [];
-        
-        setPendingAppointmentsCount(pendingAppointments.length);
-      }
+      // Diğer veriler için varsayılan değerler
+      setRecentActivity([]);
+      setRecentRatings([]);
+      setFaultReportsCount(0);
+      setUnreadNotificationCount(0);
+      setUnreadMessagesCount(0);
+      setPendingAppointmentsCount(0);
 
     } catch (error) {
       // Cancel edilen istekleri handle et (error logging yapma)
