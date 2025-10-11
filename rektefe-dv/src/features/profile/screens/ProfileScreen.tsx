@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Modal, TextInput, Switch, Alert, Platform, Animated, ScrollView, KeyboardAvoidingView, Keyboard, TouchableWithoutFeedback, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Modal, TextInput, Switch, Alert, Platform, Animated, ScrollView, KeyboardAvoidingView, Keyboard, TouchableWithoutFeedback, SafeAreaView, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiService, api } from '@/shared/services/api';
@@ -24,6 +24,8 @@ const ProfileScreen = () => {
   const { logout } = useAuth();
   const [imageModalVisible, setImageModalVisible] = useState(false);
   const [coverImageModalVisible, setCoverImageModalVisible] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
 
   // Dinamik profil tamamlama oranı
   const profileFields = [user?.name, user?.surname, user?.email, user?.phone, user?.city, user?.bio];
@@ -134,7 +136,8 @@ const ProfileScreen = () => {
 
   const handleImageUpload = async (imageUri: string, type: 'avatar' | 'cover') => {
     try {
-      setLoading(true);
+      setUploading(true);
+      setUploadProgress(type === 'avatar' ? 'Profil resmi yükleniyor...' : 'Kapak fotoğrafı yükleniyor...');
       console.log('📸 Image upload başlatılıyor:', type, imageUri);
       
       // API'ye resim yükle
@@ -162,20 +165,28 @@ const ProfileScreen = () => {
         
         if (type === 'avatar') {
           setImageModalVisible(false);
-          Alert.alert('Başarılı', 'Profil resminiz güncellendi.');
+          Alert.alert('✅ Başarılı', 'Profil resminiz güncellendi.');
         } else {
           setCoverImageModalVisible(false);
-          Alert.alert('Başarılı', 'Kapak fotoğrafınız güncellendi.');
+          Alert.alert('✅ Başarılı', 'Kapak fotoğrafınız güncellendi.');
         }
       } else {
         console.error('📸 Upload başarısız:', response);
-        Alert.alert('Hata', response.message || 'Resim yüklenirken bir hata oluştu.');
+        const errorMsg = response.message || 'Resim yüklenirken bir hata oluştu.';
+        Alert.alert('❌ Hata', errorMsg);
       }
     } catch (error: any) {
       console.error('📸 Image upload error:', error);
-      Alert.alert('Hata', 'Resim yüklenirken bir hata oluştu.');
+      let errorMsg = 'Resim yüklenirken bir hata oluştu.';
+      if (error.code === 'ECONNABORTED') {
+        errorMsg = 'Zaman aşımı. Lütfen internet bağlantınızı kontrol edin.';
+      } else if (error.response?.status === 500) {
+        errorMsg = 'Sunucu hatası. Lütfen daha sonra tekrar deneyin.';
+      }
+      Alert.alert('❌ Hata', errorMsg);
     } finally {
-      setLoading(false);
+      setUploading(false);
+      setUploadProgress('');
     }
   };
 
@@ -289,6 +300,19 @@ const ProfileScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Upload Progress Modal */}
+      {uploading && (
+        <Modal visible={true} transparent animationType="fade">
+          <View style={styles.uploadOverlay}>
+            <View style={styles.uploadModal}>
+              <ActivityIndicator size="large" color={themeColors.primary.main} />
+              <Text style={styles.uploadText}>{uploadProgress}</Text>
+              <Text style={styles.uploadSubtext}>Lütfen bekleyin...</Text>
+            </View>
+          </View>
+        </Modal>
+      )}
+      
       <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false} bounces={false}>
         {/* Header Section with Cover Photo */}
         <View style={styles.headerSection}>
@@ -1366,6 +1390,35 @@ const styles = StyleSheet.create({
     ...typography.body2,
     color: themeColors.text.primary,
     fontWeight: typography.fontWeights.medium,
+  },
+  
+  // Upload Progress Modal
+  uploadOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploadModal: {
+    backgroundColor: themeColors.background.primary,
+    borderRadius: borderRadius.card,
+    padding: spacing.xl,
+    alignItems: 'center',
+    minWidth: 200,
+    ...shadows.large,
+  },
+  uploadText: {
+    ...typography.body1,
+    color: themeColors.text.primary,
+    fontWeight: typography.fontWeights.semibold,
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  uploadSubtext: {
+    ...typography.caption.large,
+    color: themeColors.text.secondary,
+    marginTop: spacing.xs,
+    textAlign: 'center',
   },
 });
 

@@ -980,7 +980,7 @@ export const apiService = {
             'Content-Type': 'multipart/form-data',
             'Authorization': `Bearer ${token}`,
           },
-          timeout: 30000,
+          timeout: 15000, // 15 saniye
         }
       );
       return response.data;
@@ -1021,7 +1021,7 @@ export const apiService = {
             'Content-Type': 'multipart/form-data',
             'Authorization': `Bearer ${token}`,
           },
-          timeout: 30000,
+          timeout: 15000, // 15 saniye
         }
       );
       return response.data;

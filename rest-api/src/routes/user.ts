@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 import { ResponseHandler } from '../utils/response';
 import { Notification } from '../models/Notification'; // Added missing import
 import multer from 'multer';
-import cloudinary from '../utils/cloudinary';
+import cloudinary, { isCloudinaryConfigured } from '../utils/cloudinary';
 import { Readable } from 'stream';
 
 // Multer konfigürasyonu - memory storage kullan
@@ -309,8 +309,16 @@ router.post('/profile-photo', auth, upload.single('photo'), async (req: Request,
       return ResponseHandler.badRequest(res, 'Fotoğraf yüklenmedi.');
     }
     
+    // Cloudinary konfigürasyon kontrolü
+    if (!isCloudinaryConfigured()) {
+      console.error('❌ Cloudinary credentials eksik - profil fotoğrafı yüklenemedi');
+      return ResponseHandler.error(res, 'Fotoğraf yükleme servisi yapılandırılmamış. Lütfen yöneticinizle iletişime geçin.');
+    }
+    
     // Cloudinary'ye yükle
+    console.log('📸 Profil fotoğrafı yükleniyor...');
     const result = await uploadToCloudinary(req.file.buffer, 'profile_photos');
+    console.log('✅ Cloudinary upload başarılı:', result.secure_url);
     
     // Kullanıcıyı güncelle
     const user = await User.findByIdAndUpdate(
@@ -329,7 +337,8 @@ router.post('/profile-photo', auth, upload.single('photo'), async (req: Request,
     }, 'Profil fotoğrafı başarıyla güncellendi');
     
   } catch (error: any) {
-    console.error('Profil fotoğrafı yükleme hatası:', error);
+    console.error('❌ Profil fotoğrafı yükleme hatası:', error);
+    console.error('Hata detayı:', error.message);
     return ResponseHandler.error(res, error.message || 'Profil fotoğrafı güncellenirken hata oluştu');
   }
 });
@@ -379,7 +388,14 @@ router.post('/cover-photo', auth, upload.single('photo'), async (req: Request, r
       return ResponseHandler.badRequest(res, 'Fotoğraf yüklenmedi.');
     }
     
+    // Cloudinary konfigürasyon kontrolü
+    if (!isCloudinaryConfigured()) {
+      console.error('❌ Cloudinary credentials eksik - kapak fotoğrafı yüklenemedi');
+      return ResponseHandler.error(res, 'Fotoğraf yükleme servisi yapılandırılmamış. Lütfen yöneticinizle iletişime geçin.');
+    }
+    
     // Cloudinary'ye yükle (cover için daha geniş boyut)
+    console.log('📸 Kapak fotoğrafı yükleniyor...');
     const result = await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
@@ -399,6 +415,7 @@ router.post('/cover-photo', auth, upload.single('photo'), async (req: Request, r
       const readable = Readable.from(req.file!.buffer);
       readable.pipe(uploadStream);
     });
+    console.log('✅ Cloudinary upload başarılı:', (result as any).secure_url);
     
     // Kullanıcıyı güncelle
     const user = await User.findByIdAndUpdate(
@@ -417,7 +434,8 @@ router.post('/cover-photo', auth, upload.single('photo'), async (req: Request, r
     }, 'Kapak fotoğrafı başarıyla güncellendi');
     
   } catch (error: any) {
-    console.error('Kapak fotoğrafı yükleme hatası:', error);
+    console.error('❌ Kapak fotoğrafı yükleme hatası:', error);
+    console.error('Hata detayı:', error.message);
     return ResponseHandler.error(res, error.message || 'Kapak fotoğrafı güncellenirken hata oluştu');
   }
 });
