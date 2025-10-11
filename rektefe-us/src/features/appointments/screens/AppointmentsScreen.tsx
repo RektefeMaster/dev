@@ -15,13 +15,61 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { useTheme } from '@/shared/context';
 import { useAuth } from '@/shared/context';
 import apiService from '@/shared/services';
 import { Ionicons } from '@expo/vector-icons';
 import { colors as themeColors, typography, spacing, borderRadius, shadows } from '@/shared/theme';
+import { serviceNameMapping } from '@/shared/utils/serviceTranslator';
+import { BackButton } from '@/shared/components';
 
 const { width } = Dimensions.get('window');
+
+// Hizmet tipini Türkçe'ye çeviren fonksiyon
+const translateServiceType = (serviceType: string): string => {
+  // Önce mapping'den bak
+  if (serviceNameMapping[serviceType]) {
+    return serviceNameMapping[serviceType];
+  }
+  
+  // Mapping'de yoksa, yaygın hataları düzelt
+  const corrections: { [key: string]: string } = {
+    'agir-bakim': 'Ağır Bakım',
+    'kaporta-boya': 'Kaporta & Boya',
+    'genel-bakim': 'Genel Bakım',
+    'alt-takim': 'Alt Takım',
+    'ust-takim': 'Üst Takım',
+    'elektrik-elektronik': 'Elektrik-Elektronik',
+    'yedek-parca': 'Yedek Parça',
+    'arac-yikama': 'Araç Yıkama',
+    'egzoz-emisyon': 'Egzoz & Emisyon',
+    'cekici': 'Çekici',
+    'tamir': 'Genel Onarım',
+    'bakim': 'Genel Bakım',
+    'yikama': 'Araç Yıkama',
+    'lastik': 'Lastik Servisi',
+    'motor': 'Motor Bakımı',
+    'fren': 'Fren Servisi',
+    'klima': 'Klima Servisi',
+    'elektrik': 'Elektrik Servisi',
+    'suspansiyon': 'Süspansiyon',
+    'egzoz': 'Egzoz Servisi',
+    'bodywork': 'Kaporta & Boya',
+    'carwash': 'Araç Yıkama',
+    'tirehotel': 'Lastik Servisi',
+    'maintenance': 'Genel Bakım',
+    'repair': 'Genel Onarım',
+    'towing': 'Çekici Hizmeti',
+    'wash': 'Araç Yıkama',
+    'tire': 'Lastik Servisi'
+  };
+  
+  if (corrections[serviceType]) {
+    return corrections[serviceType];
+  }
+  
+  // Hiçbiri yoksa, orijinal ismi döndür
+  return serviceType;
+};
 
 // Durum renkleri
 const STATUS_COLORS = {
@@ -49,6 +97,13 @@ const STATUS_COLORS = {
     text: '#991B1B',
     icon: 'close-circle-outline' as const,
   },
+  // Backend'den gelen Türkçe status değerleri
+  IPTAL: {
+    bg: '#FEE2E2',
+    border: '#EF4444',
+    text: '#991B1B',
+    icon: 'close-circle-outline' as const,
+  },
 };
 
 // Durum metinleri
@@ -57,6 +112,8 @@ const STATUS_TEXT = {
   confirmed: 'Onaylandı',
   completed: 'Tamamlandı',
   cancelled: 'İptal',
+  // Backend'den gelen Türkçe status değerleri
+  IPTAL: 'İptal',
 };
 
 interface Appointment {
@@ -74,7 +131,7 @@ interface Appointment {
   };
   serviceType: string;
   description: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'IPTAL';
   appointmentDate: string;
   price?: number;
   createdAt: string;
@@ -82,7 +139,6 @@ interface Appointment {
 
 export default function AppointmentsScreen() {
   const navigation = useNavigation();
-  const { colors } = useTheme();
   const { user } = useAuth();
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -90,7 +146,7 @@ export default function AppointmentsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'IPTAL'>('all');
 
   // Randevuları yükle
   const fetchAppointments = useCallback(async () => {
@@ -139,7 +195,8 @@ export default function AppointmentsScreen() {
         apt.customer.surname.toLowerCase().includes(query) ||
         apt.vehicle.brand.toLowerCase().includes(query) ||
         apt.vehicle.model.toLowerCase().includes(query) ||
-        apt.vehicle.plate.toLowerCase().includes(query)
+        apt.vehicle.plate.toLowerCase().includes(query) ||
+        translateServiceType(apt.serviceType).toLowerCase().includes(query)
       );
     }
 
@@ -156,12 +213,14 @@ export default function AppointmentsScreen() {
       pending: appointments.filter(apt => apt.status === 'pending').length,
       confirmed: appointments.filter(apt => apt.status === 'confirmed').length,
       completed: appointments.filter(apt => apt.status === 'completed').length,
+      cancelled: appointments.filter(apt => apt.status === 'IPTAL' || apt.status === 'cancelled').length,
     };
   }, [appointments]);
 
   // Randevu kartı
   const renderAppointmentCard = ({ item }: { item: Appointment }) => {
-    const statusConfig = STATUS_COLORS[item.status];
+    // Güvenli status erişimi
+    const statusConfig = STATUS_COLORS[item.status] || STATUS_COLORS.pending;
     const date = new Date(item.appointmentDate);
     const formattedDate = date.toLocaleDateString('tr-TR', {
       day: 'numeric',
@@ -176,7 +235,7 @@ export default function AppointmentsScreen() {
     return (
       <TouchableOpacity
         style={styles.appointmentCard}
-        onPress={() => navigation.navigate('AppointmentDetail' as never, { appointmentId: item._id } as never)}
+        onPress={() => (navigation as any).navigate('AppointmentDetail', { appointmentId: item._id })}
         activeOpacity={0.7}
       >
         {/* Üst kısım: Müşteri ve durum */}
@@ -198,16 +257,16 @@ export default function AppointmentsScreen() {
           <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg, borderColor: statusConfig.border }]}>
             <Ionicons name={statusConfig.icon} size={14} color={statusConfig.text} />
             <Text style={[styles.statusText, { color: statusConfig.text }]}>
-              {STATUS_TEXT[item.status]}
+              {STATUS_TEXT[item.status] || 'Bilinmiyor'}
             </Text>
           </View>
         </View>
 
         {/* Araç bilgisi */}
         <View style={styles.vehicleInfo}>
-          <Ionicons name="car-outline" size={18} color={colors.text.secondary} />
+          <Ionicons name="car-outline" size={18} color="#64748B" />
           <Text style={styles.vehicleText}>
-            {item.vehicle.brand} {item.vehicle.model} ({item.vehicle.year})
+            {item.vehicle.brand} {item.vehicle.model || ''} ({item.vehicle.year || 'Bilinmiyor'})
           </Text>
           <View style={styles.plateBadge}>
             <Text style={styles.plateText}>{item.vehicle.plate}</Text>
@@ -217,17 +276,17 @@ export default function AppointmentsScreen() {
         {/* Hizmet tipi */}
         {item.serviceType && (
           <View style={styles.serviceInfo}>
-            <Ionicons name="construct-outline" size={16} color={colors.text.tertiary} />
-            <Text style={styles.serviceText}>{item.serviceType}</Text>
+            <Ionicons name="construct-outline" size={16} color="#94A3B8" />
+            <Text style={styles.serviceText}>{translateServiceType(item.serviceType)}</Text>
           </View>
         )}
 
         {/* Alt kısım: Tarih ve fiyat */}
         <View style={styles.cardFooter}>
           <View style={styles.dateInfo}>
-            <Ionicons name="calendar-outline" size={16} color={colors.text.tertiary} />
+            <Ionicons name="calendar-outline" size={16} color="#94A3B8" />
             <Text style={styles.dateText}>{formattedDate}</Text>
-            <Ionicons name="time-outline" size={16} color={colors.text.tertiary} style={{ marginLeft: 12 }} />
+            <Ionicons name="time-outline" size={16} color="#94A3B8" style={{ marginLeft: 12 }} />
             <Text style={styles.dateText}>{formattedTime}</Text>
           </View>
 
@@ -240,7 +299,7 @@ export default function AppointmentsScreen() {
 
         {/* Detaya git göstergesi */}
         <View style={styles.cardChevron}>
-          <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
+          <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
         </View>
       </TouchableOpacity>
     );
@@ -249,7 +308,7 @@ export default function AppointmentsScreen() {
   // Boş durum
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <Ionicons name="calendar-outline" size={64} color={colors.text.tertiary} />
+      <Ionicons name="calendar-outline" size={64} color="#94A3B8" />
       <Text style={styles.emptyTitle}>Randevu Bulunamadı</Text>
       <Text style={styles.emptyText}>
         {searchQuery
@@ -280,7 +339,10 @@ export default function AppointmentsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Text style={styles.headerTitle}>Tamir İşleri</Text>
+          <View style={styles.headerLeft}>
+            <BackButton />
+            <Text style={styles.headerTitle}>Tamir İşleri</Text>
+          </View>
           <TouchableOpacity
             style={styles.refreshButton}
             onPress={onRefresh}
@@ -317,17 +379,17 @@ export default function AppointmentsScreen() {
 
         {/* Arama */}
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color={colors.text.tertiary} style={styles.searchIcon} />
+          <Ionicons name="search" size={20} color="#94A3B8" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Müşteri, araç veya plaka ara..."
-            placeholderTextColor={colors.text.tertiary}
+            placeholderTextColor="#94A3B8"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
-              <Ionicons name="close-circle" size={20} color={colors.text.tertiary} />
+              <Ionicons name="close-circle" size={20} color="#94A3B8" />
             </TouchableOpacity>
           )}
         </View>
@@ -457,11 +519,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: '700',
     color: '#1E293B',
     letterSpacing: -0.5,
+    marginLeft: 12,
   },
   refreshButton: {
     width: 40,

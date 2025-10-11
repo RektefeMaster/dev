@@ -569,7 +569,12 @@ export class AppointmentService {
       const appointmentUserId = appointment.customer?._id?.toString();
       const appointmentMechanicId = appointment.mechanic?._id?.toString();
       
-      if (appointmentUserId !== userId && appointmentMechanicId !== userId) {
+      // Usta ise tüm randevuları görebilir (mechanic olarak)
+      // Müşteri ise sadece kendi randevularını görebilir
+      const isUserAuthorized = appointmentUserId === userId || appointmentMechanicId === userId;
+      
+      if (!isUserAuthorized) {
+        console.log(`❌ Authorization failed - userId: ${userId}, appointmentUserId: ${appointmentUserId}, appointmentMechanicId: ${appointmentMechanicId}`);
         throw new CustomError('Bu randevuyu görme yetkiniz yok', 403);
       }
 

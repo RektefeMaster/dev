@@ -58,7 +58,7 @@ export default function AppointmentDetailScreen() {
 
   useEffect(() => {
     fetchAppointmentDetails();
-    fetchAvailableStatuses();
+    // fetchAvailableStatuses(); // Geçici olarak devre dışı
   }, [appointmentId]);
 
   const fetchAvailableStatuses = async () => {
@@ -112,6 +112,8 @@ export default function AppointmentDetailScreen() {
   const fetchAppointmentDetails = async () => {
     try {
       setLoading(true);
+      
+      // API çağrısı
       const response = await apiService.getAppointmentById(appointmentId);
       
       if (response.success && response.data) {

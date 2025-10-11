@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { serviceNameMapping } from '@/shared/utils/serviceTranslator';
 
 import { useTheme } from '@/shared/context';
 import { useAuth } from '@/shared/context';
@@ -64,6 +65,14 @@ export default function WashServiceScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [jobs, setJobs] = useState<WashJob[]>([]);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
+  
+  // Hizmet ismini çeviren fonksiyon
+  const translateServiceName = (serviceName: string): string => {
+    if (serviceNameMapping[serviceName]) {
+      return serviceNameMapping[serviceName];
+    }
+    return serviceName;
+  };
 
   // Helper functions
   const getWashTypeText = (type: string) => {
@@ -258,7 +267,7 @@ export default function WashServiceScreen() {
           {job.services.map((service, index) => (
             <View key={index} style={styles.serviceItem}>
               <View style={styles.serviceInfo}>
-                <Text style={styles.serviceName}>{service.name}</Text>
+                <Text style={styles.serviceName}>{translateServiceName(service.name)}</Text>
                 <Text style={styles.serviceDuration}>{service.duration} dk</Text>
               </View>
               <View style={styles.servicePriceContainer}>

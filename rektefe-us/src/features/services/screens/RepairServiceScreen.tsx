@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { serviceNameMapping } from '@/shared/utils/serviceTranslator';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/shared/context';
 import apiService from '@/shared/services';
@@ -172,7 +173,7 @@ export default function RepairServiceScreen() {
       </View>
 
       <View style={styles.serviceInfo}>
-        <Text style={styles.serviceType}>{job.serviceType}</Text>
+        <Text style={styles.serviceType}>{serviceNameMapping[job.serviceType] || job.serviceType}</Text>
         <Text style={styles.description} numberOfLines={2}>
           {job.description}
         </Text>

@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, colorStrings, typography, borderRadius, spacing, shadows } from '@/shared/theme';
+import { serviceNameMapping } from '@/shared/utils/serviceTranslator';
 
 export interface ScheduleCardProps {
   time: string;
@@ -114,7 +115,7 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
       {/* Content */}
       <View style={styles.content}>
         {/* Service Type */}
-        <Text style={styles.serviceType}>{serviceType}</Text>
+        <Text style={styles.serviceType}>{serviceNameMapping[serviceType] || serviceType}</Text>
         
         {/* Customer and Vehicle Info */}
         <Text style={styles.details}>

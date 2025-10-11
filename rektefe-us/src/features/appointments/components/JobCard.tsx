@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, colorStrings, typography, borderRadius, spacing, shadows } from '@/shared/theme';
+import { serviceNameMapping } from '@/shared/utils/serviceTranslator';
 
 export interface JobCardProps {
   serviceType: string;
@@ -79,7 +80,7 @@ const JobCard: React.FC<JobCardProps> = ({
         </View>
         
         <View style={styles.jobInfo}>
-          <Text style={styles.jobTitle}>{serviceType}</Text>
+          <Text style={styles.jobTitle}>{serviceNameMapping[serviceType] || serviceType}</Text>
           <Text style={styles.jobCustomer}>
             {customerName} • {vehicleInfo}
           </Text>

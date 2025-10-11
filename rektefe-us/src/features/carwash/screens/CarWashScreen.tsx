@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { serviceNameMapping } from '@/shared/utils/serviceTranslator';
 import { useTheme } from '@/shared/context';
 import { useAuth } from '@/shared/context';
 import { Card, Button } from '@/shared/components';
@@ -195,6 +196,14 @@ export default function CarWashScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'packages' | 'jobs' | 'loyalty' | 'mobile'>('packages');
+  
+  // Hizmet ismini çeviren fonksiyon
+  const translateServiceName = (serviceName: string): string => {
+    if (serviceNameMapping[serviceName]) {
+      return serviceNameMapping[serviceName];
+    }
+    return serviceName;
+  };
   
   // Packages
   const [packages, setPackages] = useState<CarWashPackage[]>([]);
@@ -906,7 +915,7 @@ export default function CarWashScreen() {
                 <Text style={styles.servicesLabel}>Hizmetler:</Text>
                 {pkg.services.slice(0, 3).map((service, index) => (
                   <Text key={index} style={styles.serviceItem}>
-                    • {service.serviceName} ({service.duration}dk)
+                    • {translateServiceName(service.serviceName)} ({service.duration}dk)
                   </Text>
                 ))}
                 {pkg.services.length > 3 && (
@@ -1041,7 +1050,7 @@ export default function CarWashScreen() {
                       color={service.completed ? colors.success.main : colors.text.tertiary}
                     />
                     <Text style={[styles.serviceProgressText, service.completed && styles.serviceCompletedText]}>
-                      {service.serviceName}
+                      {translateServiceName(service.serviceName)}
                     </Text>
                   </View>
                 ))}
@@ -1745,7 +1754,7 @@ export default function CarWashScreen() {
                 {selectedJob.services.map((service, index) => (
                   <View key={index} style={styles.serviceDetailItem}>
                     <View style={styles.serviceDetailHeader}>
-                      <Text style={styles.serviceDetailName}>{service.serviceName}</Text>
+                      <Text style={styles.serviceDetailName}>{translateServiceName(service.serviceName)}</Text>
                       <Ionicons
                         name={service.completed ? "checkmark-circle" : "ellipse-outline"}
                         size={20}

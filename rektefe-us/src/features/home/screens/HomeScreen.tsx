@@ -77,6 +77,7 @@ export default function HomeScreen() {
     activeJobs: 0,
   });
   const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
+  const [pendingAppointments, setPendingAppointments] = useState<Appointment[]>([]);
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
   const [recentRatings, setRecentRatings] = useState<RatingItem[]>([]);
   const [faultReportsCount, setFaultReportsCount] = useState(0);
@@ -427,14 +428,21 @@ const mechanicCapabilities = [
           ? appointmentsRes.value.data 
           : [];
         
-        // Bugünkü randevuları filtrele
+        // Bugünkü onaylanan randevuları filtrele
         const today = new Date();
         const todayAppointments = appointments.filter(appointment => {
           const appointmentDate = new Date(appointment.appointmentDate);
-          return appointmentDate.toDateString() === today.toDateString();
+          return appointmentDate.toDateString() === today.toDateString() && 
+                 appointment.status === 'confirmed';
         });
         
         setTodayAppointments(todayAppointments);
+        
+        // Onay bekleyen randevuları filtrele
+        const pendingAppointments = appointments.filter(appointment => 
+          appointment.status === 'pending'
+        );
+        setPendingAppointments(pendingAppointments);
         
         // Durum sayılarını hesapla
         const pendingCount = appointments.filter(app => app.status === 'pending').length;
@@ -784,6 +792,78 @@ const mechanicCapabilities = [
                         </TouchableOpacity>
                       </View>
                     ))}
+                  </View>
+                </View>
+              )}
+
+              {/* Onay Bekleyen Randevular */}
+              {pendingAppointments.length > 0 && (
+                <View style={styles.agendaItem}>
+                  <View style={styles.agendaItemHeader}>
+                    <View style={styles.agendaItemIcon}>
+                      <Ionicons name="time" size={20} color="#F59E0B" />
+                    </View>
+                    <View style={styles.agendaItemTitleContainer}>
+                      <Text style={styles.agendaItemTitle}>Onay Bekleyen Randevular</Text>
+                      <Text style={styles.agendaItemSubtitle}>Tıklayarak onay/red edebilirsiniz</Text>
+                    </View>
+                    <Text style={styles.agendaItemCount}>{pendingAppointments.length}</Text>
+                  </View>
+                  <View style={styles.appointmentsList}>
+                    {pendingAppointments.slice(0, 3).map((appointment, index) => (
+                      <TouchableOpacity 
+                        key={appointment._id || index} 
+                        style={[styles.appointmentItem, styles.pendingAppointmentItem]}
+                        onPress={() => navigation.navigate('AppointmentDetail', { appointmentId: appointment._id })}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.appointmentTime}>
+                          <Text style={styles.appointmentTimeText}>
+                            {new Date(appointment.appointmentDate).toLocaleDateString('tr-TR', { 
+                              day: 'numeric', 
+                              month: 'short' 
+                            })}
+                          </Text>
+                          <Text style={styles.appointmentTimeSubtext}>
+                            {appointment.timeSlot || '09:00'}
+                          </Text>
+                        </View>
+                        <View style={styles.appointmentDetailsNew}>
+                          <Text style={styles.appointmentCustomer}>
+                            {typeof appointment.userId === 'object' && appointment.userId 
+                              ? `${appointment.userId.name} ${appointment.userId.surname}`
+                              : 'Müşteri'
+                            }
+                          </Text>
+                          <Text style={styles.appointmentService}>
+                            {translateServiceName(appointment.serviceType)}
+                          </Text>
+                          {typeof appointment.vehicleId === 'object' && appointment.vehicleId && (
+                            <Text style={styles.appointmentVehicle}>
+                              {appointment.vehicleId.brand} {appointment.vehicleId.modelName}
+                            </Text>
+                          )}
+                        </View>
+                        <View style={styles.appointmentAction}>
+                          <View style={styles.pendingBadge}>
+                            <Text style={styles.pendingBadgeText}>BEKLEMEDE</Text>
+                          </View>
+                          <Ionicons name="chevron-forward" size={16} color="#F59E0B" style={{ marginLeft: 8 }} />
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                    {pendingAppointments.length > 3 && (
+                      <TouchableOpacity 
+                        style={styles.showMoreButton}
+                        onPress={() => navigation.navigate('Appointments')}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.showMoreText}>
+                          +{pendingAppointments.length - 3} randevu daha görüntüle
+                        </Text>
+                        <Ionicons name="chevron-forward" size={16} color="#3B82F6" />
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               )}
@@ -1763,5 +1843,52 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#64748B',
     textAlign: 'center',
+  },
+  pendingAppointmentItem: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#F59E0B',
+    backgroundColor: '#FEF3C7',
+  },
+  appointmentTimeSubtext: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  pendingBadge: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  pendingBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  showMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  showMoreText: {
+    fontSize: 14,
+    color: '#3B82F6',
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  agendaItemTitleContainer: {
+    flex: 1,
+  },
+  agendaItemSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+    marginTop: 2,
   },
 });

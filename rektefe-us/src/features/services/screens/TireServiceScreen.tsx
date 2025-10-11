@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { serviceNameMapping } from '@/shared/utils/serviceTranslator';
 
 import { useTheme } from '@/shared/context';
 import { useAuth } from '@/shared/context';
@@ -76,6 +77,12 @@ export default function TireServiceScreen() {
 
   // Helper functions
   const getServiceTypeText = (type: string) => {
+    // Önce serviceTranslator'dan bak
+    if (serviceNameMapping[type]) {
+      return serviceNameMapping[type];
+    }
+    
+    // Sonra lokal mapping
     const types = {
       tire_change: 'Lastik Değişimi',
       tire_repair: 'Lastik Tamiri',
