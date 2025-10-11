@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
 import { useAuth } from '@/context/AuthContext';
+import { colors as themeColors, typography, spacing, borderRadius, shadows, dimensions } from '@/theme/theme';
 
 const defaultAvatar = require('../../../../assets/default_avatar.png');
 
@@ -321,154 +322,184 @@ const ProfileScreen = () => {
                 style={styles.keyboardAvoidingView}
               >
                 <View style={styles.modalContent}>
+                  {/* Modal Header */}
+                  <View style={styles.modalHeader}>
+                    <View style={styles.modalHeaderLeft}>
+                      <TouchableOpacity 
+                        style={styles.modalCloseButton} 
+                        onPress={() => setEditModal(false)}
+                      >
+                        <Ionicons name="close" size={24} color={themeColors.text.secondary} />
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.modalTitle}>Profili Düzenle</Text>
+                    <View style={styles.modalHeaderRight} />
+                  </View>
+                  
                   <ScrollView
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContent}
                   >
-                    <Text style={styles.modalTitle}>Profili Düzenle</Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        {
-                          fontSize: (() => {
-                            const text = editData.name || '';
-                            if (text.length > 15) return 14;
-                            if (text.length > 12) return 16;
-                            return 18;
-                          })()
-                        }
-                      ]}
-                      value={editData.name || ''}
-                      onChangeText={v => handleEditChange('name', v)}
-                      placeholder="Ad"
-                      placeholderTextColor="#666"
-                      returnKeyType="next"
-                      blurOnSubmit={false}
-                    />
-                    <TextInput
-                      style={[
-                        styles.input,
-                        {
-                          fontSize: (() => {
-                            const text = editData.email || '';
-                            if (text.length > 25) return 12;
-                            if (text.length > 20) return 14;
-                            return 16;
-                          })()
-                        }
-                      ]}
-                      value={editData.email || ''}
-                      onChangeText={v => handleEditChange('email', v)}
-                      placeholder="E-posta"
-                      placeholderTextColor="#666"
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      returnKeyType="next"
-                      blurOnSubmit={false}
-                    />
-                    <TextInput
-                      style={[
-                        styles.input,
-                        {
-                          fontSize: (() => {
-                            const text = editData.phone || '';
-                            if (text.length > 15) return 12;
-                            if (text.length > 12) return 14;
-                            return 16;
-                          })()
-                        }
-                      ]}
-                      value={editData.phone || ''}
-                      onChangeText={v => handleEditChange('phone', v)}
-                      placeholder="Telefon"
-                      placeholderTextColor="#666"
-                      keyboardType="phone-pad"
-                      returnKeyType="next"
-                      blurOnSubmit={false}
-                    />
-                    <TextInput
-                      style={[
-                        styles.input,
-                        {
-                          fontSize: (() => {
-                            const text = editData.city || '';
-                            if (text.length > 15) return 12;
-                            if (text.length > 12) return 14;
-                            return 16;
-                          })()
-                        }
-                      ]}
-                      value={editData.city || ''}
-                      onChangeText={v => handleEditChange('city', v)}
-                      placeholder="Şehir"
-                      placeholderTextColor="#666"
-                      returnKeyType="next"
-                      blurOnSubmit={false}
-                    />
-                    <TextInput
-                      style={[
-                        styles.input,
-                        {
-                          fontSize: (() => {
-                            const text = editData.bio || '';
-                            if (text.length > 50) return 12;
-                            if (text.length > 30) return 14;
-                            return 16;
-                          })()
-                        }
-                      ]}
-                      value={editData.bio || ''}
-                      onChangeText={v => handleEditChange('bio', v)}
-                      placeholder="Biyografi"
-                      placeholderTextColor="#666"
-                      multiline
-                      blurOnSubmit={true}
-                      returnKeyType="done"
-                      onSubmitEditing={() => Keyboard.dismiss()}
-                    />
+                    {/* Ad Input */}
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Ad</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={editData.name || ''}
+                        onChangeText={v => handleEditChange('name', v)}
+                        placeholder="Adınızı girin"
+                        placeholderTextColor={themeColors.text.tertiary}
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                      />
+                    </View>
+                    {/* Soyad Input */}
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Soyad</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={editData.surname || ''}
+                        onChangeText={v => handleEditChange('surname', v)}
+                        placeholder="Soyadınızı girin"
+                        placeholderTextColor={themeColors.text.tertiary}
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                      />
+                    </View>
+                    
+                    {/* E-posta Input */}
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>E-posta</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={editData.email || ''}
+                        onChangeText={v => handleEditChange('email', v)}
+                        placeholder="ornek@email.com"
+                        placeholderTextColor={themeColors.text.tertiary}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                      />
+                    </View>
+                    {/* Telefon Input */}
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Telefon</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={editData.phone || ''}
+                        onChangeText={v => handleEditChange('phone', v)}
+                        placeholder="0555 123 45 67"
+                        placeholderTextColor={themeColors.text.tertiary}
+                        keyboardType="phone-pad"
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                      />
+                    </View>
+                    {/* Şehir Input */}
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Şehir</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={editData.city || ''}
+                        onChangeText={v => handleEditChange('city', v)}
+                        placeholder="Yaşadığınız şehir"
+                        placeholderTextColor={themeColors.text.tertiary}
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                      />
+                    </View>
+                    {/* Biyografi Input */}
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Biyografi</Text>
+                      <TextInput
+                        style={[styles.input, styles.textAreaInput]}
+                        value={editData.bio || ''}
+                        onChangeText={v => handleEditChange('bio', v)}
+                        placeholder="Kendiniz hakkında kısa bilgi"
+                        placeholderTextColor={themeColors.text.tertiary}
+                        multiline
+                        numberOfLines={3}
+                        textAlignVertical="top"
+                        blurOnSubmit={true}
+                        returnKeyType="done"
+                        onSubmitEditing={() => Keyboard.dismiss()}
+                      />
+                    </View>
                     
                     {/* Gizlilik Ayarları */}
                     <View style={styles.privacySection}>
-                      <Text style={styles.privacyTitle}>Gizlilik Ayarları</Text>
-                      
-                      <View style={styles.privacyRow}>
-                        <Text style={styles.privacyLabel}>E-posta Gizli</Text>
-                        <Switch
-                          value={editData.emailHidden || false}
-                          onValueChange={(value) => handleEditChange('emailHidden', value)}
-                          trackColor={{ false: '#767577', true: '#007AFF' }}
-                          thumbColor={editData.emailHidden ? '#fff' : '#f4f3f4'}
-                        />
+                      <View style={styles.sectionHeader}>
+                        <MaterialCommunityIcons name="shield-check-outline" size={20} color={themeColors.primary.main} />
+                        <Text style={styles.sectionTitle}>Gizlilik Ayarları</Text>
                       </View>
                       
-                      <View style={styles.privacyRow}>
-                        <Text style={styles.privacyLabel}>Telefon Gizli</Text>
-                        <Switch
-                          value={editData.phoneHidden || false}
-                          onValueChange={(value) => handleEditChange('phoneHidden', value)}
-                          trackColor={{ false: '#767577', true: '#007AFF' }}
-                          thumbColor={editData.phoneHidden ? '#fff' : '#f4f3f4'}
-                        />
-                      </View>
-                      
-                      <View style={styles.privacyRow}>
-                        <Text style={styles.privacyLabel}>Tefe Puanları Gizli</Text>
-                        <Switch
-                          value={editData.tefeHidden || false}
-                          onValueChange={(value) => handleEditChange('tefeHidden', value)}
-                          trackColor={{ false: '#767577', true: '#007AFF' }}
-                          thumbColor={editData.tefeHidden ? '#fff' : '#f4f3f4'}
-                        />
+                      <View style={styles.privacyCard}>
+                        <View style={styles.privacyRow}>
+                          <View style={styles.privacyRowLeft}>
+                            <MaterialCommunityIcons name="email-outline" size={18} color={themeColors.text.secondary} />
+                            <View style={styles.privacyTextContainer}>
+                              <Text style={styles.privacyLabel}>E-posta Adresimi Gizle</Text>
+                              <Text style={styles.privacyDescription}>Diğer kullanıcılar e-posta adresinizi göremez</Text>
+                            </View>
+                          </View>
+                          <Switch
+                            value={editData.emailHidden || false}
+                            onValueChange={(value) => handleEditChange('emailHidden', value)}
+                            trackColor={{ false: themeColors.border.primary, true: themeColors.primary.light }}
+                            thumbColor={editData.emailHidden ? themeColors.background.primary : themeColors.text.tertiary}
+                          />
+                        </View>
+                        
+                        <View style={styles.privacyRow}>
+                          <View style={styles.privacyRowLeft}>
+                            <MaterialCommunityIcons name="phone-outline" size={18} color={themeColors.text.secondary} />
+                            <View style={styles.privacyTextContainer}>
+                              <Text style={styles.privacyLabel}>Telefon Numaramı Gizle</Text>
+                              <Text style={styles.privacyDescription}>Diğer kullanıcılar telefon numaranızı göremez</Text>
+                            </View>
+                          </View>
+                          <Switch
+                            value={editData.phoneHidden || false}
+                            onValueChange={(value) => handleEditChange('phoneHidden', value)}
+                            trackColor={{ false: themeColors.border.primary, true: themeColors.primary.light }}
+                            thumbColor={editData.phoneHidden ? themeColors.background.primary : themeColors.text.tertiary}
+                          />
+                        </View>
+                        
+                        <View style={styles.privacyRow}>
+                          <View style={styles.privacyRowLeft}>
+                            <MaterialCommunityIcons name="star-outline" size={18} color={themeColors.text.secondary} />
+                            <View style={styles.privacyTextContainer}>
+                              <Text style={styles.privacyLabel}>Tefe Puanlarımı Gizle</Text>
+                              <Text style={styles.privacyDescription}>Diğer kullanıcılar tefe puanlarınızı göremez</Text>
+                            </View>
+                          </View>
+                          <Switch
+                            value={editData.tefeHidden || false}
+                            onValueChange={(value) => handleEditChange('tefeHidden', value)}
+                            trackColor={{ false: themeColors.border.primary, true: themeColors.primary.light }}
+                            thumbColor={editData.tefeHidden ? themeColors.background.primary : themeColors.text.tertiary}
+                          />
+                        </View>
                       </View>
                     </View>
                     
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 }}>
-                      <TouchableOpacity style={[styles.button, { backgroundColor: '#ccc', flex: 1, marginRight: 8 }]} onPress={() => setEditModal(false)}>
-                        <Text style={[styles.buttonText, { color: '#333' }]}>İptal</Text>
+                    {/* Action Buttons */}
+                    <View style={styles.actionButtonsContainer}>
+                      <TouchableOpacity 
+                        style={styles.cancelButton} 
+                        onPress={() => setEditModal(false)}
+                      >
+                        <Text style={styles.cancelButtonText}>İptal</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity style={[styles.button, { backgroundColor: '#007AFF', flex: 1, marginLeft: 8 }]} onPress={handleSaveProfile}>
-                        <Text style={styles.buttonText}>Kaydet</Text>
+                      <TouchableOpacity 
+                        style={styles.saveButton} 
+                        onPress={handleSaveProfile}
+                      >
+                        <MaterialCommunityIcons name="check" size={20} color={themeColors.background.primary} />
+                        <Text style={styles.saveButtonText}>Düzenlemeyi Kaydet</Text>
                       </TouchableOpacity>
                     </View>
                   </ScrollView>
@@ -751,11 +782,12 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     textAlign: 'center',
   },
+  // Modal Styles
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: themeColors.background.overlay,
   },
   keyboardAvoidingView: {
     width: '100%',
@@ -764,72 +796,159 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+    paddingBottom: spacing.lg,
   },
   modalContent: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 20,
-    width: '85%',
-    maxHeight: '80%',
+    backgroundColor: themeColors.background.primary,
+    borderRadius: borderRadius.modal,
+    width: '90%',
+    maxHeight: '85%',
+    ...shadows.modal,
+  },
+  
+  // Modal Header
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: themeColors.border.primary,
+  },
+  modalHeaderLeft: {
+    width: 40,
+  },
+  modalHeaderRight: {
+    width: 40,
+  },
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: themeColors.background.secondary,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    color: '#007AFF',
-    textAlign: 'center',
+    ...typography.h4,
+    color: themeColors.text.primary,
+    fontWeight: typography.fontWeights.semibold,
+  },
+  
+  // Input Styles
+  inputGroup: {
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
+  },
+  inputLabel: {
+    ...typography.label,
+    color: themeColors.text.primary,
+    marginBottom: spacing.sm,
+    fontWeight: typography.fontWeights.medium,
   },
   input: {
-    backgroundColor: '#f5f7fa',
-    padding: 10,
+    backgroundColor: themeColors.background.secondary,
     borderWidth: 1,
-    borderColor: '#b0b3c6',
-    borderRadius: 8,
-    marginBottom: 10,
-    color: '#23242a',
-    fontSize: 15,
+    borderColor: themeColors.border.primary,
+    borderRadius: borderRadius.input,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    ...typography.body2,
+    color: themeColors.text.primary,
   },
-  button: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 0,
+  textAreaInput: {
+    height: 80,
+    textAlignVertical: 'top',
   },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
-  },
+  
+  // Privacy Section
   privacySection: {
-    marginTop: 20,
-    marginBottom: 20,
-    padding: 15,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
+    marginTop: spacing.xl,
+    paddingHorizontal: spacing.lg,
   },
-  privacyTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#23242a',
-    marginBottom: 15,
-    textAlign: 'center',
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  sectionTitle: {
+    ...typography.h4,
+    color: themeColors.text.primary,
+    marginLeft: spacing.sm,
+    fontWeight: typography.fontWeights.semibold,
+  },
+  privacyCard: {
+    backgroundColor: themeColors.background.secondary,
+    borderRadius: borderRadius.card,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: themeColors.border.primary,
   },
   privacyRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: themeColors.border.primary,
+  },
+  privacyRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  privacyTextContainer: {
+    marginLeft: spacing.md,
+    flex: 1,
   },
   privacyLabel: {
-    fontSize: 14,
-    color: '#23242a',
-    fontWeight: '500',
+    ...typography.body2,
+    color: themeColors.text.primary,
+    fontWeight: typography.fontWeights.medium,
+    marginBottom: 2,
+  },
+  privacyDescription: {
+    ...typography.caption.large,
+    color: themeColors.text.secondary,
+  },
+  
+  // Action Buttons
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    gap: spacing.md,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: themeColors.background.secondary,
+    borderRadius: borderRadius.button,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: themeColors.border.primary,
+  },
+  cancelButtonText: {
+    ...typography.button.medium,
+    color: themeColors.text.secondary,
+  },
+  saveButton: {
+    flex: 2,
+    backgroundColor: themeColors.primary.main,
+    borderRadius: borderRadius.button,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    ...shadows.primary,
+  },
+  saveButtonText: {
+    ...typography.button.medium,
+    color: themeColors.background.primary,
+    marginLeft: spacing.sm,
+    fontWeight: typography.fontWeights.semibold,
   },
 });
 
