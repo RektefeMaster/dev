@@ -343,6 +343,14 @@ router.put('/:id/cancel', auth, async (req: Request, res: Response) => {
 router.put('/:id/status', auth, async (req: Request, res: Response) => {
   try {
     const { status, rejectionReason, mechanicNotes, price } = req.body;
+    
+    console.log(`📝 Status güncelleme isteği:`, {
+      appointmentId: req.params.id,
+      status,
+      price,
+      hasPriceParam: price !== undefined && price !== null
+    });
+    
     const appointment = await AppointmentService.updateAppointmentStatus(
       req.params.id,
       status,
@@ -352,13 +360,25 @@ router.put('/:id/status', auth, async (req: Request, res: Response) => {
     
     // Eğer price verilmişse, fiyatı da güncelle
     if (price !== undefined && price !== null && price > 0) {
-      appointment.price = Number(price);
-      await appointment.save();
-      console.log(`💰 Randevu fiyatı güncellendi: ${price}₺ (appointmentId: ${req.params.id})`);
+      const numericPrice = Number(price);
+      console.log(`💰 Fiyat güncelleniyor: ${numericPrice}₺ (appointmentId: ${req.params.id})`);
+      
+      appointment.price = numericPrice;
+      appointment.finalPrice = numericPrice; // finalPrice'ı da güncelle
+      const savedAppointment = await appointment.save();
+      
+      console.log(`✅ Fiyat kaydedildi:`, {
+        appointmentId: savedAppointment._id,
+        price: savedAppointment.price,
+        finalPrice: savedAppointment.finalPrice
+      });
+      
+      return res.json({ success: true, data: savedAppointment });
     }
     
     res.json({ success: true, data: appointment });
   } catch (error: any) {
+    console.error(`❌ Status güncelleme hatası:`, error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
