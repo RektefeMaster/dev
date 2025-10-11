@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Modal, TextInput, Switch, Alert, Platform, Animated, ScrollView, KeyboardAvoidingView, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Modal, TextInput, Switch, Alert, Platform, Animated, ScrollView, KeyboardAvoidingView, Keyboard, TouchableWithoutFeedback, SafeAreaView } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiService, api } from '@/shared/services/api';
@@ -8,6 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
 import { useAuth } from '@/context/AuthContext';
 import { colors as themeColors, typography, spacing, borderRadius, shadows, dimensions } from '@/theme/theme';
+import * as ImagePicker from 'expo-image-picker';
 
 const defaultAvatar = require('../../../../assets/default_avatar.png');
 
@@ -21,6 +22,8 @@ const ProfileScreen = () => {
   const [showPhone, setShowPhone] = useState(true);
   const [avatarScale] = useState(new Animated.Value(1));
   const { logout } = useAuth();
+  const [imageModalVisible, setImageModalVisible] = useState(false);
+  const [coverImageModalVisible, setCoverImageModalVisible] = useState(false);
 
   // Dinamik profil tamamlama oranı
   const profileFields = [user?.name, user?.surname, user?.email, user?.phone, user?.city, user?.bio];
@@ -33,6 +36,8 @@ const ProfileScreen = () => {
     const fetchUser = async () => {
       try {
         if (!token || !userId) {
+          console.log('⚠️ ProfileScreen: Token veya userId yok');
+          setLoading(false);
           return;
         }
         
@@ -41,8 +46,20 @@ const ProfileScreen = () => {
         console.log('🔍 ProfileScreen: Raw API response:', data);
         
         // API response formatı kontrol et
-        const userData = data && data.success && data.data ? data.data : data;
+        if (!data || !data.success) {
+          console.log('❌ ProfileScreen: API başarısız response:', data);
+          if (data?.error?.code === 'UNAUTHORIZED' || data?.error?.message?.includes('401')) {
+            Alert.alert('Oturum Süresi Doldu', 'Lütfen tekrar giriş yapın.');
+            logout();
+            return;
+          }
+          throw new Error(data?.error?.message || 'API hatası');
+        }
+        
+        const userData = data.data;
         console.log('🔍 ProfileScreen: Processed userData:', userData);
+        console.log('🔍 ProfileScreen: Avatar URL:', userData?.avatar);
+        console.log('🔍 ProfileScreen: Cover URL:', userData?.cover);
         
         setUser(userData);
         setEditData({
@@ -58,18 +75,146 @@ const ProfileScreen = () => {
         });
         setShowEmail(!(userData.emailHidden));
         setShowPhone(!(userData.phoneHidden));
-      } catch (e) {
+      } catch (e: any) {
         console.error('❌ ProfileScreen: Error fetching user:', e);
-        Alert.alert('Hata', 'Kullanıcı bilgileri alınamadı.');
+        if (e.response?.status === 401) {
+          Alert.alert('Oturum Süresi Doldu', 'Lütfen tekrar giriş yapın.');
+          logout();
+        } else {
+          Alert.alert('Hata', 'Kullanıcı bilgileri alınamadı.');
+        }
       } finally {
         setLoading(false);
       }
     };
     fetchUser();
-  }, [token, userId]);
+  }, [token, userId, logout]);
 
   const handleEditChange = (field: string, value: string | boolean) => {
     setEditData((prev: any) => ({ ...prev, [field]: value }));
+  };
+
+  // Profil resmi değiştirme fonksiyonları
+  const pickImageFromGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('İzin Gerekli', 'Galeriye erişim için izin vermelisiniz.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      handleImageUpload(result.assets[0].uri, 'avatar');
+    }
+  };
+
+  const takePhotoWithCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('İzin Gerekli', 'Kameraya erişim için izin vermelisiniz.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      handleImageUpload(result.assets[0].uri, 'avatar');
+    }
+  };
+
+  const handleImageUpload = async (imageUri: string, type: 'avatar' | 'cover') => {
+    try {
+      setLoading(true);
+      console.log('📸 Image upload başlatılıyor:', type, imageUri);
+      
+      // API'ye resim yükle
+      const response = type === 'avatar' 
+        ? await apiService.uploadProfilePhoto(imageUri)
+        : await apiService.uploadCoverPhoto(imageUri);
+      
+      console.log('📸 API response:', response);
+      
+      if (response.success && response.data) {
+        // Başarılı yükleme - state'i güncelle
+        const newImageUrl = type === 'avatar' ? response.data.avatar : response.data.cover;
+        console.log('📸 Yeni resim URL:', newImageUrl);
+        console.log('📸 Güncellenen user:', response.data.user);
+        
+        // Tam user objesini güncelle
+        if (response.data.user) {
+          setUser(response.data.user);
+        } else {
+          setUser(prev => ({ 
+            ...prev, 
+            [type === 'avatar' ? 'avatar' : 'cover']: newImageUrl 
+          }));
+        }
+        
+        if (type === 'avatar') {
+          setImageModalVisible(false);
+          Alert.alert('Başarılı', 'Profil resminiz güncellendi.');
+        } else {
+          setCoverImageModalVisible(false);
+          Alert.alert('Başarılı', 'Kapak fotoğrafınız güncellendi.');
+        }
+      } else {
+        console.error('📸 Upload başarısız:', response);
+        Alert.alert('Hata', response.message || 'Resim yüklenirken bir hata oluştu.');
+      }
+    } catch (error: any) {
+      console.error('📸 Image upload error:', error);
+      Alert.alert('Hata', 'Resim yüklenirken bir hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Kapak fotoğrafı fonksiyonları
+  const pickCoverImageFromGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('İzin Gerekli', 'Galeriye erişim için izin vermelisiniz.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9], // Kapak fotoğrafı için 16:9 oran
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      handleImageUpload(result.assets[0].uri, 'cover');
+    }
+  };
+
+  const takeCoverPhotoWithCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('İzin Gerekli', 'Kameraya erişim için izin vermelisiniz.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [16, 9], // Kapak fotoğrafı için 16:9 oran
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      handleImageUpload(result.assets[0].uri, 'cover');
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -135,119 +280,116 @@ const ProfileScreen = () => {
   };
 
   if (loading) {
-    return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><Text>Yükleniyor...</Text></View>;
+    return (
+      <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: themeColors.background.primary }}>
+        <Text style={{ color: themeColors.text.primary }}>Yükleniyor...</Text>
+      </SafeAreaView>
+    );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Modern Header */}
-      <View style={styles.headerContainer}>
-        <LinearGradient colors={[themeColors.primary.main, themeColors.primary.dark]} style={styles.headerGradient}>
-          <View style={styles.headerTop}>
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-              <Ionicons name="arrow-back" size={24} color={themeColors.background.primary} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Profilim</Text>
-            <TouchableOpacity style={styles.editIconBtn} onPress={() => setEditModal(true)}>
-              <Feather name="edit-3" size={20} color={themeColors.background.primary} />
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false} bounces={false}>
+        {/* Header Section with Cover Photo */}
+        <View style={styles.headerSection}>
+          {/* Cover Photo */}
+          <View style={styles.coverPhotoContainer}>
+            {user?.cover ? (
+              <Image 
+                source={{ uri: user.cover }} 
+                style={styles.coverPhoto}
+                onError={(e) => console.error('📸 Cover image load error:', e.nativeEvent.error)}
+                onLoad={() => console.log('📸 Cover image loaded successfully')}
+              />
+            ) : (
+              <LinearGradient
+                colors={[themeColors.primary.main, themeColors.primary.dark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.coverPhotoPlaceholder}
+              >
+                <MaterialCommunityIcons name="image-plus" size={40} color="rgba(255,255,255,0.4)" />
+              </LinearGradient>
+            )}
+            
+            {/* Header Navigation - Absolute Positioned */}
+            <View style={styles.headerNav}>
+              <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                <Ionicons name="arrow-back" size={24} color={themeColors.background.primary} />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>Profilim</Text>
+              <TouchableOpacity style={styles.editIconBtn} onPress={() => setEditModal(true)}>
+                <Feather name="edit-3" size={20} color={themeColors.background.primary} />
+              </TouchableOpacity>
+            </View>
+            
+            {/* Cover Photo Edit Button */}
+            <TouchableOpacity 
+              style={styles.coverPhotoEditButton}
+              onPress={() => setCoverImageModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons 
+                name="camera" 
+                size={16} 
+                color={themeColors.background.primary} 
+              />
             </TouchableOpacity>
           </View>
           
-          {/* Profile Avatar Section */}
-          <View style={styles.profileSection}>
-            <Animated.View style={{ transform: [{ scale: avatarScale }] }}>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPressIn={() => Animated.spring(avatarScale, { toValue: 0.95, useNativeDriver: true }).start()}
-                onPressOut={() => Animated.spring(avatarScale, { toValue: 1, useNativeDriver: true }).start()}
-                style={styles.avatarContainer}
-              >
-                <Image source={user?.avatar ? { uri: user.avatar } : defaultAvatar} style={styles.avatar} />
+          {/* Profile Info Section */}
+          <View style={styles.profileInfoContainer}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setImageModalVisible(true)}
+              onPressIn={() => Animated.spring(avatarScale, { toValue: 0.95, useNativeDriver: true }).start()}
+              onPressOut={() => Animated.spring(avatarScale, { toValue: 1, useNativeDriver: true }).start()}
+              style={styles.avatarContainer}
+            >
+              <Animated.View style={{ transform: [{ scale: avatarScale }] }}>
+                <Image 
+                  source={user?.avatar ? { uri: user.avatar } : defaultAvatar} 
+                  style={styles.avatar}
+                  onError={(e) => console.error('📸 Avatar load error:', e.nativeEvent.error)}
+                  onLoad={() => console.log('📸 Avatar loaded:', user?.avatar)}
+                />
                 <View style={styles.avatarEditBadge}>
                   <Feather name="camera" size={12} color={themeColors.background.primary} />
                 </View>
-              </TouchableOpacity>
-            </Animated.View>
+              </Animated.View>
+            </TouchableOpacity>
             
-            <View style={styles.profileInfo}>
+            <View style={styles.profileTextInfo}>
               <Text style={styles.userName}>{user?.name} {user?.surname}</Text>
               <Text style={styles.userRole}>{user?.userType === 'driver' ? 'Şöför' : 'Usta'}</Text>
-              <View style={styles.verificationBadge}>
-                <MaterialCommunityIcons name="check-decagram" size={16} color={themeColors.success.main} />
-                <Text style={styles.verificationText}>Doğrulanmış Hesap</Text>
-              </View>
             </View>
           </View>
-        </LinearGradient>
-      </View>
-      <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        {/* Profile Stats Cards */}
-        <View style={styles.statsContainer}>
-          {user?.userType === 'driver' ? (
-            <>
-              <View style={styles.statCard}>
-                <MaterialCommunityIcons name="car" size={24} color={themeColors.primary.main} />
-                <Text style={styles.statNumber}>{user?.vehicles?.length || 0}</Text>
-                <Text style={styles.statLabel}>Araçlarım</Text>
-              </View>
-              <View style={styles.statCard}>
-                <MaterialCommunityIcons name="calendar-check" size={24} color={themeColors.success.main} />
-                <Text style={styles.statNumber}>12</Text>
-                <Text style={styles.statLabel}>Randevularım</Text>
-              </View>
-              <View style={styles.statCard}>
-                <MaterialCommunityIcons name="map-marker" size={24} color={themeColors.info.main} />
-                <Text style={styles.statNumber}>{user?.city ? '1' : '0'}</Text>
-                <Text style={styles.statLabel}>Şehir</Text>
-              </View>
-            </>
-          ) : (
-            <>
-              <View style={styles.statCard}>
-                <MaterialCommunityIcons name="star" size={24} color={themeColors.accent.main} />
-                <Text style={styles.statNumber}>4.8</Text>
-                <Text style={styles.statLabel}>Değerlendirme</Text>
-              </View>
-              <View style={styles.statCard}>
-                <MaterialCommunityIcons name="calendar-check" size={24} color={themeColors.success.main} />
-                <Text style={styles.statNumber}>127</Text>
-                <Text style={styles.statLabel}>Tamamlanan</Text>
-              </View>
-              <View style={styles.statCard}>
-                <MaterialCommunityIcons name="clock-outline" size={24} color={themeColors.info.main} />
-                <Text style={styles.statNumber}>2</Text>
-                <Text style={styles.statLabel}>Aktif İş</Text>
-              </View>
-            </>
-          )}
         </View>
-        
         {/* Profile Completion Card */}
-        <View style={styles.completionCard}>
-          <View style={styles.completionHeader}>
-            <MaterialCommunityIcons name="account-check" size={20} color={themeColors.primary.main} />
-            <Text style={styles.completionTitle}>Profil Tamamlama</Text>
-          </View>
-          <View style={styles.progressContainer}>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${profileCompletion * 100}%` }]} />
+        {profileCompletion < 1 && (
+          <View style={styles.completionCard}>
+            <View style={styles.completionHeader}>
+              <MaterialCommunityIcons name="account-check" size={18} color={themeColors.primary.main} />
+              <Text style={styles.completionTitle}>Profil Tamamlama</Text>
             </View>
-            <Text style={styles.progressText}>{Math.round(profileCompletion * 100)}% Tamamlandı</Text>
+            <View style={styles.progressContainer}>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${profileCompletion * 100}%` }]} />
+              </View>
+              <Text style={styles.progressText}>{Math.round(profileCompletion * 100)}%</Text>
+            </View>
           </View>
-          {profileCompletion < 1 && (
-            <Text style={styles.completionHint}>Profilinizi tamamlamak için eksik bilgileri doldurun</Text>
-          )}
-        </View>
+        )}
         {/* Contact Information Card */}
         <View style={styles.contactCard}>
           <View style={styles.cardHeader}>
-            <MaterialCommunityIcons name="card-account-details" size={20} color={themeColors.primary.main} />
+            <MaterialCommunityIcons name="card-account-details" size={18} color={themeColors.primary.main} />
             <Text style={styles.cardTitle}>İletişim Bilgileri</Text>
           </View>
           
           <View style={styles.contactRow}>
             <View style={styles.contactIcon}>
-              <MaterialCommunityIcons name="email-outline" size={18} color={themeColors.text.secondary} />
+              <MaterialCommunityIcons name="email-outline" size={16} color={themeColors.text.secondary} />
             </View>
             <View style={styles.contactInfo}>
               <Text style={styles.contactLabel}>E-posta</Text>
@@ -259,12 +401,12 @@ const ProfileScreen = () => {
                 <Text style={styles.contactValueHidden}>Gizli</Text>
               )}
             </View>
-            <MaterialCommunityIcons name="eye-off" size={16} color={themeColors.text.tertiary} />
+            {!showEmail && <MaterialCommunityIcons name="eye-off" size={14} color={themeColors.text.tertiary} />}
           </View>
           
           <View style={styles.contactRow}>
             <View style={styles.contactIcon}>
-              <Feather name="phone" size={18} color={themeColors.text.secondary} />
+              <Feather name="phone" size={16} color={themeColors.text.secondary} />
             </View>
             <View style={styles.contactInfo}>
               <Text style={styles.contactLabel}>Telefon</Text>
@@ -276,19 +418,18 @@ const ProfileScreen = () => {
                 <Text style={styles.contactValueHidden}>Gizli</Text>
               )}
             </View>
-            <MaterialCommunityIcons name="eye-off" size={16} color={themeColors.text.tertiary} />
+            {!showPhone && <MaterialCommunityIcons name="eye-off" size={14} color={themeColors.text.tertiary} />}
           </View>
           
           {user?.city && (
-            <View style={styles.contactRow}>
+            <View style={[styles.contactRow, styles.contactRowLast]}>
               <View style={styles.contactIcon}>
-                <MaterialCommunityIcons name="map-marker-outline" size={18} color={themeColors.text.secondary} />
+                <MaterialCommunityIcons name="map-marker-outline" size={16} color={themeColors.text.secondary} />
               </View>
               <View style={styles.contactInfo}>
                 <Text style={styles.contactLabel}>Şehir</Text>
                 <Text style={styles.contactValue}>{user.city}</Text>
               </View>
-              <MaterialCommunityIcons name="map" size={16} color={themeColors.text.tertiary} />
             </View>
           )}
         </View>
@@ -296,7 +437,7 @@ const ProfileScreen = () => {
         {/* Membership Info Card */}
         <View style={styles.membershipCard}>
           <View style={styles.cardHeader}>
-            <MaterialCommunityIcons name="account-clock" size={20} color={themeColors.accent.main} />
+            <MaterialCommunityIcons name="account-clock" size={18} color={themeColors.primary.main} />
             <Text style={styles.cardTitle}>Üyelik Bilgileri</Text>
           </View>
           <View style={styles.membershipContent}>
@@ -312,7 +453,7 @@ const ProfileScreen = () => {
             </View>
             {user?.isPremium && (
               <View style={styles.premiumBadge}>
-                <MaterialCommunityIcons name="crown" size={18} color={themeColors.accent.main} />
+                <MaterialCommunityIcons name="crown" size={16} color={themeColors.accent.main} />
                 <Text style={styles.premiumText}>Premium Üye</Text>
               </View>
             )}
@@ -321,41 +462,41 @@ const ProfileScreen = () => {
         {/* Quick Actions */}
         <View style={styles.actionsCard}>
           <View style={styles.cardHeader}>
-            <MaterialCommunityIcons name="cog-outline" size={20} color={themeColors.primary.main} />
+            <MaterialCommunityIcons name="cog-outline" size={18} color={themeColors.primary.main} />
             <Text style={styles.cardTitle}>Hızlı İşlemler</Text>
           </View>
           
           <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('ChangePassword' as never)}>
-            <View style={styles.actionIcon}>
-              <Feather name="lock" size={18} color={themeColors.warning.main} />
+            <View style={[styles.actionIcon, { backgroundColor: themeColors.warning.ultraLight }]}>
+              <Feather name="lock" size={16} color={themeColors.warning.main} />
             </View>
             <View style={styles.actionContent}>
               <Text style={styles.actionTitle}>Şifre Değiştir</Text>
               <Text style={styles.actionSubtitle}>Hesap güvenliğinizi artırın</Text>
             </View>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={themeColors.text.tertiary} />
+            <MaterialCommunityIcons name="chevron-right" size={18} color={themeColors.text.tertiary} />
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('ChangeEmail' as never)}>
-            <View style={styles.actionIcon}>
-              <Feather name="mail" size={18} color={themeColors.success.main} />
+            <View style={[styles.actionIcon, { backgroundColor: themeColors.success.ultraLight }]}>
+              <Feather name="mail" size={16} color={themeColors.success.main} />
             </View>
             <View style={styles.actionContent}>
               <Text style={styles.actionTitle}>E-posta Değiştir</Text>
               <Text style={styles.actionSubtitle}>E-posta adresinizi güncelleyin</Text>
             </View>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={themeColors.text.tertiary} />
+            <MaterialCommunityIcons name="chevron-right" size={18} color={themeColors.text.tertiary} />
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.actionRow}>
-            <View style={styles.actionIcon}>
-              <MaterialCommunityIcons name="bell-outline" size={18} color={themeColors.info.main} />
+          <TouchableOpacity style={[styles.actionRow, styles.actionRowLast]}>
+            <View style={[styles.actionIcon, { backgroundColor: themeColors.info.ultraLight }]}>
+              <MaterialCommunityIcons name="bell-outline" size={16} color={themeColors.info.main} />
             </View>
             <View style={styles.actionContent}>
               <Text style={styles.actionTitle}>Bildirim Ayarları</Text>
               <Text style={styles.actionSubtitle}>Bildirim tercihlerinizi yönetin</Text>
             </View>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={themeColors.text.tertiary} />
+            <MaterialCommunityIcons name="chevron-right" size={18} color={themeColors.text.tertiary} />
           </TouchableOpacity>
         </View>
         
@@ -569,7 +710,67 @@ const ProfileScreen = () => {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
-    </View>
+
+      {/* Resim Seçme Modal */}
+      <Modal visible={imageModalVisible} animationType="slide" transparent onRequestClose={() => setImageModalVisible(false)}>
+        <View style={styles.imageModalContainer}>
+          <View style={styles.imageModalContent}>
+            <View style={styles.imageModalHeader}>
+              <Text style={styles.imageModalTitle}>Profil Resmi</Text>
+              <TouchableOpacity onPress={() => setImageModalVisible(false)}>
+                <Ionicons name="close" size={24} color={themeColors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.imageOptions}>
+              <TouchableOpacity style={styles.imageOption} onPress={pickImageFromGallery}>
+                <View style={styles.imageOptionIcon}>
+                  <MaterialCommunityIcons name="image-outline" size={32} color={themeColors.primary.main} />
+                </View>
+                <Text style={styles.imageOptionText}>Galeriden Seç</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.imageOption} onPress={takePhotoWithCamera}>
+                <View style={styles.imageOptionIcon}>
+                  <MaterialCommunityIcons name="camera-outline" size={32} color={themeColors.primary.main} />
+                </View>
+                <Text style={styles.imageOptionText}>Fotoğraf Çek</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Kapak Fotoğrafı Modal */}
+      <Modal visible={coverImageModalVisible} animationType="slide" transparent onRequestClose={() => setCoverImageModalVisible(false)}>
+        <View style={styles.imageModalContainer}>
+          <View style={styles.imageModalContent}>
+            <View style={styles.imageModalHeader}>
+              <Text style={styles.imageModalTitle}>Kapak Fotoğrafı</Text>
+              <TouchableOpacity onPress={() => setCoverImageModalVisible(false)}>
+                <Ionicons name="close" size={24} color={themeColors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.imageOptions}>
+              <TouchableOpacity style={styles.imageOption} onPress={pickCoverImageFromGallery}>
+                <View style={styles.imageOptionIcon}>
+                  <MaterialCommunityIcons name="image-outline" size={32} color={themeColors.primary.main} />
+                </View>
+                <Text style={styles.imageOptionText}>Galeriden Seç</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.imageOption} onPress={takeCoverPhotoWithCamera}>
+                <View style={styles.imageOptionIcon}>
+                  <MaterialCommunityIcons name="camera-outline" size={32} color={themeColors.primary.main} />
+                </View>
+                <Text style={styles.imageOptionText}>Fotoğraf Çek</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 };
 
@@ -580,54 +781,100 @@ const styles = StyleSheet.create({
     backgroundColor: themeColors.background.primary,
   },
   
-  // Header Styles
-  headerContainer: {
+  // Scroll Container
+  scrollContainer: {
+    flexGrow: 1,
+  },
+  
+  // Header Section
+  headerSection: {
+    backgroundColor: themeColors.background.primary,
+    marginBottom: spacing.md,
+  },
+  
+  // Cover Photo Styles
+  coverPhotoContainer: {
+    height: 200,
+    width: '100%',
     position: 'relative',
   },
-  headerGradient: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: spacing.xxl,
+  coverPhoto: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.xl,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  coverPhotoPlaceholder: {
+    width: '100%',
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.small,
   },
-  headerTitle: {
-    ...typography.h3,
-    color: themeColors.background.primary,
-    fontWeight: typography.fontWeights.bold,
-  },
-  editIconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  coverPhotoEditButton: {
+    position: 'absolute',
+    bottom: spacing.sm,
+    right: spacing.sm,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.small,
   },
   
-  // Profile Section
-  profileSection: {
+  // Header Navigation
+  headerNav: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingTop: Platform.OS === 'ios' ? spacing.sm : spacing.md,
+    paddingBottom: spacing.sm,
+    zIndex: 10,
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    ...typography.h4,
+    color: themeColors.background.primary,
+    fontWeight: typography.fontWeights.semibold,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  editIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  
+  // Profile Info Section
+  profileInfoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    backgroundColor: themeColors.background.primary,
+  },
+  profileTextInfo: {
+    flex: 1,
+    marginLeft: spacing.md,
   },
   avatarContainer: {
     position: 'relative',
-    marginRight: spacing.lg,
   },
   avatar: {
     width: 80,
@@ -650,134 +897,84 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: themeColors.background.primary,
   },
-  profileInfo: {
-    flex: 1,
-  },
   userName: {
-    ...typography.h4,
-    color: themeColors.background.primary,
-    fontWeight: typography.fontWeights.bold,
-    marginBottom: 4,
-  },
-  userRole: {
-    ...typography.body2,
-    color: themeColors.background.primary,
-    opacity: 0.9,
-    marginBottom: spacing.sm,
-  },
-  verificationBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: borderRadius.sm,
-    alignSelf: 'flex-start',
-  },
-  verificationText: {
-    ...typography.caption.large,
-    color: themeColors.background.primary,
-    marginLeft: 4,
-    fontWeight: typography.fontWeights.medium,
-  },
-  
-  // Scroll Container
-  scrollContainer: {
-    paddingBottom: spacing.xxl,
-    paddingTop: spacing.lg,
-  },
-  
-  // Stats Container
-  statsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
-    gap: spacing.sm,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: themeColors.background.card,
-    borderRadius: borderRadius.card,
-    padding: spacing.md,
-    alignItems: 'center',
-    ...shadows.card,
-  },
-  statNumber: {
     ...typography.h3,
     color: themeColors.text.primary,
     fontWeight: typography.fontWeights.bold,
-    marginTop: spacing.sm,
+    marginBottom: 2,
   },
-  statLabel: {
-    ...typography.caption.large,
+  userRole: {
+    ...typography.body2,
     color: themeColors.text.secondary,
-    textAlign: 'center',
-    marginTop: 4,
+    fontWeight: typography.fontWeights.medium,
   },
   
   // Completion Card
   completionCard: {
-    backgroundColor: themeColors.background.card,
+    backgroundColor: themeColors.primary.ultraLight,
     borderRadius: borderRadius.card,
-    padding: spacing.lg,
+    padding: spacing.md,
     marginHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
-    ...shadows.card,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: themeColors.primary.light,
   },
   completionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   completionTitle: {
-    ...typography.h4,
+    ...typography.body1,
     color: themeColors.text.primary,
     marginLeft: spacing.sm,
     fontWeight: typography.fontWeights.semibold,
+    flex: 1,
   },
   progressContainer: {
-    marginBottom: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   progressBar: {
-    height: 8,
+    flex: 1,
+    height: 6,
     backgroundColor: themeColors.background.secondary,
-    borderRadius: 4,
+    borderRadius: 3,
     overflow: 'hidden',
-    marginBottom: spacing.sm,
   },
   progressFill: {
     height: '100%',
     backgroundColor: themeColors.primary.main,
-    borderRadius: 4,
+    borderRadius: 3,
   },
   progressText: {
     ...typography.caption.large,
-    color: themeColors.text.secondary,
-    textAlign: 'center',
-  },
-  completionHint: {
-    ...typography.caption.small,
-    color: themeColors.text.tertiary,
-    textAlign: 'center',
-    fontStyle: 'italic',
+    color: themeColors.primary.main,
+    fontWeight: typography.fontWeights.semibold,
+    minWidth: 40,
+    textAlign: 'right',
   },
   
   // Contact Card
   contactCard: {
     backgroundColor: themeColors.background.card,
     borderRadius: borderRadius.card,
-    padding: spacing.lg,
+    padding: spacing.md,
     marginHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
     ...shadows.card,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: themeColors.border.primary,
   },
   cardTitle: {
-    ...typography.h4,
+    ...typography.body1,
     color: themeColors.text.primary,
     marginLeft: spacing.sm,
     fontWeight: typography.fontWeights.semibold,
@@ -785,14 +982,17 @@ const styles = StyleSheet.create({
   contactRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: themeColors.border.primary,
   },
+  contactRowLast: {
+    borderBottomWidth: 0,
+  },
   contactIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: themeColors.background.secondary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -821,18 +1021,19 @@ const styles = StyleSheet.create({
   membershipCard: {
     backgroundColor: themeColors.background.card,
     borderRadius: borderRadius.card,
-    padding: spacing.lg,
+    padding: spacing.md,
     marginHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
     ...shadows.card,
   },
   membershipContent: {
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   membershipRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: spacing.xs,
   },
   membershipLabel: {
     ...typography.body2,
@@ -859,25 +1060,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: themeColors.accent.ultraLight,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
     borderRadius: borderRadius.sm,
     alignSelf: 'flex-start',
-    marginTop: spacing.sm,
   },
   premiumText: {
     ...typography.caption.large,
     color: themeColors.accent.main,
     fontWeight: typography.fontWeights.semibold,
-    marginLeft: spacing.sm,
+    marginLeft: spacing.xs,
   },
   
   // Actions Card
   actionsCard: {
     backgroundColor: themeColors.background.card,
     borderRadius: borderRadius.card,
-    padding: spacing.lg,
+    padding: spacing.md,
     marginHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
     ...shadows.card,
   },
   actionRow: {
@@ -887,11 +1087,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: themeColors.border.primary,
   },
+  actionRowLast: {
+    borderBottomWidth: 0,
+  },
   actionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: themeColors.background.secondary,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -913,20 +1115,21 @@ const styles = StyleSheet.create({
   // Logout Section
   logoutSection: {
     paddingHorizontal: spacing.lg,
-    marginBottom: spacing.xxl,
+    paddingBottom: spacing.xl,
+    paddingTop: spacing.sm,
   },
   logoutButton: {
     backgroundColor: themeColors.error.main,
     borderRadius: borderRadius.card,
-    padding: spacing.lg,
+    padding: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     ...shadows.medium,
   },
   logoutIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -936,7 +1139,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   logoutTitle: {
-    ...typography.h4,
+    ...typography.body1,
     color: themeColors.background.primary,
     fontWeight: typography.fontWeights.semibold,
     marginBottom: 2,
@@ -1113,6 +1316,56 @@ const styles = StyleSheet.create({
     color: themeColors.background.primary,
     marginLeft: spacing.sm,
     fontWeight: typography.fontWeights.semibold,
+  },
+
+  // Image Modal Styles
+  imageModalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: themeColors.background.overlay,
+  },
+  imageModalContent: {
+    backgroundColor: themeColors.background.primary,
+    borderTopLeftRadius: borderRadius.modal,
+    borderTopRightRadius: borderRadius.modal,
+    paddingBottom: spacing.xxl,
+  },
+  imageModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: themeColors.border.primary,
+  },
+  imageModalTitle: {
+    ...typography.h4,
+    color: themeColors.text.primary,
+    fontWeight: typography.fontWeights.semibold,
+  },
+  imageOptions: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    gap: spacing.lg,
+  },
+  imageOption: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+    backgroundColor: themeColors.background.secondary,
+    borderRadius: borderRadius.card,
+    borderWidth: 1,
+    borderColor: themeColors.border.primary,
+  },
+  imageOptionIcon: {
+    marginBottom: spacing.sm,
+  },
+  imageOptionText: {
+    ...typography.body2,
+    color: themeColors.text.primary,
+    fontWeight: typography.fontWeights.medium,
   },
 });
 

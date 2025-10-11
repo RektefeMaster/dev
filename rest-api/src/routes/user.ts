@@ -5,6 +5,49 @@ import { auth } from '../middleware/optimizedAuth';
 import mongoose from 'mongoose';
 import { ResponseHandler } from '../utils/response';
 import { Notification } from '../models/Notification'; // Added missing import
+import multer from 'multer';
+import cloudinary from '../utils/cloudinary';
+import { Readable } from 'stream';
+
+// Multer konfigürasyonu - memory storage kullan
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Sadece resim dosyaları yüklenebilir (JPEG, PNG, WEBP, GIF)'));
+    }
+  }
+});
+
+// Buffer'ı Cloudinary'ye yükleme fonksiyonu
+const uploadToCloudinary = (buffer: Buffer, folder: string): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: `rektefe/${folder}`,
+        resource_type: 'image',
+        transformation: [
+          { width: 1000, height: 1000, crop: 'limit' },
+          { quality: 'auto' }
+        ]
+      },
+      (error, result) => {
+        if (error) reject(error);
+        else resolve(result);
+      }
+    );
+    
+    const readable = Readable.from(buffer);
+    readable.pipe(uploadStream);
+  });
+};
 
 /**
  * @swagger
@@ -254,7 +297,7 @@ router.put('/capabilities', auth, async (req: Request, res: Response) => {
  *       500:
  *         description: Sunucu hatası
  */
-router.post('/profile-photo', auth, async (req: Request, res: Response) => {
+router.post('/profile-photo', auth, upload.single('photo'), async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
     
@@ -262,15 +305,32 @@ router.post('/profile-photo', auth, async (req: Request, res: Response) => {
       return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
     }
     
-    // Bu endpoint için file upload middleware gerekli
-    // Şimdilik basit bir response döndürüyoruz
-    return ResponseHandler.success(res, { 
-      message: 'Profil fotoğrafı güncelleme endpoint\'i hazır',
-      note: 'File upload middleware entegrasyonu gerekli'
-    }, 'Profil fotoğrafı endpoint\'i');
+    if (!req.file) {
+      return ResponseHandler.badRequest(res, 'Fotoğraf yüklenmedi.');
+    }
     
-  } catch (error) {
-    return ResponseHandler.error(res, 'Profil fotoğrafı güncellenirken hata oluştu');
+    // Cloudinary'ye yükle
+    const result = await uploadToCloudinary(req.file.buffer, 'profile_photos');
+    
+    // Kullanıcıyı güncelle
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { avatar: result.secure_url },
+      { new: true }
+    ).select('-password');
+    
+    if (!user) {
+      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    }
+    
+    return ResponseHandler.success(res, {
+      avatar: result.secure_url,
+      user
+    }, 'Profil fotoğrafı başarıyla güncellendi');
+    
+  } catch (error: any) {
+    console.error('Profil fotoğrafı yükleme hatası:', error);
+    return ResponseHandler.error(res, error.message || 'Profil fotoğrafı güncellenirken hata oluştu');
   }
 });
 
@@ -307,7 +367,7 @@ router.post('/profile-photo', auth, async (req: Request, res: Response) => {
  *       500:
  *         description: Sunucu hatası
  */
-router.post('/cover-photo', auth, async (req: Request, res: Response) => {
+router.post('/cover-photo', auth, upload.single('photo'), async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
     
@@ -315,15 +375,50 @@ router.post('/cover-photo', auth, async (req: Request, res: Response) => {
       return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
     }
     
-    // Bu endpoint için file upload middleware gerekli
-    // Şimdilik basit bir response döndürüyoruz
-    return ResponseHandler.success(res, { 
-      message: 'Kapak fotoğrafı güncelleme endpoint\'i hazır',
-      note: 'File upload middleware entegrasyonu gerekli'
-    }, 'Kapak fotoğrafı endpoint\'i');
+    if (!req.file) {
+      return ResponseHandler.badRequest(res, 'Fotoğraf yüklenmedi.');
+    }
     
-  } catch (error) {
-    return ResponseHandler.error(res, 'Kapak fotoğrafı güncellenirken hata oluştu');
+    // Cloudinary'ye yükle (cover için daha geniş boyut)
+    const result = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'rektefe/cover_photos',
+          resource_type: 'image',
+          transformation: [
+            { width: 1500, height: 500, crop: 'limit' },
+            { quality: 'auto' }
+          ]
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      
+      const readable = Readable.from(req.file!.buffer);
+      readable.pipe(uploadStream);
+    });
+    
+    // Kullanıcıyı güncelle
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { cover: (result as any).secure_url },
+      { new: true }
+    ).select('-password');
+    
+    if (!user) {
+      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    }
+    
+    return ResponseHandler.success(res, {
+      cover: (result as any).secure_url,
+      user
+    }, 'Kapak fotoğrafı başarıyla güncellendi');
+    
+  } catch (error: any) {
+    console.error('Kapak fotoğrafı yükleme hatası:', error);
+    return ResponseHandler.error(res, error.message || 'Kapak fotoğrafı güncellenirken hata oluştu');
   }
 });
 

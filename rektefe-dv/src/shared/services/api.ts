@@ -952,6 +952,77 @@ export const apiService = {
         error.response?.data?.error?.details
       );
     }
+  },
+
+  // Photo Upload
+  uploadProfilePhoto: async (uri: string) => {
+    try {
+      const formData = new FormData();
+      const filename = uri.split('/').pop() || 'photo.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+      formData.append('photo', {
+        uri,
+        name: filename,
+        type,
+      } as any);
+
+      const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      const response = await axios.post(
+        `${API_CONFIG.BASE_URL}/users/profile-photo`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error('Upload profile photo error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Profil fotoğrafı yüklenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  uploadCoverPhoto: async (uri: string) => {
+    try {
+      const formData = new FormData();
+      const filename = uri.split('/').pop() || 'photo.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+      formData.append('photo', {
+        uri,
+        name: filename,
+        type,
+      } as any);
+
+      const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      const response = await axios.post(
+        `${API_CONFIG.BASE_URL}/users/cover-photo`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error('Upload cover photo error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Kapak fotoğrafı yüklenemedi',
+        error.response?.data?.error?.details
+      );
+    }
   }
 };
 
