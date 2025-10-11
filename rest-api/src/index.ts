@@ -13,7 +13,6 @@ import { errorHandler, notFound } from './middleware/errorHandler';
 import helmet from 'helmet';
 import compression from 'compression';
 import { DatabaseOptimizationService } from './services/databaseOptimization.service';
-import { seedDefaultUsers } from './scripts/seedDefaultUsers';
 import { securityHeaders, requestId } from './middleware/optimizedAuth';
 import Logger from './utils/logger';
 import { apiLimiter } from './middleware/rateLimiter';
@@ -65,7 +64,6 @@ import reportsRoutes from './routes/reports';
 import loyalCustomersRoutes from './routes/loyalCustomers';
 import vehicleHistoryRoutes from './routes/vehicleHistory';
 import jobReferralsRoutes from './routes/jobReferrals';
-import adminRoutes from './routes/admin';
 import mechanicReportsRoutes from './routes/mechanicReports';
 
 // .env dosyasını yükle
@@ -366,7 +364,7 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/loyal-customers', loyalCustomersRoutes);
 app.use('/api/vehicle-history', vehicleHistoryRoutes);
 app.use('/api/job-referrals', jobReferralsRoutes);
-app.use('/api/admin', adminRoutes);
+// Admin routes removed - seed function will be handled via admin panel
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
@@ -394,14 +392,8 @@ async function startServer() {
       Logger.warn('⚠️ Database optimization hatası (devam ediliyor):', optimizationError);
     }
     
-    // Default kullanıcıları seed et
-    Logger.info('🌱 Default kullanıcılar kontrol ediliyor...');
-    try {
-      await seedDefaultUsers();
-      Logger.info('✅ Default kullanıcılar hazır');
-    } catch (seedError) {
-      Logger.warn('⚠️ Default kullanıcı seed hatası (devam ediliyor):', seedError);
-    }
+    // Default kullanıcıları seed et (admin panel üzerinden yapılacak)
+    Logger.info('✅ MongoDB bağlantısı başarılı');
     
     // Monitoring sistemini başlat
     Logger.info('📊 Monitoring sistemi başlatılıyor...');
