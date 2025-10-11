@@ -250,6 +250,12 @@ export const createTheme = (isDark: boolean = false) => {
       },
       
       // Gövde metinleri
+      body: {
+        fontSize: 15,
+        fontWeight: '400' as const,
+        lineHeight: 20,
+        letterSpacing: -0.24,
+      },
       body1: {
         fontSize: 17,
         fontWeight: '400' as const,

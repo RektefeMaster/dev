@@ -42,6 +42,13 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   async (config) => {
     try {
+      // Rate limit hatası için geçici olarak tüm API çağrılarını durdur
+      console.log('🚫 Rate limit nedeniyle API çağrısı durduruluyor:', config.url);
+      const cancelToken = axios.CancelToken.source();
+      cancelToken.cancel('Rate limit exceeded - temporary block');
+      config.cancelToken = cancelToken.token;
+      return config;
+      
       const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
       
       // Token yoksa ve auth gerektiren endpoint ise isteği iptal et
