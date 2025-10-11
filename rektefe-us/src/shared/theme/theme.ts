@@ -242,6 +242,12 @@ export const createTheme = (isDark: boolean = false) => {
         lineHeight: 25,
         letterSpacing: 0.38,
       },
+      h5: {
+        fontSize: 18,
+        fontWeight: '600' as const,
+        lineHeight: 23,
+        letterSpacing: 0.35,
+      },
       
       // Gövde metinleri
       body1: {

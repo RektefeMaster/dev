@@ -18,6 +18,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import axios from 'axios';
 import { API_URL } from '@/constants/config';
+import { apiService } from '@/shared/services/api';
 import { useAuth } from '@/context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -118,18 +119,52 @@ const MaintenancePlanScreen = () => {
       const fetchVehicles = async () => {
         setLoading(true);
         try {
-          const response = await axios.get(`${API_URL}/vehicles`, {
-            headers: { Authorization: `Bearer ${token}` },
+          console.log('🚗 MaintenancePlanScreen: Araçlar getiriliyor...', { 
+            userId, 
+            token: token ? 'var' : 'yok',
+            tokenPreview: token ? `${token.substring(0, 20)}...` : 'null'
           });
+          
+          const response = await apiService.getVehicles();
+          
+          console.log('🚗 MaintenancePlanScreen: API yanıtı:', {
+            success: response.success,
+            dataLength: response.data?.length || 0,
+            message: response.message,
+            fullResponse: response
+          });
+          
           // API response formatı: { success: true, data: [...], message: "..." }
-          if (response.data && response.data.success && response.data.data) {
-            setVehicles(response.data.data);
+          if (response.success && response.data && Array.isArray(response.data)) {
+            setVehicles(response.data);
+            console.log('🚗 MaintenancePlanScreen: Araçlar başarıyla yüklendi:', response.data.length);
           } else {
+            console.log('🚗 MaintenancePlanScreen: API yanıt formatı beklenenden farklı:', response);
             setVehicles([]);
           }
-        } catch (error) {
+        } catch (error: any) {
+          console.error('🚗 MaintenancePlanScreen: Araç yükleme hatası:', error);
           setVehicles([]);
-          Alert.alert('Hata', 'Araçlar yüklenirken bir hata oluştu');
+          
+          // 401 Unauthorized hatası için özel mesaj
+          if (error.response?.status === 401) {
+            console.error('🚗 MaintenancePlanScreen: 401 Unauthorized - Token geçersiz!');
+            Alert.alert(
+              'Oturum Süresi Doldu', 
+              'Oturumunuzun süresi dolmuş. Lütfen tekrar giriş yapın.',
+              [
+                {
+                  text: 'Tamam',
+                  onPress: () => {
+                    // Kullanıcıyı login ekranına yönlendir
+                    // navigation.navigate('Login');
+                  }
+                }
+              ]
+            );
+          } else {
+            Alert.alert('Hata', 'Araçlar yüklenirken bir hata oluştu');
+          }
         } finally {
           setLoading(false);
         }
@@ -148,12 +183,10 @@ const MaintenancePlanScreen = () => {
     }
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${API_URL}/mechanic-services/mechanic-availability`,
-        {
-          params: { date, mechanicId: selectedMaster },
-        }
-      );
+      const response = await axios.get(`${API_URL}/mechanic-services/mechanic-availability`, {
+        params: { date, mechanicId: selectedMaster },
+        headers: { Authorization: `Bearer ${token}` },
+      });
       
       if (response.data && response.data.success && response.data.data && response.data.data.availableSlots) {
         setAvailableSlots(response.data.data.availableSlots);
@@ -255,13 +288,9 @@ const MaintenancePlanScreen = () => {
 
       console.log('📤 MaintenancePlanScreen: Gönderilen veri:', appointmentData);
 
-      const response = await axios.post(
-        `${API_URL}/appointments`,
-        appointmentData,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await axios.post(`${API_URL}/appointments`, appointmentData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       console.log('📥 MaintenancePlanScreen: Backend yanıtı:', response.data);
 
@@ -521,7 +550,7 @@ const MaintenancePlanScreen = () => {
             </Text>
             {loading ? (
               <ActivityIndicator size="large" color="#3b82f6" />
-            ) : (
+            ) : vehicles.length > 0 ? (
               <ScrollView style={styles.vehiclesList}>
                 {vehicles.map((vehicle: any) => (
                   <TouchableOpacity
@@ -546,6 +575,14 @@ const MaintenancePlanScreen = () => {
                   </TouchableOpacity>
                 ))}
               </ScrollView>
+            ) : (
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons name="car-off" size={64} color="#9ca3af" />
+                <Text style={styles.emptyStateTitle}>Araç Bulunamadı</Text>
+                <Text style={styles.emptyStateDescription}>
+                  Henüz eklenmiş bir aracınız bulunmuyor. Önce garajınıza araç eklemeniz gerekiyor.
+                </Text>
+              </View>
             )}
           </View>
         );
@@ -1222,6 +1259,26 @@ const styles = StyleSheet.create({
   availabilityText: {
     fontSize: 11,
     fontWeight: '600',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#374151',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyStateDescription: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
 

@@ -1,13 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
   SafeAreaView,
+  Linking,
+  TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -23,15 +22,12 @@ interface ServiceCategory {
 }
 
 export default function ServiceAreasScreen() {
-  const { serviceCategories, updateServiceCategories } = useSettings();
+  const { serviceCategories } = useSettings();
   const navigation = useNavigation();
-  const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   useEffect(() => {
     const defaultCategories = getDefaultCategories();
-    setCategories(defaultCategories);
     
     // Load user's selected categories
     if (serviceCategories && serviceCategories.length > 0) {
@@ -46,16 +42,16 @@ export default function ServiceAreasScreen() {
         return reverseMapping[cat] || cat;
       });
       
-      setSelectedCategories(frontendCategories);
-      setCategories(prev => prev.map(cat => ({
+      setCategories(defaultCategories.map(cat => ({
         ...cat,
         isSelected: frontendCategories.includes(cat.id)
       })));
+    } else {
+      setCategories(defaultCategories);
     }
   }, [serviceCategories]);
 
   const getDefaultCategories = (): ServiceCategory[] => [
-    // TAMİR BAKIM HİZMETLERİ
     { 
       id: 'tamir-bakim', 
       name: 'Tamir Bakım', 
@@ -63,8 +59,6 @@ export default function ServiceAreasScreen() {
       icon: 'construct-outline', 
       isSelected: false 
     },
-
-    // ARAÇ YIKAMA HİZMETLERİ
     { 
       id: 'arac-yikama', 
       name: 'Araç Yıkama', 
@@ -72,8 +66,6 @@ export default function ServiceAreasScreen() {
       icon: 'water-outline', 
       isSelected: false 
     },
-
-    // LASTİK HİZMETLERİ
     { 
       id: 'lastik', 
       name: 'Lastik', 
@@ -81,8 +73,6 @@ export default function ServiceAreasScreen() {
       icon: 'disc-outline', 
       isSelected: false 
     },
-
-    // ÇEKİCİ HİZMETLERİ
     { 
       id: 'cekici', 
       name: 'Çekici', 
@@ -92,97 +82,28 @@ export default function ServiceAreasScreen() {
     },
   ];
 
-  const toggleCategory = (categoryId: string) => {
-    const newSelected = selectedCategories.includes(categoryId)
-      ? selectedCategories.filter(id => id !== categoryId)
-      : [...selectedCategories, categoryId];
-    
-    setSelectedCategories(newSelected);
-    
-    // Update categories state
-    setCategories(prev => prev.map(cat => ({
-      ...cat,
-      isSelected: newSelected.includes(cat.id)
-    })));
+  const handleContactPress = () => {
+    // Telefon numarasını ara
+    Linking.openURL('tel:+905551234567');
   };
 
-  // Frontend ID'lerini Backend format'ına çevir
-  const mapCategoriesToBackendFormat = (frontendCategories: string[]): string[] => {
-    const mapping: { [key: string]: string } = {
-      'tamir-bakim': 'repair',
-      'arac-yikama': 'wash',
-      'lastik': 'tire',
-      'cekici': 'towing'
-    };
-    
-    return frontendCategories.map(cat => mapping[cat] || cat);
-  };
-
-  // Backend format'ını Frontend ID'lerine çevir
-  const mapCategoriesToFrontendFormat = (backendCategories: string[]): string[] => {
-    const reverseMapping: { [key: string]: string } = {
-      'repair': 'tamir-bakim',
-      'wash': 'arac-yikama',
-      'tire': 'lastik',
-      'towing': 'cekici'
-    };
-    
-    return backendCategories.map(cat => reverseMapping[cat] || cat);
-  };
-
-  const saveCategories = async () => {
-    try {
-      console.log('💾 SERVICE AREAS SCREEN: saveCategories called - ServiceAreasScreen');
-      console.log('💾 SERVICE AREAS SCREEN: This is the ServiceAreasScreen component');
-      console.log('📋 SERVICE AREAS SCREEN: Selected categories (Frontend):', selectedCategories);
-      console.log('📋 SERVICE AREAS SCREEN: Selected categories length:', selectedCategories.length);
-      
-      if (selectedCategories.length === 0) {
-        console.log('⚠️ SERVICE AREAS SCREEN: No categories selected!');
-        Alert.alert('Uyarı', 'En az bir hizmet alanı seçmelisiniz');
-        return;
-      }
-      
-      setLoading(true);
-      
-      // Backend formatına çevir
-      const backendCategories = mapCategoriesToBackendFormat(selectedCategories);
-      console.log('📋 SERVICE AREAS SCREEN: Mapped categories (Backend):', backendCategories);
-      console.log('📋 SERVICE AREAS SCREEN: Mapped categories type:', typeof backendCategories, 'isArray:', Array.isArray(backendCategories));
-      
-      console.log('🔄 SERVICE AREAS SCREEN: Calling updateServiceCategories...');
-      await updateServiceCategories(backendCategories);
-      
-      console.log('✅ SERVICE AREAS SCREEN: Categories updated successfully');
-      Alert.alert('Başarılı', 'Hizmet alanlarınız güncellendi');
-      navigation.goBack();
-    } catch (error: any) {
-      console.error('❌ SERVICE AREAS SCREEN ERROR:', error);
-      console.error('❌ SERVICE AREAS SCREEN ERROR message:', error.message);
-      console.error('❌ SERVICE AREAS SCREEN ERROR stack:', error.stack);
-      Alert.alert('Hata', error.message || 'Hizmet alanları güncellenemedi');
-    } finally {
-      setLoading(false);
-    }
+  const handleEmailPress = () => {
+    // E-posta gönder
+    Linking.openURL('mailto:info@rektefe.com?subject=Hizmet Kategorisi Değişikliği Talebi');
   };
 
   const renderCategoryItem = ({ item }: { item: ServiceCategory }) => (
-    <TouchableOpacity
+    <View
       style={[
         styles.categoryCard,
         item.isSelected && styles.selectedCategoryCard,
       ]}
-      onPress={() => toggleCategory(item.id)}
-      activeOpacity={0.7}
     >
-      <View style={[
-        styles.iconContainer,
-        item.isSelected && styles.selectedIconContainer,
-      ]}>
+      <View style={styles.categoryIconContainer}>
         <Ionicons
           name={item.icon as any}
           size={32}
-          color={item.isSelected ? colors.text.inverse : colors.primary.main}
+          color={item.isSelected ? colors.primary.main : colors.text.tertiary}
         />
       </View>
       
@@ -210,37 +131,57 @@ export default function ServiceAreasScreen() {
           />
         </View>
       )}
-    </TouchableOpacity>
+    </View>
   );
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <Text style={styles.title}>Hangi hizmet alanlarında çalışmak istiyorsunuz?</Text>
+      <View style={styles.infoBox}>
+        <Ionicons name="information-circle" size={24} color={colors.info.main} style={styles.infoIcon} />
+        <View style={styles.infoContent}>
+          <Text style={styles.infoTitle}>Hizmet Detayı</Text>
+          <Text style={styles.infoText}>
+            Aşağıda verdiğiniz hizmet kategorileri görüntülenmektedir.
+          </Text>
+        </View>
+      </View>
+      
+      <Text style={styles.title}>Hizmet Alanlarınız</Text>
       <Text style={styles.subtitle}>
-        Seçtiğiniz alanlara göre menünüz güncellenecek.
+        Aktif olarak sunduğunuz hizmet kategorileri
       </Text>
     </View>
   );
 
   const renderFooter = () => (
     <View style={styles.footer}>
-      <TouchableOpacity
-        style={[
-          styles.saveButton,
-          selectedCategories.length === 0 && styles.disabledButton,
-        ]}
-        onPress={saveCategories}
-        disabled={loading || selectedCategories.length === 0}
-        activeOpacity={0.8}
-      >
-        {loading ? (
-          <ActivityIndicator color={colors.text.inverse} size="small" />
-        ) : (
-          <Text style={styles.saveButtonText}>
-            Kaydet ({selectedCategories.length})
-          </Text>
-        )}
-      </TouchableOpacity>
+      <View style={styles.contactBox}>
+        <Ionicons name="call" size={24} color={colors.primary.main} style={styles.contactIcon} />
+        <View style={styles.contactContent}>
+          <Text style={styles.contactTitle}>Hizmet Kategorisi Değiştirmek İçin</Text>
+          <Text style={styles.contactText}>Bizimle iletişime geçin</Text>
+          
+          <View style={styles.contactButtons}>
+            <TouchableOpacity 
+              style={styles.contactButton}
+              onPress={handleEmailPress}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="mail" size={18} color={colors.primary.main} />
+              <Text style={styles.contactButtonText}>info@rektefe.com</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.contactButton}
+              onPress={handleContactPress}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="call" size={18} color={colors.primary.main} />
+              <Text style={styles.contactButtonText}>+90 (555) 123 45 67</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
     </View>
   );
 
@@ -274,82 +215,139 @@ const styles = StyleSheet.create({
     fontSize: typography.h3.fontSize,
     fontWeight: '600',
     color: colors.text.primary,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
+    marginBottom: spacing.xs,
   },
   subtitle: {
-    fontSize: typography.body1.fontSize,
+    fontSize: typography.body2.fontSize,
     color: colors.text.secondary,
-    textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 20,
   },
+  
+  // Info Box Styles
+  infoBox: {
+    flexDirection: 'row',
+    backgroundColor: colors.info.light,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.info.main,
+  },
+  infoIcon: {
+    marginRight: spacing.sm,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoTitle: {
+    fontSize: typography.h5.fontSize,
+    fontWeight: '600',
+    color: colors.info.dark,
+    marginBottom: spacing.xs,
+  },
+  infoText: {
+    fontSize: typography.body2.fontSize,
+    color: colors.info.dark,
+    lineHeight: 20,
+  },
+  
+  // Category Card Styles
   categoryCard: {
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: colors.background.card,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
     borderWidth: 2,
-    borderColor: 'transparent',
+    borderColor: colors.border.light,
     ...shadows.small,
   },
   selectedCategoryCard: {
-    backgroundColor: colors.primary.light,
     borderColor: colors.primary.main,
+    backgroundColor: colors.primary.ultraLight,
   },
-  iconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: borderRadius.round,
-    backgroundColor: colors.background.primary,
-    justifyContent: 'center',
+  categoryIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.background.secondary,
     alignItems: 'center',
+    justifyContent: 'center',
     marginRight: spacing.md,
-  },
-  selectedIconContainer: {
-    backgroundColor: colors.primary.main,
   },
   categoryContent: {
     flex: 1,
   },
   categoryName: {
-    fontSize: typography.h4.fontSize,
+    fontSize: typography.h5.fontSize,
     fontWeight: '600',
     color: colors.text.primary,
     marginBottom: spacing.xs,
   },
   selectedCategoryName: {
-    color: colors.primary.dark,
+    color: colors.primary.main,
   },
   categoryDescription: {
-    fontSize: typography.body2.fontSize,
+    fontSize: typography.body3.fontSize,
     color: colors.text.secondary,
-    lineHeight: 20,
+    lineHeight: 18,
   },
   selectedCategoryDescription: {
-    color: colors.primary.dark,
+    color: colors.text.primary,
   },
   checkmark: {
     marginLeft: spacing.sm,
   },
+  
+  // Footer Styles
   footer: {
-    marginTop: spacing.xl,
-    paddingTop: spacing.lg,
+    marginTop: spacing.lg,
+    marginBottom: spacing.xl,
   },
-  saveButton: {
-    backgroundColor: colors.primary.main,
+  contactBox: {
+    flexDirection: 'row',
+    backgroundColor: colors.background.card,
     borderRadius: borderRadius.lg,
-    paddingVertical: spacing.lg,
-    alignItems: 'center',
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.primary.light,
     ...shadows.medium,
   },
-  disabledButton: {
-    backgroundColor: colors.text.tertiary,
+  contactIcon: {
+    marginRight: spacing.md,
+    marginTop: spacing.xs,
   },
-  saveButtonText: {
+  contactContent: {
+    flex: 1,
+  },
+  contactTitle: {
     fontSize: typography.h4.fontSize,
     fontWeight: '600',
-    color: colors.text.inverse,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  contactText: {
+    fontSize: typography.body2.fontSize,
+    color: colors.text.secondary,
+    marginBottom: spacing.md,
+  },
+  contactButtons: {
+    gap: spacing.sm,
+  },
+  contactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary.ultraLight,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.primary.light,
+  },
+  contactButtonText: {
+    fontSize: typography.body2.fontSize,
+    fontWeight: '500',
+    color: colors.primary.main,
+    marginLeft: spacing.sm,
   },
 });

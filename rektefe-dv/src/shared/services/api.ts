@@ -1038,6 +1038,8 @@ export const apiService = {
   }
 };
 
+export { apiClient };
+
 export default {
   AuthService,
   VehicleService,
@@ -1045,5 +1047,6 @@ export default {
   MechanicService,
   MessageService,
   NotificationService,
-  apiService
+  apiService,
+  apiClient
 };

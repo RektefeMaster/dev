@@ -26,7 +26,6 @@ const { width } = Dimensions.get('window');
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const { user, isAuthenticated, logout, updateUser } = useAuth();
-  const isAdmin = user?.email === 'testus@gmail.com';
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -41,8 +40,6 @@ export default function ProfileScreen() {
   });
   const [recentReviews, setRecentReviews] = useState<any[]>([]);
   const [showAllReviews, setShowAllReviews] = useState(false);
-  const [showCapabilitiesModal, setShowCapabilitiesModal] = useState(false);
-  const [selectedCapabilities, setSelectedCapabilities] = useState<string[]>([]);
   const [portfolioImages, setPortfolioImages] = useState<any[]>([]);
   const [certificates, setCertificates] = useState<any[]>([]);
   const [showPortfolioModal, setShowPortfolioModal] = useState(false);
@@ -127,80 +124,6 @@ export default function ProfileScreen() {
         { text: 'Çıkış Yap', style: 'destructive', onPress: logout }
       ]
     );
-  };
-
-  const capabilities = [
-    {
-      id: 'tamir-bakim',
-      title: 'Tamir Bakım',
-      icon: 'construct',
-      color: '#3B82F6',
-      description: 'Genel bakım, ağır bakım, alt takım, üst takım, elektronik elektrik'
-    },
-    {
-      id: 'arac-yikama',
-      title: 'Araç Yıkama',
-      icon: 'water',
-      color: '#10B981',
-      description: 'Otomatik yıkama, el ile yıkama, iç temizlik, cila ve wax'
-    },
-    {
-      id: 'lastik',
-      title: 'Lastik',
-      icon: 'disc',
-      color: '#F59E0B',
-      description: 'Lastik değişimi, balans ayarı, rot ayarı, lastik oteli'
-    },
-    {
-      id: 'cekici',
-      title: 'Çekici',
-      icon: 'car',
-      color: '#EF4444',
-      description: 'Arızalı araç çekme, yol yardımı, kaza çekici hizmetleri'
-    }
-  ];
-
-  const handleCapabilityToggle = (capabilityId: string) => {
-    setSelectedCapabilities(prev => 
-      prev.includes(capabilityId) 
-        ? prev.filter(id => id !== capabilityId)
-        : [...prev, capabilityId]
-    );
-  };
-
-  const handleSaveCapabilities = async () => {
-    try {
-      console.log('💾 PROFILE SCREEN: handleSaveCapabilities called - ProfileScreen');
-      console.log('💾 PROFILE SCREEN: This is the ProfileScreen component');
-      console.log('🔍 PROFILE SCREEN: ProfileService:', ProfileService);
-      console.log('🔍 PROFILE SCREEN: ProfileService.updateServiceCategories:', ProfileService?.updateServiceCategories);
-      setLoading(true);
-
-      const response = await ProfileService.updateServiceCategories(selectedCapabilities);
-
-      if (response.success) {
-        updateUser({ serviceCategories: selectedCapabilities });
-
-        Alert.alert(
-          'Başarılı',
-          'Hizmet alanlarınız başarıyla güncellendi.',
-          [
-            {
-              text: 'Tamam',
-              onPress: () => {
-                setShowCapabilitiesModal(false);
-              }
-            }
-          ]
-        );
-      } else {
-        throw new Error(response.message || 'Yetenekler güncellenemedi');
-      }
-    } catch (error) {
-      Alert.alert('Hata', 'Yetenekler güncellenirken bir hata oluştu.');
-    } finally {
-      setLoading(false);
-    }
   };
 
   const addPortfolioImage = () => {
@@ -322,12 +245,6 @@ export default function ProfileScreen() {
                 <Ionicons name="construct" size={16} color={colors.primary.main} />
                 <Text style={styles.roleText}>Usta</Text>
               </View>
-              {isAdmin && (
-                <View style={styles.adminBadge}>
-                  <Ionicons name="shield-checkmark" size={14} color="#FFFFFF" />
-                  <Text style={styles.adminBadgeText}>Admin</Text>
-                </View>
-              )}
             </View>
           </View>
           
@@ -489,10 +406,10 @@ export default function ProfileScreen() {
         <View style={styles.actionButtons}>
           <TouchableOpacity 
             style={styles.actionButton}
-            onPress={() => setShowCapabilitiesModal(true)}
+            onPress={() => navigation.navigate('ServiceAreas' as never)}
           >
             <Ionicons name="construct" size={20} color={colors.primary.main} />
-            <Text style={styles.actionButtonText}>Hizmet Alanları</Text>
+            <Text style={styles.actionButtonText}>Hizmet Detayı</Text>
             <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
           </TouchableOpacity>
           
@@ -670,122 +587,6 @@ export default function ProfileScreen() {
         </SafeAreaView>
       </Modal>
 
-      {/* Capabilities Modal - Admin düzenler, diğerleri görüntüler */}
-      <Modal
-        visible={showCapabilitiesModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowCapabilitiesModal(false)}>
-              <Text style={styles.modalCancelText}>{isAdmin ? 'İptal' : 'Kapat'}</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Hizmet Alanlarım</Text>
-            {isAdmin ? (
-              <TouchableOpacity onPress={handleSaveCapabilities}>
-                <Text style={styles.modalSaveText}>Kaydet</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.headerPlaceholder} />
-            )}
-          </View>
-          
-          <ScrollView style={styles.modalContent}>
-            {isAdmin && (
-              <View style={[styles.infoNoteContainer, { backgroundColor: '#FEF3C7', borderLeftColor: '#F59E0B' }]}>
-                <Ionicons name="shield-checkmark" size={20} color="#F59E0B" />
-                <Text style={styles.infoNoteText}>
-                  Admin olarak hizmet kategorilerini düzenleyebilirsiniz.
-                </Text>
-              </View>
-            )}
-            
-            <Text style={styles.modalDescription}>
-              {isAdmin 
-                ? 'Hizmet kategorilerini seçerek menünüzü özelleştirin.'
-                : 'Kayıt sırasında belirlediğiniz hizmet alanlarınız aşağıda görüntülenmektedir.'}
-            </Text>
-            
-            {!isAdmin && (
-              <View style={styles.infoNoteContainer}>
-                <Ionicons name="information-circle" size={20} color={colors.primary.main} />
-                <Text style={styles.infoNoteText}>
-                  Hizmet kategorinizi değiştirmek veya yeni hizmet eklemek için bizimle iletişime geçin.
-                </Text>
-              </View>
-            )}
-            
-            <View style={styles.capabilitiesList}>
-              {capabilities.map((capability) => {
-                const isActive = isAdmin 
-                  ? selectedCapabilities.includes(capability.id)
-                  : (user?.serviceCategories?.includes(capability.id) || user?.serviceCategories?.includes(capability.title));
-                
-                if (isAdmin) {
-                  return (
-                    <TouchableOpacity
-                      key={capability.id}
-                      style={[
-                        styles.capabilityCard,
-                        {
-                          backgroundColor: isActive ? capability.color + '20' : colors.background.secondary,
-                          borderColor: isActive ? capability.color : colors.border.secondary,
-                        }
-                      ]}
-                      onPress={() => handleCapabilityToggle(capability.id)}
-                    >
-                      <View style={styles.capabilityContent}>
-                        <View style={[styles.capabilityIcon, { backgroundColor: capability.color }]}>
-                          <Ionicons name={capability.icon as any} size={24} color="#FFFFFF" />
-                        </View>
-                        <View style={styles.capabilityText}>
-                          <Text style={[styles.capabilityTitle, { color: colors.text.primary }]}>
-                            {capability.title}
-                          </Text>
-                          <Text style={[styles.capabilityDescription, { color: colors.text.secondary }]}>
-                            {capability.description}
-                          </Text>
-                        </View>
-                        {isActive && <Ionicons name="checkmark-circle" size={24} color={capability.color} />}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                } else {
-                  return (
-                    <View
-                      key={capability.id}
-                      style={[
-                        styles.capabilityCard,
-                        {
-                          backgroundColor: isActive ? capability.color + '20' : colors.background.secondary,
-                          borderColor: isActive ? capability.color : colors.border.secondary,
-                          opacity: isActive ? 1 : 0.5,
-                        }
-                      ]}
-                    >
-                      <View style={styles.capabilityContent}>
-                        <View style={[styles.capabilityIcon, { backgroundColor: capability.color }]}>
-                          <Ionicons name={capability.icon as any} size={24} color="#FFFFFF" />
-                        </View>
-                        <View style={styles.capabilityText}>
-                          <Text style={[styles.capabilityTitle, { color: colors.text.primary }]}>
-                            {capability.title}
-                          </Text>
-                          <Text style={[styles.capabilityDescription, { color: colors.text.secondary }]}>
-                            {capability.description}
-                          </Text>
-                        </View>
-                        {isActive && <Ionicons name="checkmark-circle" size={24} color={capability.color} />}
-                      </View>
-                    </View>
-                  );
-                }
-              })}
-            </View>
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
     </SafeAreaView>
   );
 }

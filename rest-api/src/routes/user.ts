@@ -1496,11 +1496,20 @@ router.put('/service-categories', auth, async (req: Request, res: Response) => {
     console.log('🔧 Request headers:', req.headers);
     
     const userId = req.user?.userId;
+    const user = await User.findById(userId);
+    
     console.log('🔧 User ID:', userId);
+    console.log('🔧 User isAdmin:', user?.isAdmin);
     
     if (!userId) {
       console.log('❌ No user ID found');
       return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
+    }
+
+    // Sadece admin kullanıcılar hizmet kategorilerini değiştirebilir
+    if (!user?.isAdmin) {
+      console.log('❌ User is not admin, blocking service category update');
+      return ResponseHandler.forbidden(res, 'Hizmet kategorilerini değiştirmek için admin yetkisi gereklidir. Lütfen bizimle iletişime geçin.');
     }
 
     const { categories } = req.body;
@@ -1525,9 +1534,87 @@ router.put('/service-categories', auth, async (req: Request, res: Response) => {
 
     console.log('✅ User updated successfully:', updatedUser.serviceCategories);
     return ResponseHandler.updated(res, updatedUser.serviceCategories, 'Hizmet kategorileri başarıyla güncellendi');
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Backend error:', error);
-    return ResponseHandler.error(res, 'Hizmet kategorileri güncellenirken hata oluştu');
+    console.error('❌ Error details:', error?.message);
+    console.error('❌ Error stack:', error?.stack);
+    return ResponseHandler.error(res, 'Hizmet kategorileri güncellenirken hata oluştu: ' + (error?.message || 'Bilinmeyen hata'));
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/admin/update-service-categories/{userId}:
+ *   put:
+ *     summary: Admin - Kullanıcının hizmet kategorilerini güncelle
+ *     description: Sadece admin kullanıcılar tarafından kullanılabilir
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Güncellenecek kullanıcının ID'si
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               categories:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: Hizmet kategorileri başarıyla güncellendi
+ *       401:
+ *         description: Yetkilendirme hatası
+ *       403:
+ *         description: Admin yetkisi gerekli
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.put('/admin/update-service-categories/:userId', auth, async (req: Request, res: Response) => {
+  try {
+    const adminUserId = req.user?.userId;
+    const targetUserId = req.params.userId;
+    const { categories } = req.body;
+    
+    // Admin kontrolü
+    const adminUser = await User.findById(adminUserId);
+    if (!adminUser?.isAdmin) {
+      return ResponseHandler.forbidden(res, 'Bu işlem için admin yetkisi gereklidir.');
+    }
+    
+    if (!targetUserId) {
+      return ResponseHandler.badRequest(res, 'Kullanıcı ID gerekli.');
+    }
+    
+    if (!Array.isArray(categories)) {
+      return ResponseHandler.badRequest(res, 'Kategoriler listesi gerekli.');
+    }
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      targetUserId,
+      { serviceCategories: categories },
+      { new: true, runValidators: true }
+    ).select('name surname email serviceCategories');
+    
+    if (!updatedUser) {
+      return ResponseHandler.notFound(res, 'Kullanıcı bulunamadı.');
+    }
+    
+    return ResponseHandler.updated(res, updatedUser, 'Kullanıcının hizmet kategorileri başarıyla güncellendi');
+  } catch (error: any) {
+    return ResponseHandler.error(res, 'Hizmet kategorileri güncellenirken hata oluştu: ' + (error?.message || 'Bilinmeyen hata'));
   }
 });
 

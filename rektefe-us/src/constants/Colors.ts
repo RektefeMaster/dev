@@ -28,6 +28,13 @@ export const Colors = {
   error,
   info,
   
+  // Info renkleri (bilgi kutuları için)
+  info: {
+    light: '#E3F2FD',   // Açık mavi - bilgi kutusu arka planı
+    main: '#2196F3',    // Orta mavi - bilgi kutusu kenarlığı
+    dark: '#1976D2',    // Koyu mavi - bilgi kutusu metni
+  },
+  
   // Metin renkleri
   text: {
     primary: '#11181C',    // Ana metin - yüksek kontrast

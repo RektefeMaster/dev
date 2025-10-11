@@ -147,18 +147,23 @@ apiClient.interceptors.response.use(
         
         // Refresh token endpoint'ini çağır
         const response = await axios.post(
-          `${API_CONFIG.BASE_URL}/api/auth/refresh`,
+          `${API_CONFIG.BASE_URL}/api/auth/refresh-token`,
           { refreshToken }
         );
 
+        console.log('🔄 Refresh response:', response.data);
+        
         if (response.data.success && response.data.data?.token) {
           const newToken = response.data.data.token;
           const newRefreshToken = response.data.data.refreshToken;
+
+          console.log('✅ Yeni token alındı');
 
           // Yeni token'ları kaydet
           await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, newToken);
           if (newRefreshToken) {
             await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
+            console.log('✅ Refresh token da güncellendi');
           }
 
           // Header'ı güncelle
@@ -172,9 +177,15 @@ apiClient.interceptors.response.use(
 
           // Original request'i yeniden dene
           return apiClient(originalRequest);
+        } else {
+          console.error('❌ Refresh response başarısız:', response.data);
+          throw new Error('Token refresh response invalid');
         }
-      } catch (refreshError) {
+      } catch (refreshError: any) {
         console.error('❌ Token yenileme başarısız, logout yapılıyor');
+        console.error('❌ Refresh Error:', refreshError);
+        console.error('❌ Refresh Error Response:', refreshError?.response?.data);
+        console.error('❌ Refresh Error Status:', refreshError?.response?.status);
         processQueue(refreshError, null);
         isRefreshing = false;
         
@@ -228,26 +239,35 @@ export const AuthService = {
    */
   async login(email: string, password: string): Promise<ApiResponse<{ user: Mechanic; token: string }>> {
     try {
+      console.log('🔐 Login attempt:', { email, userType: UserType.MECHANIC });
+      
       const response = await apiClient.post('/auth/login', {
         email,
         password,
         userType: UserType.MECHANIC
       });
       
+      console.log('✅ Login response:', response.data);
+      
       // Token'ları storage'a kaydet
       if (response.data.success && response.data.data.token) {
         await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, response.data.data.token);
+        console.log('✅ Token saved');
+        
         if (response.data.data.refreshToken) {
           await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, response.data.data.refreshToken);
+          console.log('✅ Refresh token saved');
         }
       }
       
       return response.data;
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error('❌ Login error:', error);
+      console.error('❌ Login error response:', error.response?.data);
+      console.error('❌ Login error status:', error.response?.status);
       return createErrorResponse(
         ErrorCode.INVALID_CREDENTIALS,
-        'Giriş bilgileri hatalı',
+        error.response?.data?.message || 'Giriş bilgileri hatalı',
         error.response?.data?.error?.details
       );
     }
@@ -651,7 +671,7 @@ export const AppointmentService = {
 
   async getRecentRatings(): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get('/ratings/current/recent');
+      const response = await apiClient.get('/appointment-ratings/current/recent');
       return response.data;
     } catch (error: any) {
       // Cancel edilen istekleri handle et (error logging yapma)
@@ -665,7 +685,7 @@ export const AppointmentService = {
 
   async getRatingStats(): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.get('/ratings/current/stats');
+      const response = await apiClient.get('/appointment-ratings/current/stats');
       return response.data;
     } catch (error: any) {
       // Cancel edilen istekleri handle et (error logging yapma)
@@ -774,9 +794,19 @@ export const ProfileService = {
       console.error('❌ API SERVICE: Error response:', error.response?.data);
       console.error('❌ API SERVICE: Error status:', error.response?.status);
       console.error('❌ API SERVICE: Request config:', error.config?.url);
+      
+      // 403 Forbidden - Admin yetkisi gerekli
+      if (error.response?.status === 403) {
+        return createErrorResponse(
+          ErrorCode.FORBIDDEN,
+          error.response?.data?.message || 'Hizmet kategorilerini değiştirmek için admin yetkisi gereklidir. Lütfen bizimle iletişime geçin.',
+          error.response?.data?.error?.details
+        );
+      }
+      
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
-        'Servis kategorileri güncellenemedi',
+        error.response?.data?.message || 'Servis kategorileri güncellenemedi',
         error.response?.data?.error?.details
       );
     }
@@ -1094,7 +1124,7 @@ export const NotificationService = {
    */
   async getNotifications(): Promise<ApiResponse<{ notifications: NotificationData[] }>> {
     try {
-      const response = await apiClient.get('/notifications/mechanic');
+      const response = await apiClient.get('/notifications');
       return response.data;
     } catch (error: any) {
       console.error('Get notifications error:', error);

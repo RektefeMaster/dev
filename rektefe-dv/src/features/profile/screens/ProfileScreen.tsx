@@ -112,6 +112,7 @@ const ProfileScreen = () => {
     });
 
     if (!result.canceled && result.assets[0]) {
+      setImageModalVisible(false); // Modal'ı kapat
       handleImageUpload(result.assets[0].uri, 'avatar');
     }
   };
@@ -130,6 +131,7 @@ const ProfileScreen = () => {
     });
 
     if (!result.canceled && result.assets[0]) {
+      setImageModalVisible(false); // Modal'ı kapat
       handleImageUpload(result.assets[0].uri, 'avatar');
     }
   };
@@ -164,10 +166,8 @@ const ProfileScreen = () => {
         }
         
         if (type === 'avatar') {
-          setImageModalVisible(false);
           Alert.alert('✅ Başarılı', 'Profil resminiz güncellendi.');
         } else {
-          setCoverImageModalVisible(false);
           Alert.alert('✅ Başarılı', 'Kapak fotoğrafınız güncellendi.');
         }
       } else {
@@ -206,6 +206,7 @@ const ProfileScreen = () => {
     });
 
     if (!result.canceled && result.assets[0]) {
+      setCoverImageModalVisible(false); // Modal'ı kapat
       handleImageUpload(result.assets[0].uri, 'cover');
     }
   };
@@ -224,6 +225,7 @@ const ProfileScreen = () => {
     });
 
     if (!result.canceled && result.assets[0]) {
+      setCoverImageModalVisible(false); // Modal'ı kapat
       handleImageUpload(result.assets[0].uri, 'cover');
     }
   };
