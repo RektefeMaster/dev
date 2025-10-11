@@ -143,10 +143,13 @@ export default function AppointmentsScreen() {
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [filteredAppointments, setFilteredAppointments] = useState<Appointment[]>([]);
+  const [faultReports, setFaultReports] = useState<any[]>([]);
+  const [filteredFaultReports, setFilteredFaultReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'IPTAL'>('all');
+  const [activeTab, setActiveTab] = useState<'appointments' | 'faults'>('appointments');
 
   // Randevuları yükle
   const fetchAppointments = useCallback(async () => {
@@ -159,26 +162,50 @@ export default function AppointmentsScreen() {
     } catch (error) {
       console.error('Randevular yüklenirken hata:', error);
       Alert.alert('Hata', 'Randevular yüklenemedi');
+    }
+  }, []);
+
+  // Arıza bildirimlerini yükle
+  const fetchFaultReports = useCallback(async () => {
+    try {
+      const response = await apiService.FaultReportService.getMechanicFaultReports();
+      if (response.success && response.data) {
+        const faultReportsData = Array.isArray(response.data) ? response.data : [];
+        setFaultReports(faultReportsData);
+      }
+    } catch (error) {
+      console.error('Arıza bildirimleri yüklenirken hata:', error);
+    }
+  }, []);
+
+  // Tüm verileri yükle
+  const fetchAllData = useCallback(async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchAppointments(),
+        fetchFaultReports()
+      ]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [fetchAppointments, fetchFaultReports]);
 
   // Ekran açıldığında yükle
   useFocusEffect(
     useCallback(() => {
-      fetchAppointments();
-    }, [fetchAppointments])
+      fetchAllData();
+    }, [fetchAllData])
   );
 
   // Yenile
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchAppointments();
-  }, [fetchAppointments]);
+    fetchAllData();
+  }, [fetchAllData]);
 
-  // Arama ve filtreleme
+  // Randevuları filtrele
   useEffect(() => {
     let filtered = [...appointments];
 
@@ -191,11 +218,11 @@ export default function AppointmentsScreen() {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(apt =>
-        apt.customer.name.toLowerCase().includes(query) ||
-        apt.customer.surname.toLowerCase().includes(query) ||
-        apt.vehicle.brand.toLowerCase().includes(query) ||
-        apt.vehicle.model.toLowerCase().includes(query) ||
-        apt.vehicle.plate.toLowerCase().includes(query) ||
+        apt.customer?.name?.toLowerCase().includes(query) ||
+        apt.customer?.surname?.toLowerCase().includes(query) ||
+        apt.vehicle?.brand?.toLowerCase().includes(query) ||
+        apt.vehicle?.model?.toLowerCase().includes(query) ||
+        apt.vehicle?.plate?.toLowerCase().includes(query) ||
         translateServiceType(apt.serviceType).toLowerCase().includes(query)
       );
     }
@@ -206,16 +233,71 @@ export default function AppointmentsScreen() {
     setFilteredAppointments(filtered);
   }, [appointments, searchQuery, selectedStatus]);
 
+  // Arıza bildirimlerini filtrele
+  useEffect(() => {
+    let filtered = [...faultReports];
+
+    // Durum filtresi - arıza bildirimleri için status mapping
+    if (selectedStatus !== 'all') {
+      const statusMapping: { [key: string]: string } = {
+        'pending': 'pending',
+        'confirmed': 'quoted',
+        'completed': 'completed',
+        'cancelled': 'rejected'
+      };
+      const faultStatus = statusMapping[selectedStatus];
+      if (faultStatus) {
+        filtered = filtered.filter(fault => fault.status === faultStatus);
+      }
+    }
+
+    // Arama
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(fault =>
+        fault.userId?.name?.toLowerCase().includes(query) ||
+        fault.userId?.surname?.toLowerCase().includes(query) ||
+        fault.vehicleId?.brand?.toLowerCase().includes(query) ||
+        fault.vehicleId?.modelName?.toLowerCase().includes(query) ||
+        fault.vehicleId?.plateNumber?.toLowerCase().includes(query) ||
+        fault.faultDescription?.toLowerCase().includes(query) ||
+        fault.serviceCategory?.toLowerCase().includes(query)
+      );
+    }
+
+    // Tarihe göre sırala (en yeni en üstte)
+    filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    setFilteredFaultReports(filtered);
+  }, [faultReports, searchQuery, selectedStatus]);
+
   // İstatistikler
   const stats = useMemo(() => {
+    const currentData = activeTab === 'appointments' ? appointments : faultReports;
     return {
-      total: appointments.length,
-      pending: appointments.filter(apt => apt.status === 'pending').length,
-      confirmed: appointments.filter(apt => apt.status === 'confirmed').length,
-      completed: appointments.filter(apt => apt.status === 'completed').length,
-      cancelled: appointments.filter(apt => apt.status === 'IPTAL' || apt.status === 'cancelled').length,
+      total: currentData.length,
+      pending: currentData.filter(item => 
+        activeTab === 'appointments' 
+          ? item.status === 'pending' 
+          : item.status === 'pending'
+      ).length,
+      confirmed: currentData.filter(item => 
+        activeTab === 'appointments' 
+          ? item.status === 'confirmed' 
+          : item.status === 'quoted'
+      ).length,
+      completed: currentData.filter(item => 
+        activeTab === 'appointments' 
+          ? item.status === 'completed' 
+          : item.status === 'completed'
+      ).length,
+      cancelled: currentData.filter(item => 
+        activeTab === 'appointments' 
+          ? (item.status === 'cancelled' || item.status === 'IPTAL')
+          : item.status === 'rejected'
+      ).length,
     };
-  }, [appointments]);
+  }, [appointments, faultReports, activeTab]);
 
   // Randevu kartı
   const renderAppointmentCard = ({ item }: { item: Appointment }) => {
@@ -306,6 +388,97 @@ export default function AppointmentsScreen() {
   };
 
   // Boş durum
+  // Arıza bildirimi kartı
+  const renderFaultReportCard = ({ item }: { item: any }) => {
+    const getStatusColor = (status: string) => {
+      switch (status) {
+        case 'pending': return '#6B7280';
+        case 'quoted': return '#3B82F6';
+        case 'accepted': return '#10B981';
+        case 'rejected': return '#EF4444';
+        case 'completed': return '#059669';
+        default: return '#6B7280';
+      }
+    };
+
+    const getStatusText = (status: string) => {
+      switch (status) {
+        case 'pending': return 'Beklemede';
+        case 'quoted': return 'Teklif Verildi';
+        case 'accepted': return 'Kabul Edildi';
+        case 'rejected': return 'Reddedildi';
+        case 'completed': return 'Tamamlandı';
+        default: return status;
+      }
+    };
+
+    const getPriorityColor = (priority: string) => {
+      switch (priority) {
+        case 'urgent': return '#EF4444';
+        case 'high': return '#F97316';
+        case 'medium': return '#EAB308';
+        case 'low': return '#10B981';
+        default: return '#6B7280';
+      }
+    };
+
+    return (
+      <TouchableOpacity
+        style={styles.appointmentCard}
+        onPress={() => (navigation as any).navigate('FaultReportDetail', { faultReportId: item._id })}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cardHeader}>
+          <View style={styles.customerInfo}>
+            <Text style={styles.customerName}>
+              {item.userId?.name} {item.userId?.surname}
+            </Text>
+            <Text style={styles.customerPhone}>{item.userId?.phone}</Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+            <Text style={styles.statusText}>{getStatusText(item.status)}</Text>
+          </View>
+        </View>
+
+        <View style={styles.vehicleInfo}>
+          <Ionicons name="car" size={16} color="#64748B" />
+          <Text style={styles.vehicleText}>
+            {item.vehicleId?.brand} {item.vehicleId?.modelName} - {item.vehicleId?.plateNumber}
+          </Text>
+        </View>
+
+        <Text style={styles.faultDescription} numberOfLines={2}>
+          {item.faultDescription}
+        </Text>
+
+        <View style={styles.cardFooter}>
+          <View style={styles.dateInfo}>
+            <Text style={styles.dateText}>
+              {new Date(item.createdAt).toLocaleDateString('tr-TR')}
+            </Text>
+            <Text style={styles.timeText}>
+              {new Date(item.createdAt).toLocaleTimeString('tr-TR', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+              })}
+            </Text>
+          </View>
+          
+          <View style={styles.priorityContainer}>
+            <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) }]}>
+              <Text style={styles.priorityText}>
+                {item.priority === 'urgent' ? 'Acil' : 
+                 item.priority === 'high' ? 'Yüksek' :
+                 item.priority === 'medium' ? 'Orta' : 'Düşük'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#94A3B8" style={styles.cardChevron} />
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
       <Ionicons name="calendar-outline" size={64} color="#94A3B8" />
@@ -316,6 +489,20 @@ export default function AppointmentsScreen() {
           : selectedStatus !== 'all'
           ? `${STATUS_TEXT[selectedStatus]} randevu bulunmuyor`
           : 'Henüz randevu bulunmuyor'}
+      </Text>
+    </View>
+  );
+
+  const renderEmptyFaultState = () => (
+    <View style={styles.emptyState}>
+      <Ionicons name="warning-outline" size={64} color="#94A3B8" />
+      <Text style={styles.emptyTitle}>Arıza Bildirimi Yok</Text>
+      <Text style={styles.emptyText}>
+        {searchQuery
+          ? 'Arama kriterlerinize uygun arıza bildirimi bulunamadı'
+          : selectedStatus !== 'all'
+          ? `${STATUS_TEXT[selectedStatus]} arıza bildirimi bulunmuyor`
+          : 'Henüz arıza bildirimi bulunmuyor'}
       </Text>
     </View>
   );
@@ -341,7 +528,7 @@ export default function AppointmentsScreen() {
         <View style={styles.headerTop}>
           <View style={styles.headerLeft}>
             <BackButton />
-            <Text style={styles.headerTitle}>Tamir İşleri</Text>
+            <Text style={styles.headerTitle}>Tamir & Bakım</Text>
           </View>
           <TouchableOpacity
             style={styles.refreshButton}
@@ -354,6 +541,48 @@ export default function AppointmentsScreen() {
               color={themeColors.primary.main}
               style={refreshing ? { opacity: 0.5 } : {}}
             />
+          </TouchableOpacity>
+        </View>
+
+        {/* Tab Seçimi */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[
+              styles.tabButton,
+              activeTab === 'appointments' && styles.tabButtonActive
+            ]}
+            onPress={() => setActiveTab('appointments')}
+          >
+            <Ionicons 
+              name="calendar" 
+              size={18} 
+              color={activeTab === 'appointments' ? '#FFFFFF' : '#64748B'} 
+            />
+            <Text style={[
+              styles.tabButtonText,
+              activeTab === 'appointments' && styles.tabButtonTextActive
+            ]}>
+              Randevular
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.tabButton,
+              activeTab === 'faults' && styles.tabButtonActive
+            ]}
+            onPress={() => setActiveTab('faults')}
+          >
+            <Ionicons 
+              name="warning" 
+              size={18} 
+              color={activeTab === 'faults' ? '#FFFFFF' : '#64748B'} 
+            />
+            <Text style={[
+              styles.tabButtonText,
+              activeTab === 'faults' && styles.tabButtonTextActive
+            ]}>
+              Arıza Bildirimleri
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -468,22 +697,40 @@ export default function AppointmentsScreen() {
         </ScrollView>
       </View>
 
-      {/* Randevular listesi */}
-      <FlatList
-        data={filteredAppointments}
-        renderItem={renderAppointmentCard}
-        keyExtractor={item => item._id}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={renderEmptyState}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={themeColors.primary.main}
-          />
-        }
-        showsVerticalScrollIndicator={false}
-      />
+      {/* İçerik Listesi */}
+      {activeTab === 'appointments' ? (
+        <FlatList
+          data={filteredAppointments}
+          renderItem={renderAppointmentCard}
+          keyExtractor={item => item._id}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={renderEmptyState}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={themeColors.primary.main}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      ) : (
+        <FlatList
+          data={filteredFaultReports}
+          renderItem={renderFaultReportCard}
+          keyExtractor={item => item._id}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={renderEmptyFaultState}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={themeColors.primary.main}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -530,6 +777,55 @@ const styles = StyleSheet.create({
     color: '#1E293B',
     letterSpacing: -0.5,
     marginLeft: 12,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+  },
+  tabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 8,
+  },
+  tabButtonActive: {
+    backgroundColor: themeColors.primary.main,
+  },
+  tabButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  tabButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  faultDescription: {
+    fontSize: 14,
+    color: '#64748B',
+    lineHeight: 20,
+    marginTop: 8,
+  },
+  priorityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  priorityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  priorityText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   refreshButton: {
     width: 40,
@@ -740,6 +1036,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     fontWeight: '500',
+  },
+  timeText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '400',
   },
   priceInfo: {
     backgroundColor: '#ECFDF5',

@@ -424,9 +424,16 @@ export const AppointmentService = {
   /**
    * Randevu durumu güncelleme
    */
-  async updateAppointmentStatus(id: string, status: AppointmentStatus): Promise<ApiResponse<{ appointment: any }>> {
+  async updateAppointmentStatus(id: string, status: AppointmentStatus, price?: number): Promise<ApiResponse<{ appointment: any }>> {
     try {
-      const response = await apiClient.put(`/appointments/${id}/status`, { status });
+      // Status ve price'ı tek request'te gönder
+      const payload: any = { status };
+      if (price !== undefined && price > 0) {
+        payload.price = price;
+        console.log(`💰 Randevu fiyatı ile birlikte güncelleniyor: ${price}₺`);
+      }
+      
+      const response = await apiClient.put(`/appointments/${id}/status`, payload);
       return response.data;
     } catch (error: any) {
       console.error('Update appointment status error:', error);

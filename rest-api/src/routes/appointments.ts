@@ -342,13 +342,21 @@ router.put('/:id/cancel', auth, async (req: Request, res: Response) => {
 
 router.put('/:id/status', auth, async (req: Request, res: Response) => {
   try {
-    const { status, rejectionReason, mechanicNotes } = req.body;
+    const { status, rejectionReason, mechanicNotes, price } = req.body;
     const appointment = await AppointmentService.updateAppointmentStatus(
       req.params.id,
       status,
       rejectionReason,
       mechanicNotes
     );
+    
+    // Eğer price verilmişse, fiyatı da güncelle
+    if (price !== undefined && price !== null && price > 0) {
+      appointment.price = Number(price);
+      await appointment.save();
+      console.log(`💰 Randevu fiyatı güncellendi: ${price}₺ (appointmentId: ${req.params.id})`);
+    }
+    
     res.json({ success: true, data: appointment });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

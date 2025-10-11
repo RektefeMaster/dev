@@ -11,6 +11,8 @@ import {
   AppState,
   AppStateStatus,
   Animated,
+  TextInput,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -23,6 +25,124 @@ import { translateServiceName } from '@/shared/utils/serviceTranslator';
 import { DrawerActions } from '@react-navigation/native';
 import { CardNav } from '@/shared/components';
 import { hasFaultReportFeature, getServiceCategory, getNotificationTypeText, getJobTypeText } from '@/shared/utils/serviceTypeHelpers';
+
+// RepairAppointmentCard bileşeni
+const RepairAppointmentCard: React.FC<{
+  appointment: Appointment;
+  onStatusUpdate: (appointmentId: string, status: string, price?: number) => void;
+  onOpenPriceModal: (appointmentId: string) => void;
+}> = ({ appointment, onStatusUpdate, onOpenPriceModal }) => {
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'confirmed': return '#10B981';
+      case 'in-progress': return '#F59E0B';
+      case 'payment-pending': return '#EF4444';
+      case 'completed': return '#059669';
+      default: return '#6B7280';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'confirmed': return 'Onaylandı';
+      case 'in-progress': return 'Tamir Yapılıyor';
+      case 'payment-pending': return 'Ücret Bekliyor';
+      case 'completed': return 'Tamamlandı';
+      default: return status;
+    }
+  };
+
+  const getActionButton = (status: string) => {
+    switch (status) {
+      case 'confirmed':
+        return (
+          <TouchableOpacity
+            style={[styles.statusButton, { backgroundColor: '#F59E0B' }]}
+            onPress={() => onStatusUpdate(appointment._id, 'in-progress')}
+          >
+            <Ionicons name="play" size={16} color="#FFFFFF" />
+            <Text style={styles.statusButtonText}>Tamir Başlat</Text>
+          </TouchableOpacity>
+        );
+      case 'in-progress':
+        return (
+          <TouchableOpacity
+            style={[styles.statusButton, { backgroundColor: '#EF4444' }]}
+            onPress={() => onOpenPriceModal(appointment._id)}
+          >
+            <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+            <Text style={styles.statusButtonText}>Tamir Bitir</Text>
+          </TouchableOpacity>
+        );
+      case 'payment-pending':
+        return (
+          <View style={styles.paymentPendingContainer}>
+            <Text style={styles.paymentText}>Ödeme bekleniyor</Text>
+            <Text style={styles.priceText}>{appointment.price}₺</Text>
+          </View>
+        );
+      case 'completed':
+        return (
+          <View style={styles.completedContainer}>
+            <Ionicons name="checkmark-circle" size={20} color="#059669" />
+            <Text style={styles.completedText}>Tamamlandı</Text>
+          </View>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <View style={styles.repairAppointmentCard}>
+      <View style={styles.repairCardHeader}>
+        <View style={styles.customerInfo}>
+          <Text style={styles.customerName}>
+            {typeof appointment.userId === 'object' && appointment.userId 
+              ? `${appointment.userId.name} ${appointment.userId.surname}`
+              : 'Müşteri'
+            }
+          </Text>
+          <Text style={styles.customerPhone}>
+            {typeof appointment.userId === 'object' && appointment.userId?.phone 
+              ? appointment.userId.phone 
+              : ''
+            }
+          </Text>
+        </View>
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(appointment.status) + '20' }]}>
+          <Text style={[styles.statusText, { color: getStatusColor(appointment.status) }]}>
+            {getStatusText(appointment.status)}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.vehicleInfo}>
+        <Ionicons name="car" size={16} color="#64748B" />
+        <Text style={styles.vehicleText}>
+          {typeof appointment.vehicleId === 'object' && appointment.vehicleId 
+            ? `${appointment.vehicleId.brand} ${appointment.vehicleId.modelName}`
+            : 'Araç bilgisi yok'
+          }
+        </Text>
+      </View>
+
+      <View style={styles.serviceInfo}>
+        <Ionicons name="construct" size={16} color="#64748B" />
+        <Text style={styles.serviceText}>
+          {translateServiceName(appointment.serviceType)}
+        </Text>
+      </View>
+
+      <View style={styles.repairCardFooter}>
+        <View style={styles.timeInfo}>
+          <Text style={styles.timeText}>{appointment.timeSlot || '09:00'}</Text>
+        </View>
+        {getActionButton(appointment.status)}
+      </View>
+    </View>
+  );
+};
 
 interface Appointment {
   _id: string;
@@ -84,6 +204,11 @@ export default function HomeScreen() {
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [pendingAppointmentsCount, setPendingAppointmentsCount] = useState(0);
+  
+  // Tamir akışı için state'ler
+  const [showPriceModal, setShowPriceModal] = useState(false);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  const [repairPrice, setRepairPrice] = useState('');
   
   // Real-time güncelleme için
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -592,6 +717,72 @@ const mechanicCapabilities = [
       .slice(0, 3); // İlk 3 randevuyu göster
   }, [todayAppointments]);
 
+  // Randevu durumu güncelleme fonksiyonu
+  const handleAppointmentStatusUpdate = async (appointmentId: string, status: string, price?: number) => {
+    try {
+      console.log(`🔄 Randevu durumu güncelleniyor: ${appointmentId} -> ${status}`);
+      
+      let response;
+      if (status === 'in-progress') {
+        // Tamir başlatılıyor
+        response = await apiService.updateAppointmentStatus(appointmentId, 'in-progress' as any);
+      } else if (status === 'payment-pending') {
+        // Tamir bitti, ücret belirleniyor
+        response = await apiService.updateAppointmentStatus(appointmentId, 'payment-pending' as any);
+        if (response.success && price) {
+          // Ücreti de güncelle
+          await apiService.updateAppointmentStatus(appointmentId, 'payment-pending' as any);
+        }
+      } else if (status === 'completed') {
+        // Ödeme tamamlandı, iş tamamlandı
+        response = await apiService.updateAppointmentStatus(appointmentId, 'completed' as any);
+      }
+
+      if (response?.success) {
+        console.log('✅ Randevu durumu başarıyla güncellendi');
+        // Verileri yenile
+        await fetchDashboardData(false);
+        Alert.alert('Başarılı', 'Randevu durumu güncellendi');
+      } else {
+        console.log('❌ Randevu durumu güncellenemedi:', response?.message);
+        Alert.alert('Hata', response?.message || 'Randevu durumu güncellenemedi');
+      }
+    } catch (error: any) {
+      console.log('❌ Randevu durumu güncelleme hatası:', error);
+      Alert.alert('Hata', 'Randevu durumu güncellenirken bir hata oluştu');
+    }
+  };
+
+  // Ücret belirleme modalını aç
+  const openPriceModal = (appointmentId: string) => {
+    setSelectedAppointmentId(appointmentId);
+    setRepairPrice('');
+    setShowPriceModal(true);
+  };
+
+  // Ücret belirleme modalını kapat
+  const closePriceModal = () => {
+    setShowPriceModal(false);
+    setSelectedAppointmentId(null);
+    setRepairPrice('');
+  };
+
+  // Ücret gönder ve tamir bitir
+  const handleSubmitPrice = async () => {
+    if (!selectedAppointmentId || !repairPrice || isNaN(Number(repairPrice))) {
+      Alert.alert('Hata', 'Lütfen geçerli bir ücret girin');
+      return;
+    }
+
+    try {
+      const price = Number(repairPrice);
+      await handleAppointmentStatusUpdate(selectedAppointmentId, 'payment-pending', price);
+      closePriceModal();
+    } catch (error) {
+      console.log('❌ Ücret gönderme hatası:', error);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -954,6 +1145,16 @@ const mechanicCapabilities = [
                 </View>
                 <Text style={styles.quickActionText}>Tamir İşleri</Text>
                 <Text style={styles.quickActionSubtext}>Arıza tespit ve onarım</Text>
+                
+                {/* Onaylanmış Randevular Göstergesi */}
+                {todayAppointments.filter(apt => apt.status === 'confirmed').length > 0 && (
+                  <View style={styles.repairAppointmentsIndicator}>
+                    <Text style={styles.repairAppointmentsCount}>
+                      {todayAppointments.filter(apt => apt.status === 'confirmed').length} onaylanmış randevu
+                    </Text>
+                    <Ionicons name="chevron-forward" size={16} color="#3B82F6" />
+                  </View>
+                )}
               </TouchableOpacity>
             )}
 
@@ -1089,6 +1290,46 @@ const mechanicCapabilities = [
         <View style={styles.bottomSpacing} />
 
       </ScrollView>
+
+      {/* Ücret Belirleme Modalı */}
+      {showPriceModal && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Tamir Ücreti Belirle</Text>
+            <Text style={styles.modalSubtitle}>
+              Tamir işlemi tamamlandı. Müşteriye gönderilecek ücreti belirleyin.
+            </Text>
+            
+            <View style={styles.priceInputContainer}>
+              <Text style={styles.priceLabel}>Ücret (₺)</Text>
+              <TextInput
+                style={styles.priceInput}
+                placeholder="0"
+                value={repairPrice}
+                onChangeText={setRepairPrice}
+                keyboardType="numeric"
+                autoFocus
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={closePriceModal}
+              >
+                <Text style={styles.cancelButtonText}>İptal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.submitButton]}
+                onPress={handleSubmitPrice}
+                disabled={!repairPrice || isNaN(Number(repairPrice))}
+              >
+                <Text style={styles.submitButtonText}>Ücret Gönder</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -1890,5 +2131,99 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontWeight: '500',
     marginTop: 2,
+  },
+  
+  // Tamir kartı göstergesi
+  repairAppointmentsIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  repairAppointmentsCount: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#3B82F6',
+  },
+  
+  // Modal stilleri
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    margin: 20,
+    width: '90%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  priceInputContainer: {
+    marginBottom: 24,
+  },
+  priceLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  priceInput: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#F9FAFB',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#F3F4F6',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  submitButton: {
+    backgroundColor: '#3B82F6',
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

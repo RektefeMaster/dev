@@ -36,6 +36,7 @@ export default function AppointmentDetailScreen() {
   const [processing, setProcessing] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [showCustomReasonInput, setShowCustomReasonInput] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [statusNotes, setStatusNotes] = useState('');
@@ -170,19 +171,28 @@ export default function AppointmentDetailScreen() {
         return;
       }
       
+      console.log('✅ Randevu onaylanıyor:', appointmentId);
       const response = await apiService.approveAppointment(appointmentId);
+      
       if (response.success) {
-        Alert.alert('Başarılı', 'Randevu onaylandı', [
-          { text: 'Tamam', onPress: () => {
-            // Randevu detaylarını yenile
-            fetchAppointmentDetails();
-            navigation.goBack();
-          }}
-        ]);
+        console.log('✅ Randevu başarıyla onaylandı');
+        Alert.alert(
+          'Başarılı! ✅', 
+          'Randevu onaylandı ve müşteriye bildirildi. Müşteri ile iletişime geçebilirsiniz.', 
+          [
+            { text: 'Tamam', onPress: () => {
+              // Randevu detaylarını yenile
+              fetchAppointmentDetails();
+              navigation.goBack();
+            }}
+          ]
+        );
       } else {
+        console.log('❌ Randevu onaylanamadı:', response.message);
         Alert.alert('Hata', response.message || 'Randevu onaylanamadı');
       }
     } catch (error: any) {
+      console.log('❌ Randevu onaylama hatası:', error);
       const errorMessage = apiService.handleError(error);
       Alert.alert('Hata', errorMessage.message);
     } finally {
@@ -699,28 +709,88 @@ export default function AppointmentDetailScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Red Sebebi</Text>
-            <TextInput
-              style={styles.rejectInput}
-              placeholder="Red sebebini yazın..."
-              value={rejectReason}
-              onChangeText={setRejectReason}
-              multiline
-              numberOfLines={3}
-            />
+            <Text style={styles.modalTitle}>Randevuyu Reddet</Text>
+            <Text style={additionalStyles.modalSubtitle}>Lütfen red sebebini seçin veya özel bir mesaj yazın:</Text>
+            
+            {/* Hazır Red Sebepleri */}
+            <View style={additionalStyles.reasonOptionsContainer}>
+              <Text style={additionalStyles.reasonOptionsTitle}>Hazır Sebepler:</Text>
+              {[
+                'Uygun olmayan zaman',
+                'Bu tür hizmeti vermiyorum',
+                'Araç çok uzak',
+                'Malzeme bulunamıyor',
+                'Kişisel nedenler',
+                'Diğer'
+              ].map((reason, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    additionalStyles.reasonOption,
+                    rejectReason === reason && additionalStyles.reasonOptionSelected
+                  ]}
+                  onPress={() => {
+                    setRejectReason(reason);
+                    if (reason === 'Diğer') {
+                      setShowCustomReasonInput(true);
+                    } else {
+                      setShowCustomReasonInput(false);
+                    }
+                  }}
+                >
+                  <Text style={[
+                    additionalStyles.reasonOptionText,
+                    rejectReason === reason && additionalStyles.reasonOptionTextSelected
+                  ]}>
+                    {reason}
+                  </Text>
+                  {rejectReason === reason && (
+                    <Ionicons name="checkmark-circle" size={20} color="#059669" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Özel Mesaj - Sadece "Diğer" seçildiğinde göster */}
+            {showCustomReasonInput && (
+              <View style={additionalStyles.customReasonContainer}>
+                <Text style={additionalStyles.customReasonTitle}>Özel Mesaj:</Text>
+                <TextInput
+                  style={styles.rejectInput}
+                  placeholder="Red sebebinizi yazın..."
+                  value={rejectReason.includes('Diğer:') ? rejectReason.replace('Diğer:', '').trim() : ''}
+                  onChangeText={(text) => setRejectReason(text ? `Diğer: ${text}` : 'Diğer')}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                  autoFocus={true}
+                />
+              </View>
+            )}
+
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.modalButton}
-                onPress={() => setShowRejectModal(false)}
+                onPress={() => {
+                  setShowRejectModal(false);
+                  setRejectReason('');
+                  setShowCustomReasonInput(false);
+                }}
               >
                 <Text style={styles.modalButtonText}>İptal</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: colors.error }]}
+                style={[
+                  styles.modalButton, 
+                  additionalStyles.modalButtonDanger,
+                  !rejectReason.trim() && additionalStyles.modalButtonDisabled
+                ]}
                 onPress={handleReject}
+                disabled={processing || !rejectReason.trim()}
               >
-                <Text style={[styles.modalButtonText, { color: colors.text.inverse }]}>
-                  Reddet
+                <Ionicons name="close-circle" size={18} color="white" style={{ marginRight: 6 }} />
+                <Text style={additionalStyles.modalButtonDangerText}>
+                  {processing ? 'Reddediliyor...' : 'Tamamla'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1647,6 +1717,81 @@ const createStyles = (colors: any) => StyleSheet.create({
   textArea: {
     minHeight: 80,
     textAlignVertical: 'top',
+  },
+});
+
+// Yeni modal style'ları
+const additionalStyles = StyleSheet.create({
+  modalSubtitle: {
+    fontSize: typography.body2.fontSize,
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+    lineHeight: 20,
+  },
+  reasonOptionsContainer: {
+    marginBottom: spacing.lg,
+  },
+  reasonOptionsTitle: {
+    fontSize: typography.body2.fontSize,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: spacing.sm,
+  },
+  reasonOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: '#F9FAFB',
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  reasonOptionSelected: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#059669',
+  },
+  reasonOptionText: {
+    fontSize: typography.body2.fontSize,
+    color: '#374151',
+    flex: 1,
+  },
+  reasonOptionTextSelected: {
+    color: '#059669',
+    fontWeight: '600',
+  },
+  customReasonContainer: {
+    marginBottom: spacing.lg,
+  },
+  customReasonTitle: {
+    fontSize: typography.body2.fontSize,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: spacing.sm,
+  },
+  modalButtonDanger: {
+    backgroundColor: '#DC2626',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonDangerText: {
+    color: 'white',
+    fontSize: typography.body2.fontSize,
+    fontWeight: '700',
+  },
+  modalButtonDisabled: {
+    backgroundColor: '#9CA3AF',
+    shadowOpacity: 0,
+    elevation: 0,
   },
 });
 
