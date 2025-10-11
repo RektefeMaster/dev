@@ -143,7 +143,7 @@ export default function AppointmentDetailScreen() {
           },
           serviceType: 'Tamir',
           description: 'Motor arızası',
-          status: 'pending',
+          status: 'pending', // Bu status onay/red butonlarının görünmesi için gerekli
           appointmentDate: new Date().toISOString(),
           price: 1500,
           createdAt: new Date().toISOString()
@@ -388,13 +388,19 @@ export default function AppointmentDetailScreen() {
 
   const getStatusColor = (status: string) => {
     const colorMap: { [key: string]: string } = {
+      'pending': colors.warning.main,
+      'TALEP_EDILDI': colors.warning.main,
+      'confirmed': colors.success.main,
+      'in-progress': colors.info.main,
+      'completed': colors.success.main,
+      'cancelled': colors.error.main,
+      'rejected': colors.error.main,
       'queued': colors.warning.main,
       'in_progress': colors.info.main,
       'part_wait': colors.warning.main,
       'testing': colors.info.main,
       'ready_for_pickup': colors.success.main,
-      'completed': colors.success.main,
-      'cancelled': colors.error.main
+      'IPTAL': colors.error.main
     };
     return colorMap[status] || colors.text.secondary;
   };
@@ -431,6 +437,12 @@ export default function AppointmentDetailScreen() {
       case 'in-progress': return 'Devam Ediyor';
       case 'completed': return 'Tamamlandı';
       case 'cancelled': return 'İptal Edildi';
+      case 'TALEP_EDILDI': return 'Talep Edildi';
+      case 'BEKLIYOR': return 'Bekliyor';
+      case 'ONAYLANDI': return 'Onaylandı';
+      case 'REDDEDILDI': return 'Reddedildi';
+      case 'TAMAMLANDI': return 'Tamamlandı';
+      case 'IPTAL': return 'İptal Edildi';
       default: return status;
     }
   };
@@ -539,7 +551,7 @@ export default function AppointmentDetailScreen() {
             </View>
             <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(appointment.status) + '20' }]}>
               <Ionicons 
-                name={appointment.status === 'pending' ? 'time' : 
+                name={(appointment.status === 'pending' || appointment.status === 'TALEP_EDILDI') ? 'time' : 
                       appointment.status === 'confirmed' ? 'checkmark-circle' :
                       appointment.status === 'in-progress' ? 'construct' :
                       appointment.status === 'completed' ? 'checkmark-done-circle' : 'close-circle'} 
@@ -602,7 +614,7 @@ export default function AppointmentDetailScreen() {
         ))}
 
         {/* Action Buttons */}
-        {appointment.status === 'pending' && (
+        {(appointment.status === 'pending' || appointment.status === 'TALEP_EDILDI') && (
           <View style={styles.actionSection}>
             <Button
               title="Kabul Et"
