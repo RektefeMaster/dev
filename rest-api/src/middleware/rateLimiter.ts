@@ -10,11 +10,11 @@ import { Request, Response } from 'express';
 
 /**
  * Genel API rate limiter
- * 15 dakikada 1000 request (geliştirme için artırıldı)
+ * 15 dakikada 100 request
  */
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 dakika
-  max: 1000, // 1000 request per window (development için artırıldı)
+  max: 100, // 100 request per window
   message: {
     success: false,
     error: {
