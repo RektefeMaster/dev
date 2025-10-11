@@ -439,6 +439,13 @@ const TabNavigator = () => {
   const userCapabilities = user?.serviceCategories || [];
   const [hamburgerVisible, setHamburgerVisible] = useState(false);
 
+  // Debug: Kullanıcının hizmet kategorilerini logla
+  useEffect(() => {
+    console.log('🔍 TabNavigator Debug:');
+    console.log('User:', user?.email);
+    console.log('ServiceCategories:', userCapabilities);
+  }, [userCapabilities, user?.email]);
+
   // Ana hizmeti belirle (öncelik sırasına göre)
   const getPrimaryService = () => {
     // Tamir & Bakım için varsayılan Home ekranını kullan
@@ -470,19 +477,21 @@ const TabNavigator = () => {
         }}
         initialRouteName={primaryService}
       >
-      {/* Ana Sayfa - herkes için */}
-      <Tab.Screen 
-        name="Home" 
-        component={HomeScreen}
-        options={{
-          title: 'Ana Sayfa',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
-          ),
-        }}
-      />
+      {/* Ana Sayfa - Tamir & Bakım kategorisi için */}
+      {(userCapabilities.includes('tamir-bakim') || userCapabilities.includes('repair') || userCapabilities.includes('Genel Bakım')) && (
+        <Tab.Screen 
+          name="Home" 
+          component={HomeScreen}
+          options={{
+            title: 'Tamir',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="construct" size={size} color={color} />
+            ),
+          }}
+        />
+      )}
 
-      {/* Hizmet kategorilerine göre tab'lar */}
+      {/* Çekici Hizmeti */}
       {(userCapabilities.includes('cekici') || userCapabilities.includes('towing')) && (
         <Tab.Screen 
           name="TowingService" 
@@ -496,8 +505,7 @@ const TabNavigator = () => {
         />
       )}
 
-      {/* Tamir & Bakım için RepairService tab'ı yok - varsayılan Home ekranını kullanıyor */}
-
+      {/* Lastik Hizmeti */}
       {(userCapabilities.includes('lastik') || userCapabilities.includes('tire')) && (
         <Tab.Screen 
           name="TireService" 
@@ -511,19 +519,21 @@ const TabNavigator = () => {
         />
       )}
 
-      {(userCapabilities.includes('lastik') || userCapabilities.includes('tire')) && (
-        <Tab.Screen 
-          name="TireHotel" 
-          component={require('../features/tire-hotel/screens/TireHotelScreen').default}
+      {/* Araç Yıkama Hizmeti */}
+      {(userCapabilities.includes('arac-yikama') || userCapabilities.includes('car-wash') || userCapabilities.includes('wash')) && (
+        <Tab.Screen
+          name="CarWash"
+          component={require('../features/carwash/screens/CarWashScreen').default}
           options={{
-            title: 'Oteli',
+            title: 'Yıkama',
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="business" size={size} color={color} />
+              <Ionicons name="water" size={size} color={color} />
             ),
           }}
         />
       )}
 
+      {/* Kaporta Hizmeti */}
       {(userCapabilities.includes('kaporta') || userCapabilities.includes('kaporta-boya') || userCapabilities.includes('bodywork')) && (
         <Tab.Screen 
           name="Bodywork" 
@@ -532,19 +542,6 @@ const TabNavigator = () => {
             title: 'Kaporta',
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="construct" size={size} color={color} />
-            ),
-          }}
-        />
-      )}
-
-      {(user?.email === 'testus@gmail.com' || userCapabilities.includes('arac-yikama') || userCapabilities.includes('car-wash') || userCapabilities.includes('wash')) && (
-        <Tab.Screen
-          name="CarWash"
-          component={require('../features/carwash/screens/CarWashScreen').default}
-          options={{
-            title: 'Yıkama',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="water" size={size} color={color} />
             ),
           }}
         />
