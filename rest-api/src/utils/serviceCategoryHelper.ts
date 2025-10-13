@@ -12,7 +12,8 @@ import {
   SERVICE_CATEGORY_TURKISH_NAMES,
   normalizeToServiceCategory,
   normalizeServiceCategories,
-  ServiceType
+  ServiceType,
+  getServiceTypeFromCategory
 } from '../../../shared/types/enums';
 
 /**
@@ -49,6 +50,16 @@ export function getFaultReportServiceCategory(faultCategory: string): ServiceCat
  */
 export function getServiceCategoryFromServiceType(serviceType: ServiceType): ServiceCategory {
   return SERVICE_TYPE_TO_CATEGORY[serviceType] || ServiceCategory.REPAIR;
+}
+
+/**
+ * ServiceCategory'den ServiceType'a çevirir
+ * 
+ * @param category - ServiceCategory enum değeri
+ * @returns ServiceType enum değeri
+ */
+export function getServiceTypeFromServiceCategory(category: ServiceCategory): ServiceType {
+  return getServiceTypeFromCategory(category);
 }
 
 /**
@@ -127,6 +138,7 @@ export default {
   normalizeMechanicCategories,
   getFaultReportServiceCategory,
   getServiceCategoryFromServiceType,
+  getServiceTypeFromServiceCategory,
   mechanicHasCategory,
   getCategoryQueryValues,
   getMultipleCategoryQueryValues,

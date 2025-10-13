@@ -267,6 +267,22 @@ export const getServiceCategoryFromType = (serviceType: ServiceType): ServiceCat
 };
 
 /**
+ * ServiceCategory'den ServiceType'a çevirir
+ * Bir ServiceCategory için varsayılan ServiceType'ı döndürür
+ */
+export const getServiceTypeFromCategory = (category: ServiceCategory): ServiceType => {
+  const categoryToTypeMapping: Record<ServiceCategory, ServiceType> = {
+    [ServiceCategory.REPAIR]: ServiceType.GENERAL_MAINTENANCE,
+    [ServiceCategory.BODYWORK]: ServiceType.BODY_PAINT,
+    [ServiceCategory.TIRE]: ServiceType.TIRE_SERVICE,
+    [ServiceCategory.WASH]: ServiceType.CAR_WASH,
+    [ServiceCategory.TOWING]: ServiceType.TOWING
+  };
+  
+  return categoryToTypeMapping[category] || ServiceType.GENERAL_MAINTENANCE;
+};
+
+/**
  * Herhangi bir string'i (Türkçe/İngilizce) ServiceCategory'ye çevirir
  * Mechanic'lerin serviceCategories array'indeki değerleri normalize etmek için kullanılır
  */
@@ -382,6 +398,7 @@ export default {
   getServiceTypeDescription,
   getServiceCategoryDescription,
   getServiceCategoryFromType,
+  getServiceTypeFromCategory,
   normalizeToServiceCategory,
   hasValidServiceCategory,
   normalizeServiceCategories,

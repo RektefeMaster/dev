@@ -10,7 +10,8 @@ import { validateFaultReport, validateQuote, validateSelectQuote, validateMechan
 import { TefePointService } from '../services/tefePoint.service';
 import { 
   getFaultReportServiceCategory,
-  getCategoryQueryValues 
+  getCategoryQueryValues,
+  getServiceTypeFromServiceCategory
 } from '../utils/serviceCategoryHelper';
 import { FAULT_CATEGORY_TO_SERVICE_CATEGORY } from '../../../shared/types/enums';
 
@@ -1245,11 +1246,19 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
       mechanicId = new mongoose.Types.ObjectId();
     }
 
+    // ServiceCategory'yi ServiceType'a çevir
+    console.log('🔍 faultReport.serviceCategory:', faultReport.serviceCategory);
+    const serviceCategory = getFaultReportServiceCategory(faultReport.serviceCategory);
+    console.log('🔍 serviceCategory:', serviceCategory);
+    const serviceType = getServiceTypeFromServiceCategory(serviceCategory);
+    console.log('🔍 serviceType:', serviceType);
+
     // Randevu oluştur
+    console.log('🔍 Appointment oluşturuluyor...');
     const appointment = new Appointment({
       userId: new mongoose.Types.ObjectId(userId),
       mechanicId: new mongoose.Types.ObjectId(mechanicId),
-      serviceType: faultReport.serviceCategory,
+      serviceType: serviceType,
       appointmentDate: new Date(appointmentDate),
       timeSlot: timeSlot,
       description: faultReport.faultDescription,
@@ -1258,9 +1267,9 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
       price: faultReport.selectedQuote?.quoteAmount || 0,
       quotedPrice: faultReport.selectedQuote?.quoteAmount || 0,
       finalPrice: faultReport.selectedQuote?.quoteAmount || 0,
-      priceSource: 'fault_report_quote',
+      priceSource: 'fault_report_quoted',
       status: 'TALEP_EDILDI',
-      paymentStatus: 'pending',
+      paymentStatus: 'PENDING',
       shareContactInfo: false,
       isShopAppointment: false,
       notificationSettings: {
@@ -1271,11 +1280,15 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
       createdAt: new Date()
     });
 
+    console.log('🔍 Appointment kaydediliyor...');
     await appointment.save();
+    console.log('✅ Appointment kaydedildi:', appointment._id);
 
     // FaultReport'u güncelle
+    console.log('🔍 FaultReport güncelleniyor...');
     faultReport.appointmentId = new mongoose.Types.ObjectId(appointment._id as string);
     await faultReport.save();
+    console.log('✅ FaultReport güncellendi');
 
     res.json({
       success: true,
@@ -1291,9 +1304,15 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
 
   } catch (error: any) {
     console.error('❌ createAppointmentFromFaultReport error:', error);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    if (error.name === 'ValidationError') {
+      console.error('❌ Validation errors:', error.errors);
+    }
     res.status(500).json({
       success: false,
-      message: 'Randevu oluşturulurken bir hata oluştu'
+      message: 'Randevu oluşturulurken bir hata oluştu',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
