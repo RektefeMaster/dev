@@ -18,6 +18,7 @@ import { API_URL } from '@/constants/config';
 import { useAuth } from '@/context/AuthContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
+import { useSocket } from '@/shared/hooks/useSocket';
 import { NotificationService } from '../../notifications/services/notificationService';
 
 type RootStackParamList = {
@@ -86,6 +87,39 @@ const FaultReportDetailScreen = () => {
       checkAppointmentStatus();
     }, [])
   );
+
+  // Socket.io ile real-time güncelleme
+  const { socket } = useSocket();
+  
+  useEffect(() => {
+    if (socket) {
+      // Teklif seçimi başarılı olduğunda
+      const handleQuoteSelectionSuccess = (data: any) => {
+        if (data.faultReportId === faultReportId) {
+          console.log('🎉 Teklif seçimi başarılı:', data);
+          // Sayfayı yenile
+          fetchFaultReportDetail();
+        }
+      };
+
+      // Usta yanıtı geldiğinde
+      const handleMechanicResponse = (data: any) => {
+        if (data.faultReportId === faultReportId) {
+          console.log('🔧 Usta yanıtı geldi:', data);
+          // Sayfayı yenile
+          fetchFaultReportDetail();
+        }
+      };
+
+      socket.on('quote_selection_success', handleQuoteSelectionSuccess);
+      socket.on('mechanic_response', handleMechanicResponse);
+
+      return () => {
+        socket.off('quote_selection_success', handleQuoteSelectionSuccess);
+        socket.off('mechanic_response', handleMechanicResponse);
+      };
+    }
+  }, [socket, faultReportId]);
 
   const checkAppointmentStatus = async () => {
     try {
@@ -186,7 +220,7 @@ const FaultReportDetailScreen = () => {
             newFaultReport.quotes && 
             newFaultReport.quotes.length > 0) {
           
-          // Bildirim gönder
+          // Bildirim gönder - faultReport state'ini fonksiyon içinde al
           await sendQuoteNotification(newFaultReport);
         }
         
@@ -203,31 +237,104 @@ const FaultReportDetailScreen = () => {
 
   const selectQuote = async (quoteIndex: number) => {
     try {
+      console.log('🔍 selectQuote başlatıldı:', { quoteIndex, faultReportId });
+      
+      setLoading(true);
+
+      // Input validation
+      if (quoteIndex === undefined || quoteIndex === null) {
+        Alert.alert('Hata', 'Teklif indeksi gerekli');
+        return;
+      }
+
+      if (!faultReport.quotes || quoteIndex >= faultReport.quotes.length) {
+        Alert.alert('Hata', 'Geçersiz teklif indeksi');
+        return;
+      }
+
+      const selectedQuote = faultReport.quotes[quoteIndex];
+      if (selectedQuote.status !== 'pending') {
+        Alert.alert('Hata', 'Bu teklif zaten işleme alınmış');
+        return;
+      }
+
       const response = await axios.post(
         `${API_URL}/fault-reports/${faultReportId}/select-quote`,
         { quoteIndex },
         {
           headers: { Authorization: `Bearer ${token}` },
+          timeout: 15000, // 15 saniye timeout
         }
       );
 
+      console.log('✅ selectQuote response:', response.data);
+
       if (response.data && response.data.success) {
-        // Teklif seçildi, randevu oluşturma ekranına yönlendir
-        const selectedQuote = faultReport.quotes[quoteIndex];
-        navigation.navigate('BookAppointment', {
-          mechanicId: selectedQuote.mechanicId._id || selectedQuote.mechanicId,
-          mechanicName: selectedQuote.mechanicName,
-          mechanicSurname: '',
-          vehicleId: faultReport.vehicleId._id || faultReport.vehicleId,
-          serviceType: faultReport.serviceCategory,
-          description: faultReport.faultDescription,
-          faultReportId: faultReport._id,
-          price: selectedQuote.quoteAmount
-        });
+        // Başarılı işlem
+        Alert.alert(
+          'Başarılı', 
+          'Teklif seçildi ve randevu oluşturuldu',
+          [
+            {
+              text: 'Tamam',
+              onPress: () => {
+                // Sayfayı yenile
+                fetchFaultReportDetail();
+                
+                // Randevu oluşturma ekranına yönlendir
+                navigation.navigate('BookAppointment', {
+                  mechanicId: selectedQuote.mechanicId._id || selectedQuote.mechanicId,
+                  mechanicName: selectedQuote.mechanicName,
+                  mechanicSurname: '',
+                  vehicleId: faultReport.vehicleId._id || faultReport.vehicleId,
+                  serviceType: faultReport.serviceCategory,
+                  description: faultReport.faultDescription,
+                  faultReportId: faultReport._id,
+                  price: selectedQuote.quoteAmount,
+                  appointmentId: response.data.data?.appointment?._id
+                });
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Hata', response.data?.message || 'Teklif seçilemedi');
       }
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Teklif seçilirken bir hata oluştu';
-      Alert.alert('Hata', errorMessage);
+    } catch (error: any) {
+      console.error('❌ selectQuote error:', error);
+      
+      let errorMessage = 'Teklif seçilirken bir hata oluştu';
+      let errorTitle = 'Hata';
+      
+      if (error.response?.status === 400) {
+        errorMessage = error.response.data?.message || 'Geçersiz istek';
+        errorTitle = 'Geçersiz İşlem';
+      } else if (error.response?.status === 404) {
+        errorMessage = error.response.data?.message || 'Arıza bildirimi bulunamadı';
+        errorTitle = 'Bulunamadı';
+      } else if (error.response?.status === 500) {
+        errorMessage = error.response.data?.message || 'Sunucu hatası. Lütfen tekrar deneyin.';
+        errorTitle = 'Sunucu Hatası';
+      } else if (error.code === 'ECONNABORTED') {
+        errorMessage = 'İstek zaman aşımına uğradı. İnternet bağlantınızı kontrol edin.';
+        errorTitle = 'Zaman Aşımı';
+      } else if (error.code === 'NETWORK_ERROR' || !error.response) {
+        errorMessage = 'İnternet bağlantınızı kontrol edin.';
+        errorTitle = 'Bağlantı Hatası';
+      }
+      
+      Alert.alert(errorTitle, errorMessage, [
+        {
+          text: 'Tekrar Dene',
+          onPress: () => selectQuote(quoteIndex)
+        },
+        {
+          text: 'İptal',
+          style: 'cancel'
+        }
+      ]);
+    } finally {
+      setLoading(false);
     }
   };
 

@@ -820,25 +820,107 @@ export const selectQuote = async (req: Request, res: Response) => {
     const { quoteIndex } = req.body;
     const userId = req.user?.userId;
 
-    const faultReport = await FaultReport.findOne({ _id: id, userId });
+    console.log(`🔍 selectQuote başlatıldı:`, {
+      faultReportId: id,
+      quoteIndex,
+      userId
+    });
+
+    // Input validation
+    if (quoteIndex === undefined || quoteIndex === null) {
+      console.log('❌ quoteIndex eksik');
+      return res.status(400).json({
+        success: false,
+        message: 'Teklif indeksi gerekli'
+      });
+    }
+
+    if (typeof quoteIndex !== 'number' || quoteIndex < 0 || !Number.isInteger(quoteIndex)) {
+      console.log('❌ Geçersiz quoteIndex:', quoteIndex);
+      return res.status(400).json({
+        success: false,
+        message: 'Geçersiz teklif indeksi'
+      });
+    }
+
+    // Arıza bildirimini bul
+    const faultReport = await FaultReport.findOne({ _id: id, userId })
+      .populate('userId', 'name surname phone')
+      .populate('vehicleId', 'brand modelName plateNumber');
+    
     if (!faultReport) {
+      console.log('❌ Arıza bildirimi bulunamadı:', id);
       return res.status(404).json({
         success: false,
         message: 'Arıza bildirimi bulunamadı'
       });
     }
 
-    const selectedQuote = faultReport.quotes[quoteIndex];
-    if (!selectedQuote) {
-      return res.status(404).json({
+    console.log(`📋 Arıza bildirimi bulundu:`, {
+      id: faultReport._id,
+      status: faultReport.status,
+      quotesCount: faultReport.quotes?.length || 0
+    });
+
+    // Durum kontrolü
+    if (faultReport.status === 'accepted') {
+      console.log('❌ Arıza zaten kabul edilmiş');
+      return res.status(400).json({
         success: false,
-        message: 'Seçilen teklif bulunamadı'
+        message: 'Bu arıza için zaten bir teklif seçilmiş'
       });
     }
 
+    if (faultReport.status === 'completed') {
+      console.log('❌ Arıza tamamlanmış');
+      return res.status(400).json({
+        success: false,
+        message: 'Bu arıza işlemi tamamlanmış'
+      });
+    }
+
+    // Teklif kontrolü
+    if (!faultReport.quotes || faultReport.quotes.length === 0) {
+      console.log('❌ Hiç teklif yok');
+      return res.status(400).json({
+        success: false,
+        message: 'Bu arıza için hiç teklif bulunmuyor'
+      });
+    }
+
+    // Array bounds kontrolü
+    if (quoteIndex >= faultReport.quotes.length) {
+      console.log('❌ Geçersiz quoteIndex:', quoteIndex, 'quotes length:', faultReport.quotes.length);
+      return res.status(400).json({
+        success: false,
+        message: 'Geçersiz teklif indeksi'
+      });
+    }
+
+    const selectedQuote = faultReport.quotes[quoteIndex];
+    
+    // Teklif durumu kontrolü
+    if (selectedQuote.status !== 'pending') {
+      console.log('❌ Teklif zaten işleme alınmış:', selectedQuote.status);
+      return res.status(400).json({
+        success: false,
+        message: 'Bu teklif zaten işleme alınmış'
+      });
+    }
+
+    console.log(`✅ Seçilen teklif:`, {
+      mechanicId: selectedQuote.mechanicId,
+      mechanicName: selectedQuote.mechanicName,
+      quoteAmount: selectedQuote.quoteAmount,
+      status: selectedQuote.status
+    });
+
+    // mechanicId'yi ObjectId olarak dönüştür
+    const mechanicObjectId = new mongoose.Types.ObjectId(selectedQuote.mechanicId);
+
     // Seçilen teklifi işaretle
     faultReport.selectedQuote = {
-      mechanicId: selectedQuote.mechanicId as any,
+      mechanicId: mechanicObjectId,
       quoteAmount: selectedQuote.quoteAmount,
       selectedAt: new Date()
     };
@@ -854,6 +936,7 @@ export const selectQuote = async (req: Request, res: Response) => {
     });
 
     await faultReport.save();
+    console.log('✅ FaultReport güncellendi');
 
     // Randevu oluştur
     const appointment = new Appointment({
@@ -866,6 +949,7 @@ export const selectQuote = async (req: Request, res: Response) => {
       vehicleId: new mongoose.Types.ObjectId(faultReport.vehicleId),
       faultReportId: new mongoose.Types.ObjectId(faultReport._id as string),
       price: selectedQuote.quoteAmount, // Arıza bildirimindeki fiyatı kopyala
+      quotedPrice: selectedQuote.quoteAmount, // quotedPrice'ı da set et
       status: 'TALEP_EDILDI',
       paymentStatus: 'pending',
       shareContactInfo: false,
@@ -879,6 +963,31 @@ export const selectQuote = async (req: Request, res: Response) => {
     });
 
     await appointment.save();
+    console.log('✅ Appointment oluşturuldu:', appointment._id);
+
+    // Socket.io ile real-time bildirim gönder
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        // Ustaya bildirim gönder
+        io.to(selectedQuote.mechanicId.toString()).emit('quote_selected', {
+          faultReportId: faultReport._id,
+          appointmentId: appointment._id,
+          message: 'Teklifiniz kabul edildi!'
+        });
+        
+        // Kullanıcıya bildirim gönder
+        io.to(userId).emit('quote_selection_success', {
+          faultReportId: faultReport._id,
+          appointmentId: appointment._id,
+          mechanicName: selectedQuote.mechanicName,
+          quoteAmount: selectedQuote.quoteAmount
+        });
+      }
+    } catch (socketError) {
+      console.log('⚠️ Socket bildirimi gönderilemedi:', socketError);
+    }
+
     res.json({
       success: true,
       message: 'Teklif seçildi ve randevu oluşturuldu',
@@ -889,17 +998,20 @@ export const selectQuote = async (req: Request, res: Response) => {
           status: appointment.status
         },
         selectedQuote: {
-          mechanicName: selectedQuote.mechanicName, // Gerçek isim bilgisini göster
+          mechanicId: selectedQuote.mechanicId,
+          mechanicName: selectedQuote.mechanicName,
           quoteAmount: selectedQuote.quoteAmount,
           estimatedDuration: selectedQuote.estimatedDuration
         }
       }
     });
 
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ selectQuote error:', error);
     res.status(500).json({
       success: false,
-      message: 'Teklif seçilirken bir hata oluştu'
+      message: 'Teklif seçilirken bir hata oluştu',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };

@@ -80,11 +80,13 @@ export const useSocket = (options: UseSocketOptions = {}) => {
   } = options;
 
   const cleanupSocket = useCallback(() => {
-    if (socket) {
-      socket.removeAllListeners();
-      socket.disconnect();
-      setSocket(null);
-    }
+    setSocket((currentSocket) => {
+      if (currentSocket) {
+        currentSocket.removeAllListeners();
+        currentSocket.disconnect();
+      }
+      return null;
+    });
     setIsConnected(false);
     setIsReconnecting(false);
     setConnectionError(null);
@@ -93,8 +95,10 @@ export const useSocket = (options: UseSocketOptions = {}) => {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
     }
-  }, [socket]);
+  }, []);
 
+  const connectSocketRef = useRef<(() => void) | null>(null);
+  
   const handleReconnect = useCallback(() => {
     if (reconnectAttempts.current >= maxReconnectAttempts) {
       setConnectionError('Maksimum yeniden bağlanma denemesi aşıldı');
@@ -108,11 +112,11 @@ export const useSocket = (options: UseSocketOptions = {}) => {
     const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
     
     reconnectTimeoutRef.current = setTimeout(() => {
-      if (!isConnected && token && userId) {
-        connectSocket();
+      if (connectSocketRef.current) {
+        connectSocketRef.current();
       }
     }, delay);
-  }, [isConnected, token, userId]);
+  }, []);
 
   const connectSocket = useCallback(() => {
     if (!token || !userId) {
@@ -121,7 +125,14 @@ export const useSocket = (options: UseSocketOptions = {}) => {
     }
 
     try {
-      cleanupSocket();
+      // Socket varsa temizle
+      setSocket((currentSocket) => {
+        if (currentSocket) {
+          currentSocket.removeAllListeners();
+          currentSocket.disconnect();
+        }
+        return null;
+      });
 
       const socketUrl = API_CONFIG.SOCKET_URL;
       console.log('🔍 Socket: Bağlanıyor -', socketUrl);
@@ -200,7 +211,10 @@ export const useSocket = (options: UseSocketOptions = {}) => {
       setConnectionError(error.message);
       handleReconnect();
     }
-  }, [token, userId, cleanupSocket, handleReconnect, onNotification, onMechanicResponse, onLocationUpdate, onTowingRequestUpdate]);
+  }, [token, userId, handleReconnect]);
+  
+  // connectSocketRef'i güncelle
+  connectSocketRef.current = connectSocket;
 
   // Socket methods
   const sendEmergencyTowingRequest = useCallback((data: EmergencyTowingData) => {
@@ -241,12 +255,12 @@ export const useSocket = (options: UseSocketOptions = {}) => {
   useEffect(() => {
     if (token && userId) {
       connectSocket();
-    } else {
-      cleanupSocket();
     }
 
-    return cleanupSocket;
-  }, [token, userId, connectSocket, cleanupSocket]);
+    return () => {
+      cleanupSocket();
+    };
+  }, [token, userId]);
 
   return {
     socket,

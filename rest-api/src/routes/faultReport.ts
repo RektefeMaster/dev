@@ -2,6 +2,7 @@ import express from 'express';
 import { auth } from '../middleware/optimizedAuth';
 import { requireRole } from '../middleware/roleAuth';
 import { UserType } from '../../../shared/types/enums';
+import { validateSelectQuote } from '../validators/faultReport.validation';
 // Dynamic import to avoid circular dependency issues
 const faultReportController = require('../controllers/faultReport.controller');
 const {
@@ -61,6 +62,16 @@ router.post('/:id/quote',
 router.post('/:id/select-quote',
   auth,
   requireRole([UserType.DRIVER]),
+  (req, res, next) => {
+    const { error } = validateSelectQuote(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.details[0].message
+      });
+    }
+    next();
+  },
   selectQuote
 );
 
