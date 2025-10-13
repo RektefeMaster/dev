@@ -411,6 +411,16 @@ const FaultReportDetailScreen = () => {
     return statusNames[status as keyof typeof statusNames] || status;
   };
 
+  const getPriorityName = (priority: string) => {
+    const priorityNames = {
+      low: 'Düşük',
+      medium: 'Orta',
+      high: 'Yüksek',
+      urgent: 'Acil',
+    };
+    return priorityNames[priority as keyof typeof priorityNames] || priority;
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('tr-TR', {
@@ -519,7 +529,7 @@ const FaultReportDetailScreen = () => {
           <View style={styles.infoRow}>
             <Text style={[styles.infoLabel, { color: theme.colors.text.secondary }]}>Öncelik:</Text>
             <Text style={[styles.infoValue, { color: theme.colors.text.primary }]}>
-              {faultReport.priority}
+              {getPriorityName(faultReport.priority)}
             </Text>
           </View>
           <View style={styles.infoRow}>

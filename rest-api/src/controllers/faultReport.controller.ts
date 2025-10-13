@@ -937,6 +937,12 @@ export const selectQuote = async (req: Request, res: Response) => {
 
     await faultReport.save();
     console.log('✅ FaultReport güncellendi');
+    
+    // FaultReport'u tekrar populate ederek al
+    await faultReport.populate('selectedQuote.mechanicId', 'name surname phone');
+    console.log('✅ FaultReport populated:', {
+      selectedQuote: faultReport.selectedQuote
+    });
 
     // Randevu oluştur
     const appointment = new Appointment({
@@ -998,7 +1004,7 @@ export const selectQuote = async (req: Request, res: Response) => {
           status: appointment.status
         },
         selectedQuote: {
-          mechanicId: selectedQuote.mechanicId,
+          mechanicId: mechanicObjectId,
           mechanicName: selectedQuote.mechanicName,
           quoteAmount: selectedQuote.quoteAmount,
           estimatedDuration: selectedQuote.estimatedDuration

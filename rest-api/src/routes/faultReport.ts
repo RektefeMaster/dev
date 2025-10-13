@@ -63,13 +63,18 @@ router.post('/:id/select-quote',
   auth,
   requireRole([UserType.DRIVER]),
   (req, res, next) => {
+    console.log('🔍 selectQuote middleware - Request body:', req.body);
+    console.log('🔍 selectQuote middleware - Request params:', req.params);
+    
     const { error } = validateSelectQuote(req.body);
     if (error) {
+      console.log('❌ Validation error:', error.details);
       return res.status(400).json({
         success: false,
         message: error.details[0].message
       });
     }
+    console.log('✅ Validation passed');
     next();
   },
   selectQuote

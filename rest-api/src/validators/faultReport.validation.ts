@@ -110,10 +110,6 @@ export const validateQuote = (data: any) => {
 
 export const validateSelectQuote = (data: any) => {
   const schema = Joi.object({
-    faultReportId: Joi.string().required().messages({
-      'any.required': 'Arıza bildirimi ID\'si zorunludur',
-      'string.empty': 'Arıza bildirimi ID\'si zorunludur'
-    }),
     quoteIndex: Joi.number()
       .integer()
       .min(0)
