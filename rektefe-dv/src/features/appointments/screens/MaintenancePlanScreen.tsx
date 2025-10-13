@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import axios from 'axios';
 import { API_URL } from '@/constants/config';
 import { apiService } from '@/shared/services/api';
+import { withErrorHandling } from '@/shared/utils/errorHandler';
 import { useAuth } from '@/context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -36,7 +37,7 @@ const { width } = Dimensions.get('window');
 
 const MaintenancePlanScreen = () => {
   const navigation = useNavigation<NavigationProp>();
-  const { token } = useAuth();
+  const { token, userId: authUserId } = useAuth();
   const [step, setStep] = useState(1);
   const [selectedService, setSelectedService] = useState('');
   const [selectedVehicle, setSelectedVehicle] = useState('');
@@ -49,7 +50,6 @@ const MaintenancePlanScreen = () => {
   const [sharePhone, setSharePhone] = useState(false);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [availableSlots, setAvailableSlots] = useState([]);
-  const [userId, setUserId] = useState('');
   const [loading, setLoading] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -99,56 +99,50 @@ const MaintenancePlanScreen = () => {
     { id: 'arac-yikama', name: 'Araç Yıkama', icon: 'car-wash' },
   ];
 
-  // Kullanıcı ID'sini al
+  // Araçları getir - useAuth'dan userId kullan
   useEffect(() => {
-    const getUserId = async () => {
-      try {
-        const storedUserId = await AsyncStorage.getItem('user_id');
-        if (storedUserId) {
-          setUserId(storedUserId);
-        }
-      } catch (error) {
-        }
-    };
-    getUserId();
-  }, []);
-
-  // Araçları getir
-  useEffect(() => {
-    if (userId) {
+    if (authUserId) {
       const fetchVehicles = async () => {
         setLoading(true);
         try {
-          console.log('🚗 MaintenancePlanScreen: Araçlar getiriliyor...', { 
-            userId, 
-            token: token ? 'var' : 'yok',
-            tokenPreview: token ? `${token.substring(0, 20)}...` : 'null'
-          });
+          // Araçlar yükleniyor
           
-          const response = await apiService.getVehicles();
+          const { data, error } = await withErrorHandling(
+            () => apiService.getVehicles(),
+            { showErrorAlert: false }
+          );
+
+          // Hata varsa
+          if (error) {
+            console.error('Araç yükleme hatası:', error);
+            setVehicles([]);
+            return;
+          }
+
+          // API yanıtı işleniyor - withErrorHandling data'yı API response olarak döndürüyor
+          console.log('🔍 DEBUG: API Response:', JSON.stringify(data, null, 2));
           
-          console.log('🚗 MaintenancePlanScreen: API yanıtı:', {
-            success: response.success,
-            dataLength: response.data?.length || 0,
-            message: response.message,
-            fullResponse: response
-          });
-          
-          // API response formatı: { success: true, data: [...], message: "..." }
-          if (response.success && response.data && Array.isArray(response.data)) {
-            setVehicles(response.data);
-            console.log('🚗 MaintenancePlanScreen: Araçlar başarıyla yüklendi:', response.data.length);
+          if (data && (data as any).success) {
+            // Backend formatı: { success: true, data: [...], message: "..." }
+            const vehiclesData = (data as any).data || [];
+            console.log('🔍 DEBUG: Vehicles data:', vehiclesData);
+            setVehicles(vehiclesData);
+          } else if (Array.isArray(data)) {
+            // Doğrudan array formatı
+            console.log('🔍 DEBUG: Direct array data:', data);
+            setVehicles(data);
           } else {
-            console.log('🚗 MaintenancePlanScreen: API yanıt formatı beklenenden farklı:', response);
+            // API yanıt formatı beklenenden farklı
+            console.log('🔍 DEBUG: API yanıt formatı beklenenden farklı:', data);
             setVehicles([]);
           }
         } catch (error: any) {
-          console.error('🚗 MaintenancePlanScreen: Araç yükleme hatası:', error);
+          console.error('Araç yükleme hatası:', error);
           setVehicles([]);
           
           // 401 Unauthorized hatası için özel mesaj
           if (error.response?.status === 401) {
-            console.error('🚗 MaintenancePlanScreen: 401 Unauthorized - Token geçersiz!');
+            console.error('401 Unauthorized - Token geçersiz!');
             Alert.alert(
               'Oturum Süresi Doldu', 
               'Oturumunuzun süresi dolmuş. Lütfen tekrar giriş yapın.',
@@ -171,7 +165,7 @@ const MaintenancePlanScreen = () => {
       };
       fetchVehicles();
     }
-  }, [userId, token]);
+  }, [authUserId, token]);
 
   // Usta müsaitlik durumunu getir
   const fetchMechanicAvailability = async (date: string) => {
@@ -582,6 +576,17 @@ const MaintenancePlanScreen = () => {
                 <Text style={styles.emptyStateDescription}>
                   Henüz eklenmiş bir aracınız bulunmuyor. Önce garajınıza araç eklemeniz gerekiyor.
                 </Text>
+                <TouchableOpacity 
+                  style={styles.addVehicleButton}
+                  onPress={() => {
+                    // Garaj ekranına yönlendir
+                    // Garaj ekranına yönlendiriliyor
+                    navigation.navigate('Garage' as never);
+                  }}
+                >
+                  <MaterialCommunityIcons name="plus" size={20} color="#FFFFFF" />
+                  <Text style={styles.addVehicleText}>Araç Ekle</Text>
+                </TouchableOpacity>
               </View>
             )}
           </View>
@@ -1279,6 +1284,22 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
     lineHeight: 20,
+    marginBottom: 24,
+  },
+  addVehicleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#3b82f6',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    gap: 8,
+  },
+  addVehicleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
   },
 });
 

@@ -720,6 +720,17 @@ export default function CarWashScreen() {
     return colors[level as keyof typeof colors] || '#666';
   };
 
+  const getQuoteStatusText = (status: string) => {
+    const statuses = {
+      draft: 'Taslak',
+      sent: 'Gönderildi',
+      accepted: 'Kabul Edildi',
+      rejected: 'Reddedildi',
+      expired: 'Süresi Doldu'
+    };
+    return statuses[status as keyof typeof statuses] || status;
+  };
+
   // Mobile wash helper functions
   const getMobileWashTypeText = (type: string) => {
     const types = {

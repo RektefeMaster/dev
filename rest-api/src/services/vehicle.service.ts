@@ -52,6 +52,7 @@ export class VehicleService {
       
       return vehicles;
     } catch (error) {
+      console.error('VehicleService.getUserVehicles hata:', error);
       throw new CustomError('Araçlar getirilirken hata oluştu', 500);
     }
   }

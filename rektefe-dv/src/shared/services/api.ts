@@ -284,6 +284,8 @@ export const VehicleService = {
   async getVehicles(): Promise<ApiResponse<{ vehicles: any[] }>> {
     try {
       const response = await apiClient.get('/vehicles');
+      // Backend response formatı: { success: true, data: [...], message: "..." }
+      // response.data zaten backend'den gelen wrapper'ı içeriyor
       return response.data;
     } catch (error: any) {
       console.error('Get vehicles error:', error);

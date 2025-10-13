@@ -48,6 +48,8 @@ const getNotificationIcon = (type: string): string => {
     update: 'refresh',
     security: 'shield',
     maintenance: 'construct',
+    fault_report: 'alert-circle', // Arıza bildirimi ikonu
+    towing_request: 'car', // Çekici talebi ikonu
     default: 'notifications'
   };
   
@@ -66,6 +68,8 @@ const getNotificationColor = (type: string): string => {
     update: '#6366F1',
     security: '#84CC16',
     maintenance: '#F97316',
+    fault_report: '#F97316', // Arıza bildirimi - Turuncu
+    towing_request: '#EF4444', // Çekici talebi - Kırmızı
     default: '#64748B'
   };
   
@@ -94,6 +98,8 @@ const getNotificationCategory = (type: string, serviceCategories?: string[]): st
     update: 'Güncelleme',
     security: 'Güvenlik',
     maintenance: 'Bakım',
+    fault_report: 'Arıza Bildirimi',
+    towing_request: 'Çekici Talebi',
     default: 'Genel'
   };
 

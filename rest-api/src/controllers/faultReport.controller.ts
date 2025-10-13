@@ -131,7 +131,18 @@ export const createFaultReport = async (req: Request, res: Response) => {
       null // userCity kaldırıldı
     );
 
+    console.log(`[FAULT REPORT] Arıza bildirimi oluşturuldu:`, {
+      faultReportId: faultReport._id,
+      serviceCategory,
+      normalizedServiceCategory,
+      vehicleBrand: vehicle.brand,
+      nearbyMechanicsCount: nearbyMechanics.length
+    });
+
     // Her ustaya bildirim gönder
+    let notificationsSent = 0;
+    let notificationsFailed = 0;
+
     for (const mechanic of nearbyMechanics) {
       try {
         // Usta bilgilerini al (hem Mechanic hem User tablosundan)
@@ -172,6 +183,9 @@ export const createFaultReport = async (req: Request, res: Response) => {
               notification.message,
               notification.data
             );
+            console.log(`[FAULT REPORT] Push notification gönderildi - Usta: ${mechanicData.name} ${mechanicData.surname} (${mechanic._id})`);
+          } else {
+            console.log(`[FAULT REPORT] Push token yok - Usta: ${mechanicData.name} ${mechanicData.surname} (${mechanic._id})`);
           }
 
           // Veritabanına bildirim kaydı oluştur
@@ -181,15 +195,27 @@ export const createFaultReport = async (req: Request, res: Response) => {
             'mechanic',
             notification.title,
             notification.message,
-            'system',
+            'fault_report',
             notification.data
           );
 
-          } else {
-          }
-      } catch (error) {
+          notificationsSent++;
+          console.log(`[FAULT REPORT] Bildirim gönderildi - Usta: ${mechanicData.name} ${mechanicData.surname} (${mechanic._id})`);
+        } else {
+          console.log(`[FAULT REPORT] Usta bilgisi bulunamadı - ID: ${mechanic._id}`);
+          notificationsFailed++;
         }
+      } catch (error) {
+        console.error(`[FAULT REPORT] Bildirim gönderme hatası - Usta ID: ${mechanic._id}`, error);
+        notificationsFailed++;
+      }
     }
+
+    console.log(`[FAULT REPORT] Bildirim özeti:`, {
+      totalMechanics: nearbyMechanics.length,
+      notificationsSent,
+      notificationsFailed
+    });
 
     res.status(201).json({
       success: true,
@@ -1027,6 +1053,13 @@ async function findNearbyMechanics(
     // O kategorinin tüm query değerlerini al (enum değeri + Türkçe alternatifleri)
     const matchingCategories = getCategoryQueryValues(normalizedServiceCategory);
 
+    console.log(`[FIND MECHANICS] Usta arama başladı:`, {
+      serviceCategory,
+      normalizedServiceCategory,
+      matchingCategories,
+      vehicleBrand
+    });
+
     // Önce Mechanic modelinde ara
     let mechanics = await Mechanic.find({
       isAvailable: true,
@@ -1038,6 +1071,8 @@ async function findNearbyMechanics(
         { vehicleBrands: { $in: ['Genel', 'Tüm Markalar', 'Tümü'] } }
       ]
     }).lean();
+
+    console.log(`[FIND MECHANICS] Mechanic modelinde ${mechanics.length} usta bulundu`);
 
     // User modelinde de ara (rektefe-us uygulamasından gelen ustalar)
     const userMechanics = await User.find({
@@ -1051,6 +1086,8 @@ async function findNearbyMechanics(
         { vehicleBrands: { $in: ['Genel', 'Tüm Markalar', 'Tümü'] } }
       ]
     }).lean();
+
+    console.log(`[FIND MECHANICS] User modelinde ${userMechanics.length} usta bulundu`);
 
     // User verilerini Mechanic formatına çevir
     const formattedUserMechanics = userMechanics.map(user => ({
@@ -1068,10 +1105,13 @@ async function findNearbyMechanics(
     // Tüm ustaları birleştir
     const allMechanics = [...mechanics, ...formattedUserMechanics];
 
+    console.log(`[FIND MECHANICS] Toplam ${allMechanics.length} usta bulundu (en fazla 20 dönecek)`);
+
     // Konum sıralaması kaldırıldı - sadece hizmet kategorisine göre döndür
     return allMechanics.slice(0, 20); // En fazla 20 usta
 
   } catch (error) {
+    console.error(`[FIND MECHANICS] Usta arama hatası:`, error);
     return [];
   }
 }

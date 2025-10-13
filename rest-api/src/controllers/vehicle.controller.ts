@@ -23,11 +23,17 @@ export class VehicleController {
    */
   static getUserVehicles = asyncHandler(async (req: AuthRequest, res: Response) => {
     const userId = req.user?.userId;
+    console.log('🔍 DEBUG: getUserVehicles - userId:', userId);
+    console.log('🔍 DEBUG: getUserVehicles - req.user:', req.user);
+    
     if (!userId) {
+      console.log('🔍 DEBUG: getUserVehicles - No userId found');
       return ResponseHandler.unauthorized(res, 'Kullanıcı doğrulanamadı.');
     }
 
     const vehicles = await VehicleService.getUserVehicles(userId);
+    console.log('🔍 DEBUG: getUserVehicles - Found vehicles:', vehicles.length);
+    console.log('🔍 DEBUG: getUserVehicles - Vehicles:', vehicles);
     return ResponseHandler.success(res, vehicles, 'Araçlar başarıyla getirildi');
   });
 

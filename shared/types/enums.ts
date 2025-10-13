@@ -90,6 +90,7 @@ export const SERVICE_TYPE_TO_CATEGORY: Record<ServiceType, ServiceCategory> = {
  */
 export const FAULT_CATEGORY_TO_SERVICE_CATEGORY: Record<string, ServiceCategory> = {
   // Repair kategorisi
+  'Tamir ve Bakım': ServiceCategory.REPAIR, // Frontend'den gelen ana kategori
   'Ağır Bakım': ServiceCategory.REPAIR,
   'Genel Bakım': ServiceCategory.REPAIR,
   'Üst Takım': ServiceCategory.REPAIR,

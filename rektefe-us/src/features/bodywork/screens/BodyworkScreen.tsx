@@ -346,6 +346,16 @@ export default function BodyworkScreen() {
     return stages[stage as keyof typeof stages] || stage;
   };
 
+  const getStageStatusText = (status: string) => {
+    const statuses = {
+      pending: 'Bekliyor',
+      in_progress: 'Devam Ediyor',
+      completed: 'Tamamlandı',
+      skipped: 'Atlandı'
+    };
+    return statuses[status as keyof typeof statuses] || status;
+  };
+
   const getStageStatusColor = (status: string) => {
     const colors = {
       pending: '#9E9E9E',
@@ -354,6 +364,17 @@ export default function BodyworkScreen() {
       skipped: '#FF9800'
     };
     return colors[status as keyof typeof colors] || '#666';
+  };
+
+  const getQuoteStatusText = (status: string) => {
+    const statuses = {
+      draft: 'Taslak',
+      sent: 'Gönderildi',
+      accepted: 'Kabul Edildi',
+      rejected: 'Reddedildi',
+      expired: 'Süresi Doldu'
+    };
+    return statuses[status as keyof typeof statuses] || status;
   };
 
   const renderActiveJobs = () => (
@@ -397,7 +418,7 @@ export default function BodyworkScreen() {
               {job.quote.totalAmount > 0 && (
                 <View style={styles.quoteInfo}>
                   <Text style={styles.quoteAmount}>{job.quote.totalAmount.toLocaleString()}₺</Text>
-                  <Text style={styles.quoteStatus}>{job.quote.status}</Text>
+                  <Text style={styles.quoteStatus}>{getQuoteStatusText(job.quote.status)}</Text>
                 </View>
               )}
 
@@ -760,7 +781,7 @@ export default function BodyworkScreen() {
                 </View>
                 <Text style={styles.stageName}>{getStageText(stage.stage)}</Text>
                 <Text style={[styles.stageStatus, { color: getStageStatusColor(stage.status) }]}>
-                  {stage.status}
+                  {getStageStatusText(stage.status)}
                 </Text>
               </View>
               
