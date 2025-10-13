@@ -768,6 +768,140 @@ export class AppointmentService {
       }
 
       await appointment.save();
+
+      // Eğer appointment bir FaultReport'a bağlıysa, FaultReport durumunu da güncelle
+      if (appointment.faultReportId) {
+        await this.updateRelatedFaultReportStatus(appointment.faultReportId.toString(), status);
+      }
+
+      return appointment;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * İlgili arıza bildirimi durumunu güncelle
+   */
+  private static async updateRelatedFaultReportStatus(faultReportId: string, appointmentStatus: string) {
+    try {
+      const FaultReport = require('../models/FaultReport').FaultReport;
+      const faultReport = await FaultReport.findById(faultReportId);
+      
+      if (!faultReport) {
+        console.log('⚠️ FaultReport bulunamadı:', faultReportId);
+        return;
+      }
+
+      // Appointment status'e göre FaultReport status'ünü belirle
+      let faultReportStatus = faultReport.status;
+      
+      switch (appointmentStatus) {
+        case 'PLANLANDI': // Kullanıcı randevuyu onayladı
+          faultReportStatus = 'in_progress';
+          break;
+        case 'SERVISTE': // Usta işe başladı
+          faultReportStatus = 'in_progress';
+          break;
+        case 'ODEME_BEKLIYOR': // İş tamamlandı, ödeme bekleniyor
+          faultReportStatus = 'payment_pending';
+          break;
+        case 'TAMAMLANDI': // Ödeme yapıldı ve iş tamamen bitti
+          faultReportStatus = 'completed';
+          break;
+        case 'IPTAL_EDILDI': // Randevu iptal edildi
+          faultReportStatus = 'cancelled';
+          break;
+      }
+
+      // Durum değiştiyse güncelle
+      if (faultReport.status !== faultReportStatus) {
+        faultReport.status = faultReportStatus;
+        await faultReport.save();
+        console.log(`✅ FaultReport durumu güncellendi: ${faultReportId} -> ${faultReportStatus}`);
+      }
+    } catch (error) {
+      console.error('❌ FaultReport durumu güncellenirken hata:', error);
+      // FaultReport güncelleme hatası appointment işlemini engellemez
+    }
+  }
+
+  /**
+   * Ek ücret ekle (usta işi tamamlamadan önce ekstra masraf ekleyebilir)
+   */
+  static async addExtraCharges(appointmentId: string, extraAmount: number, description: string) {
+    try {
+      const appointment = await Appointment.findById(appointmentId);
+      if (!appointment) {
+        throw new CustomError('Randevu bulunamadı', 404);
+      }
+
+      // Sadece SERVISTE durumundaki randevulara ek ücret eklenebilir
+      if (appointment.status !== 'SERVISTE') {
+        throw new CustomError('Sadece serviste olan işlere ek ücret eklenebilir', 400);
+      }
+
+      // Ek ücret onayı ekle
+      if (!appointment.araOnaylar) {
+        appointment.araOnaylar = [];
+      }
+
+      appointment.araOnaylar.push({
+        aciklama: description,
+        tutar: extraAmount,
+        onay: 'BEKLIYOR',
+        tarih: new Date()
+      });
+
+      await appointment.save();
+
+      // Eğer appointment bir FaultReport'a bağlıysa, FaultReport'u da güncelle
+      if (appointment.faultReportId) {
+        const FaultReport = require('../models/FaultReport').FaultReport;
+        const faultReport = await FaultReport.findById(appointment.faultReportId);
+        
+        if (faultReport) {
+          // Ek ücret bilgisini not olarak ekle
+          faultReport.faultDescription += `\n\n[Ek Ücret Talebi]: ${description} - ${extraAmount}₺ (Onay Bekleniyor)`;
+          await faultReport.save();
+        }
+      }
+
+      return appointment;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Ek ücreti onayla/reddet (müşteri tarafından)
+   */
+  static async approveExtraCharges(appointmentId: string, approvalIndex: number, approve: boolean) {
+    try {
+      const appointment = await Appointment.findById(appointmentId);
+      if (!appointment) {
+        throw new CustomError('Randevu bulunamadı', 404);
+      }
+
+      if (!appointment.araOnaylar || !appointment.araOnaylar[approvalIndex]) {
+        throw new CustomError('Ek ücret talebi bulunamadı', 404);
+      }
+
+      const extraCharge = appointment.araOnaylar[approvalIndex];
+      
+      if (extraCharge.onay !== 'BEKLIYOR') {
+        throw new CustomError('Bu ek ücret talebi zaten işlenmiş', 400);
+      }
+
+      extraCharge.onay = approve ? 'KABUL' : 'RET';
+      
+      // Kabul edildiyse fiyatı güncelle
+      if (approve) {
+        const currentPrice = appointment.finalPrice || appointment.price || appointment.quotedPrice || 0;
+        appointment.finalPrice = currentPrice + extraCharge.tutar;
+      }
+
+      await appointment.save();
       return appointment;
     } catch (error) {
       throw error;
@@ -777,7 +911,7 @@ export class AppointmentService {
   /**
    * Randevuyu tamamla (iş bitir)
    */
-  static async completeAppointment(appointmentId: string, completionNotes: string, price: number, estimatedDuration?: number) {
+  static async completeAppointment(appointmentId: string, completionNotes: string, price?: number, estimatedDuration?: number) {
     try {
 
       const appointment = await Appointment.findById(appointmentId);
@@ -790,10 +924,28 @@ export class AppointmentService {
         throw new CustomError('Sadece serviste olan işler tamamlanabilir', 400);
       }
 
+      // Onaylanmamış ek ücret varsa hata ver
+      const hasPendingExtraCharges = appointment.araOnaylar?.some(charge => charge.onay === 'BEKLIYOR');
+      if (hasPendingExtraCharges) {
+        throw new CustomError('Bekleyen ek ücret onayları var. Önce bunların onaylanması gerekiyor.', 400);
+      }
+
       // Randevuyu ödeme bekliyor durumuna al
       appointment.status = AppointmentStatus.PAYMENT_PENDING;
       appointment.mechanicNotes = completionNotes;
-      appointment.price = price;
+      
+      // Fiyat belirlenmişse güncelle (opsiyonel)
+      if (price) {
+        appointment.price = price;
+      }
+      
+      // finalPrice'ı hesapla (orijinal fiyat + kabul edilen ek ücretler)
+      const basePrice = appointment.price || appointment.quotedPrice || 0;
+      const approvedExtraCharges = appointment.araOnaylar
+        ?.filter(charge => charge.onay === 'KABUL')
+        .reduce((sum, charge) => sum + charge.tutar, 0) || 0;
+      
+      appointment.finalPrice = basePrice + approvedExtraCharges;
       appointment.paymentStatus = PaymentStatus.PENDING; // Ödeme bekleniyor
       
       // Usta tahmini süreyi belirler
@@ -805,6 +957,31 @@ export class AppointmentService {
       appointment.completionDate = new Date();
 
       await appointment.save();
+
+      // FaultReport durumunu ve payment bilgisini güncelle
+      if (appointment.faultReportId) {
+        await this.updateRelatedFaultReportStatus(appointment.faultReportId.toString(), 'ODEME_BEKLIYOR');
+        
+        // FaultReport'un payment objesini oluştur
+        try {
+          const FaultReport = require('../models/FaultReport').FaultReport;
+          const faultReport = await FaultReport.findById(appointment.faultReportId);
+          
+          if (faultReport) {
+            faultReport.payment = {
+              amount: appointment.finalPrice,
+              status: 'pending',
+              paymentMethod: 'credit_card',
+              paymentDate: new Date()
+            };
+            await faultReport.save();
+            console.log(`✅ FaultReport ${faultReport._id} payment objesi oluşturuldu: ${appointment.finalPrice}₺`);
+          }
+        } catch (paymentError) {
+          console.error('❌ FaultReport payment güncellenirken hata:', paymentError);
+        }
+      }
+
       return appointment;
     } catch (error) {
       throw error;

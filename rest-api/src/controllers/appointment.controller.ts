@@ -260,9 +260,8 @@ export class AppointmentController {
         throw new CustomError('Ek fiyat sebebi gereklidir', 400);
       }
 
-      const appointment = await AppointmentService.addPriceIncrease(
+      const appointment = await AppointmentService.addExtraCharges(
         appointmentId,
-        mechanicId,
         Number(additionalAmount),
         reason.trim()
       );
@@ -276,6 +275,42 @@ export class AppointmentController {
       res.status(error.statusCode || 500).json({
         success: false,
         message: error.message || 'Ek fiyat eklenirken bir hata oluştu'
+      });
+    }
+  }
+
+  /**
+   * Müşteri ek ücret onayı/reddi
+   */
+  static async approveExtraCharges(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { approvalIndex, approve } = req.body;
+      const userId = req.user?.userId;
+
+      if (!userId) {
+        throw new CustomError('Kullanıcı bilgisi bulunamadı', 401);
+      }
+
+      if (approvalIndex === undefined || approve === undefined) {
+        throw new CustomError('Onay bilgisi eksik', 400);
+      }
+
+      const appointment = await AppointmentService.approveExtraCharges(
+        id,
+        Number(approvalIndex),
+        Boolean(approve)
+      );
+
+      res.json({
+        success: true,
+        message: approve ? 'Ek ücret onaylandı' : 'Ek ücret reddedildi',
+        data: appointment
+      });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.message || 'Ek ücret onaylanırken bir hata oluştu'
       });
     }
   }
@@ -881,7 +916,7 @@ export class AppointmentController {
 
       // Ödeme bilgilerini güncelle
       appointment.paymentStatus = PaymentStatus.COMPLETED;
-      appointment.status = AppointmentStatus.SCHEDULED; // Ödeme tamamlandıktan sonra planlandı durumuna geç
+      appointment.status = AppointmentStatus.COMPLETED; // Ödeme tamamlandıktan sonra tamamlandı durumuna geç
       appointment.paymentDate = new Date();
       appointment.transactionId = transactionId;
       
@@ -900,12 +935,36 @@ export class AppointmentController {
 
       await appointment.save();
 
-      // TefePuan kazanma işlemi
+      // FaultReport durumunu ve payment bilgisini güncelle (eğer arıza bildirimine bağlıysa)
+      if (appointment.faultReportId) {
+        try {
+          const FaultReport = require('../models/FaultReport').FaultReport;
+          const faultReport = await FaultReport.findById(appointment.faultReportId);
+          
+          if (faultReport) {
+            faultReport.status = 'paid'; // Ödeme yapıldı
+            
+            // Payment objesini güncelle
+            if (faultReport.payment) {
+              faultReport.payment.status = 'completed';
+              faultReport.payment.transactionId = transactionId;
+              faultReport.payment.paymentDate = new Date();
+            }
+            
+            await faultReport.save();
+            console.log(`✅ FaultReport ${faultReport._id} durumu 'paid' olarak güncellendi`);
+          }
+        } catch (faultReportError) {
+          console.error('❌ FaultReport güncelleme hatası:', faultReportError);
+        }
+      }
+
+      // TefePuan kazanma işlemi (hem müşteri hem usta için)
       try {
         const baseAmount = appointment.finalPrice || appointment.price || 0;
         
-        // TefePuan kazandır
-        const tefePointResult = await TefePointService.processPaymentTefePoints({
+        // Müşteriye TefePuan kazandır
+        const customerTefePointResult = await TefePointService.processPaymentTefePoints({
           userId,
           amount: baseAmount,
           paymentType: 'appointment',
@@ -915,9 +974,26 @@ export class AppointmentController {
           appointmentId: (appointment._id as any).toString()
         });
 
-        if (tefePointResult.success && tefePointResult.earnedPoints) {
-          }
+        if (customerTefePointResult.success && customerTefePointResult.earnedPoints) {
+          console.log(`✅ Müşteriye ${customerTefePointResult.earnedPoints} TefePuan kazandırıldı`);
+        }
+
+        // Ustaya da TefePuan kazandır
+        const mechanicTefePointResult = await TefePointService.processPaymentTefePoints({
+          userId: appointment.mechanicId._id.toString(),
+          amount: baseAmount,
+          paymentType: 'appointment',
+          serviceCategory: appointment.serviceType || 'maintenance',
+          description: `Randevu kazancı - ${appointment.serviceType || 'genel-bakım'}`,
+          serviceId: (appointment._id as any).toString(),
+          appointmentId: (appointment._id as any).toString()
+        });
+
+        if (mechanicTefePointResult.success && mechanicTefePointResult.earnedPoints) {
+          console.log(`✅ Ustaya ${mechanicTefePointResult.earnedPoints} TefePuan kazandırıldı`);
+        }
       } catch (tefeError) {
+        console.error('❌ TefePuan hatası:', tefeError);
         // TefePuan hatası ödeme işlemini durdurmaz
       }
 

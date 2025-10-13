@@ -1498,10 +1498,11 @@ export const createPayment = async (req: Request, res: Response) => {
   }
 };
 
-// Ödeme onaylama
+// Ödeme onaylama (yeni sistem - appointment üzerinden)
 export const confirmPayment = async (req: Request, res: Response) => {
   try {
-    const { faultReportId } = req.params;
+    const { id } = req.params; // Route'da :id olarak tanımlanmış
+    const faultReportId = id;
     const { transactionId } = req.body;
     const userId = (req as any).user?.userId;
 
@@ -1515,6 +1516,7 @@ export const confirmPayment = async (req: Request, res: Response) => {
     // Arıza bildirimini bul
     const faultReport = await FaultReport.findById(faultReportId)
       .populate('userId', 'name surname email')
+      .populate('appointmentId')
       .populate('selectedQuote.mechanicId', 'name surname email phone');
 
     if (!faultReport) {
@@ -1540,6 +1542,25 @@ export const confirmPayment = async (req: Request, res: Response) => {
       });
     }
 
+    // Appointment varsa, appointment üzerinden ödeme yap
+    if (faultReport.appointmentId) {
+      const AppointmentController = require('./appointment.controller').AppointmentController;
+      
+      // Appointment ID ile ödeme onaylama endpoint'ini çağır
+      const appointmentId = (faultReport.appointmentId as any)._id || faultReport.appointmentId;
+      
+      // Request objesini yeniden oluştur
+      req.params = { appointmentId: appointmentId.toString() };
+      req.body = { 
+        transactionId, 
+        amount: faultReport.payment?.amount || (faultReport.appointmentId as any).finalPrice || 0 
+      };
+      
+      // AppointmentController.confirmPayment'ı çağır
+      return await AppointmentController.confirmPayment(req, res);
+    }
+
+    // Eski sistem (appointment yoksa)
     // Ödeme bilgilerini güncelle
     if (faultReport.payment) {
       faultReport.payment.status = 'completed';

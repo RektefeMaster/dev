@@ -189,7 +189,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
               tefePointAmount = tefePointResult.earnedPoints;
               }
           } catch (error) {
-            tefePointAmount = Math.floor(safeAmount * 0.05); // Fallback %5 TefePuan
+            tefePointAmount = Math.floor(safeAmount * 0.01); // Fallback %1 TefePuan
           }
 
           // Cüzdana ödeme işlemini ekle

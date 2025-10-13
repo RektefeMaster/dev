@@ -123,7 +123,7 @@ export const logTefePointStats = async (period: 'week' | 'month' | 'year' = 'mon
 };
 
 /**
- * TefePuan kazanım oranlarını göster
+ * TefePuan kazanım oranlarını göster - Optimize edilmiş %1 sabit oran
  */
 export const getTefePointRates = (): Array<{
   category: string;
@@ -132,14 +132,11 @@ export const getTefePointRates = (): Array<{
   multiplier: number;
 }> => {
   const categories = [
-    { category: 'towing', description: 'Çekici Hizmeti', multiplier: 0.02 },
-    { category: 'tire_service', description: 'Lastik Hizmeti', multiplier: 0.03 },
-    { category: 'wash_service', description: 'Araç Yıkama', multiplier: 0.04 },
-    { category: 'maintenance', description: 'Genel Bakım', multiplier: 0.05 },
-    { category: 'engine_repair', description: 'Motor Rektefiyesi', multiplier: 0.07 },
-    { category: 'transmission_repair', description: 'Şanzıman Rektefiyesi', multiplier: 0.08 },
-    { category: 'electrical_repair', description: 'Elektrik Rektefiyesi', multiplier: 0.06 },
-    { category: 'body_repair', description: 'Kaporta Rektefiyesi', multiplier: 0.09 }
+    { category: 'towing', description: 'Çekici Hizmeti', multiplier: 0.01 },
+    { category: 'tire', description: 'Lastik Hizmeti', multiplier: 0.01 },
+    { category: 'wash', description: 'Araç Yıkama', multiplier: 0.01 },
+    { category: 'repair', description: 'Tamir ve Bakım', multiplier: 0.01 },
+    { category: 'bodywork', description: 'Kaporta & Boya', multiplier: 0.01 }
   ];
 
   return categories.map(cat => ({

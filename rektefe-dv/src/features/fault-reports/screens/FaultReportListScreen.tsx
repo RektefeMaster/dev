@@ -41,8 +41,10 @@ const FaultReportListScreen = () => {
     { id: 'quoted', name: 'Teklif Alındı', color: theme.colors.primary.main },
     { id: 'accepted', name: 'Kabul Edildi', color: theme.colors.success.main },
     { id: 'in_progress', name: 'İşlemde', color: theme.colors.secondary.main },
+    { id: 'payment_pending', name: 'Ödeme Bekliyor', color: theme.colors.warning.main },
+    { id: 'paid', name: 'Ödendi', color: theme.colors.success.main },
     { id: 'completed', name: 'Tamamlandı', color: theme.colors.success.main },
-    { id: 'cancelled', name: 'İptal Edildi', color: theme.colors.error.main },
+    { id: 'cancelled', name: 'İptal Edildi / Red', color: theme.colors.error.main },
   ];
 
   useEffect(() => {

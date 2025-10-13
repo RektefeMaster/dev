@@ -828,16 +828,58 @@ const FaultReportDetailScreen = () => {
               </TouchableOpacity>
             )}
 
-            {faultReport.status === 'payment_pending' && faultReport.payment && (
-              <TouchableOpacity
-                style={[styles.paymentButton, { backgroundColor: theme.colors.primary.main }]}
-                onPress={confirmPayment}
-              >
-                <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                <Text style={styles.paymentButtonText}>
-                  Ödemeyi Onayla ({faultReport.payment.amount}₺)
-                </Text>
-              </TouchableOpacity>
+            {faultReport.status === 'payment_pending' && (
+              <View style={styles.paymentSection}>
+                {/* Ödeme Detayları */}
+                <View style={[styles.paymentDetailsCard, { backgroundColor: theme.colors.background.card }]}>
+                  <Text style={[styles.paymentDetailsTitle, { color: theme.colors.text.primary }]}>
+                    Ödeme Detayları
+                  </Text>
+                  
+                  <View style={styles.paymentDetailRow}>
+                    <Text style={[styles.paymentDetailLabel, { color: theme.colors.text.secondary }]}>
+                      Ana Ücret:
+                    </Text>
+                    <Text style={[styles.paymentDetailValue, { color: theme.colors.text.primary }]}>
+                      {formatPrice(faultReport.selectedQuote?.quoteAmount || 0)}
+                    </Text>
+                  </View>
+
+                  {/* Ek Ücretler varsa göster */}
+                  {faultReport.appointmentId?.araOnaylar?.filter((charge: any) => charge.onay === 'KABUL').map((charge: any, index: number) => (
+                    <View key={index} style={styles.paymentDetailRow}>
+                      <Text style={[styles.paymentDetailLabel, { color: theme.colors.text.secondary }]}>
+                        {charge.aciklama}:
+                      </Text>
+                      <Text style={[styles.paymentDetailValue, { color: theme.colors.warning.main }]}>
+                        +{formatPrice(charge.tutar)}
+                      </Text>
+                    </View>
+                  ))}
+
+                  <View style={[styles.paymentDivider, { borderBottomColor: theme.colors.border.primary }]} />
+                  
+                  <View style={styles.paymentDetailRow}>
+                    <Text style={[styles.paymentTotalLabel, { color: theme.colors.text.primary }]}>
+                      Toplam:
+                    </Text>
+                    <Text style={[styles.paymentTotalValue, { color: theme.colors.success.main }]}>
+                      {formatPrice(faultReport.payment?.amount || faultReport.appointmentId?.finalPrice || faultReport.selectedQuote?.quoteAmount || 0)}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Ödeme Butonu */}
+                <TouchableOpacity
+                  style={[styles.paymentButton, { backgroundColor: theme.colors.success.main }]}
+                  onPress={confirmPayment}
+                >
+                  <Ionicons name="card" size={20} color="#fff" />
+                  <Text style={styles.paymentButtonText}>
+                    Ödeme Yap
+                  </Text>
+                </TouchableOpacity>
+              </View>
             )}
 
             {appointmentStatus === 'paid' && (
@@ -1149,14 +1191,51 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
+  paymentSection: {
+    marginTop: 12,
+  },
+  paymentDetailsCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  paymentDetailsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  paymentDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  paymentDetailLabel: {
+    fontSize: 14,
+  },
+  paymentDetailValue: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  paymentDivider: {
+    borderBottomWidth: 1,
+    marginVertical: 8,
+  },
+  paymentTotalLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  paymentTotalValue: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
   paymentButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 8,
-    marginTop: 12,
+    borderRadius: 12,
   },
   paymentButtonText: {
     color: '#fff',

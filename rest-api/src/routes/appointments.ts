@@ -796,6 +796,10 @@ router.get('/today-schedule', auth, async (req: Request, res: Response) => {
 router.put('/:appointmentId/price', auth, AppointmentController.setAppointmentPrice);
 router.post('/:appointmentId/price-increase', auth, AppointmentController.addPriceIncrease);
 
+// Ek ücret endpoint'leri
+router.post('/:id/extra-charges', auth, AppointmentController.addPriceIncrease); // Usta ek ücret ekler
+router.put('/:id/extra-charges/approve', auth, AppointmentController.approveExtraCharges); // Müşteri onaylar/reddeder
+
 // Ödeme endpoint'leri
 router.post('/:appointmentId/payment', auth, (req, res) => AppointmentController.createPayment(req, res));
 router.post('/:appointmentId/confirm-payment', auth, (req, res) => AppointmentController.confirmPayment(req, res));

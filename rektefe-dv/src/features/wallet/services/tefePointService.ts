@@ -105,23 +105,11 @@ class TefePointService {
   }
 
   /**
-   * TefePuan hesapla
+   * TefePuan hesapla - Optimize edilmiş %1 kazanım oranı
    */
   calculateTefePoints(amount: number, serviceCategory: string): number {
-    const categoryMultipliers: { [key: string]: number } = {
-      'engine_repair': 0.07,
-      'tire_service': 0.03,
-      'wash_service': 0.04,
-      'maintenance': 0.05,
-      'electrical': 0.06,
-      'body_repair': 0.08,
-      'brake_service': 0.04,
-      'exhaust_service': 0.03,
-      'general': 0.02
-    };
-
-    const multiplier = categoryMultipliers[serviceCategory] || 0.02;
-    return Math.floor(amount * multiplier);
+    // Tüm hizmetler için sabit %1 TefePuan kazanımı
+    return Math.floor(amount * 0.01);
   }
 
   /**

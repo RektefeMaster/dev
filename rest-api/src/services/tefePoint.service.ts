@@ -48,7 +48,7 @@ export class TefePointService {
 
       // Hizmet kategorisi bilgisini al
       const category = SERVICE_CATEGORIES.find(cat => cat.category === finalServiceCategory);
-      const multiplier = category ? category.multiplier : 0.05;
+      const multiplier = category ? category.multiplier : 0.01; // Optimize edilmiş %1 oran
 
       // Yeni işlem ekle
       const newTransaction = {
