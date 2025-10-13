@@ -80,7 +80,7 @@ const FaultReportSchema: Schema = new Schema({
     neighborhood: String
   },
   quotes: [{
-    mechanicId: { type: Schema.Types.ObjectId, ref: 'Mechanic', required: true },
+    mechanicId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     mechanicName: { type: String, required: true },
     mechanicPhone: { type: String, required: true },
     quoteAmount: { type: Number, required: true, min: 0 },
@@ -94,7 +94,7 @@ const FaultReportSchema: Schema = new Schema({
     createdAt: { type: Date, default: Date.now }
   }],
   mechanicResponses: [{
-    mechanicId: { type: Schema.Types.ObjectId, ref: 'Mechanic', required: true },
+    mechanicId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     responseType: { 
       type: String, 
       enum: ['quote', 'not_available', 'check_tomorrow', 'contact_me'],
@@ -104,7 +104,7 @@ const FaultReportSchema: Schema = new Schema({
     createdAt: { type: Date, default: Date.now }
   }],
   selectedQuote: {
-    mechanicId: { type: Schema.Types.ObjectId, ref: 'Mechanic' },
+    mechanicId: { type: Schema.Types.ObjectId, ref: 'User' },
     quoteAmount: { type: Number },
     selectedAt: { type: Date }
   },

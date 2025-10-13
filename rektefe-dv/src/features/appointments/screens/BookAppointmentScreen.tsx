@@ -100,12 +100,23 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
   const loadInitialData = async () => {
     setLoading(true);
     try {
-      await Promise.all([
-        loadMechanicServices(),
-        loadWorkingHours(),
-        loadVehicles(),
-        loadAvailableTimeSlots()
-      ]);
+      // Arıza bildirimi için randevu oluşturuluyorsa sadece gerekli verileri yükle
+      if (faultReportId) {
+        await Promise.all([
+          loadWorkingHours(),
+          loadAvailableTimeSlots()
+        ]);
+        // Arıza bildirimi için direkt 3. adıma geç (tarih/saat seçimi)
+        setCurrentStep(3);
+      } else {
+        // Normal randevu için tüm verileri yükle
+        await Promise.all([
+          loadMechanicServices(),
+          loadWorkingHours(),
+          loadVehicles(),
+          loadAvailableTimeSlots()
+        ]);
+      }
     } catch (error) {
       console.error('Initial data load error:', error);
       Alert.alert('Hata', 'Veriler yüklenirken bir hata oluştu.');
@@ -218,55 +229,107 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
   };
 
   const handleBookAppointment = async () => {
-    if (!selectedVehicle) {
-      Alert.alert('Hata', 'Lütfen bir araç seçin');
-      return;
-    }
+    // Arıza bildirimi için validation
+    if (faultReportId) {
+      if (!selectedTimeSlot) {
+        Alert.alert('Hata', 'Lütfen bir saat seçin');
+        return;
+      }
+    } else {
+      // Normal randevu için validation
+      if (!selectedVehicle) {
+        Alert.alert('Hata', 'Lütfen bir araç seçin');
+        return;
+      }
 
-    if (!selectedService) {
-      Alert.alert('Hata', 'Lütfen bir hizmet seçin');
-      return;
-    }
+      if (!selectedService) {
+        Alert.alert('Hata', 'Lütfen bir hizmet seçin');
+        return;
+      }
 
-    if (!selectedTimeSlot) {
-      Alert.alert('Hata', 'Lütfen bir saat seçin');
-      return;
-    }
+      if (!selectedTimeSlot) {
+        Alert.alert('Hata', 'Lütfen bir saat seçin');
+        return;
+      }
 
-    if (!description.trim() || description.trim().length < 10) {
-      Alert.alert('Hata', 'Açıklama en az 10 karakter olmalıdır');
-      return;
+      if (!description.trim() || description.trim().length < 10) {
+        Alert.alert('Hata', 'Açıklama en az 10 karakter olmalıdır');
+        return;
+      }
     }
 
     try {
       setSubmitting(true);
       
-      const appointmentData = {
-        userId: userId,
-        mechanicId: mechanicId,
-        vehicleId: selectedVehicle,
-        serviceType: selectedService as ServiceType,
-        appointmentDate: selectedDate,
-        timeSlot: selectedTimeSlot,
-        description: description.trim(),
-        faultReportId: faultReportId || undefined,
-        location: {
-          latitude: 0, // TODO: Gerçek konum bilgisi ekle
-          longitude: 0,
-          address: 'Konum belirtilmemiş'
-        },
-        ...(price && {
-          quotedPrice: price,
-          price: price,
-          finalPrice: price,
-          priceSource: 'fault_report_quote'
-        })
-      };
+      let response;
+      
+      if (faultReportId) {
+        // Arıza bildirimi için özel endpoint kullan
+        const appointmentData = {
+          faultReportId: faultReportId,
+          appointmentDate: selectedDate.toISOString(),
+          timeSlot: selectedTimeSlot
+        };
 
-      const { data } = await withErrorHandling(
-        () => apiService.createAppointment(appointmentData),
-        { showErrorAlert: false }
-      );
+        try {
+          response = await withErrorHandling(
+            () => apiService.post(`/fault-reports/${faultReportId}/create-appointment`, appointmentData),
+            { showErrorAlert: false }
+          );
+        } catch (error) {
+          console.log('⚠️ Özel endpoint başarısız, normal endpoint deneniyor');
+          // Fallback: Normal endpoint kullan
+          const normalAppointmentData = {
+            userId: userId,
+            mechanicId: mechanicId === 'temp' ? 'unknown' : mechanicId,
+            vehicleId: preselectedVehicleId,
+            serviceType: preselectedServiceType as ServiceType,
+            appointmentDate: selectedDate,
+            timeSlot: selectedTimeSlot,
+            description: preselectedDescription,
+            faultReportId: faultReportId,
+            location: {
+              latitude: 0,
+              longitude: 0,
+              address: 'Konum belirtilmemiş'
+            },
+            ...(price && {
+              quotedPrice: price,
+              price: price,
+              finalPrice: price,
+              priceSource: 'fault_report_quote'
+            })
+          };
+
+          response = await withErrorHandling(
+            () => apiService.createAppointment(normalAppointmentData),
+            { showErrorAlert: false }
+          );
+        }
+      } else {
+        // Normal randevu için mevcut endpoint kullan
+        const appointmentData = {
+          userId: userId,
+          mechanicId: mechanicId,
+          vehicleId: selectedVehicle,
+          serviceType: selectedService as ServiceType,
+          appointmentDate: selectedDate,
+          timeSlot: selectedTimeSlot,
+          description: description.trim(),
+          location: {
+            latitude: 0, // TODO: Gerçek konum bilgisi ekle
+            longitude: 0,
+            address: 'Konum belirtilmemiş'
+          }
+        };
+
+        response = await withErrorHandling(
+          () => apiService.createAppointment(appointmentData),
+          { showErrorAlert: false }
+        );
+      }
+
+      const { data } = response;
 
       if (data && (data as any).success) {
         Alert.alert(
@@ -511,17 +574,40 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
           <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Randevu Al</Text>
+          <Text style={styles.headerTitle}>
+            {faultReportId ? 'Arıza Randevusu' : 'Randevu Al'}
+          </Text>
           <Text style={styles.headerSubtitle}>
             {mechanicName} {mechanicSurname}
+            {faultReportId && price && ` • ₺${price.toLocaleString('tr-TR')}`}
           </Text>
         </View>
         <View style={styles.backButton} />
       </LinearGradient>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Step Indicator */}
-        {renderStepIndicator()}
+        {/* Step Indicator - Arıza bildirimi için gizle */}
+        {!faultReportId && renderStepIndicator()}
+
+        {/* Arıza Bildirimi Bilgi Kartı */}
+        {faultReportId && (
+          <View style={[styles.faultReportInfo, { backgroundColor: theme.colors.info.light, borderColor: theme.colors.info.main }]}>
+            <MaterialCommunityIcons name="information" size={24} color={theme.colors.info.main} />
+            <View style={styles.faultReportInfoContent}>
+              <Text style={[styles.faultReportInfoTitle, { color: theme.colors.info.main }]}>
+                Arıza Bildirimi Randevusu
+              </Text>
+              <Text style={[styles.faultReportInfoText, { color: theme.colors.text.secondary }]}>
+                Araç, hizmet ve açıklama bilgileri arıza bildiriminizden alınmıştır. Sadece tarih ve saat seçmeniz yeterlidir.
+              </Text>
+              {price && (
+                <Text style={[styles.faultReportInfoPrice, { color: theme.colors.success.main }]}>
+                  Teklif Edilen Fiyat: ₺{price.toLocaleString('tr-TR')}
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* Step 1: Vehicle Selection */}
         {currentStep === 1 && (
@@ -848,6 +934,32 @@ const styles = StyleSheet.create({
     width: 40,
     height: 2,
     marginHorizontal: 8,
+  },
+  faultReportInfo: {
+    flexDirection: 'row',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 24,
+    alignItems: 'flex-start',
+  },
+  faultReportInfoContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  faultReportInfoTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  faultReportInfoText: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  faultReportInfoPrice: {
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   stepContent: {
     marginBottom: 30,

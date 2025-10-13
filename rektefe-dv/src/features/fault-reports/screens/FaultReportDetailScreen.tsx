@@ -412,13 +412,16 @@ const FaultReportDetailScreen = () => {
   };
 
   const getPriorityName = (priority: string) => {
+    console.log('🔍 Priority debug:', priority);
     const priorityNames = {
       low: 'Düşük',
       medium: 'Orta',
       high: 'Yüksek',
       urgent: 'Acil',
     };
-    return priorityNames[priority as keyof typeof priorityNames] || priority;
+    const result = priorityNames[priority as keyof typeof priorityNames] || priority;
+    console.log('🔍 Priority result:', result);
+    return result;
   };
 
   const formatDate = (dateString: string) => {
@@ -725,27 +728,82 @@ const FaultReportDetailScreen = () => {
             </View>
             
             {/* Randevu Oluşturma Butonu */}
-            {faultReport.status === 'accepted' && faultReport.selectedQuote && appointmentStatus === 'none' && (
-              <TouchableOpacity
-                style={[styles.createAppointmentButton, { backgroundColor: theme.colors.primary.main }]}
-                onPress={() => {
-                  // Randevu oluşturma ekranına yönlendir
-                  navigation.navigate('BookAppointment', {
-                    mechanicId: faultReport.selectedQuote.mechanicId._id || faultReport.selectedQuote.mechanicId,
-                    mechanicName: faultReport.selectedQuote.mechanicId.name || 'Usta',
-                    mechanicSurname: faultReport.selectedQuote.mechanicId.surname || '',
-                    vehicleId: faultReport.vehicleId._id || faultReport.vehicleId,
-                    serviceType: faultReport.serviceCategory,
-                    description: faultReport.faultDescription,
-                    faultReportId: faultReport._id,
-                    price: faultReport.selectedQuote.quoteAmount
-                  });
-                }}
-              >
-                <Ionicons name="calendar" size={20} color="#fff" />
-                <Text style={styles.createAppointmentButtonText}>Randevu Oluştur</Text>
-              </TouchableOpacity>
-            )}
+            {faultReport.status === 'accepted' && faultReport.selectedQuote && appointmentStatus === 'none' && (() => {
+              // Debug log'ları ekle
+              console.log('🔍 Debug - selectedQuote:', faultReport.selectedQuote);
+              console.log('🔍 Debug - quotes:', faultReport.quotes);
+              
+              // mechanicId null ise quotes array'inden bul
+              let mechanicId = faultReport.selectedQuote.mechanicId;
+              let mechanicName = 'Usta';
+              let mechanicSurname = '';
+              
+              if (!mechanicId) {
+                console.log('🔍 selectedQuote.mechanicId null, quotes array\'inde aranıyor...');
+                
+                // Önce accepted quote'u bul
+                let matchingQuote = faultReport.quotes.find(quote => 
+                  quote.status === 'accepted' && 
+                  quote.quoteAmount === faultReport.selectedQuote.quoteAmount
+                );
+                
+                // Accepted bulunamazsa, aynı fiyata sahip herhangi bir quote'u kullan
+                if (!matchingQuote) {
+                  matchingQuote = faultReport.quotes.find(quote => 
+                    quote.quoteAmount === faultReport.selectedQuote.quoteAmount
+                  );
+                }
+                
+                console.log('🔍 matchingQuote:', matchingQuote);
+                
+                if (matchingQuote) {
+                  mechanicId = matchingQuote.mechanicId;
+                  mechanicName = matchingQuote.mechanicName || 'Usta';
+                  
+                  // Eğer mechanicId hala null ise, mechanicName'i kullan
+                  if (!mechanicId && mechanicName) {
+                    console.log('⚠️ mechanicId null ama mechanicName var, mechanicName kullanılıyor');
+                    // Bu durumda randevu oluşturma butonunu göster ama mechanicId olmadan
+                    mechanicId = 'temp'; // Geçici değer
+                  }
+                  
+                  console.log('✅ Fallback başarılı:', { mechanicId, mechanicName });
+                } else {
+                  console.log('❌ Fallback başarısız - hiç quote bulunamadı');
+                }
+              } else {
+                mechanicName = mechanicId.name || 'Usta';
+                mechanicSurname = mechanicId.surname || '';
+                console.log('✅ selectedQuote.mechanicId mevcut:', { mechanicId, mechanicName });
+              }
+              
+              return mechanicId ? (
+                <TouchableOpacity
+                  style={[styles.createAppointmentButton, { backgroundColor: theme.colors.primary.main }]}
+                  onPress={() => {
+                    // Randevu oluşturma ekranına yönlendir
+                    navigation.navigate('BookAppointment', {
+                      mechanicId: mechanicId === 'temp' ? null : (mechanicId._id || mechanicId),
+                      mechanicName: mechanicName,
+                      mechanicSurname: mechanicSurname,
+                      vehicleId: faultReport.vehicleId._id || faultReport.vehicleId,
+                      serviceType: faultReport.serviceCategory,
+                      description: faultReport.faultDescription,
+                      faultReportId: faultReport._id,
+                      price: faultReport.selectedQuote.quoteAmount
+                    });
+                  }}
+                >
+                  <Ionicons name="calendar" size={20} color="#fff" />
+                  <Text style={styles.createAppointmentButtonText}>Randevu Oluştur</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={[styles.createAppointmentButton, { backgroundColor: theme.colors.text.secondary, opacity: 0.6 }]}>
+                  <Ionicons name="warning" size={20} color="#fff" />
+                  <Text style={styles.createAppointmentButtonText}>Teklif bilgileri eksik</Text>
+                </View>
+              );
+            })()}
 
             {/* Randevu Oluşturuldu Mesajı */}
             {appointmentStatus === 'created' && (

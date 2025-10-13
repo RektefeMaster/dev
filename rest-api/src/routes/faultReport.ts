@@ -18,7 +18,8 @@ const {
   initiateContact,
   createPayment,
   confirmPayment,
-  finalizeWork
+  finalizeWork,
+  createAppointmentFromFaultReport
 } = faultReportController;
 
 const router = express.Router();
@@ -127,6 +128,19 @@ router.post('/:id/finalize',
   auth,
   requireRole([UserType.MECHANIC]),
   finalizeWork
+);
+
+// Arıza bildirimi için randevu oluştur (Sadece şöförler)
+router.post('/:id/create-appointment',
+  auth,
+  requireRole([UserType.DRIVER]),
+  (req, res, next) => {
+    console.log('🔍 create-appointment route middleware çağrıldı');
+    console.log('🔍 Route params:', req.params);
+    console.log('🔍 Route body:', req.body);
+    next();
+  },
+  createAppointmentFromFaultReport
 );
 
 export default router;

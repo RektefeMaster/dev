@@ -932,17 +932,18 @@ export const selectQuote = async (req: Request, res: Response) => {
     faultReport.quotes.forEach((quote, index) => {
       if (index !== quoteIndex) {
         quote.status = 'rejected';
+      } else {
+        // Seçilen teklifi accepted olarak işaretle
+        quote.status = 'accepted';
       }
     });
 
     await faultReport.save();
     console.log('✅ FaultReport güncellendi');
     
-    // FaultReport'u tekrar populate ederek al
-    await faultReport.populate('selectedQuote.mechanicId', 'name surname phone');
-    console.log('✅ FaultReport populated:', {
-      selectedQuote: faultReport.selectedQuote
-    });
+    // Mechanic bilgisini manuel olarak çek
+    const mechanic = await User.findById(selectedQuote.mechanicId).select('name surname phone');
+    console.log('✅ Mechanic bilgisi:', mechanic);
 
     // Randevu oluştur
     const appointment = new Appointment({
@@ -1007,7 +1008,8 @@ export const selectQuote = async (req: Request, res: Response) => {
           mechanicId: mechanicObjectId,
           mechanicName: selectedQuote.mechanicName,
           quoteAmount: selectedQuote.quoteAmount,
-          estimatedDuration: selectedQuote.estimatedDuration
+          estimatedDuration: selectedQuote.estimatedDuration,
+          mechanic: mechanic // Mechanic bilgisini ekle
         }
       }
     });
@@ -1157,7 +1159,144 @@ export const getMechanicFaultReports = async (req: Request, res: Response) => {
   }
 };
 
-// Yardımcı fonksiyon: Çevredeki uygun ustaları bul
+// Arıza bildirimi için randevu oluştur (mechanicId null olsa bile)
+export const createAppointmentFromFaultReport = async (req: Request, res: Response) => {
+  try {
+    console.log('🔍 createAppointmentFromFaultReport çağrıldı');
+    console.log('🔍 Request params:', req.params);
+    console.log('🔍 Request body:', req.body);
+    
+    const { faultReportId, appointmentDate, timeSlot } = req.body;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Kullanıcı bilgisi bulunamadı'
+      });
+    }
+
+    if (!faultReportId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Arıza bildirimi ID\'si gereklidir'
+      });
+    }
+
+    if (!appointmentDate || !timeSlot) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tarih ve saat bilgisi gereklidir'
+      });
+    }
+
+    // FaultReport'u bul
+    const faultReport = await FaultReport.findById(faultReportId)
+      .populate('userId', 'name surname phone')
+      .populate('vehicleId', 'brand modelName plateNumber year');
+
+    if (!faultReport) {
+      return res.status(404).json({
+        success: false,
+        message: 'Arıza bildirimi bulunamadı'
+      });
+    }
+
+    // Aynı faultReportId ile zaten randevu var mı kontrol et
+    const existingAppointment = await Appointment.findOne({
+      faultReportId: faultReportId,
+      status: { $nin: ['cancelled', 'completed'] }
+    });
+
+    if (existingAppointment) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bu arıza bildirimi için zaten randevu oluşturulmuş'
+      });
+    }
+
+    // selectedQuote'dan mechanicId'yi al, null ise quotes array'inden bul
+    let mechanicId = faultReport.selectedQuote?.mechanicId;
+    
+    if (!mechanicId) {
+      // Aynı fiyata sahip accepted quote'u bul
+      const matchingQuote = faultReport.quotes.find(quote => 
+        quote.status === 'accepted' && 
+        quote.quoteAmount === faultReport.selectedQuote?.quoteAmount
+      );
+      
+      if (matchingQuote) {
+        mechanicId = matchingQuote.mechanicId;
+      }
+    }
+
+    // Eğer hala mechanicId yoksa, quotes array'indeki herhangi bir quote'u kullan
+    if (!mechanicId && faultReport.quotes.length > 0) {
+      const anyQuote = faultReport.quotes.find(quote => 
+        quote.quoteAmount === faultReport.selectedQuote?.quoteAmount
+      );
+      if (anyQuote) {
+        mechanicId = anyQuote.mechanicId;
+      }
+    }
+
+    // Eğer hala mechanicId yoksa, geçici bir ID oluştur
+    if (!mechanicId) {
+      mechanicId = new mongoose.Types.ObjectId();
+    }
+
+    // Randevu oluştur
+    const appointment = new Appointment({
+      userId: new mongoose.Types.ObjectId(userId),
+      mechanicId: new mongoose.Types.ObjectId(mechanicId),
+      serviceType: faultReport.serviceCategory,
+      appointmentDate: new Date(appointmentDate),
+      timeSlot: timeSlot,
+      description: faultReport.faultDescription,
+      vehicleId: new mongoose.Types.ObjectId(faultReport.vehicleId),
+      faultReportId: new mongoose.Types.ObjectId(faultReportId),
+      price: faultReport.selectedQuote?.quoteAmount || 0,
+      quotedPrice: faultReport.selectedQuote?.quoteAmount || 0,
+      finalPrice: faultReport.selectedQuote?.quoteAmount || 0,
+      priceSource: 'fault_report_quote',
+      status: 'TALEP_EDILDI',
+      paymentStatus: 'pending',
+      shareContactInfo: false,
+      isShopAppointment: false,
+      notificationSettings: {
+        oneDayBefore: false,
+        oneHourBefore: true,
+        twoHoursBefore: false
+      },
+      createdAt: new Date()
+    });
+
+    await appointment.save();
+
+    // FaultReport'u güncelle
+    faultReport.appointmentId = new mongoose.Types.ObjectId(appointment._id as string);
+    await faultReport.save();
+
+    res.json({
+      success: true,
+      message: 'Randevu başarıyla oluşturuldu',
+      data: {
+        appointment: {
+          _id: appointment._id,
+          price: appointment.price,
+          status: appointment.status
+        }
+      }
+    });
+
+  } catch (error: any) {
+    console.error('❌ createAppointmentFromFaultReport error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Randevu oluşturulurken bir hata oluştu'
+    });
+  }
+};
 async function findNearbyMechanics(
   coordinates: [number, number] | undefined,
   serviceCategory: string,
