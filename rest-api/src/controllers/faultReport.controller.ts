@@ -1576,7 +1576,7 @@ export const confirmPayment = async (req: Request, res: Response) => {
     // TefePuan kazandır
     try {
       const mechanicName = (faultReport.selectedQuote?.mechanicId as any)?.name || 'Usta';
-      const faultCategory = faultReport.category || 'Tamir ve Bakım';
+      const faultCategory = faultReport.serviceCategory || 'Tamir ve Bakım';
       
       const tefePointResult = await TefePointService.processPaymentTefePoints({
         userId: faultReport.userId._id.toString(),
