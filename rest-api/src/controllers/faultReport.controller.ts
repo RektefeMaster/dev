@@ -1575,12 +1575,15 @@ export const confirmPayment = async (req: Request, res: Response) => {
 
     // TefePuan kazandır
     try {
+      const mechanicName = (faultReport.selectedQuote?.mechanicId as any)?.name || 'Usta';
+      const faultCategory = faultReport.category || 'Tamir ve Bakım';
+      
       const tefePointResult = await TefePointService.processPaymentTefePoints({
         userId: faultReport.userId._id.toString(),
         amount: faultReport.selectedQuote?.quoteAmount || 0,
         paymentType: 'fault_report',
-        serviceCategory: 'maintenance', // Arıza bildirimi için genel bakım kategorisi
-        description: `Arıza bildirimi ödemesi - ${(faultReport.selectedQuote?.mechanicId as any).name}`,
+        serviceCategory: 'repair',
+        description: `${faultCategory} - ${mechanicName}`,
         serviceId: (faultReport._id as any).toString()
       });
 

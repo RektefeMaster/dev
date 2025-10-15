@@ -237,17 +237,28 @@ const ProfileScreen = () => {
         return;
       }
       
-      await api.put(`/users/profile`, editData);
+      console.log('📝 Profil güncelleniyor, editData:', editData);
+      
+      const response = await api.put(`/users/profile`, editData);
+      console.log('✅ Profil güncelleme response:', response);
+      
       // Profil güncelleme sonrası kullanıcı verisini tekrar çek
       const data = await apiService.getUserProfile();
       const userData = data && data.success && data.data ? data.data : data;
+      console.log('✅ Güncel kullanıcı verisi:', userData);
+      
       setUser(userData);
       setEditModal(false);
       setShowEmail(!(editData.emailHidden));
       setShowPhone(!(editData.phoneHidden));
       Alert.alert('Başarılı', 'Profil güncellendi.');
-    } catch (error) {
-      Alert.alert('Hata', 'Profil güncellenirken bir hata oluştu.');
+    } catch (error: any) {
+      console.error('❌ Profil güncelleme hatası:', error);
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error status:', error.response?.status);
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Profil güncellenirken bir hata oluştu.';
+      Alert.alert('Hata', errorMessage);
     }
   };
 

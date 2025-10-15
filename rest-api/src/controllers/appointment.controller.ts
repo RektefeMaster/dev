@@ -964,12 +964,16 @@ export class AppointmentController {
         const baseAmount = appointment.finalPrice || appointment.price || 0;
         
         // Müşteriye TefePuan kazandır
+        const mechanicName = (appointment.mechanicId as any)?.name || 'Usta';
+        const { translateServiceType } = require('../utils/serviceTypeTranslator');
+        const serviceTypeName = translateServiceType(appointment.serviceType) || 'Hizmet';
+        
         const customerTefePointResult = await TefePointService.processPaymentTefePoints({
           userId,
           amount: baseAmount,
           paymentType: 'appointment',
-          serviceCategory: appointment.serviceType || 'maintenance',
-          description: `Randevu ödemesi - ${appointment.serviceType || 'genel-bakım'}`,
+          serviceCategory: appointment.serviceType || 'repair',
+          description: `${serviceTypeName} - ${mechanicName}`,
           serviceId: (appointment._id as any).toString(),
           appointmentId: (appointment._id as any).toString()
         });
@@ -983,8 +987,8 @@ export class AppointmentController {
           userId: appointment.mechanicId._id.toString(),
           amount: baseAmount,
           paymentType: 'appointment',
-          serviceCategory: appointment.serviceType || 'maintenance',
-          description: `Randevu kazancı - ${appointment.serviceType || 'genel-bakım'}`,
+          serviceCategory: appointment.serviceType || 'repair',
+          description: `Randevu kazancı - ${serviceTypeName}`,
           serviceId: (appointment._id as any).toString(),
           appointmentId: (appointment._id as any).toString()
         });

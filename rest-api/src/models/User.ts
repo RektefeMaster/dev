@@ -23,6 +23,7 @@ export interface IUser extends Document {
   favoriteVehicle?: mongoose.Types.ObjectId;
   emailHidden?: boolean;
   phoneHidden?: boolean;
+  tefeHidden?: boolean;
   pushToken?: string;
   platform?: 'ios' | 'android' | 'web';
   lastTokenUpdate?: Date;
@@ -240,6 +241,10 @@ const userSchema = new Schema<IUser>({
     default: false
   },
   phoneHidden: {
+    type: Boolean,
+    default: false
+  },
+  tefeHidden: {
     type: Boolean,
     default: false
   },

@@ -88,12 +88,15 @@ router.post('/simulate-payment', auth, async (req: Request, res: Response) => {
         
         // TEFE puan kazandır (transaction dışında, başarısızlık ödemeyi engellemez)
         try {
+          const { translateServiceType } = require('../utils/serviceTypeTranslator');
+          const serviceTypeName = translateServiceType(serviceType) || 'Hizmet';
+          
           await TefePointService.processPaymentTefePoints({
             userId,
             amount,
             paymentType: 'other',
             serviceCategory: serviceType || 'maintenance',
-            description: description || `${serviceType} hizmet ödemesi`,
+            description: description || `${serviceTypeName} hizmet ödemesi`,
             serviceId: paymentId,
             appointmentId: appointmentId
           });

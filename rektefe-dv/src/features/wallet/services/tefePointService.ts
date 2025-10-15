@@ -281,17 +281,25 @@ class TefePointService {
   // Hizmet kategorisi açıklaması
   getServiceDescription(category: string): string {
     const categoryMap: { [key: string]: string } = {
+      // Backend kategorileri (yeni sistem)
       'towing': 'Çekici Hizmeti',
-      'tire_service': 'Lastik Hizmeti',
+      'tire': 'Lastik Servisi',
+      'wash': 'Araç Yıkama',
+      'repair': 'Tamir ve Bakım',
+      'bodywork': 'Kaporta & Boya',
+      // Eski kategoriler (backward compatibility)
+      'tire_service': 'Lastik Servisi',
       'wash_service': 'Araç Yıkama',
       'maintenance': 'Genel Bakım',
-      'engine_repair': 'Motor Rektefiyesi',
-      'transmission_repair': 'Şanzıman Rektefiyesi',
-      'electrical_repair': 'Elektrik Rektefiyesi',
-      'body_repair': 'Kaporta Rektefiyesi'
+      'engine_repair': 'Motor Tamiri',
+      'transmission_repair': 'Şanzıman Tamiri',
+      'electrical_repair': 'Elektrik Tamiri',
+      'body_repair': 'Kaporta Tamiri',
+      'brake_service': 'Fren Servisi',
+      'exhaust_service': 'Egzoz Servisi'
     };
     
-    return categoryMap[category] || 'Bilinmeyen Hizmet';
+    return categoryMap[category.toLowerCase()] || 'Hizmet';
   }
 }
 

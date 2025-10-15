@@ -1040,7 +1040,8 @@ export const apiService = {
   }
 };
 
-export { apiClient };
+// Export both apiClient and api for backwards compatibility
+export { apiClient, apiClient as api };
 
 export default {
   AuthService,

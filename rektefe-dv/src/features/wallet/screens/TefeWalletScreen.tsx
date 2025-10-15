@@ -153,6 +153,36 @@ const TefeWalletScreen = () => {
     return tefePointService.getServiceDescription(category);
   };
 
+  // Transaction açıklamasını göster (Backend artık temiz Türkçe gönderiyor)
+  const translateDescription = (description: string, category?: string): string => {
+    if (!description || description.trim().length === 0) {
+      return category ? `${getServiceDescription(category)} hizmeti` : 'Hizmet ödemesi';
+    }
+    
+    // Backend'den gelen description artık temiz Türkçe (örn: "Genel Bakım - Mehmet")
+    // Sadece gereksiz boşlukları temizle
+    return description.trim();
+  };
+
+  // Transaction türünü Türkçe göster
+  const getTransactionTypeText = (type: string, status: string): string => {
+    if (status === 'used') return 'Kullanıldı';
+    if (status === 'expired') return 'Süresi Doldu';
+    
+    switch (type) {
+      case 'service_purchase':
+        return 'Hizmet Kazanımı';
+      case 'referral':
+        return 'Referans Bonusu';
+      case 'bonus':
+        return 'Bonus';
+      case 'promotion':
+        return 'Promosyon';
+      default:
+        return 'Kazanım';
+    }
+  };
+
   // Dönem metni
   const getPeriodText = (period: string) => {
     switch (period) {
@@ -445,7 +475,7 @@ const TefeWalletScreen = () => {
                     ]}>
                       <MaterialCommunityIcons 
                         name={getTransactionIcon(transaction.type, transaction.status) as any} 
-                        size={20} 
+                        size={22} 
                         color={getTransactionColor(transaction.type, transaction.status)} 
                       />
                     </View>
@@ -454,13 +484,41 @@ const TefeWalletScreen = () => {
                       <Text style={[styles.transactionTitle, { 
                         color: themeColors.text.primary 
                       }]}> 
-                        {transaction.description}
+                        {translateDescription(transaction.description, transaction.serviceCategory)}
                       </Text>
-                      <Text style={[styles.transactionDate, { 
-                        color: isDark ? themeColors.text.quaternary : themeColors.text.tertiary 
-                      }]}>
-                        {formatDate(transaction.date)}
-                      </Text>
+                      
+                      {/* İşlem Detayları */}
+                      <View style={styles.transactionDetailsRow}>
+                        <MaterialCommunityIcons 
+                          name="information-outline" 
+                          size={14} 
+                          color={isDark ? themeColors.text.quaternary : themeColors.text.tertiary} 
+                        />
+                        <Text style={[styles.transactionSubtitle, {
+                          color: isDark ? themeColors.text.quaternary : themeColors.text.tertiary
+                        }]}>
+                          {getTransactionTypeText(transaction.type, transaction.status)}
+                          {transaction.baseAmount && transaction.baseAmount > 0 && (
+                            ` • ${transaction.baseAmount.toFixed(0)} ₺ ödeme`
+                          )}
+                          {transaction.multiplier && (
+                            ` • %${(transaction.multiplier * 100).toFixed(0)} kazanım`
+                          )}
+                        </Text>
+                      </View>
+                      
+                      <View style={styles.transactionMetaRow}>
+                        <MaterialCommunityIcons 
+                          name="clock-outline" 
+                          size={12} 
+                          color={isDark ? themeColors.text.quaternary : themeColors.text.tertiary} 
+                        />
+                        <Text style={[styles.transactionDate, { 
+                          color: isDark ? themeColors.text.quaternary : themeColors.text.tertiary 
+                        }]}>
+                          {formatDate(transaction.date)}
+                        </Text>
+                      </View>
                     </View>
                     
                     <View style={styles.transactionPoints}>
@@ -672,8 +730,8 @@ const styles = StyleSheet.create({
   },
   transactionItem: {
     flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.lg,
+    alignItems: 'flex-start',
+    padding: spacing.md,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     shadowColor: '#000',
@@ -681,14 +739,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 4,
+    marginBottom: spacing.xs,
   },
   transactionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.round,
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
+    marginTop: spacing.xs / 2,
   },
   transactionContent: {
     flex: 1,
@@ -696,16 +756,43 @@ const styles = StyleSheet.create({
   transactionTitle: {
     fontSize: typography.fontSizes.md,
     fontWeight: '600',
+    marginBottom: spacing.sm,
+    lineHeight: 20,
+  },
+  transactionDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: spacing.xs,
+    gap: spacing.xs,
+  },
+  transactionMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  transactionBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    borderRadius: borderRadius.sm,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+  },
+  transactionBadgeText: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: '600',
+  },
+  transactionBaseAmount: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: '500',
   },
   transactionSubtitle: {
-    fontSize: typography.fontSizes.sm,
-    marginBottom: spacing.xs,
+    fontSize: typography.fontSizes.xs,
+    fontWeight: '500',
+    lineHeight: 16,
   },
   transactionDate: {
-    fontSize: typography.fontSizes.sm,
-    fontWeight: '500',
-    marginTop: spacing.xs,
+    fontSize: typography.fontSizes.xs,
+    fontWeight: '400',
+    opacity: 0.8,
   },
   transactionPoints: {
     alignItems: 'flex-end',
