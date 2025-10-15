@@ -940,78 +940,74 @@ export const selectQuote = async (req: Request, res: Response) => {
     });
 
     await faultReport.save();
-    console.log('✅ FaultReport güncellendi');
+    console.log('✅ FaultReport güncellendi - Teklif seçildi');
     
     // Mechanic bilgisini manuel olarak çek
     const mechanic = await User.findById(selectedQuote.mechanicId).select('name surname phone');
     console.log('✅ Mechanic bilgisi:', mechanic);
 
-    // Randevu oluştur
-    const appointment = new Appointment({
-      userId: new mongoose.Types.ObjectId(userId),
-      mechanicId: new mongoose.Types.ObjectId(selectedQuote.mechanicId),
-      serviceType: faultReport.serviceCategory,
-      appointmentDate: new Date(), // Varsayılan tarih, frontend'de güncellenecek
-      timeSlot: '10:00', // Varsayılan saat, frontend'de güncellenecek
-      description: faultReport.faultDescription,
-      vehicleId: new mongoose.Types.ObjectId(faultReport.vehicleId),
-      faultReportId: new mongoose.Types.ObjectId(faultReport._id as string),
-      price: selectedQuote.quoteAmount, // Arıza bildirimindeki fiyatı kopyala
-      quotedPrice: selectedQuote.quoteAmount, // quotedPrice'ı da set et
-      status: 'TALEP_EDILDI',
-      paymentStatus: 'pending',
-      shareContactInfo: false,
-      isShopAppointment: false,
-      notificationSettings: {
-        oneDayBefore: false,
-        oneHourBefore: true,
-        twoHoursBefore: false
-      },
-      createdAt: new Date()
-    });
-
-    await appointment.save();
-    console.log('✅ Appointment oluşturuldu:', appointment._id);
-
-    // Socket.io ile real-time bildirim gönder
+    // Socket.io ile real-time bildirim gönder - RANDEVU OLUŞTURULMADI, SADECE TEKLİF SEÇİLDİ
     try {
       const io = req.app.get('io');
       if (io) {
-        // Ustaya bildirim gönder
+        // Ustaya bildirim gönder - Teklifiniz kabul edildi
         io.to(selectedQuote.mechanicId.toString()).emit('quote_selected', {
           faultReportId: faultReport._id,
-          appointmentId: appointment._id,
-          message: 'Teklifiniz kabul edildi!'
+          message: 'Teklifiniz kabul edildi! Müşteri randevu tarihi seçecek.',
+          selectedQuote: {
+            mechanicName: selectedQuote.mechanicName,
+            quoteAmount: selectedQuote.quoteAmount
+          }
         });
         
-        // Kullanıcıya bildirim gönder
+        // Kullanıcıya bildirim gönder - Teklif seçildi, şimdi randevu oluştur
         io.to(userId).emit('quote_selection_success', {
           faultReportId: faultReport._id,
-          appointmentId: appointment._id,
+          mechanicId: selectedQuote.mechanicId,
           mechanicName: selectedQuote.mechanicName,
-          quoteAmount: selectedQuote.quoteAmount
+          quoteAmount: selectedQuote.quoteAmount,
+          message: 'Teklif seçildi! Şimdi randevu tarihini belirleyin.'
         });
       }
     } catch (socketError) {
       console.log('⚠️ Socket bildirimi gönderilemedi:', socketError);
     }
 
+    // Ustaya veritabanı bildirimi gönder
+    try {
+      const { sendNotification } = await import('../utils/notifications');
+      await sendNotification(
+        mechanicObjectId,
+        'mechanic',
+        'Teklif Kabul Edildi',
+        `${(faultReport.userId as any).name} ${(faultReport.userId as any).surname} teklifinizi kabul etti. Randevu tarihi bekleniyor.`,
+        'quote_selected',
+        {
+          faultReportId: faultReport._id,
+          quoteAmount: selectedQuote.quoteAmount
+        }
+      );
+    } catch (notificationError) {
+      console.log('⚠️ Veritabanı bildirimi gönderilemedi:', notificationError);
+    }
+
     res.json({
       success: true,
-      message: 'Teklif seçildi ve randevu oluşturuldu',
+      message: 'Teklif seçildi. Lütfen randevu tarihini belirleyin.',
       data: {
-        appointment: {
-          _id: appointment._id,
-          price: appointment.price,
-          status: appointment.status
-        },
         selectedQuote: {
           mechanicId: mechanicObjectId,
           mechanicName: selectedQuote.mechanicName,
           quoteAmount: selectedQuote.quoteAmount,
           estimatedDuration: selectedQuote.estimatedDuration,
           mechanic: mechanic // Mechanic bilgisini ekle
-        }
+        },
+        faultReport: {
+          _id: faultReport._id,
+          status: faultReport.status,
+          serviceCategory: faultReport.serviceCategory
+        },
+        nextStep: 'create_appointment' // Frontend'e ne yapması gerektiğini söyle
       }
     });
 

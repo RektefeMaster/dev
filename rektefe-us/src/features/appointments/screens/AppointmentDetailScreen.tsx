@@ -200,6 +200,94 @@ export default function AppointmentDetailScreen() {
     }
   };
 
+  const handleStartWork = async () => {
+    Alert.alert(
+      'İşe Başla',
+      'İşe başlamak istediğinizden emin misiniz? Müşteriye bildirim gönderilecektir.',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Başla',
+          onPress: async () => {
+            try {
+              setProcessing(true);
+              console.log('🔍 İşe başlanıyor:', appointmentId);
+              
+              const response = await apiService.startAppointment(appointmentId);
+              
+              if (response.success) {
+                console.log('✅ İş başlatıldı');
+                Alert.alert(
+                  'Başarılı! ✅',
+                  'İş başlatıldı. Müşteriye bildirim gönderildi.',
+                  [{ text: 'Tamam', onPress: () => fetchAppointmentDetails() }]
+                );
+              } else {
+                console.log('❌ İş başlatılamadı:', response.message);
+                Alert.alert('Hata', response.message || 'İş başlatılamadı');
+              }
+            } catch (error: any) {
+              console.error('❌ İş başlatma hatası:', error);
+              const errorMessage = apiService.handleError(error);
+              Alert.alert('Hata', errorMessage.message);
+            } finally {
+              setProcessing(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleCompleteWork = async () => {
+    Alert.prompt(
+      'İşi Tamamla',
+      'İş tamamlama notlarınızı girin:',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Tamamla',
+          onPress: async (notes?: string) => {
+            if (!notes || notes.trim().length < 5) {
+              Alert.alert('Hata', 'Tamamlama notu en az 5 karakter olmalıdır');
+              return;
+            }
+
+            try {
+              setProcessing(true);
+              console.log('🔍 İş tamamlanıyor:', appointmentId);
+              
+              const response = await apiService.completeAppointment(appointmentId, {
+                completionNotes: notes.trim(),
+                price: appointment?.finalPrice || appointment?.price,
+                estimatedDuration: appointment?.estimatedDuration
+              });
+              
+              if (response.success) {
+                console.log('✅ İş tamamlandı');
+                Alert.alert(
+                  'Başarılı! ✅',
+                  'İş tamamlandı ve ödeme bekleniyor. Müşteriye bildirim gönderildi.',
+                  [{ text: 'Tamam', onPress: () => fetchAppointmentDetails() }]
+                );
+              } else {
+                console.log('❌ İş tamamlanamadı:', response.message);
+                Alert.alert('Hata', response.message || 'İş tamamlanamadı');
+              }
+            } catch (error: any) {
+              console.error('❌ İş tamamlama hatası:', error);
+              const errorMessage = apiService.handleError(error);
+              Alert.alert('Hata', errorMessage.message);
+            } finally {
+              setProcessing(false);
+            }
+          }
+        }
+      ],
+      'plain-text'
+    );
+  };
+
   const handleStatusUpdate = async () => {
     if (!selectedStatus) {
       Alert.alert('Hata', 'Durum seçmelisiniz');
@@ -662,6 +750,71 @@ export default function AppointmentDetailScreen() {
                 Reddet
               </Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {/* İşe Başla Button - PLANLANDI durumu için */}
+        {appointment.status === 'PLANLANDI' && (
+          <View style={styles.actionSection}>
+            <TouchableOpacity
+              style={[styles.actionButton, { 
+                backgroundColor: '#3B82F6',
+                shadowColor: '#3B82F6',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+                elevation: 6,
+              }]}
+              onPress={handleStartWork}
+              disabled={processing}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="play-circle" size={22} color="white" style={{ marginRight: 10 }} />
+              <Text style={[styles.actionButtonText, { color: 'white' }]}>
+                İşe Başla
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* İşi Tamamla Button - SERVISTE durumu için */}
+        {appointment.status === 'SERVISTE' && (
+          <View style={styles.actionSection}>
+            <TouchableOpacity
+              style={[styles.actionButton, { 
+                backgroundColor: '#10B981',
+                shadowColor: '#10B981',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+                elevation: 6,
+              }]}
+              onPress={handleCompleteWork}
+              disabled={processing}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="checkmark-circle" size={22} color="white" style={{ marginRight: 10 }} />
+              <Text style={[styles.actionButtonText, { color: 'white' }]}>
+                İşi Tamamla
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Ödeme Bekliyor Info - ODEME_BEKLIYOR durumu için */}
+        {appointment.status === 'ODEME_BEKLIYOR' && (
+          <View style={styles.actionSection}>
+            <View style={[styles.actionButton, { 
+              backgroundColor: '#F59E0B',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }]}>
+              <Ionicons name="time" size={22} color="white" style={{ marginRight: 10 }} />
+              <Text style={[styles.actionButtonText, { color: 'white' }]}>
+                Müşteri Ödeme Yapıyor...
+              </Text>
+            </View>
           </View>
         )}
 

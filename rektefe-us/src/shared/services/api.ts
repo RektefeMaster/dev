@@ -548,6 +548,59 @@ export const AppointmentService = {
     }
   },
 
+  async rejectAppointment(id: string, reason: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.put(`/appointments/${id}/reject`, { rejectionReason: reason });
+      return response.data;
+    } catch (error: any) {
+      console.error('Reject appointment error:', error);
+      return createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, 'Randevu reddedilemedi', error.response?.data?.error?.details);
+    }
+  },
+
+  async startAppointment(id: string): Promise<ApiResponse<any>> {
+    try {
+      console.log('🔍 API: Starting appointment:', id);
+      const response = await apiClient.put(`/appointments/${id}/start`);
+      console.log('✅ API: Appointment started:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Start appointment error:', error);
+      return createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, 'İş başlatılamadı', error.response?.data?.error?.details);
+    }
+  },
+
+  async completeAppointment(id: string, data: {
+    completionNotes: string;
+    price?: number;
+    estimatedDuration?: number;
+  }): Promise<ApiResponse<any>> {
+    try {
+      console.log('🔍 API: Completing appointment:', id, data);
+      const response = await apiClient.put(`/appointments/${id}/complete`, data);
+      console.log('✅ API: Appointment completed:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Complete appointment error:', error);
+      return createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, 'İş tamamlanamadı', error.response?.data?.error?.details);
+    }
+  },
+
+  async addExtraCharge(id: string, data: {
+    amount: number;
+    reason: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      console.log('🔍 API: Adding extra charge:', id, data);
+      const response = await apiClient.post(`/appointments/${id}/extra-charges`, data);
+      console.log('✅ API: Extra charge added:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Add extra charge error:', error);
+      return createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, 'Ek ücret eklenemedi', error.response?.data?.error?.details);
+    }
+  },
+
   async updateJobStatus(id: string, status: string, notes?: string): Promise<ApiResponse<any>> {
     try {
       const response = await apiClient.put(`/appointments/${id}/job-status`, { status, notes });

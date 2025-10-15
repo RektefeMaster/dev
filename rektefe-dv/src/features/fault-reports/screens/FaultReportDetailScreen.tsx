@@ -270,13 +270,13 @@ const FaultReportDetailScreen = () => {
       console.log('✅ selectQuote response:', response.data);
 
       if (response.data && response.data.success) {
-        // Başarılı işlem
+        // Başarılı işlem - Backend artık randevu oluşturmuyor, sadece teklif seçiyor
         Alert.alert(
           'Başarılı', 
-          'Teklif seçildi ve randevu oluşturuldu',
+          'Teklif seçildi! Şimdi randevu tarihini belirleyin.',
           [
             {
-              text: 'Tamam',
+              text: 'Randevu Tarihini Seç',
               onPress: () => {
                 // Sayfayı yenile
                 fetchFaultReportDetail();
@@ -290,8 +290,7 @@ const FaultReportDetailScreen = () => {
                   serviceType: faultReport.serviceCategory,
                   description: faultReport.faultDescription,
                   faultReportId: faultReport._id,
-                  price: selectedQuote.quoteAmount,
-                  appointmentId: response.data.data?.appointment?._id
+                  price: selectedQuote.quoteAmount
                 });
               }
             }
