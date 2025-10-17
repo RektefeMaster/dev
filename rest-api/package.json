@@ -11,8 +11,12 @@
     "test": "jest --detectOpenHandles --forceExit",
     "test:watch": "jest --watch --detectOpenHandles",
     "test:coverage": "jest --coverage --detectOpenHandles --forceExit",
+    "test:e2e": "jest tests/e2e --detectOpenHandles --forceExit --runInBand",
+    "test:e2e:watch": "jest tests/e2e --watch --detectOpenHandles --runInBand",
     "render-postbuild": "npm run build",
     "update-mongodb-ip": "node scripts/update-mongodb-ip.js",
+    "seed:wash-packages": "ts-node -r dotenv/config src/scripts/seedWashPackages.ts",
+    "create:test-users": "ts-node -r dotenv/config scripts/createTestUsers.ts",
     "clean": "rm -rf dist node_modules/.cache",
     "prebuild": "rm -rf dist"
   },

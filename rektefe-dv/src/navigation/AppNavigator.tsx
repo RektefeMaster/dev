@@ -40,6 +40,7 @@ import QuickTowingScreen from '@/features/towing/screens/QuickTowingScreen';
 import EmergencyTowingScreen from '@/features/towing/screens/EmergencyTowingScreen';
 import EmergencyTrackingScreen from '@/features/towing/screens/EmergencyTrackingScreen';
 import WashBookingScreen from '@/features/services/screens/WashBookingScreen';
+import WashTrackingScreen from '@/features/services/screens/WashTrackingScreen';
 import TirePartsScreen from '@/features/services/screens/TirePartsScreen';
 import CampaignDetailScreen from '@/features/campaigns/screens/CampaignDetailScreen';
 
@@ -134,6 +135,7 @@ export type RootStackParamList = {
   EmergencyTowing: undefined;
   EmergencyTracking: { requestId: string; emergencyType?: 'accident' | 'breakdown' };
   WashBooking: undefined;
+  WashTracking: { orderId: string };
   TireParts: undefined;
 };
 
@@ -315,6 +317,13 @@ const AppNavigator = () => {
         <Stack.Screen 
           name="WashBooking" 
           component={WashBookingScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="WashTracking" 
+          component={WashTrackingScreen}
           options={{
             headerShown: false,
           }}

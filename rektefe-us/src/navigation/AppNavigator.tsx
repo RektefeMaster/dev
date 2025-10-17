@@ -27,6 +27,7 @@ import HelpCenterScreen from '@/features/profile/screens/HelpCenterScreen';
 import AboutScreen from '@/features/profile/screens/AboutScreen';
 import { FaultReportsScreen, FaultReportDetailScreen } from '@/features/fault-reports/screens';
 import { TowingServiceScreen, RepairServiceScreen, WashServiceScreen, TireServiceScreen } from '@/features/services/screens';
+import { WashPackageManagementScreen, WashJobsScreen, WashJobDetailScreen, WashProviderSetupScreen, InventoryScreen } from '@/features/wash/screens';
 import { AppointmentsScreen } from '@/features/appointments/screens';
 import { NotificationsScreen, NotificationSettingsScreen } from '@/features/notifications/screens';
 import EmergencyNotificationScreen from '@/features/emergency/screens/EmergencyNotificationScreen';
@@ -285,6 +286,41 @@ const AppNavigator = () => {
         <Stack.Screen
           name="Reviews"
           component={ReviewsScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="WashPackageManagement"
+          component={WashPackageManagementScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="WashJobs"
+          component={WashJobsScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="WashJobDetail"
+          component={WashJobDetailScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="WashProviderSetup"
+          component={WashProviderSetupScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="Inventory"
+          component={InventoryScreen}
           options={{
             headerShown: false,
           }}

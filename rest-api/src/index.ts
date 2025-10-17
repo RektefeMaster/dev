@@ -56,6 +56,7 @@ import paymentRoutes from './routes/payment';
 import tireStorageRoutes from './routes/tireStorage';
 import bodyworkRoutes from './routes/bodywork';
 import carWashRoutes from './routes/carWash';
+import washRoutes from './routes/wash';
 import customersRoutes from './routes/customers';
 import suppliersRoutes from './routes/suppliers';
 import statusNotificationsRoutes from './routes/statusNotifications';
@@ -356,6 +357,7 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/tire-storage', tireStorageRoutes);
 app.use('/api/bodywork', bodyworkRoutes);
 app.use('/api/carwash', carWashRoutes);
+app.use('/api/wash', washRoutes); // Yeni araç yıkama modülü
 app.use('/api/customers', customersRoutes);
 app.use('/api/suppliers', suppliersRoutes);
 app.use('/api/status-notifications', statusNotificationsRoutes);

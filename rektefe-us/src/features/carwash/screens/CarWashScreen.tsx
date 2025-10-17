@@ -340,11 +340,18 @@ export default function CarWashScreen() {
 
   const fetchPackages = async () => {
     try {
-      const response = await apiService.CarWashService.getCarWashPackages(selectedPackageType);
+      // Yeni API'den kendi paketlerini getir
+      const response = await apiService.CarWashService.getMyWashPackages();
       if (response.success) {
         setPackages(response.data || []);
       } else {
-        Alert.alert('Hata', 'Paketler yüklenemedi');
+        // Eski API'yi dene (fallback)
+        const fallbackResponse = await apiService.CarWashService.getCarWashPackages(selectedPackageType);
+        if (fallbackResponse.success) {
+          setPackages(fallbackResponse.data || []);
+        } else {
+          Alert.alert('Hata', 'Paketler yüklenemedi');
+        }
       }
     } catch (error) {
       Alert.alert('Hata', 'Paketler yüklenirken bir hata oluştu');
@@ -353,11 +360,18 @@ export default function CarWashScreen() {
 
   const fetchJobs = async () => {
     try {
-      const response = await apiService.CarWashService.getCarWashJobs(selectedJobStatus);
+      // Yeni API'den işleri getir
+      const response = await apiService.CarWashService.getWashJobs(selectedJobStatus);
       if (response.success) {
         setJobs(response.data || []);
       } else {
-        Alert.alert('Hata', 'Yıkama işleri yüklenemedi');
+        // Eski API'yi dene (fallback)
+        const fallbackResponse = await apiService.CarWashService.getCarWashJobs(selectedJobStatus);
+        if (fallbackResponse.success) {
+          setJobs(fallbackResponse.data || []);
+        } else {
+          Alert.alert('Hata', 'Yıkama işleri yüklenemedi');
+        }
       }
     } catch (error) {
       Alert.alert('Hata', 'Yıkama işleri yüklenirken bir hata oluştu');
@@ -366,7 +380,7 @@ export default function CarWashScreen() {
 
   const fetchMobileJobs = async () => {
     try {
-      const response = await apiService.getWashJobs();
+      const response = await apiService.CarWashService.getWashJobs();
       if (response.success) {
         setMobileJobs(response.data || []);
       } else {
@@ -838,6 +852,28 @@ export default function CarWashScreen() {
 
     return (
     <View style={styles.tabContent}>
+      {/* Yeni Paket Yönetimi */}
+      <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.sm }}>
+        <TouchableOpacity
+          style={{
+            backgroundColor: colors.primary.main,
+            paddingVertical: spacing.sm,
+            paddingHorizontal: spacing.md,
+            borderRadius: borderRadius.md,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: spacing.xs,
+          }}
+          onPress={() => (navigation as any).navigate('WashPackageManagement')}
+        >
+          <Ionicons name="settings" size={20} color="#FFFFFF" />
+          <Text style={{ color: '#FFFFFF', ...typography.bodyBold }}>
+            Yeni Paket Yönetim Ekranı
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Package Type Filter */}
       <View style={styles.filterContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -911,7 +947,7 @@ export default function CarWashScreen() {
                   <Ionicons name="cash-outline" size={16} color={colors.text.secondary} />
                   <Text style={styles.priceLabel}>Başlangıç Fiyatı</Text>
                 </View>
-                <Text style={styles.priceValue}>{pkg.pricing.basePrice.toLocaleString()}₺</Text>
+                <Text style={styles.priceValue}>{(pkg.pricing?.basePrice || pkg.basePrice || 0).toLocaleString()}₺</Text>
               </View>
               
               <View style={styles.durationContainer}>
@@ -919,14 +955,15 @@ export default function CarWashScreen() {
                   <Ionicons name="time-outline" size={16} color={colors.text.secondary} />
                   <Text style={styles.durationLabel}>Tahmini Süre</Text>
                 </View>
-                <Text style={styles.durationValue}>~{pkg.pricing.duration} dk</Text>
+                <Text style={styles.durationValue}>~{(pkg.pricing?.duration || pkg.duration || 30)} dk</Text>
               </View>
 
               <View style={styles.servicesContainer}>
                 <Text style={styles.servicesLabel}>Hizmetler:</Text>
                 {pkg.services.slice(0, 3).map((service, index) => (
                   <Text key={index} style={styles.serviceItem}>
-                    • {translateServiceName(service.serviceName)} ({service.duration}dk)
+                    • {translateServiceName(service.serviceName || service.name)}
+                    {service.duration ? ` (${service.duration}dk)` : ''}
                   </Text>
                 ))}
                 {pkg.services.length > 3 && (
@@ -990,6 +1027,50 @@ export default function CarWashScreen() {
 
   const renderJobs = () => (
     <View style={styles.tabContent}>
+      {/* Yeni İş Yönetimi */}
+      <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.sm }}>
+        <TouchableOpacity
+          style={{
+            backgroundColor: colors.primary.main,
+            paddingVertical: spacing.sm,
+            paddingHorizontal: spacing.md,
+            borderRadius: borderRadius.md,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: spacing.xs,
+            marginBottom: spacing.md,
+          }}
+          onPress={() => (navigation as any).navigate('WashJobs')}
+        >
+          <Ionicons name="list" size={20} color="#FFFFFF" />
+          <Text style={{ color: '#FFFFFF', ...typography.bodyBold }}>
+            Detaylı İş Yönetimi
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={{
+            backgroundColor: colors.inputBackground,
+            paddingVertical: spacing.sm,
+            paddingHorizontal: spacing.md,
+            borderRadius: borderRadius.md,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: spacing.xs,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+          onPress={() => (navigation as any).navigate('Inventory')}
+        >
+          <Ionicons name="cube" size={20} color={colors.primary.main} />
+          <Text style={{ color: colors.primary.main, ...typography.bodyBold }}>
+            Stok Yönetimi
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Job Status Filter */}
       <View style={styles.filterContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -1016,6 +1097,14 @@ export default function CarWashScreen() {
       </View>
 
       {/* Jobs List */}
+      <View style={{ padding: 16 }}>
+        <Button
+          title="Yeni İş Yönetim Ekranına Git"
+          onPress={() => (navigation as any).navigate('WashJobs')}
+          icon="arrow-forward"
+          style={{ marginBottom: 16 }}
+        />
+      </View>
       <ScrollView showsVerticalScrollIndicator={false}>
         {jobs.map((job) => (
           <Card key={job._id} style={styles.jobCard}>
@@ -1867,9 +1956,17 @@ export default function CarWashScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Yıkama Hizmetleri</Text>
-        <TouchableOpacity onPress={() => {
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <TouchableOpacity
+            onPress={() => (navigation as any).navigate('WashProviderSetup')}
+            style={{ padding: 4 }}
+          >
+            <Ionicons name="settings" size={24} color={colors.text.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity         onPress={() => {
           if (activeTab === 'packages') {
-            setShowCreatePackageModal(true);
+            // Yeni paket yönetim ekranına git
+            (navigation as any).navigate('WashPackageManagement');
           } else if (activeTab === 'jobs') {
             setShowCreateJobModal(true);
           } else if (activeTab === 'mobile') {

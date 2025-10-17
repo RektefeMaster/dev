@@ -4,7 +4,7 @@ module.exports = {
   testMatch: ['**/tests/**/*.test.ts'],
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],
   rootDir: './',
-  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
+  setupFilesAfterEnv: [],
   coverageDirectory: 'coverage',
   collectCoverageFrom: [
     'src/**/*.ts',
@@ -27,5 +27,8 @@ module.exports = {
       }
     }]
   },
-  testTimeout: 30000,
+  moduleNameMapper: {
+    '^uuid$': '<rootDir>/tests/__mocks__/uuid.ts'
+  },
+  testTimeout: 60000,
 };

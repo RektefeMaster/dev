@@ -586,6 +586,11 @@ export type RootStackParamList = {
   VehicleHistory: undefined;
   ServiceCatalog: undefined;
   Reviews: undefined;
+  WashPackageManagement: undefined;
+  WashJobs: undefined;
+  WashJobDetail: { jobId: string };
+  WashProviderSetup: undefined;
+  Inventory: undefined;
 };
 
 // ===== LEGACY TYPE ALIASES =====

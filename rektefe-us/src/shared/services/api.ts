@@ -2320,7 +2320,262 @@ const CarWashService = {
         error.response?.data?.error?.details
       );
     }
-  }
+  },
+
+  // ===== YENİ WASH MODÜLÜ METODLARI =====
+
+  /**
+   * Yıkama paketi oluştur (yeni API)
+   */
+  async createWashPackage(data: {
+    name: string;
+    description: string;
+    packageType: 'quick_exterior' | 'standard' | 'detailed_interior' | 'ceramic_protection' | 'engine' | 'custom';
+    basePrice: number;
+    duration: number;
+    services: Array<{
+      name: string;
+      category: 'exterior' | 'interior' | 'engine' | 'special';
+      order: number;
+    }>;
+    extras?: Array<{
+      name: string;
+      description: string;
+      price: number;
+      duration: number;
+    }>;
+    availableFor?: 'shop' | 'mobile' | 'both';
+    requirements?: {
+      requiresPower?: boolean;
+      requiresWater?: boolean;
+      requiresCoveredArea?: boolean;
+    };
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post('/wash/packages/create', data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Create wash package error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Paket oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Kendi paketlerimi getir (yeni API)
+   */
+  async getMyWashPackages(): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get('/wash/my-packages');
+      return response.data;
+    } catch (error: any) {
+      console.error('Get my wash packages error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Paketler getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Paketi güncelle (yeni API)
+   */
+  async updateWashPackage(packageId: string, data: any): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.put(`/wash/packages/${packageId}`, data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Update wash package error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Paket güncellenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Paketi sil (yeni API)
+   */
+  async deleteWashPackage(packageId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.delete(`/wash/packages/${packageId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Delete wash package error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Paket silinemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Tüm paketleri getir (yeni API)
+   */
+  async getAllWashPackages(params?: { providerId?: string; type?: string }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get('/wash/packages', { params });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get all wash packages error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Paketler getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * İşletme siparişlerini getir (yeni API)
+   */
+  async getWashJobs(status?: string): Promise<ApiResponse<any>> {
+    try {
+      const params = status ? { status } : {};
+      const response = await apiClient.get('/wash/jobs', { params });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get wash jobs error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'İşler getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Siparişi kabul et (yeni API)
+   */
+  async acceptWashJob(jobId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/wash/jobs/${jobId}/accept`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Accept wash job error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'İş kabul edilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Check-in yap (yeni API)
+   */
+  async checkInWashJob(jobId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/wash/jobs/${jobId}/checkin`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Check-in wash job error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Check-in yapılamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * İşi başlat (yeni API)
+   */
+  async startWashJob(jobId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/wash/jobs/${jobId}/start`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Start wash job error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'İş başlatılamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * İlerleme güncelle (yeni API)
+   */
+  async updateWashProgress(jobId: string, data: {
+    stepIndex: number;
+    photos?: string[];
+    notes?: string;
+    completed?: boolean;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/wash/jobs/${jobId}/progress`, data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Update wash progress error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'İlerleme güncellenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * QA gönder (yeni API)
+   */
+  async submitWashQA(jobId: string, data: {
+    photosBefore: string[];
+    photosAfter: string[];
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/wash/jobs/${jobId}/qa-submit`, data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Submit wash QA error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'QA gönderilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Provider profili oluştur/güncelle (yeni API)
+   */
+  async setupWashProvider(data: any): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post('/wash/provider/setup', data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Setup wash provider error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'İşletme ayarları kaydedilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Kendi provider profilimi getir (yeni API)
+   */
+  async getMyWashProvider(): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get('/wash/provider/my-profile');
+      return response.data;
+    } catch (error: any) {
+      console.error('Get my wash provider error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'İşletme profili getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
 };
 
 // ===== REPORT SERVICES =====

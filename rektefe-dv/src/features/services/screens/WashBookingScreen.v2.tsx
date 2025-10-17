@@ -187,14 +187,8 @@ const WashBookingScreen = () => {
 
   useEffect(() => {
     loadVehicles();
+    loadPackages();
   }, []);
-
-  // Provider seçildiğinde o provider'ın paketlerini yükle
-  useEffect(() => {
-    if (selectedProvider) {
-      loadProviderPackages();
-    }
-  }, [selectedProvider]);
 
   useEffect(() => {
     if (selectedPackage && selectedVehicle && selectedType && selectedProvider) {
@@ -238,38 +232,6 @@ const WashBookingScreen = () => {
       }
     } catch (error) {
       console.error('Paketler yüklenemedi:', error);
-    }
-  };
-
-  const loadProviderPackages = async () => {
-    if (!selectedProvider) return;
-    
-    try {
-      setLoading(true);
-      // SADECE seçilen provider'ın kendi oluşturduğu paketleri getir
-      const response = await apiService.getWashPackages({ 
-        providerId: selectedProvider.userId._id 
-      });
-      
-      if (response.success && response.data) {
-        // Sadece bu provider'a ait paketleri filtrele
-        const providerPackages = response.data.filter((pkg: WashPackage) => 
-          pkg.providerId === selectedProvider.userId._id
-        );
-        setPackages(providerPackages);
-        
-        if (providerPackages.length === 0) {
-          Alert.alert(
-            'Bilgi',
-            'Bu işletme henüz paket oluşturmamış. Lütfen başka bir işletme seçin veya işletmeyi bilgilendirin.'
-          );
-        }
-      }
-    } catch (error) {
-      console.error('Provider paketleri yüklenemedi:', error);
-      setPackages([]);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -499,17 +461,12 @@ const WashBookingScreen = () => {
       const response = await apiService.createWashOrder(orderData);
 
       if (response.success) {
-        const orderId = response.data._id;
         Alert.alert(
           'Sipariş Oluşturuldu!',
           'Yıkama siparişiniz başarıyla oluşturuldu. İşletme onayından sonra sizi bilgilendireceğiz.',
           [
             {
-              text: 'Siparişi Takip Et',
-              onPress: () => navigation.navigate('WashTracking', { orderId }),
-            },
-            {
-              text: 'Ana Sayfaya Dön',
+              text: 'Tamam',
               onPress: () => navigation.navigate('Home'),
             },
           ]
@@ -599,31 +556,8 @@ const WashBookingScreen = () => {
         </Text>
       </View>
 
-      {loading ? (
-        <ActivityIndicator size="small" color={theme.colors.primary.main} style={{ marginVertical: 16 }} />
-      ) : packages.length === 0 ? (
-        <View style={styles.emptyPackages}>
-          <MaterialCommunityIcons name="package-variant-closed" size={48} color={theme.colors.text.secondary} />
-          <Text style={[styles.emptyText, { color: theme.colors.text.secondary }]}>
-            Bu işletme henüz paket oluşturmamış
-          </Text>
-          <Text style={[styles.emptySubtext, { color: theme.colors.text.secondary }]}>
-            Lütfen başka bir işletme seçin
-          </Text>
-          <Button
-            title="Başka İşletme Seç"
-            onPress={() => {
-              setStep(3);
-              setSelectedProvider(null);
-              setPackages([]);
-            }}
-            style={styles.emptyButton}
-            variant="outline"
-          />
-        </View>
-      ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.packagesScroll}>
-          {packages.map((pkg) => (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.packagesScroll}>
+        {packages.map((pkg) => (
           <TouchableOpacity
             key={pkg._id}
             style={[
@@ -677,7 +611,6 @@ const WashBookingScreen = () => {
           </TouchableOpacity>
         ))}
       </ScrollView>
-      )}
 
       {/* Ekstra Hizmetler */}
       {selectedPackage && selectedPackage.extras && selectedPackage.extras.length > 0 && (
@@ -1245,6 +1178,12 @@ const WashBookingScreen = () => {
           </Text>
         </View>
 
+        <View style={[styles.testModeBadge, { backgroundColor: '#F59E0B20' }]}>
+          <MaterialCommunityIcons name="information" size={20} color="#F59E0B" />
+          <Text style={[styles.testModeText, { color: '#F59E0B' }]}>
+            TEST MODU - Gerçek ödeme yapılmayacak
+          </Text>
+        </View>
 
         <View style={styles.formGroup}>
           <Text style={[styles.label, { color: theme.colors.text.primary }]}>Kart Numarası</Text>
@@ -2021,6 +1960,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 4,
   },
+  testModeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
+  },
+  testModeText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
   escrowNotice: {
     flexDirection: 'row',
     padding: 12,
@@ -2069,15 +2020,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 16,
     marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 13,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  emptyPackages: {
-    alignItems: 'center',
-    paddingVertical: 32,
   },
   emptyButton: {
     marginTop: 16,
