@@ -133,7 +133,7 @@ router.post('/order/:id/cancel', auth, validate(Joi.object({
 })), async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
-    const userRole = req.user?.role;
+    const userRole = req.user?.userType;
 
     if (!userId) {
       return res.status(401).json({
@@ -285,7 +285,7 @@ router.get('/providers', auth, async (req: Request, res: Response) => {
 router.get('/jobs', auth, async (req: Request, res: Response) => {
   try {
     const providerId = req.user?.userId;
-    const userRole = req.user?.role;
+    const userRole = req.user?.userType;
 
     if (!providerId || userRole !== 'usta') {
       return res.status(403).json({
@@ -312,7 +312,7 @@ router.get('/jobs', auth, async (req: Request, res: Response) => {
 router.post('/jobs/:id/accept', auth, async (req: Request, res: Response) => {
   try {
     const providerId = req.user?.userId;
-    const userRole = req.user?.role;
+    const userRole = req.user?.userType;
 
     if (!providerId || userRole !== 'usta') {
       return res.status(403).json({
@@ -338,7 +338,7 @@ router.post('/jobs/:id/accept', auth, async (req: Request, res: Response) => {
 router.post('/jobs/:id/checkin', auth, async (req: Request, res: Response) => {
   try {
     const providerId = req.user?.userId;
-    const userRole = req.user?.role;
+    const userRole = req.user?.userType;
 
     if (!providerId || userRole !== 'usta') {
       return res.status(403).json({
@@ -364,7 +364,7 @@ router.post('/jobs/:id/checkin', auth, async (req: Request, res: Response) => {
 router.post('/jobs/:id/start', auth, async (req: Request, res: Response) => {
   try {
     const providerId = req.user?.userId;
-    const userRole = req.user?.role;
+    const userRole = req.user?.userType;
 
     if (!providerId || userRole !== 'usta') {
       return res.status(403).json({
@@ -395,7 +395,7 @@ router.post('/jobs/:id/progress', auth, validate(Joi.object({
 })), async (req: Request, res: Response) => {
   try {
     const providerId = req.user?.userId;
-    const userRole = req.user?.role;
+    const userRole = req.user?.userType;
 
     if (!providerId || userRole !== 'usta') {
       return res.status(403).json({
@@ -429,7 +429,7 @@ router.post('/jobs/:id/qa-submit', auth, validate(Joi.object({
 })), async (req: Request, res: Response) => {
   try {
     const providerId = req.user?.userId;
-    const userRole = req.user?.role;
+    const userRole = req.user?.userType;
 
     if (!providerId || userRole !== 'usta') {
       return res.status(403).json({
@@ -589,7 +589,7 @@ router.post('/packages/create', auth, validate(Joi.object({
 })), async (req: Request, res: Response) => {
   try {
     const providerId = req.user?.userId;
-    const userRole = req.user?.role;
+    const userRole = req.user?.userType;
 
     if (!providerId || userRole !== 'usta') {
       return res.status(403).json({
@@ -644,7 +644,7 @@ router.post('/packages/create', auth, validate(Joi.object({
 router.put('/packages/:id', auth, async (req: Request, res: Response) => {
   try {
     const providerId = req.user?.userId;
-    const userRole = req.user?.role;
+    const userRole = req.user?.userType;
 
     if (!providerId || userRole !== 'usta') {
       return res.status(403).json({
@@ -688,7 +688,7 @@ router.put('/packages/:id', auth, async (req: Request, res: Response) => {
 router.delete('/packages/:id', auth, async (req: Request, res: Response) => {
   try {
     const providerId = req.user?.userId;
-    const userRole = req.user?.role;
+    const userRole = req.user?.userType;
 
     if (!providerId || userRole !== 'usta') {
       return res.status(403).json({
@@ -731,7 +731,7 @@ router.delete('/packages/:id', auth, async (req: Request, res: Response) => {
 router.get('/my-packages', auth, async (req: Request, res: Response) => {
   try {
     const providerId = req.user?.userId;
-    const userRole = req.user?.role;
+    const userRole = req.user?.userType;
 
     if (!providerId || userRole !== 'usta') {
       return res.status(403).json({
@@ -801,7 +801,7 @@ router.post('/provider/setup', auth, validate(Joi.object({
 })), async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
-    const userRole = req.user?.role;
+    const userRole = req.user?.userType;
 
     if (!userId || userRole !== 'usta') {
       return res.status(403).json({
@@ -836,7 +836,7 @@ router.post('/provider/setup', auth, validate(Joi.object({
 router.get('/provider/my-profile', auth, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
-    const userRole = req.user?.role;
+    const userRole = req.user?.userType;
 
     if (!userId || userRole !== 'usta') {
       return res.status(403).json({

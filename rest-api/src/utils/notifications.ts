@@ -13,7 +13,7 @@ export const sendNotification = async (
   recipientType: 'mechanic' | 'driver',
   title: string,
   message: string,
-  type: 'appointment_request' | 'appointment_confirmed' | 'appointment_rejected' | 'reminder' | 'system' | 'fault_report' | 'towing_request' | 'payment_received' | 'payment_pending' | 'new_message' | 'quote_received',
+  type: 'appointment_request' | 'appointment_confirmed' | 'appointment_rejected' | 'reminder' | 'system' | 'fault_report' | 'towing_request' | 'payment_received' | 'payment_pending' | 'new_message' | 'quote_received' | 'quote_selected',
   data?: Record<string, any>,
   scheduledTime?: Date
 ) => {

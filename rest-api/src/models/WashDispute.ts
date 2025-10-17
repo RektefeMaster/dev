@@ -303,11 +303,11 @@ WashDisputeSchema.pre('save', function(next) {
     // Yanıt süresi kontrolü
     if (hoursSinceOpened > dispute.sla.responseTimeHours && !dispute.providerResponse) {
       dispute.sla.isOverdue = true;
-      dispute.sla.escalationLevel = Math.min(3, Math.floor(hoursSinceOpened / dispute.sla.responseTimeHours));
+      dispute.sla.escalationLevel = Math.min(3, Math.floor(hoursSinceOpened / dispute.sla.responseTimeHours)) as 0 | 1 | 2 | 3;
     }
     
     // Çözüm süresi kontrolü
-    if (hoursSinceOpened > dispute.sla.resolutionTimeHours && dispute.status !== 'RESOLVED') {
+    if (hoursSinceOpened > dispute.sla.resolutionTimeHours && dispute.status !== 'RESOLVED' && dispute.status !== 'CLOSED') {
       dispute.sla.isOverdue = true;
       if (dispute.sla.escalationLevel < 2) {
         dispute.sla.escalationLevel = 2;
