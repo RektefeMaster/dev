@@ -145,7 +145,7 @@ router.post('/order/:id/cancel', auth, validate(Joi.object({
     const result = await WashService.cancelOrder({
       orderId: req.params.id,
       userId,
-      cancelledBy: userRole === 'usta' ? 'provider' : 'driver',
+      cancelledBy: userRole === 'mechanic' ? 'provider' : 'driver',
       reason: req.body.reason,
     });
 
@@ -287,7 +287,7 @@ router.get('/jobs', auth, async (req: Request, res: Response) => {
     const providerId = req.user?.userId;
     const userRole = req.user?.userType;
 
-    if (!providerId || userRole !== 'usta') {
+    if (!providerId || userRole !== 'mechanic') {
       return res.status(403).json({
         success: false,
         message: 'Yetkisiz erişim',
@@ -314,7 +314,7 @@ router.post('/jobs/:id/accept', auth, async (req: Request, res: Response) => {
     const providerId = req.user?.userId;
     const userRole = req.user?.userType;
 
-    if (!providerId || userRole !== 'usta') {
+    if (!providerId || userRole !== 'mechanic') {
       return res.status(403).json({
         success: false,
         message: 'Yetkisiz erişim',
@@ -340,7 +340,7 @@ router.post('/jobs/:id/checkin', auth, async (req: Request, res: Response) => {
     const providerId = req.user?.userId;
     const userRole = req.user?.userType;
 
-    if (!providerId || userRole !== 'usta') {
+    if (!providerId || userRole !== 'mechanic') {
       return res.status(403).json({
         success: false,
         message: 'Yetkisiz erişim',
@@ -366,7 +366,7 @@ router.post('/jobs/:id/start', auth, async (req: Request, res: Response) => {
     const providerId = req.user?.userId;
     const userRole = req.user?.userType;
 
-    if (!providerId || userRole !== 'usta') {
+    if (!providerId || userRole !== 'mechanic') {
       return res.status(403).json({
         success: false,
         message: 'Yetkisiz erişim',
@@ -397,7 +397,7 @@ router.post('/jobs/:id/progress', auth, validate(Joi.object({
     const providerId = req.user?.userId;
     const userRole = req.user?.userType;
 
-    if (!providerId || userRole !== 'usta') {
+    if (!providerId || userRole !== 'mechanic') {
       return res.status(403).json({
         success: false,
         message: 'Yetkisiz erişim',
@@ -431,7 +431,7 @@ router.post('/jobs/:id/qa-submit', auth, validate(Joi.object({
     const providerId = req.user?.userId;
     const userRole = req.user?.userType;
 
-    if (!providerId || userRole !== 'usta') {
+    if (!providerId || userRole !== 'mechanic') {
       return res.status(403).json({
         success: false,
         message: 'Yetkisiz erişim',
@@ -591,7 +591,7 @@ router.post('/packages/create', auth, validate(Joi.object({
     const providerId = req.user?.userId;
     const userRole = req.user?.userType;
 
-    if (!providerId || userRole !== 'usta') {
+    if (!providerId || userRole !== 'mechanic') {
       return res.status(403).json({
         success: false,
         message: 'Yetkisiz erişim',
@@ -646,7 +646,7 @@ router.put('/packages/:id', auth, async (req: Request, res: Response) => {
     const providerId = req.user?.userId;
     const userRole = req.user?.userType;
 
-    if (!providerId || userRole !== 'usta') {
+    if (!providerId || userRole !== 'mechanic') {
       return res.status(403).json({
         success: false,
         message: 'Yetkisiz erişim',
@@ -690,7 +690,7 @@ router.delete('/packages/:id', auth, async (req: Request, res: Response) => {
     const providerId = req.user?.userId;
     const userRole = req.user?.userType;
 
-    if (!providerId || userRole !== 'usta') {
+    if (!providerId || userRole !== 'mechanic') {
       return res.status(403).json({
         success: false,
         message: 'Yetkisiz erişim',
@@ -733,7 +733,7 @@ router.get('/my-packages', auth, async (req: Request, res: Response) => {
     const providerId = req.user?.userId;
     const userRole = req.user?.userType;
 
-    if (!providerId || userRole !== 'usta') {
+    if (!providerId || userRole !== 'mechanic') {
       return res.status(403).json({
         success: false,
         message: 'Yetkisiz erişim',
@@ -803,7 +803,7 @@ router.post('/provider/setup', auth, validate(Joi.object({
     const userId = req.user?.userId;
     const userRole = req.user?.userType;
 
-    if (!userId || userRole !== 'usta') {
+    if (!userId || userRole !== 'mechanic') {
       return res.status(403).json({
         success: false,
         message: 'Yetkisiz erişim',
@@ -838,7 +838,7 @@ router.get('/provider/my-profile', auth, async (req: Request, res: Response) => 
     const userId = req.user?.userId;
     const userRole = req.user?.userType;
 
-    if (!userId || userRole !== 'usta') {
+    if (!userId || userRole !== 'mechanic') {
       return res.status(403).json({
         success: false,
         message: 'Yetkisiz erişim',

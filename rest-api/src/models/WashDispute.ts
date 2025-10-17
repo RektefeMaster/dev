@@ -295,7 +295,8 @@ WashDisputeSchema.index({ 'sla.isOverdue': 1, status: 1 });
 WashDisputeSchema.pre('save', function(next) {
   const dispute = this as IWashDispute;
   
-  if (dispute.status === 'OPENED' || dispute.status === 'PROVIDER_NOTIFIED') {
+  // Sadece açık itirazlar için SLA kontrolleri
+  if (dispute.status !== 'RESOLVED' && dispute.status !== 'CLOSED') {
     const now = new Date();
     const openedAt = dispute.timestamps.openedAt;
     const hoursSinceOpened = (now.getTime() - openedAt.getTime()) / (1000 * 60 * 60);
@@ -307,7 +308,7 @@ WashDisputeSchema.pre('save', function(next) {
     }
     
     // Çözüm süresi kontrolü
-    if (hoursSinceOpened > dispute.sla.resolutionTimeHours && dispute.status !== 'RESOLVED' && dispute.status !== 'CLOSED') {
+    if (hoursSinceOpened > dispute.sla.resolutionTimeHours) {
       dispute.sla.isOverdue = true;
       if (dispute.sla.escalationLevel < 2) {
         dispute.sla.escalationLevel = 2;
