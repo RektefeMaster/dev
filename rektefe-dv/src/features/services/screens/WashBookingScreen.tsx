@@ -159,7 +159,6 @@ const WashBookingScreen = () => {
   // Zamanlama
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
-  const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
   
   // Mobil için zaman penceresi
   const [timeWindowStart, setTimeWindowStart] = useState<Date | null>(null);
@@ -214,11 +213,7 @@ const WashBookingScreen = () => {
     }
   }, [selectedPackage, selectedVehicle, selectedType, selectedProvider, selectedExtras, tefePuanUsed]);
 
-  useEffect(() => {
-    if (selectedProvider && selectedType === 'shop' && selectedDate && selectedPackage) {
-      loadAvailableSlots();
-    }
-  }, [selectedProvider, selectedDate, selectedPackage]);
+  // Artık slot yüklemiyoruz, sabit saat listesi kullanıyoruz
 
   // ===== LOAD DATA =====
 
@@ -330,50 +325,6 @@ const WashBookingScreen = () => {
     }
   };
 
-  const loadAvailableSlots = async () => {
-    if (!selectedProvider || !selectedDate) return;
-
-    try {
-      setLoading(true);
-      const duration = selectedPackage?.duration || 60; // Varsayılan 60 dakika
-      
-      console.log('🔄 Slotlar yükleniyor...', {
-        providerId: selectedProvider._id,
-        date: selectedDate.toISOString().split('T')[0],
-        duration: duration,
-      });
-      
-      const response = await apiService.getAvailableWashSlots({
-        providerId: selectedProvider._id,
-        date: selectedDate.toISOString().split('T')[0],
-        duration: duration,
-      });
-
-      console.log('Slot API Response:', response);
-
-      if (response.success && response.data) {
-        // Slot verilerini kontrol et
-        const validSlots = response.data.filter(slot => slot && slot.startTime);
-        console.log(`✅ ${response.data.length} slot yüklendi, ${validSlots.length} geçerli`);
-        console.log('Slot örneği:', validSlots[0]);
-        setAvailableSlots(validSlots);
-      } else {
-        console.log('❌ Slotlar yüklenemedi:', response.message);
-        setAvailableSlots([]);
-      }
-    } catch (error: any) {
-      console.error('❌ Slotlar yüklenemedi:', error);
-      setAvailableSlots([]);
-      
-      // Kullanıcıya bilgi ver
-      if (error.response?.status === 404) {
-        console.log('⚠️ Provider için slot sistemi kurulmamış');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const calculatePricing = async () => {
     if (!selectedPackage || !selectedVehicle || !selectedProvider) return;
 
@@ -390,11 +341,33 @@ const WashBookingScreen = () => {
         scheduledDate: selectedDate?.toISOString(),
       });
 
+      console.log('💰 Fiyat API Response:', response);
+
       if (response.success && response.data) {
-        setPricing(response.data.pricing);
+        console.log('💰 Pricing Data:', response.data.pricing);
+        // Pricing verisinin doğru formatta olduğunu kontrol et
+        if (response.data.pricing && typeof response.data.pricing === 'object') {
+          // Eksik alanları varsayılan değerlerle doldur
+          const pricingData = {
+            basePrice: response.data.pricing.basePrice || 0,
+            segmentMultiplier: response.data.pricing.segmentMultiplier || 1,
+            densityCoefficient: response.data.pricing.densityCoefficient || 1,
+            locationMultiplier: response.data.pricing.locationMultiplier || 1,
+            distanceFee: response.data.pricing.distanceFee || 0,
+            subtotal: response.data.pricing.subtotal || 0,
+            finalPrice: response.data.pricing.finalPrice || 0,
+            breakdown: response.data.breakdown || response.data.pricing.breakdown || {},
+          };
+          console.log('💰 Setting pricing data:', pricingData);
+          setPricing(pricingData);
+        } else {
+          console.error('❌ Pricing verisi hatalı format:', response.data);
+        }
+      } else {
+        console.log('❌ Fiyat hesaplanamadı:', response.message);
       }
     } catch (error) {
-      console.error('Fiyat hesaplanamadı:', error);
+      console.error('❌ Fiyat hesaplama hatası:', error);
     }
   };
 
@@ -493,9 +466,8 @@ const WashBookingScreen = () => {
 
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
-    if (selectedType === 'shop') {
-      loadAvailableSlots();
-    }
+    // Saat seçimini sıfırla
+    setSelectedSlot(null);
   };
 
   const handleSlotSelect = (slot: TimeSlot) => {
@@ -504,7 +476,7 @@ const WashBookingScreen = () => {
       return;
     }
     setSelectedSlot(slot);
-    setStep(6); // Not & Tamamla ekranına geç
+    // Shop için direkt ödeme ekranına geç
   };
 
   const handleTimeWindowSelect = (start: Date, end: Date) => {
@@ -520,11 +492,32 @@ const WashBookingScreen = () => {
       return;
     }
 
-    // Shop seçeneği yok, sadece mobil yıkama mevcut
+    // Shop için tarih ve slot kontrolü
+    if (selectedType === 'shop') {
+      if (!selectedDate) {
+        Alert.alert('Eksik Bilgi', 'Lütfen tarih seçiniz');
+        return;
+      }
+      if (!selectedSlot) {
+        Alert.alert('Eksik Bilgi', 'Lütfen saat seçiniz');
+        return;
+      }
+    }
 
-    if (selectedType === 'mobile' && !location.address) {
-      Alert.alert('Eksik Bilgi', 'Lütfen adres giriniz');
-      return;
+    // Mobil için konum ve zaman penceresi kontrolü
+    if (selectedType === 'mobile') {
+      if (!location.address) {
+        Alert.alert('Eksik Bilgi', 'Lütfen adres giriniz');
+        return;
+      }
+      if (!selectedDate) {
+        Alert.alert('Eksik Bilgi', 'Lütfen tarih seçiniz');
+        return;
+      }
+      if (!timeWindowStart || !timeWindowEnd) {
+        Alert.alert('Eksik Bilgi', 'Lütfen zaman aralığı seçiniz');
+        return;
+      }
     }
 
     if (!cardInfo.cardNumber || !cardInfo.cardHolderName) {
@@ -535,7 +528,16 @@ const WashBookingScreen = () => {
     try {
       setLoading(true);
       
-      const orderData = {
+      // Seçilen ekstra hizmetleri bul
+      const selectedExtrasData = selectedPackage.extras
+        ?.filter(extra => selectedExtras.includes(extra.name))
+        .map(extra => ({
+          name: extra.name,
+          price: extra.price,
+          duration: extra.duration,
+        })) || [];
+      
+      const orderData: any = {
         providerId: selectedProvider.userId._id,
         packageId: selectedPackage._id,
         vehicleId: selectedVehicle._id,
@@ -547,16 +549,44 @@ const WashBookingScreen = () => {
           segment: selectedVehicle.segment || 'B',
         },
         type: selectedType,
-        location: location,
-        scheduling: {
-          timeWindowStart: timeWindowStart,
-          timeWindowEnd: timeWindowEnd,
-        },
-        laneId: selectedSlot?.laneId,
+        extras: selectedExtrasData,
         tefePuanUsed,
         cardInfo,
         note,
       };
+
+      // Shop için özel alanlar
+      if (selectedType === 'shop' && selectedSlot && selectedDate) {
+        // Seçilen tarihi ve saati birleştir
+        const [hours, minutes] = selectedSlot.startTime.split(':');
+        const slotDateTime = new Date(selectedDate);
+        slotDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        
+        // Tahmini bitiş saati (paket süresi kadar sonra)
+        const slotEndTime = new Date(slotDateTime);
+        slotEndTime.setMinutes(slotEndTime.getMinutes() + (selectedPackage?.duration || 60));
+        
+        orderData.scheduling = {
+          slotStart: slotDateTime.toISOString(),
+          slotEnd: slotEndTime.toISOString(),
+        };
+      }
+
+      // Mobil için özel alanlar
+      if (selectedType === 'mobile') {
+        orderData.location = {
+          address: location.address,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          requiresPower: location.requiresPower,
+          requiresWater: location.requiresWater,
+          isIndoorParking: location.isIndoorParking,
+        };
+        orderData.scheduling = {
+          timeWindowStart: timeWindowStart?.toISOString(),
+          timeWindowEnd: timeWindowEnd?.toISOString(),
+        };
+      }
 
       const response = await apiService.createWashOrder(orderData);
       
@@ -603,7 +633,7 @@ const WashBookingScreen = () => {
         <MaterialCommunityIcons name="car" size={24} color={theme.colors.primary.main} />
         <Text style={[styles.stepTitle, { color: theme.colors.text.primary }]}>
           Araç Seçimi
-            </Text>
+        </Text>
       </View>
 
       {selectedVehicle ? (
@@ -618,9 +648,9 @@ const WashBookingScreen = () => {
             <View style={[styles.segmentBadge, { backgroundColor: (theme.colors.primary.main || '#007AFF') + '20' }]}>
               <Text style={[styles.segmentBadgeText, { color: theme.colors.primary.main }]}>
                 Segment: {selectedVehicle.segment}
-            </Text>
+              </Text>
+            </View>
           </View>
-        </View>
           <TouchableOpacity
             style={styles.changeButton}
             onPress={() => setShowVehicleModal(true)}
@@ -645,7 +675,7 @@ const WashBookingScreen = () => {
       {selectedVehicle && (
         <Button
           title="Devam Et"
-          onPress={() => setStep(2)} // Type selection
+          onPress={() => setStep(2)}
           style={styles.continueButton}
         />
       )}
@@ -718,7 +748,7 @@ const WashBookingScreen = () => {
       {selectedProvider && (
         <Button
           title="Devam Et"
-          onPress={() => setStep(4)} // Paket seçimi
+          onPress={() => setStep(4)}
           style={styles.continueButton}
         />
       )}
@@ -731,7 +761,7 @@ const WashBookingScreen = () => {
         <MaterialCommunityIcons name="package-variant" size={24} color={theme.colors.primary.main} />
         <Text style={[styles.stepTitle, { color: theme.colors.text.primary }]}>
           Paket Seçimi
-              </Text>
+        </Text>
       </View>
 
       {loading ? (
@@ -759,39 +789,39 @@ const WashBookingScreen = () => {
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.packagesScroll}>
           {packages.map((pkg) => (
-                <TouchableOpacity
-            key={pkg._id}
-                  style={[
-                    styles.packageCard,
-                    { 
-                borderColor: selectedPackage?._id === pkg._id 
-                        ? theme.colors.primary.main 
-                  : theme.colors.border.secondary,
-                backgroundColor: selectedPackage?._id === pkg._id
-                  ? (theme.colors.primary.main || '#007AFF') + '10'
-                  : theme.colors.background.secondary,
-              }
-            ]}
-            onPress={() => handlePackageSelect(pkg)}
-          >
-                      <Text style={[styles.packageName, { color: theme.colors.text.primary }]}>
-                        {pkg.name}
-                      </Text>
-                      <Text style={[styles.packageDescription, { color: theme.colors.text.secondary }]}>
-                        {pkg.description}
-                      </Text>
+            <TouchableOpacity
+              key={pkg._id}
+              style={[
+                styles.packageCard,
+                { 
+                  borderColor: selectedPackage?._id === pkg._id 
+                    ? theme.colors.primary.main 
+                    : theme.colors.border.secondary,
+                  backgroundColor: selectedPackage?._id === pkg._id
+                    ? (theme.colors.primary.main || '#007AFF') + '10'
+                    : theme.colors.background.secondary,
+                }
+              ]}
+              onPress={() => handlePackageSelect(pkg)}
+            >
+              <Text style={[styles.packageName, { color: theme.colors.text.primary }]}>
+                {pkg.name}
+              </Text>
+              <Text style={[styles.packageDescription, { color: theme.colors.text.secondary }]}>
+                {pkg.description}
+              </Text>
             <View style={styles.packageMeta}>
               <View style={styles.packageMetaItem}>
                 <MaterialCommunityIcons name="clock-outline" size={16} color={theme.colors.text.secondary} />
                 <Text style={[styles.packageMetaText, { color: theme.colors.text.secondary }]}>
                   {pkg.duration} dk
-                      </Text>
-                    </View>
+                </Text>
+              </View>
               <Text style={[styles.packagePrice, { color: theme.colors.primary.main }]}>
                 {pkg.basePrice} TL
-                      </Text>
-                  </View>
-                  
+              </Text>
+            </View>
+            
             {pkg.services && pkg.services.length > 0 && (
               <View style={styles.packageServices}>
                 {pkg.services.slice(0, 3).map((service, idx) => (
@@ -799,18 +829,18 @@ const WashBookingScreen = () => {
                     <MaterialCommunityIcons name="check" size={14} color="#10B981" />
                     <Text style={[styles.packageServiceText, { color: theme.colors.text.secondary }]}>
                       {service.name}
-                        </Text>
-                      </View>
-                    ))}
+                    </Text>
+                  </View>
+                ))}
                 {pkg.services.length > 3 && (
                   <Text style={[styles.moreServices, { color: theme.colors.text.secondary }]}>
                     +{pkg.services.length - 3} hizmet daha
                   </Text>
                 )}
-                  </View>
+              </View>
             )}
-                </TouchableOpacity>
-              ))}
+          </TouchableOpacity>
+        ))}
       </ScrollView>
       )}
 
@@ -819,25 +849,25 @@ const WashBookingScreen = () => {
         <View style={styles.extrasSection}>
           <Text style={[styles.extrasSectionTitle, { color: theme.colors.text.primary }]}>
             Ekstra Hizmetler
-              </Text>
+          </Text>
           {selectedPackage.extras.map((extra, index) => (
-                <TouchableOpacity
+            <TouchableOpacity
               key={index}
-                  style={[
+              style={[
                 styles.extraItem,
-                    { 
+                { 
                   borderColor: selectedExtras.includes(extra.name)
-                        ? theme.colors.primary.main 
+                    ? theme.colors.primary.main 
                     : theme.colors.border.secondary,
                   backgroundColor: selectedExtras.includes(extra.name)
                     ? (theme.colors.primary.main || '#007AFF') + '10'
                     : 'transparent',
-                    }
-                  ]}
+                }
+              ]}
               onPress={() => handleExtraToggle(extra.name)}
-                >
+            >
               <View style={styles.extraContent}>
-                    <MaterialCommunityIcons 
+                <MaterialCommunityIcons 
                   name={selectedExtras.includes(extra.name) ? "checkbox-marked" : "checkbox-blank-outline"}
                   size={24}
                   color={selectedExtras.includes(extra.name) ? theme.colors.primary.main : theme.colors.text.secondary}
@@ -845,24 +875,24 @@ const WashBookingScreen = () => {
                 <View style={styles.extraInfo}>
                   <Text style={[styles.extraName, { color: theme.colors.text.primary }]}>
                     {extra.name}
-                      </Text>
+                  </Text>
                   <Text style={[styles.extraDescription, { color: theme.colors.text.secondary }]}>
                     {extra.description}
-                      </Text>
-                    </View>
-                    </View>
+                  </Text>
+                </View>
+              </View>
               <Text style={[styles.extraPrice, { color: theme.colors.primary.main }]}>
                 +{extra.price} TL
               </Text>
-                </TouchableOpacity>
-              ))}
+            </TouchableOpacity>
+          ))}
         </View>
       )}
 
       {selectedPackage && (
         <Button
           title="Devam Et"
-          onPress={() => setStep(5)} // Tarih seçimi
+          onPress={() => setStep(5)}
           style={styles.continueButton}
         />
       )}
@@ -1008,80 +1038,55 @@ const WashBookingScreen = () => {
         ))}
       </ScrollView>
 
-      {/* Slot Seçimi */}
+      {/* Saat Seçimi */}
       {selectedDate && (
         <>
           <Text style={[styles.sectionLabel, { color: theme.colors.text.primary, marginTop: 16 }]}>
-            Müsait Saatler
+            Saat Seçimi
           </Text>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={theme.colors.primary.main} />
-              <Text style={[styles.loadingText, { color: theme.colors.text.secondary }]}>
-                Müsait saatler yükleniyor...
-              </Text>
-            </View>
-          ) : availableSlots.length === 0 ? (
-            <View style={styles.noSlotsContainer}>
-              <MaterialCommunityIcons name="clock-outline" size={48} color={theme.colors.text.secondary} />
-              <Text style={[styles.noSlotsText, { color: theme.colors.text.secondary }]}>
-                Bu tarih için müsait slot bulunmuyor
-              </Text>
-              <Text style={[styles.noSlotsSubtext, { color: theme.colors.text.secondary }]}>
-                Lütfen başka bir tarih seçin
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.slotsGrid}>
-              {availableSlots.filter(slot => slot && slot.startTime).map((slot, index) => (
+          <View style={styles.slotsGrid}>
+            {[
+              '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
+              '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
+              '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
+              '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'
+            ].map((time, index) => {
+              const isSelected = selectedSlot?.startTime === time;
+              return (
                 <TouchableOpacity
                   key={index}
                   style={[
                     styles.slotButton,
                     {
-                      borderColor: selectedSlot?.startTime === slot.startTime
+                      borderColor: isSelected
                         ? theme.colors.primary.main
                         : theme.colors.border.secondary,
-                      backgroundColor: selectedSlot?.startTime === slot.startTime
-                        ? (theme.colors.primary.main || '#007AFF')
+                      backgroundColor: isSelected
+                        ? theme.colors.primary.main
                         : theme.colors.background.secondary,
                     }
                   ]}
-                  onPress={() => handleSlotSelect(slot)}
+                  onPress={() => handleSlotSelect({ startTime: time, endTime: '', isAvailable: true })}
                 >
                   <Text style={[
                     styles.slotTime,
                     {
-                      color: selectedSlot?.startTime === slot.startTime
-                        ? '#FFFFFF'
-                        : theme.colors.text.primary,
+                      color: isSelected ? '#FFFFFF' : theme.colors.text.primary,
                     }
                   ]}>
-                    {slot.startTime}
+                    {time}
                   </Text>
-                  {slot.laneName && (
-                    <Text style={[
-                      styles.slotLane,
-                      {
-                        color: selectedSlot?.startTime === slot.startTime
-                          ? '#FFFFFF'
-                          : theme.colors.text.secondary,
-                      }
-                    ]}>
-                      {slot.laneName}
-                    </Text>
-                  )}
                 </TouchableOpacity>
-              ))}
-            </View>
-          )}
+              );
+            })}
+          </View>
         </>
       )}
 
       {selectedSlot && (
         <Button
           title="Devam Et"
-          onPress={() => setStep(5)}
+          onPress={() => setStep(6)}
           style={styles.continueButton}
         />
       )}
@@ -1133,6 +1138,37 @@ const WashBookingScreen = () => {
         </Text>
       </View>
 
+      {/* Tarih Seçimi */}
+      <View style={styles.formGroup}>
+        <Text style={[styles.label, { color: theme.colors.text.primary }]}>Tarih *</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.datesScroll}>
+          {getNextDates(14).map((date, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[
+                styles.dateButton,
+                { 
+                  borderColor: selectedDate?.toDateString() === date.toDateString()
+                    ? theme.colors.primary.main 
+                    : theme.colors.border.secondary,
+                  backgroundColor: selectedDate?.toDateString() === date.toDateString()
+                    ? (theme.colors.primary.main || '#007AFF') + '10'
+                    : theme.colors.background.secondary,
+                }
+              ]}
+              onPress={() => handleDateSelect(date)}
+            >
+              <Text style={[styles.dateDay, { color: theme.colors.text.secondary }]}>
+                {formatDate(date)}
+              </Text>
+              <Text style={[styles.dateNumber, { color: theme.colors.text.primary }]}>
+                {date.getDate()}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       {/* Özel Gereksinimler */}
       <View style={styles.requirementsSection}>
         <Text style={[styles.label, { color: theme.colors.text.primary }]}>Özel Gereksinimler</Text>
@@ -1172,11 +1208,12 @@ const WashBookingScreen = () => {
       </View>
 
       {/* Zaman Penceresi */}
-      <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: theme.colors.text.primary }]}>Zaman Penceresi</Text>
-        <Text style={[styles.helpText, { color: theme.colors.text.secondary }]}>
-          İstediğiniz 2 saatlik zaman aralığını seçin
-        </Text>
+      {selectedDate && (
+        <View style={styles.formGroup}>
+          <Text style={[styles.label, { color: theme.colors.text.primary }]}>Zaman Penceresi *</Text>
+          <Text style={[styles.helpText, { color: theme.colors.text.secondary }]}>
+            İstediğiniz 2 saatlik zaman aralığını seçin
+          </Text>
         
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.timeWindowsScroll}>
           {[
@@ -1200,13 +1237,13 @@ const WashBookingScreen = () => {
               timeWindowEnd?.getTime() === endDate.getTime();
 
             return (
-                  <TouchableOpacity
+              <TouchableOpacity
                 key={index}
-                    style={[
+                style={[
                   styles.timeWindowButton,
-                      { 
+                  { 
                     borderColor: isSelected
-                          ? theme.colors.primary.main 
+                      ? theme.colors.primary.main 
                       : theme.colors.border.secondary,
                     backgroundColor: isSelected
                       ? theme.colors.primary.main
@@ -1226,46 +1263,58 @@ const WashBookingScreen = () => {
                   { color: isSelected ? '#FFFFFF' : theme.colors.text.secondary }
                 ]}>
                   {window.start} - {window.end}
-                    </Text>
-                  </TouchableOpacity>
+                </Text>
+              </TouchableOpacity>
             );
           })}
         </ScrollView>
-              </View>
+      </View>
+      )}
 
-      {location.address && timeWindowStart && timeWindowEnd && (
+      {location.address && selectedDate && timeWindowStart && timeWindowEnd && (
         <Button
           title="Devam Et"
-          onPress={() => setStep(5)}
+          onPress={() => setStep(6)}
           style={styles.continueButton}
         />
       )}
-            </Card>
+    </Card>
   );
 
-  const renderPayment = () => (
-    <ScrollView style={styles.paymentScroll}>
-      {/* Fiyat Özeti */}
-      {pricing && (
-        <Card style={styles.stepCard}>
-          <View style={styles.stepHeader}>
-            <MaterialCommunityIcons name="cash" size={24} color={theme.colors.primary.main} />
-            <Text style={[styles.stepTitle, { color: theme.colors.text.primary }]}>
-              Fiyat Özeti
-            </Text>
-          </View>
+  const renderPayment = () => {
+    console.log('🔍 renderPayment - pricing state:', pricing);
+    return (
+      <ScrollView style={styles.paymentScroll}>
+        {/* Fiyat Özeti */}
+        {pricing && (
+          <Card style={styles.stepCard}>
+            <View style={styles.stepHeader}>
+              <MaterialCommunityIcons name="cash" size={24} color={theme.colors.primary.main} />
+              <Text style={[styles.stepTitle, { color: theme.colors.text.primary }]}>
+                Fiyat Özeti
+              </Text>
+            </View>
 
-          <View style={styles.pricingBreakdown}>
-            {Object.entries(pricing.breakdown).map(([key, value]) => (
-              <View key={key} style={styles.pricingRow}>
+            <View style={styles.pricingBreakdown}>
+              {pricing?.breakdown && Object.keys(pricing.breakdown).length > 0 ? (
+                <>
+                  {Object.entries(pricing.breakdown).map(([key, value]) => (
+                    <View key={key} style={styles.pricingRow}>
+                      <Text style={[styles.pricingLabel, { color: theme.colors.text.secondary }]}>
+                        {String(key)}
+                      </Text>
+                      <Text style={[styles.pricingValue, { color: theme.colors.text.primary }]}>
+                        {String(value)}
+                      </Text>
+                    </View>
+                  ))}
+                </>
+              ) : (
                 <Text style={[styles.pricingLabel, { color: theme.colors.text.secondary }]}>
-                  {key}
+                  Fiyat detayları hesaplanıyor...
                 </Text>
-                <Text style={[styles.pricingValue, { color: theme.colors.text.primary }]}>
-                  {value}
-                </Text>
-              </View>
-            ))}
+              )}
+            </View>
             
             <View style={[styles.pricingDivider, { backgroundColor: theme.colors.border.secondary }]} />
             
@@ -1274,17 +1323,17 @@ const WashBookingScreen = () => {
                 Ara Toplam
               </Text>
               <Text style={[styles.pricingValue, { color: theme.colors.text.primary, fontWeight: 'bold' }]}>
-                {pricing.subtotal.toFixed(2)} TL
+                {(pricing?.subtotal || 0).toFixed(2)} TL
               </Text>
             </View>
 
-            {pricing.distanceFee > 0 && (
+            {(pricing?.distanceFee && pricing.distanceFee > 0) && (
               <View style={styles.pricingRow}>
                 <Text style={[styles.pricingLabel, { color: theme.colors.text.secondary }]}>
                   Mesafe Ücreti
                 </Text>
                 <Text style={[styles.pricingValue, { color: theme.colors.text.primary }]}>
-                  {pricing.distanceFee.toFixed(2)} TL
+                  {(pricing?.distanceFee || 0).toFixed(2)} TL
                 </Text>
               </View>
             )}
@@ -1307,209 +1356,163 @@ const WashBookingScreen = () => {
                 Toplam
               </Text>
               <Text style={[styles.pricingTotalValue, { color: theme.colors.primary.main }]}>
-                {(pricing.finalPrice - tefePuanUsed).toFixed(2)} TL
+                {((pricing?.finalPrice || 0) - tefePuanUsed).toFixed(2)} TL
               </Text>
+            </View>
+          </Card>
+        )}
+
+        {/* Not */}
+        <Card style={styles.stepCard}>
+          <View style={styles.stepHeader}>
+            <MaterialCommunityIcons name="note-text" size={24} color={theme.colors.primary.main} />
+            <Text style={[styles.stepTitle, { color: theme.colors.text.primary }]}>
+              Not & Tamamla
+            </Text>
+          </View>
+
+          <View style={styles.formGroup}>
+            <View style={styles.labelContainer}>
+              <MaterialCommunityIcons name="message-text" size={20} color={theme.colors.primary.main} />
+              <Text style={[styles.label, { color: theme.colors.text.primary }]}>Özel Not (İsteğe Bağlı)</Text>
+            </View>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.background.secondary,
+                color: theme.colors.text.primary,
+                borderColor: theme.colors.border.secondary,
+                minHeight: 100,
+                textAlignVertical: 'top',
+              }]}
+              value={note}
+              onChangeText={setNote}
+              placeholder="Özel isteklerinizi, aracınızın özel durumlarını veya usta için notlarınızı yazabilirsiniz..."
+              placeholderTextColor={theme.colors.text.secondary}
+              multiline
+              numberOfLines={4}
+            />
+            <Text style={[styles.helpText, { color: theme.colors.text.secondary }]}>
+              Bu not usta tarafından görülecektir
+            </Text>
+          </View>
+        </Card>
+
+        {/* Ödeme Bilgileri */}
+        <Card style={styles.stepCard}>
+          <View style={styles.stepHeader}>
+            <MaterialCommunityIcons name="credit-card" size={24} color={theme.colors.primary.main} />
+            <Text style={[styles.stepTitle, { color: theme.colors.text.primary }]}>
+              Ödeme Bilgileri
+            </Text>
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={[styles.label, { color: theme.colors.text.primary }]}>Kart Numarası</Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.background.secondary,
+                color: theme.colors.text.primary,
+                borderColor: theme.colors.border.secondary,
+              }]}
+              value={cardInfo.cardNumber}
+              onChangeText={(text) => setCardInfo({ ...cardInfo, cardNumber: text })}
+              placeholder="4111 1111 1111 1111"
+              placeholderTextColor={theme.colors.text.secondary}
+              keyboardType="numeric"
+              maxLength={16}
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={[styles.label, { color: theme.colors.text.primary }]}>Kart Sahibi</Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.background.secondary,
+                color: theme.colors.text.primary,
+                borderColor: theme.colors.border.secondary,
+              }]}
+              value={cardInfo.cardHolderName}
+              onChangeText={(text) => setCardInfo({ ...cardInfo, cardHolderName: text })}
+              placeholder="AD SOYAD"
+              placeholderTextColor={theme.colors.text.secondary}
+              autoCapitalize="characters"
+            />
+          </View>
+
+          <View style={styles.formRow}>
+            <View style={[styles.formGroup, { flex: 1, marginRight: 8 }]}>
+              <Text style={[styles.label, { color: theme.colors.text.primary }]}>Ay</Text>
+              <TextInput
+                style={[styles.input, { 
+                  backgroundColor: theme.colors.background.secondary,
+                  color: theme.colors.text.primary,
+                  borderColor: theme.colors.border.secondary,
+                }]}
+                value={cardInfo.expiryMonth}
+                onChangeText={(text) => setCardInfo({ ...cardInfo, expiryMonth: text })}
+                placeholder="MM"
+                placeholderTextColor={theme.colors.text.secondary}
+                keyboardType="numeric"
+                maxLength={2}
+              />
+            </View>
+
+            <View style={[styles.formGroup, { flex: 1, marginRight: 8 }]}>
+              <Text style={[styles.label, { color: theme.colors.text.primary }]}>Yıl</Text>
+              <TextInput
+                style={[styles.input, { 
+                  backgroundColor: theme.colors.background.secondary,
+                  color: theme.colors.text.primary,
+                  borderColor: theme.colors.border.secondary,
+                }]}
+                value={cardInfo.expiryYear}
+                onChangeText={(text) => setCardInfo({ ...cardInfo, expiryYear: text })}
+                placeholder="YY"
+                placeholderTextColor={theme.colors.text.secondary}
+                keyboardType="numeric"
+                maxLength={2}
+              />
+            </View>
+
+            <View style={[styles.formGroup, { flex: 1 }]}>
+              <Text style={[styles.label, { color: theme.colors.text.primary }]}>CVV</Text>
+              <TextInput
+                style={[styles.input, { 
+                  backgroundColor: theme.colors.background.secondary,
+                  color: theme.colors.text.primary,
+                  borderColor: theme.colors.border.secondary,
+                }]}
+                value={cardInfo.cvv}
+                onChangeText={(text) => setCardInfo({ ...cardInfo, cvv: text })}
+                placeholder="123"
+                placeholderTextColor={theme.colors.text.secondary}
+                keyboardType="numeric"
+                maxLength={3}
+                secureTextEntry
+              />
             </View>
           </View>
 
-          {/* TefePuan Kullanımı */}
-          {tefePuanBalance > 0 && (
-            <View style={styles.tefePuanSection}>
-              <View style={styles.tefePuanHeader}>
-                <Text style={[styles.tefePuanTitle, { color: theme.colors.text.primary }]}>
-                  TefePuan Kullan
-                </Text>
-                <Text style={[styles.tefePuanBalance, { color: theme.colors.primary.main }]}>
-                  Bakiye: {tefePuanBalance} puan
-                </Text>
-              </View>
-              <View style={styles.tefePuanInput}>
-                <TextInput
-                  style={[styles.input, { 
-                    flex: 1,
-                    backgroundColor: theme.colors.background.secondary,
-                    color: theme.colors.text.primary,
-                    borderColor: theme.colors.border.secondary,
-                  }]}
-                  value={tefePuanUsed.toString()}
-                  onChangeText={(text) => {
-                    const value = parseInt(text) || 0;
-                    const maxUsable = Math.min(tefePuanBalance, Math.floor(pricing.finalPrice * 0.5));
-                    setTefePuanUsed(Math.min(value, maxUsable));
-                  }}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  placeholderTextColor={theme.colors.text.secondary}
-                />
-                <TouchableOpacity
-                  style={[styles.maxButton, { backgroundColor: theme.colors.primary.main }]}
-                  onPress={() => {
-                    const maxUsable = Math.min(tefePuanBalance, Math.floor(pricing.finalPrice * 0.5));
-                    setTefePuanUsed(maxUsable);
-                  }}
-                >
-                  <Text style={styles.maxButtonText}>Maksimum</Text>
-                </TouchableOpacity>
-              </View>
-              <Text style={[styles.tefePuanHint, { color: theme.colors.text.secondary }]}>
-                Maksimum %50'sine kadar kullanabilirsiniz
-              </Text>
-            </View>
-          )}
-            </Card>
-          )}
-
-      {/* Not */}
-      <Card style={styles.stepCard}>
-        <View style={styles.stepHeader}>
-          <MaterialCommunityIcons name="note-text" size={24} color={theme.colors.primary.main} />
-          <Text style={[styles.stepTitle, { color: theme.colors.text.primary }]}>
-            Not & Tamamla
-          </Text>
-        </View>
-
-        <View style={styles.formGroup}>
-          <View style={styles.labelContainer}>
-            <MaterialCommunityIcons name="message-text" size={20} color={theme.colors.primary.main} />
-            <Text style={[styles.label, { color: theme.colors.text.primary }]}>Özel Not (İsteğe Bağlı)</Text>
+          <View style={[styles.escrowNotice, { backgroundColor: theme.colors.info.main + '10', borderColor: theme.colors.info.main }]}>
+            <MaterialCommunityIcons name="shield-check" size={20} color={theme.colors.info.main} />
+            <Text style={[styles.escrowNoticeText, { color: theme.colors.info.main }]}>
+              Ödemeniz güvenli bir şekilde tutulacak ve iş tamamlandıktan sonra işletmeye aktarılacaktır
+            </Text>
           </View>
-          <TextInput
-            style={[styles.input, { 
-              backgroundColor: theme.colors.background.secondary,
-              color: theme.colors.text.primary,
-              borderColor: theme.colors.border.secondary,
-              minHeight: 100,
-              textAlignVertical: 'top',
-            }]}
-            value={note}
-            onChangeText={setNote}
-            placeholder="Özel isteklerinizi, aracınızın özel durumlarını veya usta için notlarınızı yazabilirsiniz..."
-            placeholderTextColor={theme.colors.text.secondary}
-            multiline
-            numberOfLines={4}
-          />
-          <Text style={[styles.helpText, { color: theme.colors.text.secondary }]}>
-            Bu not usta tarafından görülecektir
-          </Text>
-        </View>
-      </Card>
+        </Card>
 
-      {/* Ödeme Bilgileri */}
-      <Card style={styles.stepCard}>
-        <View style={styles.stepHeader}>
-          <MaterialCommunityIcons name="credit-card" size={24} color={theme.colors.primary.main} />
-          <Text style={[styles.stepTitle, { color: theme.colors.text.primary }]}>
-            Ödeme Bilgileri
-          </Text>
-        </View>
-
-
-        <View style={styles.formGroup}>
-          <Text style={[styles.label, { color: theme.colors.text.primary }]}>Kart Numarası</Text>
-          <TextInput
-            style={[styles.input, { 
-              backgroundColor: theme.colors.background.secondary,
-              color: theme.colors.text.primary,
-              borderColor: theme.colors.border.secondary,
-            }]}
-            value={cardInfo.cardNumber}
-            onChangeText={(text) => setCardInfo({ ...cardInfo, cardNumber: text })}
-            placeholder="4111 1111 1111 1111"
-            placeholderTextColor={theme.colors.text.secondary}
-            keyboardType="numeric"
-            maxLength={16}
+        {/* Sipariş Oluştur Butonu */}
+        <View style={styles.bottomButtonContainer}>
+          <Button
+            title={loading ? "İşleniyor..." : "Siparişi Oluştur"}
+            onPress={handleCreateOrder}
+            disabled={loading}
+            style={styles.createOrderButton}
           />
         </View>
-
-        <View style={styles.formGroup}>
-          <Text style={[styles.label, { color: theme.colors.text.primary }]}>Kart Sahibi</Text>
-          <TextInput
-            style={[styles.input, { 
-              backgroundColor: theme.colors.background.secondary,
-              color: theme.colors.text.primary,
-              borderColor: theme.colors.border.secondary,
-            }]}
-            value={cardInfo.cardHolderName}
-            onChangeText={(text) => setCardInfo({ ...cardInfo, cardHolderName: text })}
-            placeholder="AD SOYAD"
-            placeholderTextColor={theme.colors.text.secondary}
-            autoCapitalize="characters"
-          />
-        </View>
-
-        <View style={styles.formRow}>
-          <View style={[styles.formGroup, { flex: 1, marginRight: 8 }]}>
-            <Text style={[styles.label, { color: theme.colors.text.primary }]}>Ay</Text>
-            <TextInput
-              style={[styles.input, { 
-                backgroundColor: theme.colors.background.secondary,
-                color: theme.colors.text.primary,
-                borderColor: theme.colors.border.secondary,
-              }]}
-              value={cardInfo.expiryMonth}
-              onChangeText={(text) => setCardInfo({ ...cardInfo, expiryMonth: text })}
-              placeholder="MM"
-              placeholderTextColor={theme.colors.text.secondary}
-              keyboardType="numeric"
-              maxLength={2}
-            />
-          </View>
-
-          <View style={[styles.formGroup, { flex: 1, marginRight: 8 }]}>
-            <Text style={[styles.label, { color: theme.colors.text.primary }]}>Yıl</Text>
-            <TextInput
-              style={[styles.input, { 
-                backgroundColor: theme.colors.background.secondary,
-                color: theme.colors.text.primary,
-                borderColor: theme.colors.border.secondary,
-              }]}
-              value={cardInfo.expiryYear}
-              onChangeText={(text) => setCardInfo({ ...cardInfo, expiryYear: text })}
-              placeholder="YY"
-              placeholderTextColor={theme.colors.text.secondary}
-              keyboardType="numeric"
-              maxLength={2}
-            />
-          </View>
-
-          <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={[styles.label, { color: theme.colors.text.primary }]}>CVV</Text>
-            <TextInput
-              style={[styles.input, { 
-                backgroundColor: theme.colors.background.secondary,
-                color: theme.colors.text.primary,
-                borderColor: theme.colors.border.secondary,
-              }]}
-              value={cardInfo.cvv}
-              onChangeText={(text) => setCardInfo({ ...cardInfo, cvv: text })}
-              placeholder="123"
-              placeholderTextColor={theme.colors.text.secondary}
-              keyboardType="numeric"
-              maxLength={3}
-              secureTextEntry
-            />
-          </View>
-        </View>
-
-        <View style={[styles.escrowNotice, { backgroundColor: theme.colors.info.main + '10', borderColor: theme.colors.info.main }]}>
-          <MaterialCommunityIcons name="shield-check" size={20} color={theme.colors.info.main} />
-          <Text style={[styles.escrowNoticeText, { color: theme.colors.info.main }]}>
-            Ödemeniz güvenli bir şekilde tutulacak ve iş tamamlandıktan sonra işletmeye aktarılacaktır
-          </Text>
-        </View>
-      </Card>
-
-      {/* Sipariş Oluştur Butonu */}
-      <View style={styles.bottomButtonContainer}>
-            <Button
-          title={loading ? "İşleniyor..." : "Siparişi Oluştur"}
-          onPress={handleCreateOrder}
-          disabled={loading}
-          style={styles.createOrderButton}
-            />
-          </View>
         </ScrollView>
-  );
+    );
+  };
 
   // ===== MODALS =====
 
@@ -1679,10 +1682,10 @@ const WashBookingScreen = () => {
             <Text style={[styles.headerSubtitle, { color: theme.colors.text.secondary }]}>
               Adım {step}/6
             </Text>
-                    </View>
+          </View>
           <View style={{ width: 40 }} />
-                  </View>
-                  
+        </View>
+        
         {/* Progress Bar */}
         <View style={[styles.progressContainer, { backgroundColor: theme.colors.background.secondary }]}>
           <View style={styles.progressBar}>
