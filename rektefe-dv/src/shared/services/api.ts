@@ -1022,6 +1022,26 @@ export const apiService = {
     }
   },
 
+  // Yıkama işletmelerini listele
+  getWashProviders: async (params?: { 
+    latitude?: number;
+    longitude?: number;
+    type?: 'shop' | 'mobile';
+    maxDistance?: number;
+  }) => {
+    try {
+      const response = await apiClient.get('/wash/providers', { params });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get wash providers error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'İşletmeler getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
   // Müsait slotları getir
   getAvailableWashSlots: async (params: {
     providerId: string;

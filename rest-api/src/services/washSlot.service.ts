@@ -28,7 +28,7 @@ export class WashSlotService {
     try {
       // Provider'ı getir
       const provider = await WashProvider.findOne({ 
-        userId: data.providerId,
+        _id: data.providerId,
         isActive: true 
       });
 

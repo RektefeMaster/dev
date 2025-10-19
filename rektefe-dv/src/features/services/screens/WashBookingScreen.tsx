@@ -58,9 +58,9 @@ interface WashPackage {
     order: number;
   }>;
   extras: Array<{
-    name: string;
-    description: string;
-    price: number;
+  name: string;
+  description: string;
+  price: number;
     duration: number;
   }>;
   availableFor: 'shop' | 'mobile' | 'both';
@@ -82,7 +82,7 @@ interface Provider {
   _id: string;
   userId: {
     _id: string;
-    name: string;
+  name: string;
     surname: string;
     phone?: string;
   };
@@ -127,12 +127,18 @@ interface PricingInfo {
 const WashBookingScreen = () => {
   const { theme } = useTheme();
   const { token } = useAuth();
+
+  // Theme kontrolü
+  if (!theme || !theme.colors) {
+    console.error('Theme not loaded properly:', theme);
+    return null;
+  }
   const navigation = useNavigation<WashBookingScreenNavigationProp>();
   const route = useRoute();
-
+  
   // ===== STATE =====
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState(1); // 1: Araç, 2: Paket, 3: Tip, 4: Slot, 5: Ödeme
+  const [step, setStep] = useState(1); // 1: Araç, 2: Mobil Yıkama, 3: İşletme, 4: Paket, 5: Konum & Zaman, 6: Ödeme
   
   // Araç seçimi
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -174,6 +180,9 @@ const WashBookingScreen = () => {
   const [tefePuanUsed, setTefePuanUsed] = useState(0);
   const [tefePuanBalance, setTefePuanBalance] = useState(0);
 
+  // Not
+  const [note, setNote] = useState('');
+
   // Ödeme
   const [cardInfo, setCardInfo] = useState({
     cardNumber: '',
@@ -189,12 +198,15 @@ const WashBookingScreen = () => {
     loadVehicles();
   }, []);
 
-  // Provider seçildiğinde o provider'ın paketlerini yükle
+  // Provider seçildikten sonra paketleri yükle
   useEffect(() => {
     if (selectedProvider) {
-      loadProviderPackages();
+      console.log('🔄 Provider seçildi, paketler yükleniyor...');
+      loadPackages();
     }
   }, [selectedProvider]);
+
+  // Provider seçildiğinde o provider'ın paketlerini yükle - loadPackages zaten çağırıyor
 
   useEffect(() => {
     if (selectedPackage && selectedVehicle && selectedType && selectedProvider) {
@@ -231,13 +243,32 @@ const WashBookingScreen = () => {
   };
 
   const loadPackages = async () => {
+    if (!selectedProvider) {
+      console.log('Provider seçilmedi, paketler yüklenemiyor');
+      return;
+    }
+    
+    console.log('🔄 Paketler yükleniyor...');
+    console.log('Provider ID:', selectedProvider._id);
+    console.log('Provider Name:', selectedProvider.businessName);
+    
     try {
-      const response = await apiService.getWashPackages();
+      const response = await apiService.getWashPackages({ 
+        providerId: selectedProvider._id 
+      });
+      
+      console.log('API Response:', response);
+      
       if (response.success && response.data) {
         setPackages(response.data);
+        console.log(`✅ ${response.data.length} paket yüklendi`);
+      } else {
+        console.log('❌ Paketler yüklenemedi:', response.message);
+        setPackages([]);
       }
     } catch (error) {
-      console.error('Paketler yüklenemedi:', error);
+      console.error('❌ Paketler yüklenemedi:', error);
+      setPackages([]);
     }
   };
 
@@ -248,17 +279,14 @@ const WashBookingScreen = () => {
       setLoading(true);
       // SADECE seçilen provider'ın kendi oluşturduğu paketleri getir
       const response = await apiService.getWashPackages({ 
-        providerId: selectedProvider.userId._id 
+        providerId: selectedProvider._id // Provider'ın kendi ID'si
       });
       
       if (response.success && response.data) {
-        // Sadece bu provider'a ait paketleri filtrele
-        const providerPackages = response.data.filter((pkg: WashPackage) => 
-          pkg.providerId === selectedProvider.userId._id
-        );
-        setPackages(providerPackages);
+        // Paketler zaten backend'te filtreleniyor, ekstra filtreleme gerekmez
+        setPackages(response.data);
         
-        if (providerPackages.length === 0) {
+        if (response.data.length === 0) {
           Alert.alert(
             'Bilgi',
             'Bu işletme henüz paket oluşturmamış. Lütfen başka bir işletme seçin veya işletmeyi bilgilendirin.'
@@ -276,34 +304,71 @@ const WashBookingScreen = () => {
   const loadProviders = async (type: 'shop' | 'mobile') => {
     try {
       setLoading(true);
-      const response = await apiService.getWashProviders({ type });
+      console.log('🔄 İşletmeler yükleniyor...', type);
+      
+      // Konum olmadan da provider'ları getir
+      const response = await apiService.getWashProviders({ 
+        type,
+        // Konum bilgisi yoksa tüm provider'ları getir
+        maxDistance: 50 // 50km içindeki tüm provider'lar
+      });
+      
+      console.log('API Response:', response);
       
       if (response.success && response.data) {
         setProviders(response.data);
+        console.log(`✅ ${response.data.length} işletme yüklendi`);
+        } else {
+        console.log('❌ İşletmeler yüklenemedi:', response.message);
+        setProviders([]);
       }
     } catch (error) {
-      console.error('İşletmeler yüklenemedi:', error);
+      console.error('❌ İşletmeler yüklenemedi:', error);
+      setProviders([]);
     } finally {
       setLoading(false);
     }
   };
 
   const loadAvailableSlots = async () => {
-    if (!selectedProvider || !selectedDate || !selectedPackage) return;
+    if (!selectedProvider || !selectedDate) return;
 
     try {
       setLoading(true);
+      const duration = selectedPackage?.duration || 60; // Varsayılan 60 dakika
+      
+      console.log('🔄 Slotlar yükleniyor...', {
+        providerId: selectedProvider._id,
+        date: selectedDate.toISOString().split('T')[0],
+        duration: duration,
+      });
+      
       const response = await apiService.getAvailableWashSlots({
         providerId: selectedProvider._id,
         date: selectedDate.toISOString().split('T')[0],
-        duration: selectedPackage.duration,
+        duration: duration,
       });
 
+      console.log('Slot API Response:', response);
+
       if (response.success && response.data) {
-        setAvailableSlots(response.data);
+        // Slot verilerini kontrol et
+        const validSlots = response.data.filter(slot => slot && slot.startTime);
+        console.log(`✅ ${response.data.length} slot yüklendi, ${validSlots.length} geçerli`);
+        console.log('Slot örneği:', validSlots[0]);
+        setAvailableSlots(validSlots);
+      } else {
+        console.log('❌ Slotlar yüklenemedi:', response.message);
+        setAvailableSlots([]);
       }
-    } catch (error) {
-      console.error('Slotlar yüklenemedi:', error);
+    } catch (error: any) {
+      console.error('❌ Slotlar yüklenemedi:', error);
+      setAvailableSlots([]);
+      
+      // Kullanıcıya bilgi ver
+      if (error.response?.status === 404) {
+        console.log('⚠️ Provider için slot sistemi kurulmamış');
+      }
     } finally {
       setLoading(false);
     }
@@ -359,7 +424,7 @@ const WashBookingScreen = () => {
     return 'A'; // Ekonomik segment
   };
 
-  const getNextDates = (count: number = 7) => {
+  const getNextDates = (count: number = 14) => {
     const dates = [];
     const today = new Date();
     
@@ -415,13 +480,15 @@ const WashBookingScreen = () => {
   const handleTypeSelect = async (type: 'shop' | 'mobile') => {
     setSelectedType(type);
     await loadProviders(type);
+    setStep(3); // Usta seçimi ekranına geç
     setShowProviderModal(true);
   };
 
   const handleProviderSelect = (provider: Provider) => {
     setSelectedProvider(provider);
     setShowProviderModal(false);
-    setStep(4);
+    setStep(4); // Paket seçimi ekranına geç
+    // useEffect ile otomatik yüklenecek
   };
 
   const handleDateSelect = (date: Date) => {
@@ -432,14 +499,18 @@ const WashBookingScreen = () => {
   };
 
   const handleSlotSelect = (slot: TimeSlot) => {
+    if (!slot || !slot.startTime) {
+      console.error('Invalid slot:', slot);
+      return;
+    }
     setSelectedSlot(slot);
-    setStep(5);
+    setStep(6); // Not & Tamamla ekranına geç
   };
 
   const handleTimeWindowSelect = (start: Date, end: Date) => {
     setTimeWindowStart(start);
     setTimeWindowEnd(end);
-    setStep(5);
+    setStep(6); // Not & Tamamla ekranına geç
   };
 
   const handleCreateOrder = async () => {
@@ -449,10 +520,7 @@ const WashBookingScreen = () => {
       return;
     }
 
-    if (selectedType === 'shop' && (!selectedDate || !selectedSlot)) {
-      Alert.alert('Eksik Bilgi', 'Lütfen tarih ve saat seçin');
-      return;
-    }
+    // Shop seçeneği yok, sadece mobil yıkama mevcut
 
     if (selectedType === 'mobile' && !location.address) {
       Alert.alert('Eksik Bilgi', 'Lütfen adres giriniz');
@@ -466,7 +534,7 @@ const WashBookingScreen = () => {
 
     try {
       setLoading(true);
-
+      
       const orderData = {
         providerId: selectedProvider.userId._id,
         packageId: selectedPackage._id,
@@ -479,25 +547,19 @@ const WashBookingScreen = () => {
           segment: selectedVehicle.segment || 'B',
         },
         type: selectedType,
-        location: selectedType === 'mobile' ? location : {
-          address: selectedProvider.location.address,
-          latitude: selectedProvider.location.coordinates.latitude,
-          longitude: selectedProvider.location.coordinates.longitude,
-        },
-        scheduling: selectedType === 'shop' && selectedSlot ? {
-          slotStart: new Date(`${selectedDate!.toISOString().split('T')[0]}T${selectedSlot.startTime}:00`),
-          slotEnd: new Date(`${selectedDate!.toISOString().split('T')[0]}T${selectedSlot.endTime}:00`),
-        } : {
+        location: location,
+        scheduling: {
           timeWindowStart: timeWindowStart,
           timeWindowEnd: timeWindowEnd,
         },
         laneId: selectedSlot?.laneId,
         tefePuanUsed,
         cardInfo,
+        note,
       };
 
       const response = await apiService.createWashOrder(orderData);
-
+      
       if (response.success) {
         const orderId = response.data._id;
         Alert.alert(
@@ -541,7 +603,7 @@ const WashBookingScreen = () => {
         <MaterialCommunityIcons name="car" size={24} color={theme.colors.primary.main} />
         <Text style={[styles.stepTitle, { color: theme.colors.text.primary }]}>
           Araç Seçimi
-        </Text>
+            </Text>
       </View>
 
       {selectedVehicle ? (
@@ -553,12 +615,12 @@ const WashBookingScreen = () => {
             <Text style={[styles.selectedItemSubtitle, { color: theme.colors.text.secondary }]}>
               {selectedVehicle.plateNumber} • {selectedVehicle.year}
             </Text>
-            <View style={[styles.segmentBadge, { backgroundColor: theme.colors.primary.main + '20' }]}>
+            <View style={[styles.segmentBadge, { backgroundColor: (theme.colors.primary.main || '#007AFF') + '20' }]}>
               <Text style={[styles.segmentBadgeText, { color: theme.colors.primary.main }]}>
                 Segment: {selectedVehicle.segment}
-              </Text>
-            </View>
+            </Text>
           </View>
+        </View>
           <TouchableOpacity
             style={styles.changeButton}
             onPress={() => setShowVehicleModal(true)}
@@ -583,7 +645,80 @@ const WashBookingScreen = () => {
       {selectedVehicle && (
         <Button
           title="Devam Et"
-          onPress={() => setStep(2)}
+          onPress={() => setStep(2)} // Type selection
+          style={styles.continueButton}
+        />
+      )}
+    </Card>
+  );
+
+  const renderMasterSelection = () => (
+    <Card style={styles.stepCard}>
+      <View style={styles.stepHeader}>
+        <MaterialCommunityIcons name="account-hard-hat" size={24} color={theme.colors.primary.main} />
+        <Text style={[styles.stepTitle, { color: theme.colors.text.primary }]}>
+          Usta Seçimi
+        </Text>
+      </View>
+
+      <Text style={[styles.masterSelectionDescription, { color: theme.colors.text.secondary }]}>
+        {selectedType === 'shop' ? 'Hangi ustaya hizmet verdireceksiniz?' : 'Hangi usta size gelecek?'}
+      </Text>
+
+      {selectedProvider ? (
+        <View style={styles.selectedMaster}>
+          <View style={styles.masterInfo}>
+            <View style={[styles.masterAvatar, { backgroundColor: theme.colors.primary.main }]}>
+              <MaterialCommunityIcons name="account" size={24} color="#FFFFFF" />
+            </View>
+            <View style={styles.masterDetails}>
+              <Text style={[styles.masterName, { color: theme.colors.text.primary }]}>
+                {selectedProvider.userId.name} {selectedProvider.userId.surname}
+              </Text>
+              <Text style={[styles.masterBusiness, { color: theme.colors.text.secondary }]}>
+                {selectedProvider.businessName}
+              </Text>
+              <View style={styles.masterMeta}>
+                <MaterialCommunityIcons name="star" size={16} color="#FFD700" />
+                <Text style={[styles.masterRating, { color: theme.colors.text.secondary }]}>
+                  {selectedProvider.metrics.averageRating.toFixed(1)} ({selectedProvider.metrics.totalReviews})
+                </Text>
+                {selectedProvider.distance && (
+                  <>
+                    <Text style={[styles.masterDivider, { color: theme.colors.text.secondary }]}>•</Text>
+                    <Text style={[styles.masterDistance, { color: theme.colors.text.secondary }]}>
+                      {selectedProvider.distance.toFixed(1)} km
+                    </Text>
+                  </>
+                )}
+              </View>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.changeButton}
+            onPress={() => setShowProviderModal(true)}
+          >
+            <Text style={[styles.changeButtonText, { color: theme.colors.primary.main }]}>
+              Değiştir
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={[styles.selectButton, { borderColor: theme.colors.border.secondary }]}
+          onPress={() => setShowProviderModal(true)}
+        >
+          <MaterialCommunityIcons name="account-hard-hat" size={24} color={theme.colors.primary.main} />
+          <Text style={[styles.selectButtonText, { color: theme.colors.primary.main }]}>
+            Usta Seçin
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {selectedProvider && (
+        <Button
+          title="Devam Et"
+          onPress={() => setStep(4)} // Paket seçimi
           style={styles.continueButton}
         />
       )}
@@ -596,7 +731,7 @@ const WashBookingScreen = () => {
         <MaterialCommunityIcons name="package-variant" size={24} color={theme.colors.primary.main} />
         <Text style={[styles.stepTitle, { color: theme.colors.text.primary }]}>
           Paket Seçimi
-        </Text>
+              </Text>
       </View>
 
       {loading ? (
@@ -613,7 +748,7 @@ const WashBookingScreen = () => {
           <Button
             title="Başka İşletme Seç"
             onPress={() => {
-              setStep(3);
+              setStep(2); // İşletme seçimi
               setSelectedProvider(null);
               setPackages([]);
             }}
@@ -624,39 +759,39 @@ const WashBookingScreen = () => {
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.packagesScroll}>
           {packages.map((pkg) => (
-          <TouchableOpacity
+                <TouchableOpacity
             key={pkg._id}
-            style={[
-              styles.packageCard,
-              {
+                  style={[
+                    styles.packageCard,
+                    { 
                 borderColor: selectedPackage?._id === pkg._id 
-                  ? theme.colors.primary.main 
+                        ? theme.colors.primary.main 
                   : theme.colors.border.secondary,
                 backgroundColor: selectedPackage?._id === pkg._id
-                  ? theme.colors.primary.main + '10'
+                  ? (theme.colors.primary.main || '#007AFF') + '10'
                   : theme.colors.background.secondary,
               }
             ]}
             onPress={() => handlePackageSelect(pkg)}
           >
-            <Text style={[styles.packageName, { color: theme.colors.text.primary }]}>
-              {pkg.name}
-            </Text>
-            <Text style={[styles.packageDescription, { color: theme.colors.text.secondary }]}>
-              {pkg.description}
-            </Text>
+                      <Text style={[styles.packageName, { color: theme.colors.text.primary }]}>
+                        {pkg.name}
+                      </Text>
+                      <Text style={[styles.packageDescription, { color: theme.colors.text.secondary }]}>
+                        {pkg.description}
+                      </Text>
             <View style={styles.packageMeta}>
               <View style={styles.packageMetaItem}>
                 <MaterialCommunityIcons name="clock-outline" size={16} color={theme.colors.text.secondary} />
                 <Text style={[styles.packageMetaText, { color: theme.colors.text.secondary }]}>
                   {pkg.duration} dk
-                </Text>
-              </View>
+                      </Text>
+                    </View>
               <Text style={[styles.packagePrice, { color: theme.colors.primary.main }]}>
                 {pkg.basePrice} TL
-              </Text>
-            </View>
-            
+                      </Text>
+                  </View>
+                  
             {pkg.services && pkg.services.length > 0 && (
               <View style={styles.packageServices}>
                 {pkg.services.slice(0, 3).map((service, idx) => (
@@ -664,18 +799,18 @@ const WashBookingScreen = () => {
                     <MaterialCommunityIcons name="check" size={14} color="#10B981" />
                     <Text style={[styles.packageServiceText, { color: theme.colors.text.secondary }]}>
                       {service.name}
-                    </Text>
-                  </View>
-                ))}
+                        </Text>
+                      </View>
+                    ))}
                 {pkg.services.length > 3 && (
                   <Text style={[styles.moreServices, { color: theme.colors.text.secondary }]}>
                     +{pkg.services.length - 3} hizmet daha
                   </Text>
                 )}
-              </View>
+                  </View>
             )}
-          </TouchableOpacity>
-        ))}
+                </TouchableOpacity>
+              ))}
       </ScrollView>
       )}
 
@@ -684,25 +819,25 @@ const WashBookingScreen = () => {
         <View style={styles.extrasSection}>
           <Text style={[styles.extrasSectionTitle, { color: theme.colors.text.primary }]}>
             Ekstra Hizmetler
-          </Text>
+              </Text>
           {selectedPackage.extras.map((extra, index) => (
-            <TouchableOpacity
+                <TouchableOpacity
               key={index}
-              style={[
+                  style={[
                 styles.extraItem,
-                {
+                    { 
                   borderColor: selectedExtras.includes(extra.name)
-                    ? theme.colors.primary.main
+                        ? theme.colors.primary.main 
                     : theme.colors.border.secondary,
                   backgroundColor: selectedExtras.includes(extra.name)
-                    ? theme.colors.primary.main + '10'
+                    ? (theme.colors.primary.main || '#007AFF') + '10'
                     : 'transparent',
-                }
-              ]}
+                    }
+                  ]}
               onPress={() => handleExtraToggle(extra.name)}
-            >
+                >
               <View style={styles.extraContent}>
-                <MaterialCommunityIcons
+                    <MaterialCommunityIcons 
                   name={selectedExtras.includes(extra.name) ? "checkbox-marked" : "checkbox-blank-outline"}
                   size={24}
                   color={selectedExtras.includes(extra.name) ? theme.colors.primary.main : theme.colors.text.secondary}
@@ -710,24 +845,24 @@ const WashBookingScreen = () => {
                 <View style={styles.extraInfo}>
                   <Text style={[styles.extraName, { color: theme.colors.text.primary }]}>
                     {extra.name}
-                  </Text>
+                      </Text>
                   <Text style={[styles.extraDescription, { color: theme.colors.text.secondary }]}>
                     {extra.description}
-                  </Text>
-                </View>
-              </View>
+                      </Text>
+                    </View>
+                    </View>
               <Text style={[styles.extraPrice, { color: theme.colors.primary.main }]}>
                 +{extra.price} TL
               </Text>
-            </TouchableOpacity>
-          ))}
+                </TouchableOpacity>
+              ))}
         </View>
       )}
 
       {selectedPackage && (
         <Button
           title="Devam Et"
-          onPress={() => setStep(3)}
+          onPress={() => setStep(5)} // Tarih seçimi
           style={styles.continueButton}
         />
       )}
@@ -737,135 +872,93 @@ const WashBookingScreen = () => {
   const renderTypeSelection = () => (
     <Card style={styles.stepCard}>
       <View style={styles.stepHeader}>
-        <MaterialCommunityIcons name="map-marker" size={24} color={theme.colors.primary.main} />
+        <MaterialCommunityIcons name="tools" size={24} color={theme.colors.primary.main} />
         <Text style={[styles.stepTitle, { color: theme.colors.text.primary }]}>
           Hizmet Tipi Seçimi
         </Text>
       </View>
 
-      <View style={styles.typeOptions}>
-        {selectedPackage?.availableFor !== 'mobile' && (
-          <TouchableOpacity
-            style={[
-              styles.typeCard,
-              {
-                borderColor: selectedType === 'shop' 
-                  ? theme.colors.primary.main 
-                  : theme.colors.border.secondary,
-                backgroundColor: selectedType === 'shop'
-                  ? theme.colors.primary.main + '10'
-                  : theme.colors.background.secondary,
-              }
-            ]}
-            onPress={() => handleTypeSelect('shop')}
-          >
-            <MaterialCommunityIcons name="store" size={48} color={theme.colors.primary.main} />
-            <Text style={[styles.typeTitle, { color: theme.colors.text.primary }]}>
-              İstasyonda Yıkama
-            </Text>
-            <Text style={[styles.typeDescription, { color: theme.colors.text.secondary }]}>
-              Yıkama istasyonuna giderek hizmet alın
-            </Text>
-            <View style={styles.typeFeatures}>
-              <View style={styles.typeFeature}>
-                <MaterialCommunityIcons name="check" size={16} color="#10B981" />
-                <Text style={[styles.typeFeatureText, { color: theme.colors.text.secondary }]}>
-                  Daha uygun fiyat
-                </Text>
-              </View>
-              <View style={styles.typeFeature}>
-                <MaterialCommunityIcons name="check" size={16} color="#10B981" />
-                <Text style={[styles.typeFeatureText, { color: theme.colors.text.secondary }]}>
-                  Profesyonel ekipman
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        )}
+      <Text style={[styles.serviceSelectionDescription, { color: theme.colors.text.secondary }]}>
+        Hangi tür hizmet almak istiyorsunuz?
+      </Text>
 
-        {selectedPackage?.availableFor !== 'shop' && (
-          <TouchableOpacity
-            style={[
-              styles.typeCard,
-              {
-                borderColor: selectedType === 'mobile' 
-                  ? theme.colors.primary.main 
-                  : theme.colors.border.secondary,
-                backgroundColor: selectedType === 'mobile'
-                  ? theme.colors.primary.main + '10'
-                  : theme.colors.background.secondary,
-              }
-            ]}
-            onPress={() => handleTypeSelect('mobile')}
-          >
-            <MaterialCommunityIcons name="car-wash" size={48} color={theme.colors.primary.main} />
-            <Text style={[styles.typeTitle, { color: theme.colors.text.primary }]}>
-              Mobil Yıkama
-            </Text>
-            <Text style={[styles.typeDescription, { color: theme.colors.text.secondary }]}>
-              Aracınız bulunduğu yerde yıkanır
-            </Text>
-            <View style={styles.typeFeatures}>
-              <View style={styles.typeFeature}>
-                <MaterialCommunityIcons name="check" size={16} color="#10B981" />
-                <Text style={[styles.typeFeatureText, { color: theme.colors.text.secondary }]}>
-                  Zaman kazandırır
-                </Text>
-              </View>
-              <View style={styles.typeFeature}>
-                <MaterialCommunityIcons name="check" size={16} color="#10B981" />
-                <Text style={[styles.typeFeatureText, { color: theme.colors.text.secondary }]}>
-                  Kapınıza gelir
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Seçilen Provider */}
-      {selectedProvider && (
-        <View style={styles.selectedProviderCard}>
-          <View style={styles.providerInfo}>
-            <Text style={[styles.providerName, { color: theme.colors.text.primary }]}>
-              {selectedProvider.businessName}
-            </Text>
-            <Text style={[styles.providerAddress, { color: theme.colors.text.secondary }]}>
-              {selectedProvider.location.address}
-            </Text>
-            <View style={styles.providerMeta}>
-              <MaterialCommunityIcons name="star" size={16} color="#FFD700" />
-              <Text style={[styles.providerRating, { color: theme.colors.text.secondary }]}>
-                {selectedProvider.metrics.averageRating.toFixed(1)} ({selectedProvider.metrics.totalReviews})
+      <View style={styles.serviceOptions}>
+        {/* Dükkan Yıkama */}
+        <TouchableOpacity
+          style={[
+            styles.serviceOption,
+            { 
+              borderColor: selectedType === 'shop' 
+                ? theme.colors.primary.main 
+                : theme.colors.border.secondary,
+              backgroundColor: selectedType === 'shop'
+                        ? (theme.colors.primary.main || '#007AFF') + '10'
+                : theme.colors.background.secondary,
+            }
+          ]}
+          onPress={() => handleTypeSelect('shop')}
+        >
+          <MaterialCommunityIcons name="store" size={48} color={theme.colors.primary.main} />
+          <Text style={[styles.serviceOptionTitle, { color: theme.colors.text.primary }]}>
+            Dükkan Yıkama
+          </Text>
+          <Text style={[styles.serviceOptionDescription, { color: theme.colors.text.secondary }]}>
+            Aracınızı yıkama dükkanına getirin
+          </Text>
+          <View style={styles.serviceFeatures}>
+            <View style={styles.serviceFeature}>
+              <MaterialCommunityIcons name="check" size={16} color="#10B981" />
+              <Text style={[styles.serviceFeatureText, { color: theme.colors.text.secondary }]}>
+                Daha uygun fiyat
               </Text>
-              {selectedProvider.distance && (
-                <>
-                  <Text style={[styles.providerDivider, { color: theme.colors.text.secondary }]}>•</Text>
-                  <Text style={[styles.providerDistance, { color: theme.colors.text.secondary }]}>
-                    {selectedProvider.distance.toFixed(1)} km
-                  </Text>
-                </>
-              )}
+            </View>
+            <View style={styles.serviceFeature}>
+              <MaterialCommunityIcons name="check" size={16} color="#10B981" />
+              <Text style={[styles.serviceFeatureText, { color: theme.colors.text.secondary }]}>
+                Profesyonel ekipman
+              </Text>
             </View>
           </View>
-          <TouchableOpacity
-            style={styles.changeButton}
-            onPress={() => setShowProviderModal(true)}
-          >
-            <Text style={[styles.changeButtonText, { color: theme.colors.primary.main }]}>
-              Değiştir
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
+        </TouchableOpacity>
 
-      {selectedProvider && (
-        <Button
-          title="Devam Et"
-          onPress={() => setStep(4)}
-          style={styles.continueButton}
-        />
-      )}
+        {/* Mobil Yıkama */}
+        <TouchableOpacity
+          style={[
+            styles.serviceOption,
+            { 
+              borderColor: selectedType === 'mobile' 
+                ? theme.colors.primary.main 
+                : theme.colors.border.secondary,
+              backgroundColor: selectedType === 'mobile'
+                        ? (theme.colors.primary.main || '#007AFF') + '10'
+                : theme.colors.background.secondary,
+            }
+          ]}
+          onPress={() => handleTypeSelect('mobile')}
+        >
+          <MaterialCommunityIcons name="car-wash" size={48} color={theme.colors.primary.main} />
+          <Text style={[styles.serviceOptionTitle, { color: theme.colors.text.primary }]}>
+            Mobil Yıkama
+          </Text>
+          <Text style={[styles.serviceOptionDescription, { color: theme.colors.text.secondary }]}>
+            Usta aracınızın bulunduğu yere gelir
+          </Text>
+          <View style={styles.serviceFeatures}>
+            <View style={styles.serviceFeature}>
+              <MaterialCommunityIcons name="check" size={16} color="#10B981" />
+              <Text style={[styles.serviceFeatureText, { color: theme.colors.text.secondary }]}>
+                Zaman tasarrufu
+              </Text>
+            </View>
+            <View style={styles.serviceFeature}>
+              <MaterialCommunityIcons name="check" size={16} color="#10B981" />
+              <Text style={[styles.serviceFeatureText, { color: theme.colors.text.secondary }]}>
+                Kapınıza gelir
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </View>
     </Card>
   );
 
@@ -889,17 +982,17 @@ const WashBookingScreen = () => {
       {/* Tarih Seçimi */}
       <Text style={[styles.sectionLabel, { color: theme.colors.text.primary }]}>Tarih</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.datesScroll}>
-        {getNextDates().map((date, index) => (
+        {getNextDates(14).map((date, index) => (
           <TouchableOpacity
             key={index}
             style={[
               styles.dateButton,
-              {
+              { 
                 borderColor: selectedDate?.toDateString() === date.toDateString()
-                  ? theme.colors.primary.main
+                  ? theme.colors.primary.main 
                   : theme.colors.border.secondary,
                 backgroundColor: selectedDate?.toDateString() === date.toDateString()
-                  ? theme.colors.primary.main + '10'
+                  ? (theme.colors.primary.main || '#007AFF') + '10'
                   : theme.colors.background.secondary,
               }
             ]}
@@ -922,14 +1015,25 @@ const WashBookingScreen = () => {
             Müsait Saatler
           </Text>
           {loading ? (
-            <ActivityIndicator size="small" color={theme.colors.primary.main} style={{ marginVertical: 16 }} />
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={theme.colors.primary.main} />
+              <Text style={[styles.loadingText, { color: theme.colors.text.secondary }]}>
+                Müsait saatler yükleniyor...
+              </Text>
+            </View>
           ) : availableSlots.length === 0 ? (
-            <Text style={[styles.noSlotsText, { color: theme.colors.text.secondary }]}>
-              Bu tarih için müsait slot bulunmuyor
-            </Text>
+            <View style={styles.noSlotsContainer}>
+              <MaterialCommunityIcons name="clock-outline" size={48} color={theme.colors.text.secondary} />
+              <Text style={[styles.noSlotsText, { color: theme.colors.text.secondary }]}>
+                Bu tarih için müsait slot bulunmuyor
+              </Text>
+              <Text style={[styles.noSlotsSubtext, { color: theme.colors.text.secondary }]}>
+                Lütfen başka bir tarih seçin
+              </Text>
+            </View>
           ) : (
             <View style={styles.slotsGrid}>
-              {availableSlots.map((slot, index) => (
+              {availableSlots.filter(slot => slot && slot.startTime).map((slot, index) => (
                 <TouchableOpacity
                   key={index}
                   style={[
@@ -939,7 +1043,7 @@ const WashBookingScreen = () => {
                         ? theme.colors.primary.main
                         : theme.colors.border.secondary,
                       backgroundColor: selectedSlot?.startTime === slot.startTime
-                        ? theme.colors.primary.main
+                        ? (theme.colors.primary.main || '#007AFF')
                         : theme.colors.background.secondary,
                     }
                   ]}
@@ -989,25 +1093,44 @@ const WashBookingScreen = () => {
       <View style={styles.stepHeader}>
         <MaterialCommunityIcons name="map-marker" size={24} color={theme.colors.primary.main} />
         <Text style={[styles.stepTitle, { color: theme.colors.text.primary }]}>
-          Konum ve Zaman
+          Konum ve Zaman Seçimi
+        </Text>
+      </View>
+
+      <View style={styles.mobileSchedulingInfo}>
+        <MaterialCommunityIcons name="car-wash" size={48} color={theme.colors.primary.main} />
+        <Text style={[styles.mobileSchedulingTitle, { color: theme.colors.text.primary }]}>
+          Mobil Yıkama Randevusu
+        </Text>
+        <Text style={[styles.mobileSchedulingDescription, { color: theme.colors.text.secondary }]}>
+          Aracınızın bulunduğu konumu ve istediğiniz zaman aralığını belirtin
         </Text>
       </View>
 
       {/* Adres Girişi */}
       <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: theme.colors.text.primary }]}>Adres *</Text>
+        <View style={styles.labelContainer}>
+          <MaterialCommunityIcons name="map-marker" size={20} color={theme.colors.primary.main} />
+          <Text style={[styles.label, { color: theme.colors.text.primary }]}>Adres *</Text>
+        </View>
         <TextInput
           style={[styles.input, { 
             backgroundColor: theme.colors.background.secondary,
             color: theme.colors.text.primary,
             borderColor: theme.colors.border.secondary,
+            minHeight: 80,
+            textAlignVertical: 'top',
           }]}
           value={location.address}
           onChangeText={(text) => setLocation({ ...location, address: text })}
-          placeholder="Tam adres giriniz"
+          placeholder="Örnek: Atatürk Mahallesi, Cumhuriyet Caddesi No:123, Daire:5, Malatya"
           placeholderTextColor={theme.colors.text.secondary}
           multiline
+          numberOfLines={3}
         />
+        <Text style={[styles.helpText, { color: theme.colors.text.secondary }]}>
+          Detaylı adres bilgisi vererek hizmet kalitesini artırın
+        </Text>
       </View>
 
       {/* Özel Gereksinimler */}
@@ -1077,13 +1200,13 @@ const WashBookingScreen = () => {
               timeWindowEnd?.getTime() === endDate.getTime();
 
             return (
-              <TouchableOpacity
+                  <TouchableOpacity
                 key={index}
-                style={[
+                    style={[
                   styles.timeWindowButton,
-                  {
+                      { 
                     borderColor: isSelected
-                      ? theme.colors.primary.main
+                          ? theme.colors.primary.main 
                       : theme.colors.border.secondary,
                     backgroundColor: isSelected
                       ? theme.colors.primary.main
@@ -1103,12 +1226,12 @@ const WashBookingScreen = () => {
                   { color: isSelected ? '#FFFFFF' : theme.colors.text.secondary }
                 ]}>
                   {window.start} - {window.end}
-                </Text>
-              </TouchableOpacity>
+                    </Text>
+                  </TouchableOpacity>
             );
           })}
         </ScrollView>
-      </View>
+              </View>
 
       {location.address && timeWindowStart && timeWindowEnd && (
         <Button
@@ -1117,7 +1240,7 @@ const WashBookingScreen = () => {
           style={styles.continueButton}
         />
       )}
-    </Card>
+            </Card>
   );
 
   const renderPayment = () => (
@@ -1233,8 +1356,43 @@ const WashBookingScreen = () => {
               </Text>
             </View>
           )}
-        </Card>
-      )}
+            </Card>
+          )}
+
+      {/* Not */}
+      <Card style={styles.stepCard}>
+        <View style={styles.stepHeader}>
+          <MaterialCommunityIcons name="note-text" size={24} color={theme.colors.primary.main} />
+          <Text style={[styles.stepTitle, { color: theme.colors.text.primary }]}>
+            Not & Tamamla
+          </Text>
+        </View>
+
+        <View style={styles.formGroup}>
+          <View style={styles.labelContainer}>
+            <MaterialCommunityIcons name="message-text" size={20} color={theme.colors.primary.main} />
+            <Text style={[styles.label, { color: theme.colors.text.primary }]}>Özel Not (İsteğe Bağlı)</Text>
+          </View>
+          <TextInput
+            style={[styles.input, { 
+              backgroundColor: theme.colors.background.secondary,
+              color: theme.colors.text.primary,
+              borderColor: theme.colors.border.secondary,
+              minHeight: 100,
+              textAlignVertical: 'top',
+            }]}
+            value={note}
+            onChangeText={setNote}
+            placeholder="Özel isteklerinizi, aracınızın özel durumlarını veya usta için notlarınızı yazabilirsiniz..."
+            placeholderTextColor={theme.colors.text.secondary}
+            multiline
+            numberOfLines={4}
+          />
+          <Text style={[styles.helpText, { color: theme.colors.text.secondary }]}>
+            Bu not usta tarafından görülecektir
+          </Text>
+        </View>
+      </Card>
 
       {/* Ödeme Bilgileri */}
       <Card style={styles.stepCard}>
@@ -1343,35 +1501,35 @@ const WashBookingScreen = () => {
 
       {/* Sipariş Oluştur Butonu */}
       <View style={styles.bottomButtonContainer}>
-        <Button
+            <Button
           title={loading ? "İşleniyor..." : "Siparişi Oluştur"}
           onPress={handleCreateOrder}
           disabled={loading}
           style={styles.createOrderButton}
-        />
-      </View>
-    </ScrollView>
+            />
+          </View>
+        </ScrollView>
   );
 
   // ===== MODALS =====
 
   const renderVehicleModal = () => (
-    <Modal
+        <Modal
       visible={showVehicleModal}
-      animationType="slide"
-      presentationStyle="pageSheet"
+          animationType="slide"
+          presentationStyle="pageSheet"
       onRequestClose={() => setShowVehicleModal(false)}
-    >
-      <SafeAreaView style={[styles.modalContainer, { backgroundColor: theme.colors.background.primary }]}>
+        >
+          <SafeAreaView style={[styles.modalContainer, { backgroundColor: theme.colors.background.primary }]}>
         <View style={[styles.modalHeader, { borderBottomColor: theme.colors.border.secondary }]}>
-          <Text style={[styles.modalTitle, { color: theme.colors.text.primary }]}>
+              <Text style={[styles.modalTitle, { color: theme.colors.text.primary }]}>
             Araç Seçin
-          </Text>
+              </Text>
           <TouchableOpacity onPress={() => setShowVehicleModal(false)}>
             <MaterialCommunityIcons name="close" size={24} color={theme.colors.text.primary} />
-          </TouchableOpacity>
-        </View>
-
+              </TouchableOpacity>
+            </View>
+            
         <ScrollView style={styles.modalContent}>
           {vehicles.length === 0 ? (
             <View style={styles.emptyVehicles}>
@@ -1415,9 +1573,9 @@ const WashBookingScreen = () => {
                         <Text style={[styles.segmentBadgeSmallText, { color: theme.colors.primary.main }]}>
                           {vehicle.segment}
                         </Text>
-                      </View>
-                    )}
-                  </View>
+                        </View>
+                      )}
+                    </View>
                   <MaterialCommunityIcons name="chevron-right" size={24} color={theme.colors.text.secondary} />
                 </View>
               </TouchableOpacity>
@@ -1438,7 +1596,7 @@ const WashBookingScreen = () => {
       <SafeAreaView style={[styles.modalContainer, { backgroundColor: theme.colors.background.primary }]}>
         <View style={[styles.modalHeader, { borderBottomColor: theme.colors.border.secondary }]}>
           <Text style={[styles.modalTitle, { color: theme.colors.text.primary }]}>
-            {selectedType === 'shop' ? 'İstasyon Seçin' : 'Mobil Yıkama Seçin'}
+            {selectedType === 'shop' ? 'Usta Seçin' : 'Mobil Usta Seçin'}
           </Text>
           <TouchableOpacity onPress={() => setShowProviderModal(false)}>
             <MaterialCommunityIcons name="close" size={24} color={theme.colors.text.primary} />
@@ -1450,9 +1608,12 @@ const WashBookingScreen = () => {
             <ActivityIndicator size="large" color={theme.colors.primary.main} style={{ marginTop: 32 }} />
           ) : providers.length === 0 ? (
             <View style={styles.emptyProviders}>
-              <MaterialCommunityIcons name="store-off" size={64} color={theme.colors.text.secondary} />
+              <MaterialCommunityIcons name="account-hard-hat" size={64} color={theme.colors.text.secondary} />
               <Text style={[styles.emptyText, { color: theme.colors.text.secondary }]}>
-                Yakınınızda yıkama işletmesi bulunamadı
+                Yakınınızda usta bulunamadı
+              </Text>
+              <Text style={[styles.emptySubtext, { color: theme.colors.text.secondary }]}>
+                Lütfen daha sonra tekrar deneyin
               </Text>
             </View>
           ) : (
@@ -1470,18 +1631,14 @@ const WashBookingScreen = () => {
               >
                 <View style={styles.providerCardContent}>
                   <View style={[styles.providerIcon, { backgroundColor: theme.colors.primary.main }]}>
-                    <MaterialCommunityIcons
-                      name={provider.type === 'mobile' ? 'car-wash' : 'store'}
-                      size={28}
-                      color="#FFFFFF"
-                    />
+                    <MaterialCommunityIcons name="account" size={28} color="#FFFFFF" />
                   </View>
                   <View style={styles.providerDetails}>
                     <Text style={[styles.providerCardName, { color: theme.colors.text.primary }]}>
-                      {provider.businessName}
+                      {provider.userId.name} {provider.userId.surname}
                     </Text>
                     <Text style={[styles.providerCardAddress, { color: theme.colors.text.secondary }]}>
-                      {provider.location.address}
+                      {provider.businessName}
                     </Text>
                     <View style={styles.providerCardMeta}>
                       <View style={styles.providerRatingContainer}>
@@ -1520,16 +1677,16 @@ const WashBookingScreen = () => {
               Araç Yıkama
             </Text>
             <Text style={[styles.headerSubtitle, { color: theme.colors.text.secondary }]}>
-              Adım {step}/5
+              Adım {step}/6
             </Text>
-          </View>
+                    </View>
           <View style={{ width: 40 }} />
-        </View>
-
+                  </View>
+                  
         {/* Progress Bar */}
         <View style={[styles.progressContainer, { backgroundColor: theme.colors.background.secondary }]}>
           <View style={styles.progressBar}>
-            {[1, 2, 3, 4, 5].map((s) => (
+            {[1, 2, 3, 4, 5, 6].map((s) => (
               <View
                 key={s}
                 style={[
@@ -1543,14 +1700,23 @@ const WashBookingScreen = () => {
               />
             ))}
           </View>
+          <Text style={[styles.progressText, { color: theme.colors.text.secondary }]}>
+            {step === 1 && 'Araç Seçimi'}
+            {step === 2 && 'Hizmet Seçimi'}
+            {step === 3 && 'Usta Seçimi'}
+            {step === 4 && 'Paket Seçimi'}
+            {step === 5 && 'Tarih & Saat'}
+            {step === 6 && 'Not & Tamamla'}
+          </Text>
         </View>
 
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           {step === 1 && renderVehicleSelection()}
-          {step === 2 && renderPackageSelection()}
-          {step === 3 && renderTypeSelection()}
-          {step === 4 && renderScheduling()}
-          {step === 5 && renderPayment()}
+          {step === 2 && renderTypeSelection()}
+          {step === 3 && renderMasterSelection()}
+          {step === 4 && renderPackageSelection()}
+          {step === 5 && renderScheduling()}
+          {step === 6 && renderPayment()}
         </ScrollView>
 
         {/* Modals */}
@@ -1601,9 +1767,36 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
   },
+  progressText: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 8,
+    fontWeight: '500',
+  },
   scrollView: {
     flex: 1,
     paddingHorizontal: 16,
+  },
+  typeOptions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  typeOption: {
+    borderWidth: 2,
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  typeOptionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  typeOptionDescription: {
+    fontSize: 14,
+    textAlign: 'center',
   },
   stepCard: {
     marginTop: 16,
@@ -1781,10 +1974,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  typeOptions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
   typeCard: {
     flex: 1,
     padding: 16,
@@ -1815,6 +2004,165 @@ const styles = StyleSheet.create({
   },
   typeFeatureText: {
     fontSize: 12,
+  },
+  serviceSelectionDescription: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  serviceOptions: {
+    gap: 16,
+  },
+  serviceOption: {
+    padding: 20,
+    borderWidth: 2,
+    borderRadius: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  serviceOptionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 12,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  serviceOptionDescription: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  serviceFeatures: {
+    width: '100%',
+    gap: 8,
+  },
+  serviceFeature: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  serviceFeatureText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  masterSelectionDescription: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  selectedMaster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+  },
+  masterInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  masterAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  masterDetails: {
+    flex: 1,
+  },
+  masterName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  masterBusiness: {
+    fontSize: 14,
+    marginBottom: 6,
+  },
+  masterMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  masterRating: {
+    fontSize: 12,
+  },
+  masterDivider: {
+    fontSize: 12,
+    marginHorizontal: 4,
+  },
+  masterDistance: {
+    fontSize: 12,
+  },
+  mobileServiceInfo: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  mobileServiceTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  mobileServiceDescription: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 24,
+  },
+  mobileServiceFeatures: {
+    width: '100%',
+    marginBottom: 32,
+  },
+  mobileServiceFeature: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 16,
+  },
+  mobileServiceFeatureText: {
+    fontSize: 14,
+    marginLeft: 12,
+    fontWeight: '500',
+  },
+  startMobileWashButton: {
+    marginTop: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+  },
+  mobileSchedulingInfo: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    marginBottom: 24,
+  },
+  mobileSchedulingTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 12,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  mobileSchedulingDescription: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   selectedProviderCard: {
     flexDirection: 'row',
@@ -1861,13 +2209,21 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   dateButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     borderWidth: 2,
-    borderRadius: 12,
-    marginRight: 8,
+    borderRadius: 16,
+    marginRight: 12,
     alignItems: 'center',
-    minWidth: 80,
+    minWidth: 90,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   dateDay: {
     fontSize: 12,
@@ -1877,10 +2233,29 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+  },
+  noSlotsContainer: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
   noSlotsText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  noSlotsSubtext: {
     fontSize: 14,
     textAlign: 'center',
-    paddingVertical: 16,
   },
   slotsGrid: {
     flexDirection: 'row',
@@ -1889,11 +2264,20 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   slotButton: {
-    width: (SCREEN_WIDTH - 64) / 3,
-    paddingVertical: 12,
+    width: (SCREEN_WIDTH - 80) / 3,
+    paddingVertical: 16,
     borderWidth: 2,
-    borderRadius: 12,
+    borderRadius: 16,
     alignItems: 'center',
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   slotTime: {
     fontSize: 14,
@@ -1910,10 +2294,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 16,
   },
+  labelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    marginBottom: 8,
   },
   input: {
     borderWidth: 1,

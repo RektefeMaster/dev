@@ -33,9 +33,37 @@ async function testWashAPI() {
       console.log(`   📦 Paket sayısı: ${packagesResponse.data.data?.length || 0}`);
       
       if (packagesResponse.data.data && packagesResponse.data.data.length > 0) {
-        packagesResponse.data.data.forEach((pkg: any, index: number) => {
-          console.log(`   ${index + 1}. ${pkg.name} - ${pkg.basePrice} TL (${pkg.duration} dk)`);
-        });
+        const washPackage = packagesResponse.data.data[0];
+        console.log(`   ${1}. ${washPackage.name} - ${washPackage.basePrice} TL (${washPackage.duration} dk)`);
+        
+        // Test 3: Müsait slotlar
+        console.log('\n3️⃣ Müsait slotlar test ediliyor...');
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const dateStr = tomorrow.toISOString().split('T')[0];
+        
+        try {
+          const slotsResponse = await axios.get(`${API_URL}/api/wash/slots/available`, {
+            params: { 
+              providerId: provider._id,
+              date: dateStr,
+              duration: washPackage.duration
+            }
+          });
+          
+          console.log(`   ✅ Durum: ${slotsResponse.status}`);
+          console.log(`   🕐 Slot sayısı: ${slotsResponse.data.data?.length || 0}`);
+          
+          if (slotsResponse.data.data && slotsResponse.data.data.length > 0) {
+            slotsResponse.data.data.forEach((slot: any, index: number) => {
+              console.log(`   ${index + 1}. ${slot.startTime} - ${slot.endTime} (${slot.laneName || 'Hat bilgisi yok'})`);
+            });
+          } else {
+            console.log('   ⚠️ Bu tarih için müsait slot bulunamadı');
+          }
+        } catch (slotsError: any) {
+          console.log(`   ❌ Slot hatası: ${slotsError.response?.status} - ${slotsError.response?.data?.message || slotsError.message}`);
+        }
       }
     } else {
       console.log('   ⚠️ Hiç provider bulunamadı!');
