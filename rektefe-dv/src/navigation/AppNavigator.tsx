@@ -29,6 +29,7 @@ import NotificationSettingsScreen from '@/features/notifications/screens/Notific
 import MechanicSearchScreen from '@/features/mechanics/screens/MechanicSearchScreen';
 import BookAppointmentScreen from '@/features/appointments/screens/BookAppointmentScreen';
 import PaymentScreen from '@/features/wallet/screens/PaymentScreen';
+import AddBalanceScreen from '@/features/wallet/screens/AddBalanceScreen';
 import MechanicDetailScreen from '@/features/mechanics/screens/MechanicDetailScreen';
 import MessagesScreen from '@/features/messages/screens/MessagesScreen';
 import ChatScreen from '@/features/messages/screens/ChatScreen';
@@ -259,6 +260,7 @@ const AppNavigator = () => {
           }}
         />
         <Stack.Screen name="Wallet" component={WalletScreen} />
+        <Stack.Screen name="AddBalance" component={AddBalanceScreen} />
         <Stack.Screen name="Garage" component={GarageScreen} />
         <Stack.Screen name="Support" component={SupportScreen} />
         <Stack.Screen name="TefeWallet" component={TefeWalletScreen} />

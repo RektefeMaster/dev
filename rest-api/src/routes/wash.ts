@@ -69,6 +69,7 @@ router.post('/order', auth, validate(Joi.object({
   }).required(),
   laneId: Joi.string(),
   tefePuanUsed: Joi.number().min(0),
+  paymentMethod: Joi.string().valid('wallet', 'card').default('card'),
   cardInfo: Joi.object({
     cardNumber: Joi.string().required(),
     cardHolderName: Joi.string().required(),
@@ -76,6 +77,12 @@ router.post('/order', auth, validate(Joi.object({
     expiryYear: Joi.string().required(),
     cvv: Joi.string().required(),
   }).required(),
+  extras: Joi.array().items(Joi.object({
+    name: Joi.string().required(),
+    price: Joi.number().required(),
+    duration: Joi.number().required(),
+  })),
+  note: Joi.string().allow(''),
 })), async (req: Request, res: Response) => {
   try {
     const driverId = req.user?.userId;

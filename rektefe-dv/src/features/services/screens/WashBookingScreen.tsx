@@ -183,6 +183,8 @@ const WashBookingScreen = () => {
   const [note, setNote] = useState('');
 
   // Ödeme
+  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'card'>('card');
+  const [walletBalance, setWalletBalance] = useState(0);
   const [cardInfo, setCardInfo] = useState({
     cardNumber: '',
     cardHolderName: '',
@@ -195,6 +197,7 @@ const WashBookingScreen = () => {
 
   useEffect(() => {
     loadVehicles();
+    loadWalletBalance();
   }, []);
 
   // Provider seçildikten sonra paketleri yükle
@@ -234,6 +237,24 @@ const WashBookingScreen = () => {
       }
     } catch (error) {
       console.error('Araçlar yüklenemedi:', error);
+    }
+  };
+
+  const loadWalletBalance = async () => {
+    try {
+      if (!token) return;
+      
+      const response = await axios.get(`${API_URL}/wallet/balance`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.data?.success && response.data?.data) {
+        const balance = response.data.data.balance || 0;
+        setWalletBalance(balance);
+      }
+    } catch (error) {
+      console.error('Cüzdan bakiyesi yüklenemedi:', error);
+      setWalletBalance(0);
     }
   };
 
@@ -492,6 +513,11 @@ const WashBookingScreen = () => {
       return;
     }
 
+    if (!pricing) {
+      Alert.alert('Hata', 'Fiyat bilgisi yüklenemedi. Lütfen tekrar deneyin.');
+      return;
+    }
+
     // Shop için tarih ve slot kontrolü
     if (selectedType === 'shop') {
       if (!selectedDate) {
@@ -510,6 +536,10 @@ const WashBookingScreen = () => {
         Alert.alert('Eksik Bilgi', 'Lütfen adres giriniz');
         return;
       }
+      if (!location.latitude || !location.longitude) {
+        Alert.alert('Eksik Bilgi', 'Lütfen harita üzerinden konum seçiniz');
+        return;
+      }
       if (!selectedDate) {
         Alert.alert('Eksik Bilgi', 'Lütfen tarih seçiniz');
         return;
@@ -520,9 +550,18 @@ const WashBookingScreen = () => {
       }
     }
 
-    if (!cardInfo.cardNumber || !cardInfo.cardHolderName) {
-      Alert.alert('Eksik Bilgi', 'Lütfen ödeme bilgilerini giriniz');
-      return;
+    // Ödeme validasyonu
+    if (paymentMethod === 'wallet') {
+      const totalPrice = (pricing?.finalPrice || 0) - tefePuanUsed;
+      if (walletBalance < totalPrice) {
+        Alert.alert('Yetersiz Bakiye', 'Cüzdan bakiyeniz yetersiz. Lütfen kart ile ödeme yapın.');
+        return;
+      }
+    } else if (paymentMethod === 'card') {
+      if (!cardInfo.cardNumber || !cardInfo.cardHolderName) {
+        Alert.alert('Eksik Bilgi', 'Lütfen kart bilgilerini giriniz');
+        return;
+      }
     }
 
     try {
@@ -538,7 +577,7 @@ const WashBookingScreen = () => {
         })) || [];
       
       const orderData: any = {
-        providerId: selectedProvider.userId._id,
+        providerId: selectedProvider.userId?._id || selectedProvider.userId,
         packageId: selectedPackage._id,
         vehicleId: selectedVehicle._id,
         vehicle: {
@@ -551,7 +590,7 @@ const WashBookingScreen = () => {
         type: selectedType,
         extras: selectedExtrasData,
         tefePuanUsed,
-        cardInfo,
+        paymentMethod,
         note,
       };
 
@@ -569,6 +608,13 @@ const WashBookingScreen = () => {
         orderData.scheduling = {
           slotStart: slotDateTime.toISOString(),
           slotEnd: slotEndTime.toISOString(),
+        };
+        
+        // Shop için provider'ın adresini location olarak ekle
+        orderData.location = {
+          address: selectedProvider.location.address,
+          latitude: selectedProvider.location.coordinates?.latitude,
+          longitude: selectedProvider.location.coordinates?.longitude,
         };
       }
 
@@ -588,10 +634,30 @@ const WashBookingScreen = () => {
         };
       }
 
+      // Ödeme bilgilerini ekle
+      if (paymentMethod === 'card') {
+        orderData.cardInfo = cardInfo;
+      } else if (paymentMethod === 'wallet') {
+        // Cüzdan ile ödeme için mock cardInfo (backend validation için gerekli)
+        orderData.cardInfo = {
+          cardNumber: 'WALLET',
+          cardHolderName: 'WALLET_PAYMENT',
+          expiryMonth: '01',
+          expiryYear: '99',
+          cvv: '000',
+        };
+      }
+
       const response = await apiService.createWashOrder(orderData);
       
       if (response.success) {
         const orderId = response.data._id;
+        
+        // Cüzdan bakiyesini yenile
+        if (paymentMethod === 'wallet') {
+          await loadWalletBalance();
+        }
+        
         Alert.alert(
           'Sipariş Oluşturuldu!',
           'Yıkama siparişiniz başarıyla oluşturuldu. İşletme onayından sonra sizi bilgilendireceğiz.',
@@ -1283,10 +1349,17 @@ const WashBookingScreen = () => {
 
   const renderPayment = () => {
     console.log('🔍 renderPayment - pricing state:', pricing);
+    
+    // Fiyat verilerini güvenli hale getir
+    const safeSubtotal = typeof pricing?.subtotal === 'number' ? pricing.subtotal : 0;
+    const safeDistanceFee = typeof pricing?.distanceFee === 'number' ? pricing.distanceFee : 0;
+    const safeFinalPrice = typeof pricing?.finalPrice === 'number' ? pricing.finalPrice : 0;
+    const safeTefePuan = typeof tefePuanUsed === 'number' ? tefePuanUsed : 0;
+    
     return (
       <ScrollView style={styles.paymentScroll}>
         {/* Fiyat Özeti */}
-        {pricing && (
+        {pricing ? (
           <Card style={styles.stepCard}>
             <View style={styles.stepHeader}>
               <MaterialCommunityIcons name="cash" size={24} color={theme.colors.primary.main} />
@@ -1296,23 +1369,41 @@ const WashBookingScreen = () => {
             </View>
 
             <View style={styles.pricingBreakdown}>
-              {pricing?.breakdown && Object.keys(pricing.breakdown).length > 0 ? (
+              {pricing?.breakdown && typeof pricing.breakdown === 'object' && Object.keys(pricing.breakdown).length > 0 ? (
                 <>
-                  {Object.entries(pricing.breakdown).map(([key, value]) => (
-                    <View key={key} style={styles.pricingRow}>
-                      <Text style={[styles.pricingLabel, { color: theme.colors.text.secondary }]}>
-                        {String(key)}
-                      </Text>
-                      <Text style={[styles.pricingValue, { color: theme.colors.text.primary }]}>
-                        {String(value)}
-                      </Text>
-                    </View>
-                  ))}
+                  {Object.entries(pricing.breakdown).map(([key, value]) => {
+                    // Değerin güvenli string'e dönüştürülmesi
+                    let safeValue = '';
+                    if (value === null || value === undefined) {
+                      safeValue = '-';
+                    } else if (typeof value === 'object') {
+                      safeValue = JSON.stringify(value);
+                    } else if (typeof value === 'string') {
+                      safeValue = value;
+                    } else if (typeof value === 'number') {
+                      safeValue = String(value);
+                    } else {
+                      safeValue = String(value);
+                    }
+                    
+                    return (
+                      <View key={String(key)} style={styles.pricingRow}>
+                        <Text style={[styles.pricingLabel, { color: theme.colors.text.secondary }]}>
+                          {String(key)}
+                        </Text>
+                        <Text style={[styles.pricingValue, { color: theme.colors.text.primary }]}>
+                          {safeValue}
+                        </Text>
+                      </View>
+                    );
+                  })}
                 </>
               ) : (
-                <Text style={[styles.pricingLabel, { color: theme.colors.text.secondary }]}>
-                  Fiyat detayları hesaplanıyor...
-                </Text>
+                <View style={styles.pricingRow}>
+                  <Text style={[styles.pricingLabel, { color: theme.colors.text.secondary }]}>
+                    Fiyat detayları hesaplanıyor...
+                  </Text>
+                </View>
               )}
             </View>
             
@@ -1323,31 +1414,31 @@ const WashBookingScreen = () => {
                 Ara Toplam
               </Text>
               <Text style={[styles.pricingValue, { color: theme.colors.text.primary, fontWeight: 'bold' }]}>
-                {(pricing?.subtotal || 0).toFixed(2)} TL
+                {safeSubtotal.toFixed(2)} TL
               </Text>
             </View>
 
-            {(pricing?.distanceFee && pricing.distanceFee > 0) && (
+            {safeDistanceFee > 0 ? (
               <View style={styles.pricingRow}>
                 <Text style={[styles.pricingLabel, { color: theme.colors.text.secondary }]}>
                   Mesafe Ücreti
                 </Text>
                 <Text style={[styles.pricingValue, { color: theme.colors.text.primary }]}>
-                  {(pricing?.distanceFee || 0).toFixed(2)} TL
+                  {safeDistanceFee.toFixed(2)} TL
                 </Text>
               </View>
-            )}
+            ) : null}
 
-            {tefePuanUsed > 0 && (
+            {safeTefePuan > 0 ? (
               <View style={styles.pricingRow}>
                 <Text style={[styles.pricingLabel, { color: '#10B981' }]}>
                   TefePuan İndirimi
                 </Text>
                 <Text style={[styles.pricingValue, { color: '#10B981' }]}>
-                  -{tefePuanUsed} TL
+                  {`-${safeTefePuan} TL`}
                 </Text>
               </View>
-            )}
+            ) : null}
 
             <View style={[styles.pricingDivider, { backgroundColor: theme.colors.border.secondary }]} />
 
@@ -1356,11 +1447,11 @@ const WashBookingScreen = () => {
                 Toplam
               </Text>
               <Text style={[styles.pricingTotalValue, { color: theme.colors.primary.main }]}>
-                {((pricing?.finalPrice || 0) - tefePuanUsed).toFixed(2)} TL
+                {(safeFinalPrice - safeTefePuan).toFixed(2)} TL
               </Text>
             </View>
           </Card>
-        )}
+        ) : null}
 
         {/* Not */}
         <Card style={styles.stepCard}>
@@ -1397,17 +1488,108 @@ const WashBookingScreen = () => {
           </View>
         </Card>
 
-        {/* Ödeme Bilgileri */}
+        {/* Ödeme Yöntemi */}
         <Card style={styles.stepCard}>
           <View style={styles.stepHeader}>
-            <MaterialCommunityIcons name="credit-card" size={24} color={theme.colors.primary.main} />
+            <MaterialCommunityIcons name="wallet" size={24} color={theme.colors.primary.main} />
             <Text style={[styles.stepTitle, { color: theme.colors.text.primary }]}>
-              Ödeme Bilgileri
+              Ödeme Yöntemi
             </Text>
           </View>
 
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.colors.text.primary }]}>Kart Numarası</Text>
+          {/* Ödeme Yöntemi Seçimi */}
+          <View style={styles.paymentMethodContainer}>
+            {/* Cüzdan */}
+            <TouchableOpacity
+              style={[
+                styles.paymentMethodOption,
+                {
+                  borderColor: paymentMethod === 'wallet'
+                    ? theme.colors.primary.main
+                    : theme.colors.border.secondary,
+                  backgroundColor: paymentMethod === 'wallet'
+                    ? (theme.colors.primary.main || '#007AFF') + '10'
+                    : theme.colors.background.secondary,
+                }
+              ]}
+              onPress={() => setPaymentMethod('wallet')}
+            >
+              <View style={styles.paymentMethodHeader}>
+                <MaterialCommunityIcons
+                  name="wallet"
+                  size={32}
+                  color={paymentMethod === 'wallet' ? theme.colors.primary.main : theme.colors.text.secondary}
+                />
+                <View style={styles.paymentMethodInfo}>
+                  <Text style={[
+                    styles.paymentMethodTitle,
+                    { color: paymentMethod === 'wallet' ? theme.colors.primary.main : theme.colors.text.primary }
+                  ]}>
+                    Rektefe Cüzdan
+                  </Text>
+                  <Text style={[styles.paymentMethodBalance, { color: theme.colors.text.secondary }]}>
+                    Bakiye: {walletBalance.toFixed(2)} TL
+                  </Text>
+                </View>
+                {paymentMethod === 'wallet' && (
+                  <MaterialCommunityIcons name="check-circle" size={24} color={theme.colors.primary.main} />
+                )}
+              </View>
+              
+              {walletBalance < (safeFinalPrice - safeTefePuan) && (
+                <View style={styles.insufficientBalanceWarning}>
+                  <MaterialCommunityIcons name="alert-circle" size={16} color="#EF4444" />
+                  <Text style={styles.insufficientBalanceText}>
+                    Yetersiz bakiye
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            {/* Kart ile Ödeme */}
+            <TouchableOpacity
+              style={[
+                styles.paymentMethodOption,
+                {
+                  borderColor: paymentMethod === 'card'
+                    ? theme.colors.primary.main
+                    : theme.colors.border.secondary,
+                  backgroundColor: paymentMethod === 'card'
+                    ? (theme.colors.primary.main || '#007AFF') + '10'
+                    : theme.colors.background.secondary,
+                }
+              ]}
+              onPress={() => setPaymentMethod('card')}
+            >
+              <View style={styles.paymentMethodHeader}>
+                <MaterialCommunityIcons
+                  name="credit-card"
+                  size={32}
+                  color={paymentMethod === 'card' ? theme.colors.primary.main : theme.colors.text.secondary}
+                />
+                <View style={styles.paymentMethodInfo}>
+                  <Text style={[
+                    styles.paymentMethodTitle,
+                    { color: paymentMethod === 'card' ? theme.colors.primary.main : theme.colors.text.primary }
+                  ]}>
+                    Kredi/Banka Kartı
+                  </Text>
+                  <Text style={[styles.paymentMethodBalance, { color: theme.colors.text.secondary }]}>
+                    Güvenli ödeme
+                  </Text>
+                </View>
+                {paymentMethod === 'card' && (
+                  <MaterialCommunityIcons name="check-circle" size={24} color={theme.colors.primary.main} />
+                )}
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* Kart Formu - Sadece kart seçiliyse göster */}
+          {paymentMethod === 'card' && (
+            <>
+              <View style={styles.formGroup}>
+                <Text style={[styles.label, { color: theme.colors.text.primary }]}>Kart Numarası</Text>
             <TextInput
               style={[styles.input, { 
                 backgroundColor: theme.colors.background.secondary,
@@ -1492,11 +1674,26 @@ const WashBookingScreen = () => {
               />
             </View>
           </View>
+            </>
+          )}
 
-          <View style={[styles.escrowNotice, { backgroundColor: theme.colors.info.main + '10', borderColor: theme.colors.info.main }]}>
-            <MaterialCommunityIcons name="shield-check" size={20} color={theme.colors.info.main} />
-            <Text style={[styles.escrowNoticeText, { color: theme.colors.info.main }]}>
-              Ödemeniz güvenli bir şekilde tutulacak ve iş tamamlandıktan sonra işletmeye aktarılacaktır
+          {/* Güvenlik Bildirimi */}
+          <View style={[styles.escrowNotice, { 
+            backgroundColor: (theme.colors.info?.main || theme.colors.primary?.main || '#007AFF') + '10', 
+            borderColor: theme.colors.info?.main || theme.colors.primary?.main || '#007AFF' 
+          }]}>
+            <MaterialCommunityIcons 
+              name="shield-check" 
+              size={20} 
+              color={theme.colors.info?.main || theme.colors.primary?.main || '#007AFF'} 
+            />
+            <Text style={[styles.escrowNoticeText, { 
+              color: theme.colors.info?.main || theme.colors.primary?.main || '#007AFF' 
+            }]}>
+              {paymentMethod === 'wallet' 
+                ? 'Ödemeniz cüzdanınızdan güvenli bir şekilde kesilecek ve iş tamamlandıktan sonra işletmeye aktarılacaktır'
+                : 'Ödemeniz güvenli bir şekilde tutulacak ve iş tamamlandıktan sonra işletmeye aktarılacaktır'
+              }
             </Text>
           </View>
         </Card>
@@ -2412,6 +2609,46 @@ const styles = StyleSheet.create({
   tefePuanHint: {
     fontSize: 11,
     marginTop: 4,
+  },
+  // Ödeme yöntemi styles
+  paymentMethodContainer: {
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  paymentMethodOption: {
+    padding: 16,
+    borderWidth: 2,
+    borderRadius: 12,
+  },
+  paymentMethodHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  paymentMethodInfo: {
+    flex: 1,
+  },
+  paymentMethodTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  paymentMethodBalance: {
+    fontSize: 13,
+  },
+  insufficientBalanceWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    gap: 6,
+  },
+  insufficientBalanceText: {
+    fontSize: 12,
+    color: '#EF4444',
   },
   escrowNotice: {
     flexDirection: 'row',

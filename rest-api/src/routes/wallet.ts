@@ -147,44 +147,42 @@ router.get('/transactions', auth, async (req: Request, res: Response) => {
       });
     }
     
-    const limit = parseInt(req.query.limit as string) || 10;
+    const limit = parseInt(req.query.limit as string) || 50;
     
-    // Gerçek randevu verilerinden işlemleri getir
-    const appointments = await Appointment.find({
-      mechanicId: new Types.ObjectId(userId),
-      status: 'TAMAMLANDI'
-    })
-    .populate('userId', 'name surname')
-    .populate('vehicleId', 'brand modelName plateNumber')
-    .sort({ completionDate: -1 })
-    .limit(limit);
+    // Wallet'tan gerçek transaction'ları getir
+    const wallet = await Wallet.findOne({ userId });
     
-    // Transaction formatına dönüştür
-    const transactions = appointments.map((apt: any) => ({
-      _id: apt._id.toString(),
-      type: 'credit',
-      amount: apt.price || 0,
-      date: apt.completionDate || apt.appointmentDate,
-      description: apt.serviceType || 'Hizmet',
-      serviceType: apt.serviceType || 'Hizmet',
-      customerName: apt.userId ? `${apt.userId.name || ''} ${apt.userId.surname || ''}`.trim() : 'Müşteri',
-      vehicleInfo: apt.vehicleId 
-        ? `${apt.vehicleId.brand || ''} ${apt.vehicleId.modelName || ''} (${apt.vehicleId.plateNumber || ''})`.trim()
-        : 'Araç bilgisi yok',
-      status: 'completed',
-      appointmentId: apt._id.toString()
-    }));
+    if (!wallet) {
+      return res.json({
+        success: true,
+        data: [],
+        message: 'Cüzdan bulunamadı'
+      });
+    }
+    
+    // Transaction'ları tarihe göre sırala (en yeni önce) ve limit uygula
+    const transactions = wallet.transactions
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, limit)
+      .map((transaction: any) => ({
+        _id: transaction._id?.toString() || transaction.id?.toString() || Date.now().toString(),
+        type: transaction.type,
+        amount: transaction.amount,
+        date: transaction.date,
+        description: transaction.description,
+        status: transaction.status
+      }));
     
     res.json({
       success: true,
       data: transactions,
-      message: 'Wallet transactions başarıyla getirildi'
+      message: 'Cüzdan işlemleri başarıyla getirildi'
     });
   } catch (error: any) {
     console.error('❌ Transactions error:', error);
     res.status(500).json({
       success: false,
-      message: 'Wallet transactions getirilirken hata oluştu',
+      message: 'Cüzdan işlemleri getirilirken hata oluştu',
       error: error.message
     });
   }

@@ -882,6 +882,19 @@ export const apiService = {
       );
     }
   },
+  addBalance: async (amount: number) => {
+    try {
+      const response = await apiClient.post('/wallet/add-money', { amount });
+      return response.data;
+    } catch (error: any) {
+      console.error('Add balance error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        error.response?.data?.message || 'Bakiye yüklenirken hata oluştu',
+        error.response?.data?.error?.details
+      );
+    }
+  },
 
   // Services
   createTirePartsRequest: async (data: any) => {

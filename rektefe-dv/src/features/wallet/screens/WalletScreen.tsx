@@ -102,7 +102,7 @@ const WalletScreen = ({ navigation }: any) => {
   };
 
   const handleAddBalance = () => {
-    Alert.alert('Bilgi', 'Bakiye yükleme özelliği yakında eklenecek!');
+    navigation.navigate('AddBalance');
   };
 
   const handleShowQR = () => {
@@ -175,17 +175,19 @@ const WalletScreen = ({ navigation }: any) => {
 
   const getTransactionMerchant = (description: string): string => {
     const lowerDesc = description.toLowerCase();
+    if (lowerDesc.includes('bakiye') || lowerDesc.includes('yükleme')) return 'Cüzdan';
     if (lowerDesc.includes('garanti')) return 'Garanti BBVA';
     if (lowerDesc.includes('iş bankası')) return 'İş Bankası';
-    if (lowerDesc.includes('tefe')) return 'TEFE';
+    if (lowerDesc.includes('tefe')) return 'Rektefe';
     if (lowerDesc.includes('migros')) return 'Migros';
     if (lowerDesc.includes('usta')) return 'Ahmet Usta';
     if (lowerDesc.includes('garaj')) return 'Oto Garaj';
-    return 'Bilinmeyen';
+    return 'İşlem';
   };
 
   const getTransactionLocation = (description: string): string => {
     const lowerDesc = description.toLowerCase();
+    if (lowerDesc.includes('bakiye') || lowerDesc.includes('yükleme')) return 'Cüzdan';
     if (lowerDesc.includes('istanbul')) return 'İstanbul';
     if (lowerDesc.includes('ankara')) return 'Ankara';
     if (lowerDesc.includes('izmir')) return 'İzmir';
@@ -196,10 +198,20 @@ const WalletScreen = ({ navigation }: any) => {
   const formatTransactionDate = (dateString: string): string => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
-    if (diffDays === 0) return 'Bugün';
+    // Günleri karşılaştırmak için saat/dakika/saniye bilgisini sıfırla
+    const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const nowOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    const diffTime = nowOnly.getTime() - dateOnly.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      // Bugün - saat bilgisini de göster
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
+      return `Bugün ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    }
     if (diffDays === 1) return 'Dün';
     if (diffDays < 7) return `${diffDays} gün önce`;
     
@@ -646,83 +658,118 @@ const WalletScreen = ({ navigation }: any) => {
                   </Text>
                 </View>
               ) : (
-                transactions.map((transaction) => (
-                  <TouchableOpacity 
-                    key={transaction._id} 
-                    style={[
-                      styles.transactionItem,
-                      { 
-                        backgroundColor: isDark ? themeColors.background.tertiary : themeColors.background.secondary,
-                        borderColor: isDark ? themeColors.border.tertiary : themeColors.border.primary,
-                      }
-                    ]}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[
-                      styles.transactionIcon,
-                      { backgroundColor: getCategoryColor(getTransactionCategory(transaction.description)) + '20' }
-                    ]}>
-                      <MaterialCommunityIcons 
-                        name={getCategoryIcon(getTransactionCategory(transaction.description)) as any} 
-                        size={20} 
-                        color={getCategoryColor(getTransactionCategory(transaction.description))} 
-                      />
-                    </View>
-                    
-                    <View style={styles.transactionContent}>
-                      <Text style={[styles.transactionTitle, { 
-                        color: themeColors.text.primary 
-                      }]}> 
-                        {transaction.description}
-                      </Text>
-                      <Text style={[styles.transactionSubtitle, { 
-                        color: isDark ? themeColors.text.quaternary : themeColors.text.tertiary 
-                      }]}>
-                        {transaction.type === 'credit' ? 'Gelir' : 'Gider'}
-                      </Text>
-                      <View style={styles.transactionMeta}>
-                        <View style={styles.transactionMetaLeft}>
-                          <Text style={[styles.transactionMerchant, { 
-                            color: isDark ? themeColors.text.quaternary : themeColors.text.tertiary 
-                          }]}>
-                            {getTransactionMerchant(transaction.description)}
-                          </Text>
-                          <Text style={[styles.transactionLocation, { 
-                            color: isDark ? themeColors.text.quaternary : themeColors.text.tertiary 
-                          }]}>
-                            📍 {getTransactionLocation(transaction.description)}
-                          </Text>
+                transactions.map((transaction) => {
+                  const category = getTransactionCategory(transaction.description);
+                  const isWalletTopup = category === 'yükleme';
+                  const isCredit = transaction.type === 'credit';
+                  
+                  return (
+                    <View 
+                      key={transaction._id} 
+                      style={[
+                        styles.transactionItem,
+                        { 
+                          backgroundColor: isDark ? themeColors.background.tertiary : themeColors.background.primary,
+                          borderLeftWidth: 4,
+                          borderLeftColor: getCategoryColor(category),
+                        }
+                      ]}
+                    >
+                      <View style={styles.transactionRow}>
+                        <View style={[
+                          styles.transactionIconContainer,
+                          { 
+                            backgroundColor: getCategoryColor(category) + (isDark ? '25' : '15'),
+                          }
+                        ]}>
+                          <MaterialCommunityIcons 
+                            name={getCategoryIcon(category) as any} 
+                            size={24} 
+                            color={getCategoryColor(category)} 
+                          />
                         </View>
-                        <Text style={[styles.transactionDate, { 
-                          color: isDark ? themeColors.text.quaternary : themeColors.text.tertiary 
-                        }]}>
-                          {formatTransactionDate(transaction.date)}
-                        </Text>
+                        
+                        <View style={styles.transactionMainContent}>
+                          <View style={styles.transactionTopRow}>
+                            <View style={styles.transactionInfo}>
+                              <Text style={[styles.transactionTitle, { 
+                                color: themeColors.text.primary,
+                              }]}> 
+                                {transaction.description}
+                              </Text>
+                              <Text style={[styles.transactionMerchant, { 
+                                color: isDark ? themeColors.text.quaternary : themeColors.text.tertiary 
+                              }]}>
+                                {getTransactionMerchant(transaction.description)}
+                              </Text>
+                            </View>
+                            
+                            <View style={styles.transactionAmountContainer}>
+                              <Text style={[
+                                styles.transactionAmountText,
+                                { 
+                                  color: isCredit ? themeColors.success.main : themeColors.error.main,
+                                }
+                              ]}>
+                                {isCredit ? '+' : '-'}{Math.abs(isCredit ? transaction.amount : -transaction.amount).toFixed(2)} ₺
+                              </Text>
+                            </View>
+                          </View>
+                          
+                          <View style={styles.transactionBottomRow}>
+                            <View style={styles.transactionMetaRow}>
+                              {transaction.status === 'pending' && (
+                                <View style={[styles.statusChip, { 
+                                  backgroundColor: isDark ? 'rgba(255, 193, 7, 0.2)' : 'rgba(255, 193, 7, 0.1)',
+                                  borderColor: themeColors.warning.main,
+                                }]}>
+                                  <View style={[styles.statusDot, { backgroundColor: themeColors.warning.main }]} />
+                                  <Text style={[styles.statusChipText, { color: themeColors.warning.main }]}>
+                                    Beklemede
+                                  </Text>
+                                </View>
+                              )}
+                              {transaction.status === 'completed' && (
+                                <View style={[styles.statusChip, { 
+                                  backgroundColor: isDark ? 'rgba(76, 175, 80, 0.2)' : 'rgba(76, 175, 80, 0.1)',
+                                  borderColor: themeColors.success.main,
+                                }]}>
+                                  <View style={[styles.statusDot, { backgroundColor: themeColors.success.main }]} />
+                                  <Text style={[styles.statusChipText, { color: themeColors.success.main }]}>
+                                    Tamamlandı
+                                  </Text>
+                                </View>
+                              )}
+                              <Text style={[styles.transactionDate, { 
+                                color: isDark ? themeColors.text.quaternary : themeColors.text.tertiary,
+                                marginLeft: spacing.sm,
+                              }]}>
+                                {formatTransactionDate(transaction.date)}
+                              </Text>
+                            </View>
+                            
+                            <View style={[styles.transactionTypeChip, {
+                              backgroundColor: isCredit 
+                                ? (isDark ? 'rgba(76, 175, 80, 0.15)' : 'rgba(76, 175, 80, 0.1)')
+                                : (isDark ? 'rgba(244, 67, 54, 0.15)' : 'rgba(244, 67, 54, 0.1)'),
+                            }]}>
+                              <MaterialCommunityIcons 
+                                name={isCredit ? 'arrow-down-left' : 'arrow-up-right'} 
+                                size={12} 
+                                color={isCredit ? themeColors.success.main : themeColors.error.main}
+                              />
+                              <Text style={[styles.transactionTypeChipText, { 
+                                color: isCredit ? themeColors.success.main : themeColors.error.main
+                              }]}>
+                                {isCredit ? 'Gelir' : 'Gider'}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
                       </View>
                     </View>
-                    
-                    <View style={styles.transactionAmount}>
-                      <Text style={[
-                        styles.transactionAmountText,
-                        { color: getTransactionColor(transaction.type) }
-                      ]}>
-                        {formatCurrency(transaction.type === 'credit' ? transaction.amount : -transaction.amount)}
-                      </Text>
-                      <View style={styles.transactionTypeIndicator}>
-                        <MaterialCommunityIcons 
-                          name={getTransactionIcon(transaction.type)} 
-                          size={14} 
-                          color={getTransactionColor(transaction.type)} 
-                        />
-                        <Text style={[styles.transactionTypeText, { 
-                          color: getTransactionColor(transaction.type) 
-                        }]}>
-                          {transaction.type === 'credit' ? 'Gelir' : 'Gider'}
-                        </Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                ))
+                  );
+                })
               )}
             </View>
           </Animated.View>
@@ -1123,76 +1170,103 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   transactionsList: {
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   transactionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    marginBottom: spacing.xs,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.05,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 2,
   },
-  transactionIcon: {
+  transactionRow: {
+    flexDirection: 'row',
+    padding: spacing.lg,
+  },
+  transactionIconContainer: {
     width: 48,
     height: 48,
-    borderRadius: borderRadius.round,
+    borderRadius: borderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
   },
-  transactionContent: {
+  transactionMainContent: {
     flex: 1,
+  },
+  transactionTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.sm,
+  },
+  transactionInfo: {
+    flex: 1,
+    marginRight: spacing.md,
   },
   transactionTitle: {
     fontSize: typography.fontSizes.md,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  transactionSubtitle: {
-    fontSize: typography.fontSizes.sm,
-    marginBottom: spacing.xs,
-  },
-  transactionMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  transactionMetaLeft: {
-    flex: 1,
+    fontWeight: '700',
+    marginBottom: spacing.xs / 2,
+    lineHeight: 20,
   },
   transactionMerchant: {
-    fontSize: typography.fontSizes.xs,
+    fontSize: typography.fontSizes.sm,
     fontWeight: '500',
-    marginBottom: spacing.xs,
+    lineHeight: 18,
   },
-  transactionLocation: {
+  transactionAmountContainer: {
+    alignItems: 'flex-end',
+  },
+  transactionAmountText: {
+    fontSize: typography.fontSizes.lg,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  transactionBottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  transactionMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  statusChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    borderRadius: borderRadius.round,
+    borderWidth: 1,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: spacing.xs / 2,
+  },
+  statusChipText: {
     fontSize: typography.fontSizes.xs,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   transactionDate: {
     fontSize: typography.fontSizes.xs,
     fontWeight: '500',
-    textAlign: 'right',
   },
-  transactionAmount: {
-    alignItems: 'flex-end',
-  },
-  transactionAmountText: {
-    fontSize: typography.fontSizes.md,
-    fontWeight: '700',
-    marginBottom: spacing.xs,
-  },
-  transactionTypeIndicator: {
+  transactionTypeChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    borderRadius: borderRadius.round,
+    gap: spacing.xs / 2,
   },
-  transactionTypeText: {
+  transactionTypeChipText: {
     fontSize: typography.fontSizes.xs,
     fontWeight: '600',
   },

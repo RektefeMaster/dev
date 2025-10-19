@@ -145,6 +145,7 @@ export class WashService {
     };
     laneId?: string;
     tefePuanUsed?: number;
+    paymentMethod?: 'wallet' | 'card';
     cardInfo: {
       cardNumber: string;
       cardHolderName: string;
@@ -152,6 +153,12 @@ export class WashService {
       expiryYear: string;
       cvv: string;
     };
+    extras?: Array<{
+      name: string;
+      price: number;
+      duration: number;
+    }>;
+    note?: string;
   }) {
     try {
       // Paketi getir
@@ -191,15 +198,77 @@ export class WashService {
       const tefePuanDiscount = tefePuanUsed; // 1 puan = 1 TL
       const finalPrice = Math.max(0, quote.data.pricing.finalPrice - tefePuanDiscount);
 
-      // Escrow ile ödeme tut (MOCK)
-      const escrowResult = await EscrowService.mockHold({
-        orderId: `TEMP_${Date.now()}`, // Geçici ID
-        amount: finalPrice,
-        cardInfo: data.cardInfo,
-      });
+      const paymentMethod = data.paymentMethod || 'card';
 
-      if (!escrowResult.success) {
-        throw new CustomError('Ödeme işlemi başarısız', 400);
+      // Ödeme işlemi
+      let escrowResult;
+      
+      if (paymentMethod === 'wallet') {
+        // Cüzdan ile ödeme - MongoDB transaction ile atomik işlem
+        const { Wallet } = require('../models/Wallet');
+        const mongoose = require('mongoose');
+        
+        const session = await mongoose.startSession();
+        
+        try {
+          await session.startTransaction();
+          
+          // Wallet'ı bul ve bakiye kontrolü
+          const wallet = await Wallet.findOne({ userId: data.driverId }).session(session);
+          
+          if (!wallet || wallet.balance < finalPrice) {
+            await session.abortTransaction();
+            throw new CustomError('Cüzdan bakiyeniz yetersiz', 400);
+          }
+          
+          // Transaction kaydı oluştur
+          const transaction = {
+            type: 'debit' as const,
+            amount: finalPrice,
+            description: `Araç yıkama ödemesi - ${washPackage.name}`,
+            date: new Date(),
+            status: 'completed' as const,
+            orderNumber: `WSH-${Date.now()}`,
+          };
+          
+          // Bakiyeyi atomik olarak kes
+          await Wallet.findOneAndUpdate(
+            { userId: data.driverId },
+            {
+              $inc: { balance: -finalPrice },
+              $push: { transactions: transaction }
+            },
+            { session, new: true }
+          );
+          
+          await session.commitTransaction();
+          
+          // Escrow sonucu
+          escrowResult = {
+            success: true,
+            escrowId: `WALLET_ESCROW_${Date.now()}`,
+            amount: finalPrice,
+            status: 'held',
+            transactionId: transaction.orderNumber,
+          };
+          
+        } catch (error) {
+          await session.abortTransaction();
+          throw error;
+        } finally {
+          await session.endSession();
+        }
+      } else {
+        // Kart ile ödeme (MOCK)
+        escrowResult = await EscrowService.mockHold({
+          orderId: `TEMP_${Date.now()}`,
+          amount: finalPrice,
+          cardInfo: data.cardInfo,
+        });
+
+        if (!escrowResult.success) {
+          throw new CustomError('Ödeme işlemi başarısız', 400);
+        }
       }
 
       // Sipariş numarası oluştur
@@ -227,7 +296,7 @@ export class WashService {
           name: washPackage.name,
           basePrice: washPackage.basePrice,
           duration: washPackage.duration,
-          extras: [],
+          extras: data.extras || [],
         },
         location: {
           address: data.location.address,
@@ -268,13 +337,15 @@ export class WashService {
           })),
         },
         escrow: {
-          transactionId: escrowResult.transactionId,
+          transactionId: escrowResult.transactionId || escrowResult.escrowId,
           status: 'held',
           amount: finalPrice,
-          cardLast4: data.cardInfo.cardNumber.slice(-4),
+          cardLast4: paymentMethod === 'wallet' ? 'WALLET' : data.cardInfo.cardNumber.slice(-4),
           heldAt: new Date(),
           mockCard: true,
+          paymentMethod,
         },
+        driverNote: data.note,
         tefePuanEarned: Math.floor(finalPrice * 0.05), // %5 puan kazanımı
       });
 
@@ -283,6 +354,23 @@ export class WashService {
       // Provider metriklerini güncelle
       provider.metrics.totalJobs += 1;
       await provider.save();
+
+      // TefePuan kazandır (transaction dışında, başarısızlık siparişi engellemez)
+      try {
+        const { TefePointService } = require('./tefePoint.service');
+        await TefePointService.processPaymentTefePoints({
+          userId: data.driverId,
+          amount: finalPrice,
+          paymentType: 'wash',
+          serviceCategory: 'car_wash',
+          description: `Araç yıkama ödemesi - ${washPackage.name}`,
+          serviceId: order._id.toString(),
+          appointmentId: order._id.toString()
+        });
+      } catch (tefeError) {
+        console.error('TefePuan kazandırma hatası:', tefeError);
+        // TefePuan hatası siparişi engellemez
+      }
 
       return {
         success: true,

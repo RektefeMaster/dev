@@ -28,6 +28,7 @@ export interface IWashOrder extends Document {
     extras: Array<{
       name: string;
       price: number;
+      duration: number;
     }>;
   };
 
@@ -126,12 +127,16 @@ export interface IWashOrder extends Document {
     status: 'pending' | 'held' | 'captured' | 'refunded' | 'frozen';
     amount: number;
     cardLast4?: string; // Test için
+    paymentMethod?: 'wallet' | 'card'; // Ödeme yöntemi
     heldAt?: Date;
     capturedAt?: Date;
     refundedAt?: Date;
     frozenAt?: Date;
     mockCard: boolean; // Test modu işareti
   };
+
+  // Sürücü notu
+  driverNote?: string;
 
   // İptal bilgileri
   cancellation?: {
@@ -215,6 +220,7 @@ const WashOrderSchema = new Schema<IWashOrder>(
       extras: [{
         name: String,
         price: Number,
+        duration: Number,
       }],
     },
     location: {
@@ -317,12 +323,18 @@ const WashOrderSchema = new Schema<IWashOrder>(
       },
       amount: { type: Number, required: true },
       cardLast4: String,
+      paymentMethod: {
+        type: String,
+        enum: ['wallet', 'card'],
+        default: 'card',
+      },
       heldAt: Date,
       capturedAt: Date,
       refundedAt: Date,
       frozenAt: Date,
       mockCard: { type: Boolean, default: true },
     },
+    driverNote: String,
     cancellation: {
       cancelledBy: {
         type: String,
