@@ -530,3 +530,27 @@ export interface TodaySchedule {
   nextAppointment?: Appointment;
   totalScheduled: number;
 }
+
+// ===== TIRE SERVICE TYPES =====
+export {
+  TireServiceType,
+  TireCondition,
+  TireServiceStatus,
+  TireSeason
+} from './tire';
+
+export type {
+  TireDetails,
+  VehicleInfo as TireVehicleInfo,
+  LocationInfo as TireLocationInfo,
+  PriceQuote,
+  WarrantyInfo,
+  PartInfo,
+  TireServiceRequest,
+  TireHealthRecord,
+  TireServiceStats,
+  TireServiceResponse,
+  TireMaintenanceReminder,
+  TireStock,
+  PriceCalculationParams
+} from './tire';

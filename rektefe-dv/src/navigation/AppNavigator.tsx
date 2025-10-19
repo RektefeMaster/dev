@@ -43,6 +43,8 @@ import EmergencyTrackingScreen from '@/features/towing/screens/EmergencyTracking
 import WashBookingScreen from '@/features/services/screens/WashBookingScreen';
 import WashTrackingScreen from '@/features/services/screens/WashTrackingScreen';
 import TirePartsScreen from '@/features/services/screens/TirePartsScreen';
+import TireServiceTrackingScreen from '@/features/services/screens/TireServiceTrackingScreen';
+import TireHealthScreen from '@/features/services/screens/TireHealthScreen';
 import CampaignDetailScreen from '@/features/campaigns/screens/CampaignDetailScreen';
 
 export type RootStackParamList = {
@@ -138,6 +140,8 @@ export type RootStackParamList = {
   WashBooking: undefined;
   WashTracking: { orderId: string };
   TireParts: undefined;
+  TireServiceTracking: { jobId: string };
+  TireHealth: { vehicleId?: string };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -333,6 +337,20 @@ const AppNavigator = () => {
         <Stack.Screen 
           name="TireParts" 
           component={TirePartsScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="TireServiceTracking" 
+          component={TireServiceTrackingScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="TireHealth" 
+          component={TireHealthScreen}
           options={{
             headerShown: false,
           }}

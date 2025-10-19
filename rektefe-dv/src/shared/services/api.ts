@@ -83,12 +83,13 @@ const processQueue = (error: any, token: string | null = null) => {
 apiClient.interceptors.response.use(
   (response) => {
     // Success response'ları logla
-    console.log(`API Success: ${response.config.method?.toUpperCase()} ${response.config.url} - ${response.status}`);
+    console.log(`✅ API Success: ${response.config.method?.toUpperCase()} ${response.config.url} - ${response.status}`);
     return response;
   },
   async (error) => {
     // Error response'ları logla
-    console.error(`API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${error.response?.status}`);
+    console.error(`❌ API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${error.response?.status}`);
+    console.error('❌ Error Details:', error.response?.data);
     
     const originalRequest = error.config;
     
@@ -96,6 +97,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         // Başka bir request zaten refresh yapıyorsa bekle
+        console.log('⏳ Token yenileme devam ediyor, kuyrukta bekleniyor...');
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         }).then(token => {
@@ -113,50 +115,81 @@ apiClient.interceptors.response.use(
         const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
         
         if (!refreshToken) {
+          console.error('❌ Refresh token bulunamadı');
           throw new Error('No refresh token');
         }
 
         console.log('🔄 Token yenileniyor...');
+        console.log('🔍 Refresh Token Preview:', refreshToken.substring(0, 20) + '...');
         
         // Refresh token endpoint'ini çağır
         const response = await axios.post(
           `${API_CONFIG.BASE_URL}/auth/refresh-token`,
-          { refreshToken }
+          { refreshToken },
+          { timeout: 10000 } // 10 saniye timeout
         );
+
+        console.log('🔍 Refresh Response:', response.data);
 
         if (response.data.success && response.data.data?.token) {
           const newToken = response.data.data.token;
           const newRefreshToken = response.data.data.refreshToken;
+          const userData = response.data.data.user;
+
+          console.log('✅ Yeni token alındı');
+          console.log('🔍 New Token Preview:', newToken.substring(0, 20) + '...');
+          console.log('🔍 New Refresh Token:', newRefreshToken ? 'Mevcut' : 'Yok');
+          console.log('🔍 User Data:', userData ? 'Mevcut' : 'Yok');
 
           // Yeni token'ları kaydet
           await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, newToken);
           if (newRefreshToken) {
             await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
           }
+          
+          // User data ve userId'yi de güncelle
+          if (userData) {
+            await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
+            if (userData._id || userData.id) {
+              await AsyncStorage.setItem(STORAGE_KEYS.USER_ID, userData._id || userData.id);
+            }
+          }
 
           // Header'ı güncelle
           apiClient.defaults.headers.common['Authorization'] = 'Bearer ' + newToken;
           originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
 
-          console.log('✅ Token yenilendi');
+          console.log('✅ Token başarıyla yenilendi ve kaydedildi');
           
           processQueue(null, newToken);
           isRefreshing = false;
 
           // Original request'i yeniden dene
           return apiClient(originalRequest);
+        } else {
+          console.error('❌ Refresh response başarısız:', response.data);
+          throw new Error('Token yenileme başarısız: Invalid response');
         }
-      } catch (refreshError) {
-        console.error('❌ Token yenileme başarısız, logout yapılıyor');
+      } catch (refreshError: any) {
+        console.error('❌ Token yenileme başarısız:', refreshError.message);
+        console.error('❌ Error Response:', refreshError.response?.data);
+        
         processQueue(refreshError, null);
         isRefreshing = false;
         
-        // Refresh başarısız, logout yap
-        await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-        await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-        await AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA);
+        // Refresh başarısız olduğunda tüm auth data'yı temizle
+        console.log('🚪 Token yenilenemedi, oturum sonlandırılıyor...');
+        await AsyncStorage.multiRemove([
+          STORAGE_KEYS.AUTH_TOKEN,
+          STORAGE_KEYS.REFRESH_TOKEN,
+          STORAGE_KEYS.USER_DATA,
+          STORAGE_KEYS.USER_ID
+        ]);
         
-        return Promise.reject(refreshError);
+        // Hata döndür - kullanıcıya logout mesajı gösterilebilir
+        const customError = new Error('Oturumunuz sonlandırıldı. Lütfen tekrar giriş yapın.');
+        (customError as any).isAuthError = true;
+        return Promise.reject(customError);
       }
     }
     
@@ -172,22 +205,53 @@ export const AuthService = {
    */
   async register(data: RegisterData): Promise<ApiResponse<{ user: Driver; token: string }>> {
     try {
+      console.log('🔍 Register işlemi başlatılıyor...');
       const response = await apiClient.post('/auth/register', {
         ...data,
         userType: UserType.DRIVER
       });
       
+      console.log('🔍 Register response:', response.data);
+      
       // Token'ları storage'a kaydet
-      if (response.data.success && response.data.data.token) {
-        await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, response.data.data.token);
-        if (response.data.data.refreshToken) {
-          await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, response.data.data.refreshToken);
+      if (response.data.success && response.data.data) {
+        const token = response.data.data.token;
+        const refreshToken = response.data.data.refreshToken;
+        const userData = response.data.data.user;
+        const userId = userData?._id || userData?.id;
+        
+        console.log('🔍 Register - Token bilgileri:');
+        console.log('  - token:', token ? `${token.substring(0, 20)}...` : 'YOK');
+        console.log('  - refreshToken:', refreshToken ? `${refreshToken.substring(0, 20)}...` : 'YOK');
+        console.log('  - userId:', userId);
+        
+        if (token) {
+          await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+          console.log('✅ Auth token kaydedildi');
+        }
+        
+        if (refreshToken) {
+          await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+          console.log('✅ Refresh token kaydedildi');
+        } else {
+          console.error('❌ KRİTİK: Refresh token register response\'unda yok!');
+        }
+        
+        if (userId) {
+          await AsyncStorage.setItem(STORAGE_KEYS.USER_ID, userId);
+          console.log('✅ User ID kaydedildi');
+        }
+        
+        if (userData) {
+          await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
+          console.log('✅ User data kaydedildi');
         }
       }
       
       return response.data;
     } catch (error: any) {
-      console.error('Register error:', error);
+      console.error('❌ Register error:', error);
+      console.error('❌ Register error response:', error.response?.data);
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Kayıt işlemi sırasında bir hata oluştu',
@@ -201,26 +265,57 @@ export const AuthService = {
    */
   async login(email: string, password: string): Promise<ApiResponse<{ user: Driver; token: string }>> {
     try {
+      console.log('🔍 AuthService.login çağrılıyor...');
       const response = await apiClient.post('/auth/login', {
         email,
         password,
         userType: UserType.DRIVER
       });
       
+      console.log('🔍 Login response:', response.data);
+      
       // Token'ları storage'a kaydet
-      if (response.data.success && response.data.data.token) {
-        await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, response.data.data.token);
-        if (response.data.data.refreshToken) {
-          await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, response.data.data.refreshToken);
+      if (response.data.success && response.data.data) {
+        const token = response.data.data.token;
+        const refreshToken = response.data.data.refreshToken;
+        const userData = response.data.data.user;
+        const userId = response.data.data.userId || userData?._id || userData?.id;
+        
+        console.log('🔍 Login - Token bilgileri:');
+        console.log('  - token:', token ? `${token.substring(0, 20)}...` : 'YOK');
+        console.log('  - refreshToken:', refreshToken ? `${refreshToken.substring(0, 20)}...` : 'YOK');
+        console.log('  - userId:', userId);
+        
+        if (token) {
+          await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+          console.log('✅ Auth token kaydedildi');
+        }
+        
+        if (refreshToken) {
+          await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+          console.log('✅ Refresh token kaydedildi');
+        } else {
+          console.error('❌ KRİTİK: Refresh token login response\'unda yok!');
+        }
+        
+        if (userId) {
+          await AsyncStorage.setItem(STORAGE_KEYS.USER_ID, userId);
+          console.log('✅ User ID kaydedildi');
+        }
+        
+        if (userData) {
+          await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
+          console.log('✅ User data kaydedildi');
         }
       }
       
       return response.data;
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error('❌ Login error:', error);
+      console.error('❌ Login error response:', error.response?.data);
       return createErrorResponse(
         ErrorCode.INVALID_CREDENTIALS,
-        'Giriş bilgileri hatalı',
+        error.response?.data?.message || 'Giriş bilgileri hatalı',
         error.response?.data?.error?.details
       );
     }
@@ -228,29 +323,53 @@ export const AuthService = {
 
   /**
    * Token yenileme
+   * NOT: Bu fonksiyon genellikle response interceptor tarafından otomatik çağrılır
    */
   async refreshToken(): Promise<ApiResponse<{ token: string }>> {
     try {
       const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
       if (!refreshToken) {
+        console.error('❌ Refresh token bulunamadı');
         throw new Error('Refresh token not found');
       }
       
+      console.log('🔄 Manual refresh token işlemi başlatılıyor...');
       const response = await apiClient.post('/auth/refresh-token', {
         refreshToken
       });
       
-      // Yeni token'ı storage'a kaydet
-      if (response.data.success && response.data.data.token) {
-        await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, response.data.data.token);
-        if (response.data.data.refreshToken) {
-          await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, response.data.data.refreshToken);
+      console.log('🔍 Refresh response:', response.data);
+      
+      // Yeni token'ları storage'a kaydet
+      if (response.data.success && response.data.data) {
+        const token = response.data.data.token;
+        const newRefreshToken = response.data.data.refreshToken;
+        const userData = response.data.data.user;
+        const userId = userData?._id || userData?.id;
+        
+        if (token) {
+          await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+          console.log('✅ Yeni token kaydedildi');
+        }
+        
+        if (newRefreshToken) {
+          await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
+          console.log('✅ Yeni refresh token kaydedildi');
+        }
+        
+        if (userId) {
+          await AsyncStorage.setItem(STORAGE_KEYS.USER_ID, userId);
+        }
+        
+        if (userData) {
+          await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
         }
       }
       
       return response.data;
     } catch (error: any) {
-      console.error('Refresh token error:', error);
+      console.error('❌ Refresh token error:', error);
+      console.error('❌ Error response:', error.response?.data);
       return createErrorResponse(
         ErrorCode.REFRESH_TOKEN_EXPIRED,
         'Token yenileme başarısız',
@@ -264,13 +383,22 @@ export const AuthService = {
    */
   async logout(): Promise<void> {
     try {
+      console.log('🚪 Logout işlemi başlatılıyor...');
       await apiClient.post('/auth/logout');
+      console.log('✅ Backend\'e logout bildirimi gönderildi');
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('❌ Logout API hatası:', error);
+      // API hatası olsa bile devam et, storage'ı temizle
     } finally {
-      // Token'ları temizle
-      await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-      await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+      // Tüm auth verilerini temizle
+      console.log('🧹 Storage temizleniyor...');
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.AUTH_TOKEN,
+        STORAGE_KEYS.REFRESH_TOKEN,
+        STORAGE_KEYS.USER_ID,
+        STORAGE_KEYS.USER_DATA
+      ]);
+      console.log('✅ Logout tamamlandı, tüm veriler temizlendi');
     }
   }
 };
@@ -665,10 +793,14 @@ export const apiService = {
   // Mechanics
   getMechanics: async (filters?: any) => {
     try {
+      console.log('🔍 getMechanics çağrıldı, filters:', filters);
       const response = await apiClient.get('/mechanic/list', { params: filters });
+      console.log('🔍 getMechanics yanıtı:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('Get mechanics error:', error);
+      console.error('❌ Get mechanics error:', error);
+      console.error('❌ Get mechanics error response:', error.response?.data);
+      console.error('❌ Get mechanics error status:', error.response?.status);
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Usta listesi alınamadı',
@@ -1286,6 +1418,83 @@ export const apiService = {
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Kapak fotoğrafı yüklenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  // ===== TIRE SERVICE =====
+
+  // Lastik hizmet talebi oluştur
+  createTireServiceRequest: async (data: any) => {
+    try {
+      const response = await apiClient.post('/tire-service/request', data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Create tire service request error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Lastik hizmet talebi oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  // Kendi lastik taleplerimi getir
+  getMyTireRequests: async (params?: { status?: string; includeCompleted?: boolean }) => {
+    try {
+      const response = await apiClient.get('/tire-service/my-requests', { params });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get my tire requests error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Lastik talepleri getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  // Lastik işi detayını getir
+  getTireServiceById: async (jobId: string) => {
+    try {
+      const response = await apiClient.get(`/tire-service/${jobId}/status`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Get tire service by ID error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Lastik iş detayı getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  // Lastik sağlık geçmişi getir
+  getTireHealthHistory: async (vehicleId: string) => {
+    try {
+      const response = await apiClient.get(`/tire-service/health-history/${vehicleId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Get tire health history error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Lastik sağlık geçmişi getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  // Lastik & Parça talebi oluştur (Eski endpoint ile uyumluluk için)
+  createTirePartsRequest: async (data: any) => {
+    try {
+      const response = await apiClient.post('/service-requests/tire-parts', data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Create tire parts request error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Lastik & Parça talebi oluşturulamadı',
         error.response?.data?.error?.details
       );
     }

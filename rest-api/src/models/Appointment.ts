@@ -48,6 +48,20 @@ export interface IAppointment extends Document {
   quantity?: number; // Miktar
   estimatedPrice?: number; // Tahmini fiyat
   
+  // Lastik hizmeti için özel alanlar
+  tireServiceType?: 'tire_change' | 'tire_repair' | 'tire_balance' | 'tire_alignment' | 'tire_inspection' | 'tire_purchase' | 'tire_rotation' | 'tire_pressure_check';
+  tireBrand?: string; // Lastik markası
+  tireModel?: string; // Lastik modeli
+  season?: 'summer' | 'winter' | 'all-season'; // Lastik mevsimi
+  tireCondition?: 'new' | 'used' | 'good' | 'fair' | 'poor' | 'damaged' | 'worn'; // Lastik durumu
+  warrantyInfo?: {
+    duration: number; // ay cinsinden
+    conditions: string[];
+  };
+  isMobileService?: boolean; // Mobil hizmet mi?
+  isUrgent?: boolean; // Acil mi?
+  specialRequests?: string; // Özel istekler
+  
   // Yeni alanlar
   parcaBekleniyor?: boolean;
   kdvDahil?: boolean;
@@ -266,6 +280,46 @@ const AppointmentSchema: Schema = new Schema({
   estimatedPrice: {
     type: Number
   },
+  
+  // Lastik hizmeti için özel alanlar
+  tireServiceType: {
+    type: String,
+    enum: ['tire_change', 'tire_repair', 'tire_balance', 'tire_alignment', 'tire_inspection', 'tire_purchase', 'tire_rotation', 'tire_pressure_check']
+  },
+  tireBrand: {
+    type: String
+  },
+  tireModel: {
+    type: String
+  },
+  season: {
+    type: String,
+    enum: ['summer', 'winter', 'all-season']
+  },
+  tireCondition: {
+    type: String,
+    enum: ['new', 'used', 'good', 'fair', 'poor', 'damaged', 'worn']
+  },
+  warrantyInfo: {
+    duration: {
+      type: Number
+    },
+    conditions: [{
+      type: String
+    }]
+  },
+  isMobileService: {
+    type: Boolean,
+    default: false
+  },
+  isUrgent: {
+    type: Boolean,
+    default: false
+  },
+  specialRequests: {
+    type: String
+  },
+  
   // Yeni alanlar
   parcaBekleniyor: {
     type: Boolean,

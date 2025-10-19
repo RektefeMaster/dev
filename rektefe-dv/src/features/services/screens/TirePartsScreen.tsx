@@ -7,11 +7,10 @@ import {
   TouchableOpacity,
   Alert,
   SafeAreaView,
-  TextInput,
-  Modal,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -26,20 +25,20 @@ import LocationService, { UserLocation } from '../../../shared/services/location
 
 type TirePartsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'TireParts'>;
 
-interface TirePart {
+interface TireService {
   id: string;
   name: string;
   description: string;
   icon: string;
   color: string;
-  requiresSpecs: boolean;
 }
 
 interface VehicleInfo {
+  vehicleId: string;
   brand: string;
   model: string;
-  year: string;
-  engine: string;
+  year: number;
+  plateNumber: string;
 }
 
 const TirePartsScreen = () => {
@@ -47,684 +46,761 @@ const TirePartsScreen = () => {
   const navigation = useNavigation<TirePartsScreenNavigationProp>();
   
   // State
+  const [step, setStep] = useState<1 | 2 | 3>(1); // 1: Hizmet seç, 2: Detaylar, 3: Usta seç
   const [loading, setLoading] = useState(false);
-  const [selectedPart, setSelectedPart] = useState<string>('');
-  const [vehicleInfo, setVehicleInfo] = useState<VehicleInfo>({
-    brand: '',
-    model: '',
-    year: '',
-    engine: ''
-  });
+  const [selectedService, setSelectedService] = useState<string>('');
+  const [vehicles, setVehicles] = useState<VehicleInfo[]>([]);
+  const [selectedVehicle, setSelectedVehicle] = useState<VehicleInfo | null>(null);
   const [tireSize, setTireSize] = useState<string>('');
-  const [tireBrand, setTireBrand] = useState<string>('');
-  const [tireModel, setTireModel] = useState<string>('');
-  const [selectedTireBrand, setSelectedTireBrand] = useState<string>('');
-  const [selectedTireModel, setSelectedTireModel] = useState<string>('');
-  const [availableModels, setAvailableModels] = useState<string[]>([]);
-  const [showBrandModal, setShowBrandModal] = useState<boolean>(false);
-  const [showModelModal, setShowModelModal] = useState<boolean>(false);
-  const [season, setSeason] = useState<string>('all-season');
-  const [quantity, setQuantity] = useState<string>('1');
+  const [quantity, setQuantity] = useState<string>('4');
   const [description, setDescription] = useState<string>('');
   const [currentLocation, setCurrentLocation] = useState<UserLocation | null>(null);
-  const [locationLoading, setLocationLoading] = useState(false);
+  const [isMobileService, setIsMobileService] = useState<boolean>(false);
+  const [isShopService, setIsShopService] = useState<boolean>(true); // Varsayılan dükkanda montaj
+  const [nearbyMechanics, setNearbyMechanics] = useState<any[]>([]);
+  const [selectedMechanic, setSelectedMechanic] = useState<any>(null);
+  const [showTireSizeModal, setShowTireSizeModal] = useState<boolean>(false);
 
-  // Load vehicle data on mount
-  useEffect(() => {
-    loadVehicleData();
-  }, []);
+  // Yaygın lastik ölçüleri
+  const commonTireSizes = [
+    { size: '185/65 R15', type: 'Küçük Araç' },
+    { size: '195/65 R15', type: 'Kompakt' },
+    { size: '205/55 R16', type: 'Orta Segment' },
+    { size: '215/55 R16', type: 'Orta Segment' },
+    { size: '215/60 R16', type: 'SUV/Crossover' },
+    { size: '225/45 R17', type: 'Spor Sedan' },
+    { size: '225/50 R17', type: 'Sedan' },
+    { size: '225/55 R17', type: 'SUV' },
+    { size: '235/55 R18', type: 'SUV' },
+    { size: '245/45 R18', type: 'Spor' },
+    { size: '255/55 R18', type: 'Büyük SUV' },
+  ];
 
-  // Konum bilgisini al
-  const getCurrentLocation = async () => {
-    try {
-      setLocationLoading(true);
-      const locationService = LocationService.getInstance();
-      const location = await locationService.getCurrentLocation();
-      
-      if (location) {
-        setCurrentLocation(location);
-        } else {
-        }
-    } catch (error) {
-      } finally {
-      setLocationLoading(false);
-    }
-  };
-
-  // Sayfa yüklendiğinde konum al
-  useEffect(() => {
-    getCurrentLocation();
-  }, []);
-
-  // Load vehicle data from garage
-  const loadVehicleData = async () => {
-    try {
-      console.log('🔍 TirePartsScreen: Garajdan araç bilgileri yükleniyor...');
-      
-      // Kullanıcının garajındaki araçları çek
-      const response = await apiService.getVehicles();
-      
-      console.log('🔍 TirePartsScreen: API Response:', JSON.stringify(response, null, 2));
-      
-      // API response yapısını kontrol et
-      let vehicles = [];
-      if (response.success && response.data) {
-        if (Array.isArray(response.data)) {
-          vehicles = response.data;
-        } else if (response.data.vehicles && Array.isArray(response.data.vehicles)) {
-          vehicles = response.data.vehicles;
-        } else if (response.data && Array.isArray(response.data)) {
-          vehicles = response.data;
-        }
-      }
-      
-      console.log('🔍 TirePartsScreen: Bulunan araçlar:', vehicles.length, 'araç');
-      
-      if (vehicles.length > 0) {
-        // İlk aracı varsayılan olarak seç
-        const vehicle = vehicles[0];
-        console.log('🚗 TirePartsScreen: Seçilen araç:', JSON.stringify(vehicle, null, 2));
-        
-        setVehicleInfo({
-          brand: vehicle.brand || vehicle.make || '',
-          model: vehicle.model || '',
-          year: vehicle.year || vehicle.modelYear || '',
-          engine: vehicle.engineType || vehicle.fuelType || vehicle.engine || ''
-        });
-        
-        // Lastik bilgilerini de çek
-        if (vehicle.tireSize) {
-          setTireSize(vehicle.tireSize);
-        }
-        if (vehicle.tireBrand) {
-          setTireBrand(vehicle.tireBrand);
-        }
-        if (vehicle.tireModel) {
-          setTireModel(vehicle.tireModel);
-        }
-        
-        console.log('✅ TirePartsScreen: Araç bilgileri başarıyla yüklendi');
-      } else {
-        console.log('⚠️ TirePartsScreen: Garajda araç bulunamadı');
-        // Garajda araç yoksa boş değerler
-        setVehicleInfo({
-          brand: '',
-          model: '',
-          year: '',
-          engine: ''
-        });
-        setTireSize('');
-        setTireBrand('');
-        setTireModel('');
-      }
-    } catch (error) {
-      console.error('❌ TirePartsScreen: Garajdan araç bilgileri yüklenirken hata:', error);
-      // Hata durumunda boş değerler
-      setVehicleInfo({
-        brand: '',
-        model: '',
-        year: '',
-        engine: ''
-      });
-      setTireSize('');
-      setTireBrand('');
-      setTireModel('');
-    }
-  };
-
-  // Tire parts - Usta tarafındaki mock verilerle entegre
-  const tireParts: TirePart[] = [
+  // Lastik hizmetleri
+  const tireServices: TireService[] = [
     {
       id: 'tire_change',
       name: 'Lastik Değişimi',
-      description: 'Lastik satış ve montaj hizmeti',
-      icon: 'car',
+      description: 'Yeni lastik montajı',
+      icon: 'car-tire-alert',
       color: '#F59E0B',
-      requiresSpecs: true
     },
     {
-      id: 'tire_tamir',
+      id: 'tire_repair',
       name: 'Lastik Tamiri',
-      description: 'Lastik yama ve tamir hizmeti',
+      description: 'Yama ve tamir',
       icon: 'wrench',
       color: '#EF4444',
-      requiresSpecs: true
     },
     {
       id: 'tire_balance',
-      name: 'Lastik Balansı',
+      name: 'Balans',
       description: 'Lastik balans ayarı',
-      icon: 'car-brake-abs',
+      icon: 'chart-donut',
       color: '#3B82F6',
-      requiresSpecs: true
     },
     {
       id: 'tire_alignment',
-      name: 'Rot Balansı',
-      description: 'Rot ayarı ve balans',
-      icon: 'car',
+      name: 'Rot Ayarı',
+      description: 'Rot balans',
+      icon: 'axis-arrow',
       color: '#10B981',
-      requiresSpecs: true
     },
     {
       id: 'tire_inspection',
       name: 'Lastik Kontrolü',
-      description: 'Lastik durumu kontrolü',
+      description: 'Genel kontrol',
       icon: 'magnify',
       color: '#8B5CF6',
-      requiresSpecs: true
     },
     {
       id: 'tire_purchase',
       name: 'Lastik Satışı',
-      description: 'Yeni lastik satışı',
+      description: 'Yeni lastik alımı',
       icon: 'shopping',
-      color: '#6366F1',
-      requiresSpecs: true
-    }
+      color: '#06B6D4',
+    },
   ];
 
-  // En ünlü 15 lastik markası ve modelleri
-  const tireBrands = [
-    {
-      id: 'michelin',
-      name: 'Michelin',
-      models: ['Pilot Sport 4', 'Primacy 4', 'Energy Saver+', 'CrossClimate 2', 'Latitude Cross']
-    },
-    {
-      id: 'bridgestone',
-      name: 'Bridgestone',
-      models: ['Potenza RE003', 'Turanza T005', 'Ecopia EP300', 'Dueler H/P Sport', 'Blizzak LM005']
-    },
-    {
-      id: 'continental',
-      name: 'Continental',
-      models: ['PremiumContact 6', 'SportContact 6', 'WinterContact TS 860', 'EcoContact 6', 'CrossContact LX2']
-    },
-    {
-      id: 'pirelli',
-      name: 'Pirelli',
-      models: ['P Zero', 'Cinturato P7', 'Scorpion Verde', 'Winter Sottozero 3', 'Dragon Sport']
-    },
-    {
-      id: 'goodyear',
-      name: 'Goodyear',
-      models: ['Eagle F1 Asymmetric 5', 'EfficientGrip Performance', 'Vector 4Seasons', 'Wrangler HP All Weather', 'Assurance TripleMax']
-    },
-    {
-      id: 'dunlop',
-      name: 'Dunlop',
-      models: ['Sport Maxx RT2', 'SP Winter Sport 5', 'Roadsmart III', 'Trailmax Mission', 'SP Sport Maxx 050+']
-    },
-    {
-      id: 'hankook',
-      name: 'Hankook',
-      models: ['Ventus Prime3 K125', 'Winter i*cept RS2', 'Dynapro AT2', 'Ventus S1 Evo3', 'Kinergy GT']
-    },
-    {
-      id: 'kumho',
-      name: 'Kumho',
-      models: ['Ecsta PS31', 'WinterCraft WS71', 'Road Venture AT51', 'Ecsta HS51', 'Solus TA11']
-    },
-    {
-      id: 'toyo',
-      name: 'Toyo',
-      models: ['Proxes Sport', 'Open Country A/T III', 'Celsius CUV', 'Proxes R1R', 'Open Country M/T']
-    },
-    {
-      id: 'yokohama',
-      name: 'Yokohama',
-      models: ['Advan Sport V105', 'BluEarth-A AE-50', 'Geolandar A/T G015', 'W.drive V905', 'S.drive']
-    },
-    {
-      id: 'falken',
-      name: 'Falken',
-      models: ['Azenis FK510', 'Eurowinter HS01', 'Sincera SN832', 'Eurowinter HS449', 'Ziex ZE310 Ecorun']
-    },
-    {
-      id: 'nexen',
-      name: 'Nexen',
-      models: ['N\'Fera SU1', 'Winguard Sport 2', 'Roadian GTX', 'N\'Blue HD Plus', 'N\'Priz AH8']
-    },
-    {
-      id: 'maxxis',
-      name: 'Maxxis',
-      models: ['Premitra HP5', 'Victra Sport VS5', 'Bravo HP-M3', 'Premitra AP2', 'Victra MA-Z1']
-    },
-    {
-      id: 'cooper',
-      name: 'Cooper',
-      models: ['Zeon RS3-G1', 'Discoverer AT3 4S', 'CS5 Ultra Touring', 'Discoverer STT Pro', 'Zeon RS3-A']
-    },
-    {
-      id: 'general',
-      name: 'General',
-      models: ['G-MAX AS-05', 'Altimax RT43', 'Grabber AT3', 'Altimax Arctic 12', 'G-MAX RS']
-    }
-  ];
+  useEffect(() => {
+    loadVehicles();
+    getCurrentLocation();
+  }, []);
 
-  // Fiyat tahmini kaldırıldı - ustalar fiyat belirleyecek
-
-  const handlePartSelect = (partId: string) => {
-    setSelectedPart(partId);
-  };
-
-  // Araç bilgileri artık garajdan otomatik yükleniyor, düzenlenemez
-
-  const handleTireBrandSelect = (brandId: string) => {
-    const brand = tireBrands.find(b => b.id === brandId);
-    if (brand) {
-      setSelectedTireBrand(brandId);
-      setTireBrand(brand.name);
-      setAvailableModels(brand.models);
-      setSelectedTireModel('');
-      setTireModel('');
+  const loadVehicles = async () => {
+    try {
+      const response = await apiService.getVehicles();
+      
+      if (response.success && response.data) {
+        const vehicleList = Array.isArray(response.data) 
+          ? response.data 
+          : response.data.vehicles || [];
+        
+        const formattedVehicles = vehicleList.map((v: any) => ({
+          vehicleId: v._id,
+          brand: v.brand,
+          model: v.model || v.modelName,
+          year: v.year,
+          plateNumber: v.plateNumber
+        }));
+        
+        setVehicles(formattedVehicles);
+        
+        if (formattedVehicles.length > 0) {
+          setSelectedVehicle(formattedVehicles[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Araçlar yüklenirken hata:', error);
     }
   };
 
-  const handleTireModelSelect = (model: string) => {
-    setSelectedTireModel(model);
-    setTireModel(model);
-  };
-
-  const handleTireSizeChange = (value: string) => {
-    // Basic tire size validation (e.g., 205/55 R16)
-    const tireSizeRegex = /^\d{3}\/\d{2}\sR\d{2}$/;
-    if (value === '' || tireSizeRegex.test(value)) {
-      setTireSize(value);
+  const getCurrentLocation = async () => {
+    try {
+      const locationService = LocationService.getInstance();
+      const location = await locationService.getCurrentLocation();
+      if (location) {
+        setCurrentLocation(location);
+      }
+    } catch (error) {
+      console.error('Konum alınırken hata:', error);
     }
   };
 
-  const handleQuantityChange = (value: string) => {
-    const num = parseInt(value);
-    if (value === '' || (num > 0 && num <= 10)) {
-      setQuantity(value);
+  const loadNearbyMechanics = async () => {
+    try {
+      setLoading(true);
+      
+      const filters = {
+        serviceCategory: 'tire',
+        location: currentLocation ? {
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude
+        } : undefined
+      };
+      
+      const response = await apiService.getMechanics(filters);
+      
+      if (response.success && response.data) {
+        setNearbyMechanics(response.data);
+      } else {
+        setNearbyMechanics([]);
+      }
+    } catch (error) {
+      console.error('Ustalar yüklenirken hata:', error);
+      setNearbyMechanics([]);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleRequestParts = async () => {
-    if (!selectedPart) {
-      Alert.alert('Eksik Bilgi', 'Lütfen parça türü seçin.');
+  const handleServiceSelect = (serviceId: string) => {
+    setSelectedService(serviceId);
+    setStep(2);
+  };
+
+  const handleNextToMechanics = async () => {
+    if (!selectedVehicle) {
+      Alert.alert('Uyarı', 'Lütfen bir araç seçin');
       return;
     }
-
-    const selectedPartData = tireParts.find(part => part.id === selectedPart);
     
-    if (selectedPartData?.requiresSpecs) {
-      if (selectedPart === 'lastik' && !tireSize) {
-        Alert.alert('Eksik Bilgi', 'Lastik için lastik ölçüsü gerekli.');
-        return;
-      }
-      
-      if (!vehicleInfo.brand || !vehicleInfo.model) {
-        Alert.alert('Eksik Bilgi', 'Araç marka ve model bilgisi gerekli.');
-        return;
-      }
+    if (!tireSize && (selectedService === 'tire_change' || selectedService === 'tire_purchase')) {
+      Alert.alert('Uyarı', 'Lütfen lastik ölçüsü girin');
+      return;
+    }
+    
+    await loadNearbyMechanics();
+    setStep(3);
+  };
+
+  const handleCreateRequest = async () => {
+    if (!selectedMechanic) {
+      Alert.alert('Uyarı', 'Lütfen bir usta seçin');
+      return;
     }
 
     try {
       setLoading(true);
 
       const requestData = {
-        partType: selectedPart,
-        vehicleInfo,
-        tireSize: tireSize,
-        tireBrand: tireBrand,
-        tireModel: tireModel,
-        season: season,
-        quantity: parseInt(quantity),
-        description,
-        specialRequests: description,
+        tireServiceType: selectedService,
+        vehicleId: selectedVehicle?.vehicleId,
+        vehicleInfo: {
+          brand: selectedVehicle?.brand,
+          model: selectedVehicle?.model,
+          year: selectedVehicle?.year?.toString(),
+          plateNumber: selectedVehicle?.plateNumber
+        },
+        tireDetails: {
+          size: tireSize,
+          condition: 'used',
+          quantity: parseInt(quantity),
+          ...(description ? { notes: description } : {})
+        },
         location: currentLocation ? {
           coordinates: [currentLocation.longitude, currentLocation.latitude],
-          address: '', // Adres bilgisi şimdilik boş
+          address: '',
           city: '',
           district: '',
-          neighborhood: ''
-        } : undefined
+        } : undefined,
+        isMobileService,
+        isUrgent: false,
+        ...(description ? { description, specialRequests: description } : {}),
+        mechanicId: selectedMechanic._id
       };
 
-      const response = await apiService.createTirePartsRequest(requestData);
+      const response = await apiService.createTireServiceRequest(requestData);
       
       if (response.success) {
+        const jobId = response.data?._id;
+        
         Alert.alert(
           'Talep Gönderildi',
-          'Parça talebiniz en yakın ustalara iletildi. En kısa sürede size dönüş yapılacak.',
+          `${selectedMechanic.name} ${selectedMechanic.surname} ustaya talebiniz gönderildi.`,
           [
             {
-              text: 'Tamam',
-              onPress: () => navigation.goBack()
+              text: 'Takip Et',
+              onPress: () => {
+                if (jobId) {
+                  navigation.navigate('TireServiceTracking', { jobId });
+                } else {
+                  navigation.goBack();
+                }
+              }
             }
           ]
         );
       } else {
         throw new Error(response.message || 'Talep gönderilemedi');
       }
-    } catch (error) {
-      Alert.alert('Hata', 'Parça talebi gönderilirken bir hata oluştu.');
+    } catch (error: any) {
+      console.error('Talep oluşturma hatası:', error);
+      Alert.alert('Hata', error.message || 'Talep oluşturulamadı');
     } finally {
       setLoading(false);
     }
   };
 
-  const renderPartCard = (part: TirePart) => (
-    <TouchableOpacity
-      key={part.id}
-      style={[
-        styles.partCard,
-        {
-          backgroundColor: selectedPart === part.id 
-            ? part.color + '20' 
-            : theme.colors.background.card,
-          borderColor: selectedPart === part.id 
-            ? part.color 
-            : theme.colors.border.primary,
-        }
-      ]}
-      onPress={() => handlePartSelect(part.id)}
-    >
-      <View style={styles.partContent}>
-        <View style={[
-          styles.partIcon,
-          { backgroundColor: part.color }
-        ]}>
-          <MaterialCommunityIcons 
-            name={part.icon as any} 
-            size={24} 
-            color="#FFFFFF" 
-          />
+  // STEP 1: Hizmet Seçimi
+  const renderStep1 = () => (
+    <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <Card style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+          Lastik Hizmeti Seçin
+        </Text>
+        <Text style={[styles.sectionDescription, { color: theme.colors.text.secondary }]}>
+          İhtiyacınız olan hizmeti seçerek başlayın
+        </Text>
+        
+        {tireServices.map((service) => (
+          <TouchableOpacity
+            key={service.id}
+            style={[
+              styles.serviceCard,
+              {
+                backgroundColor: theme.colors.background.card,
+                borderColor: theme.colors.border.primary,
+              }
+            ]}
+            onPress={() => handleServiceSelect(service.id)}
+          >
+            <View style={[styles.serviceIcon, { backgroundColor: service.color }]}>
+              <MaterialCommunityIcons name={service.icon as any} size={28} color="#FFFFFF" />
+            </View>
+            <View style={styles.serviceText}>
+              <Text style={[styles.serviceName, { color: theme.colors.text.primary }]}>
+                {service.name}
+              </Text>
+              <Text style={[styles.serviceDescription, { color: theme.colors.text.secondary }]}>
+                {service.description}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={theme.colors.text.tertiary} />
+          </TouchableOpacity>
+        ))}
+      </Card>
+    </ScrollView>
+  );
+
+  // STEP 2: Detaylar
+  const renderStep2 = () => (
+    <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      {/* Araç Seçimi */}
+      <Card style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+          Araç Seçin
+        </Text>
+        {vehicles.map((vehicle) => (
+          <TouchableOpacity
+            key={vehicle.vehicleId}
+            style={[
+              styles.vehicleCard,
+              {
+                backgroundColor: selectedVehicle?.vehicleId === vehicle.vehicleId
+                  ? theme.colors.primary.main + '15'
+                  : theme.colors.background.secondary,
+                borderColor: selectedVehicle?.vehicleId === vehicle.vehicleId
+                  ? theme.colors.primary.main
+                  : theme.colors.border.primary,
+              }
+            ]}
+            onPress={() => setSelectedVehicle(vehicle)}
+          >
+            <Ionicons 
+              name="car" 
+              size={32} 
+              color={selectedVehicle?.vehicleId === vehicle.vehicleId 
+                ? theme.colors.primary.main 
+                : theme.colors.text.secondary
+              } 
+            />
+            <View style={styles.vehicleInfo}>
+              <Text style={[styles.vehicleName, { color: theme.colors.text.primary }]}>
+                {vehicle.brand} {vehicle.model}
+              </Text>
+              <Text style={[styles.vehicleDetail, { color: theme.colors.text.secondary }]}>
+                {vehicle.year} • {vehicle.plateNumber}
+              </Text>
+            </View>
+            {selectedVehicle?.vehicleId === vehicle.vehicleId && (
+              <Ionicons name="checkmark-circle" size={24} color={theme.colors.primary.main} />
+            )}
+          </TouchableOpacity>
+        ))}
+      </Card>
+
+      {/* Lastik Bilgileri */}
+      <Card style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+          Lastik Bilgileri
+        </Text>
+        
+        <Text style={[styles.inputLabel, { color: theme.colors.text.secondary }]}>
+          Lastik Ölçüsü
+        </Text>
+        
+        <View style={styles.tireSizeContainer}>
+          <TouchableOpacity
+            style={[styles.tireSizeButton, { 
+              backgroundColor: theme.colors.primary.main,
+              borderColor: theme.colors.primary.main 
+            }]}
+            onPress={() => setShowTireSizeModal(true)}
+          >
+            <Ionicons name="list" size={20} color="#FFFFFF" />
+            <Text style={styles.tireSizeButtonText}>
+              {tireSize || 'Yaygın Ölçülerden Seç'}
+            </Text>
+          </TouchableOpacity>
+          
+          {tireSize && (
+            <TouchableOpacity
+              style={[styles.clearButton, { backgroundColor: theme.colors.background.secondary }]}
+              onPress={() => setTireSize('')}
+            >
+              <Ionicons name="close" size={20} color={theme.colors.text.secondary} />
+            </TouchableOpacity>
+          )}
         </View>
-        <View style={styles.partText}>
-          <Text style={[
-            styles.partName,
-            { color: theme.colors.text.primary }
-          ]}>
-            {part.name}
-          </Text>
-          <Text style={[
-            styles.partDescription,
-            { color: theme.colors.text.secondary }
-          ]}>
-            {part.description}
-          </Text>
-        </View>
-        {selectedPart === part.id && (
-          <MaterialCommunityIcons 
-            name="check-circle" 
+        
+        <Text style={[styles.helperText, { color: theme.colors.text.tertiary }]}>
+          veya lastik üzerindeki ebatı girin
+        </Text>
+        
+        <Input
+          label=""
+          value={tireSize}
+          onChangeText={setTireSize}
+          placeholder="Örn: 205/55 R16"
+          style={styles.input}
+        />
+        
+        <Input
+          label="Miktar"
+          value={quantity}
+          onChangeText={setQuantity}
+          placeholder="4"
+          keyboardType="numeric"
+          style={styles.input}
+        />
+        
+        <Input
+          label="Açıklama (Opsiyonel)"
+          value={description}
+          onChangeText={setDescription}
+          placeholder="Ek bilgiler..."
+          multiline
+          numberOfLines={3}
+          style={styles.input}
+        />
+      </Card>
+
+      {/* Hizmet Seçenekleri */}
+      <Card style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+          Hizmet Tercihleri
+        </Text>
+        <Text style={[styles.sectionDescription, { color: theme.colors.text.secondary }]}>
+          Hizmetin nasıl verilmesini istersiniz?
+        </Text>
+        
+        <TouchableOpacity
+          style={[
+            styles.optionCard,
+            {
+              backgroundColor: isShopService 
+                ? theme.colors.success.main + '10' 
+                : theme.colors.background.secondary,
+              borderColor: isShopService 
+                ? theme.colors.success.main 
+                : theme.colors.border.primary
+            }
+          ]}
+          onPress={() => {
+            setIsShopService(true);
+            setIsMobileService(false);
+          }}
+        >
+          <Ionicons 
+            name="storefront" 
             size={24} 
-            color={part.color} 
+            color={isShopService ? theme.colors.success.main : theme.colors.text.secondary} 
           />
+          <View style={styles.optionText}>
+            <Text style={[styles.optionTitle, { color: theme.colors.text.primary }]}>
+              Dükkanda Montaj
+            </Text>
+            <Text style={[styles.optionDescription, { color: theme.colors.text.secondary }]}>
+              Ustanın dükkânına giderim
+            </Text>
+          </View>
+          <View style={[
+            styles.checkbox,
+            {
+              backgroundColor: isShopService ? theme.colors.success.main : 'transparent',
+              borderColor: isShopService ? theme.colors.success.main : theme.colors.border.primary
+            }
+          ]}>
+            {isShopService && <Ionicons name="checkmark" size={18} color="#FFFFFF" />}
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.optionCard,
+            {
+              backgroundColor: isMobileService 
+                ? theme.colors.primary.main + '10' 
+                : theme.colors.background.secondary,
+              borderColor: isMobileService 
+                ? theme.colors.primary.main 
+                : theme.colors.border.primary
+            }
+          ]}
+          onPress={() => {
+            setIsMobileService(true);
+            setIsShopService(false);
+          }}
+        >
+          <Ionicons 
+            name="car" 
+            size={24} 
+            color={isMobileService ? theme.colors.primary.main : theme.colors.text.secondary} 
+          />
+          <View style={styles.optionText}>
+            <Text style={[styles.optionTitle, { color: theme.colors.text.primary }]}>
+              Mobil Hizmet
+            </Text>
+            <Text style={[styles.optionDescription, { color: theme.colors.text.secondary }]}>
+              Usta bulunduğum yere gelsin
+            </Text>
+          </View>
+          <View style={[
+            styles.checkbox,
+            {
+              backgroundColor: isMobileService ? theme.colors.primary.main : 'transparent',
+              borderColor: isMobileService ? theme.colors.primary.main : theme.colors.border.primary
+            }
+          ]}>
+            {isMobileService && <Ionicons name="checkmark" size={18} color="#FFFFFF" />}
+          </View>
+        </TouchableOpacity>
+      </Card>
+
+      {/* Devam Butonu */}
+      <Card style={styles.section}>
+        <Button
+          title="Ustaları Gör"
+          onPress={handleNextToMechanics}
+          disabled={!selectedVehicle}
+          style={styles.nextButton}
+        />
+      </Card>
+
+      <View style={{ height: 32 }} />
+    </ScrollView>
+  );
+
+  // STEP 3: Usta Seçimi
+  const renderStep3 = () => (
+    <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <Card style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+          Yakınınızdaki Ustalar
+        </Text>
+        <Text style={[styles.sectionDescription, { color: theme.colors.text.secondary }]}>
+          Lastik hizmeti veren {nearbyMechanics.length} usta bulundu
+        </Text>
+
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.colors.primary.main} />
+          </View>
+        ) : nearbyMechanics.length > 0 ? (
+          nearbyMechanics.map((mechanic) => (
+            <TouchableOpacity
+              key={mechanic._id}
+              style={[
+                styles.mechanicCard,
+                {
+                  backgroundColor: selectedMechanic?._id === mechanic._id
+                    ? theme.colors.primary.main + '10'
+                    : theme.colors.background.secondary,
+                  borderColor: selectedMechanic?._id === mechanic._id
+                    ? theme.colors.primary.main
+                    : theme.colors.border.primary,
+                }
+              ]}
+              onPress={() => setSelectedMechanic(mechanic)}
+            >
+              <View style={styles.mechanicHeader}>
+                <View style={[styles.mechanicAvatar, { backgroundColor: theme.colors.primary.main }]}>
+                  <Text style={styles.mechanicAvatarText}>
+                    {mechanic.name?.charAt(0)}{mechanic.surname?.charAt(0)}
+                  </Text>
+                </View>
+                <View style={styles.mechanicInfo}>
+                  <Text style={[styles.mechanicName, { color: theme.colors.text.primary }]}>
+                    {mechanic.name} {mechanic.surname}
+                  </Text>
+                  {mechanic.shopName && (
+                    <Text style={[styles.mechanicShop, { color: theme.colors.text.secondary }]}>
+                      {mechanic.shopName}
+                    </Text>
+                  )}
+                  <View style={styles.mechanicMeta}>
+                    {mechanic.rating > 0 && (
+                      <View style={styles.ratingBadge}>
+                        <Ionicons name="star" size={14} color="#FFB800" />
+                        <Text style={[styles.ratingText, { color: theme.colors.text.secondary }]}>
+                          {mechanic.rating.toFixed(1)}
+                        </Text>
+                      </View>
+                    )}
+                    {mechanic.experience > 0 && (
+                      <Text style={[styles.experienceText, { color: theme.colors.text.tertiary }]}>
+                        {mechanic.experience} yıl tecrübe
+                      </Text>
+                    )}
+                    {mechanic.distance && (
+                      <Text style={[styles.distanceText, { color: theme.colors.text.tertiary }]}>
+                        {mechanic.formattedDistance || `${mechanic.distance.toFixed(1)} km`}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+                {selectedMechanic?._id === mechanic._id && (
+                  <Ionicons name="checkmark-circle" size={28} color={theme.colors.primary.main} />
+                )}
+              </View>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="search-outline" size={64} color={theme.colors.text.tertiary} />
+            <Text style={[styles.emptyTitle, { color: theme.colors.text.primary }]}>
+              Usta Bulunamadı
+            </Text>
+            <Text style={[styles.emptyDescription, { color: theme.colors.text.secondary }]}>
+              Yakınınızda lastik hizmeti veren usta bulunamadı
+            </Text>
+          </View>
         )}
-      </View>
-    </TouchableOpacity>
+      </Card>
+
+      {/* Özet Kart */}
+      {selectedMechanic && (
+        <Card style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+            Talep Özeti
+          </Text>
+          
+          <View style={[styles.summaryCard, { backgroundColor: theme.colors.background.secondary }]}>
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: theme.colors.text.secondary }]}>
+                Hizmet:
+              </Text>
+              <Text style={[styles.summaryValue, { color: theme.colors.text.primary }]}>
+                {tireServices.find(s => s.id === selectedService)?.name}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: theme.colors.text.secondary }]}>
+                Araç:
+              </Text>
+              <Text style={[styles.summaryValue, { color: theme.colors.text.primary }]}>
+                {selectedVehicle?.brand} {selectedVehicle?.model}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: theme.colors.text.secondary }]}>
+                Usta:
+              </Text>
+              <Text style={[styles.summaryValue, { color: theme.colors.text.primary }]}>
+                {selectedMechanic.name} {selectedMechanic.surname}
+              </Text>
+            </View>
+            {tireSize && (
+              <View style={styles.summaryRow}>
+                <Text style={[styles.summaryLabel, { color: theme.colors.text.secondary }]}>
+                  Lastik Ölçüsü:
+                </Text>
+                <Text style={[styles.summaryValue, { color: theme.colors.text.primary }]}>
+                  {tireSize}
+                </Text>
+              </View>
+            )}
+            <View style={styles.summaryBadgesRow}>
+              {isShopService && (
+                <View style={[styles.summaryBadge, { backgroundColor: theme.colors.success.main + '10' }]}>
+                  <Ionicons name="storefront" size={16} color={theme.colors.success.main} />
+                  <Text style={[styles.summaryBadgeText, { color: theme.colors.success.main }]}>
+                    Dükkanda Montaj
+                  </Text>
+                </View>
+              )}
+              {isMobileService && (
+                <View style={[styles.summaryBadge, { backgroundColor: theme.colors.primary.main + '10' }]}>
+                  <Ionicons name="car" size={16} color={theme.colors.primary.main} />
+                  <Text style={[styles.summaryBadgeText, { color: theme.colors.primary.main }]}>
+                    Mobil Hizmet
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </Card>
+      )}
+
+      {/* Gönder Butonu */}
+      {selectedMechanic && (
+        <Card style={styles.section}>
+          <Button
+            title={loading ? "Gönderiliyor..." : "Talep Gönder"}
+            onPress={handleCreateRequest}
+            disabled={loading}
+            style={styles.submitButton}
+          />
+        </Card>
+      )}
+
+      <View style={{ height: 32 }} />
+    </ScrollView>
   );
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background.primary }]}>
       <Background>
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-          {/* Header */}
-          <View style={[styles.header, { backgroundColor: theme.colors.background.primary }]}>
+        {/* Header */}
+        <View style={[styles.header, { backgroundColor: theme.colors.background.primary, borderBottomColor: theme.colors.border.primary }]}>
+          {step > 1 ? (
+            <TouchableOpacity onPress={() => setStep((step - 1) as 1 | 2)} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={theme.colors.text.primary} />
+            </TouchableOpacity>
+          ) : (
             <BackButton />
-            <View style={styles.headerContent}>
-              <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
-                Lastik & Parça
-              </Text>
-              <Text style={[styles.headerSubtitle, { color: theme.colors.text.secondary }]}>
-                Profesyonel lastik hizmetleri
-              </Text>
-            </View>
+          )}
+          <View style={styles.headerContent}>
+            <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
+              Lastik Hizmeti
+            </Text>
+            <Text style={[styles.headerSubtitle, { color: theme.colors.text.secondary }]}>
+              {step === 1 && 'Hizmet Seçin'}
+              {step === 2 && 'Detaylar'}
+              {step === 3 && 'Usta Seçin'}
+            </Text>
           </View>
+        </View>
 
-          {/* Part Selection */}
-          <Card style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
-              Hizmet Türü Seçin
-            </Text>
-            <Text style={[styles.sectionDescription, { color: theme.colors.text.secondary }]}>
-              Hangi lastik hizmetine ihtiyacınız var?
-            </Text>
-            {tireParts.map(renderPartCard)}
-          </Card>
-
-          {/* Vehicle Information */}
-          {selectedPart && (
-            <Card style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
-                Araç Bilgileri
-              </Text>
-              <Text style={[styles.sectionDescription, { color: theme.colors.text.secondary }]}>
-                Garajınızdan otomatik yüklenen araç bilgileri. Bu bilgiler düzenlenemez.
-              </Text>
-              
-              <View style={styles.vehicleForm}>
-                <View style={styles.readOnlyField}>
-                  <Text style={[styles.fieldLabel, { color: theme.colors.text.secondary }]}>Marka</Text>
-                  <Text style={[styles.fieldValue, { color: theme.colors.text.primary }]}>
-                    {vehicleInfo.brand || 'Belirtilmemiş'}
-                  </Text>
-                </View>
-                
-                <View style={styles.readOnlyField}>
-                  <Text style={[styles.fieldLabel, { color: theme.colors.text.secondary }]}>Model</Text>
-                  <Text style={[styles.fieldValue, { color: theme.colors.text.primary }]}>
-                    {vehicleInfo.model || 'Belirtilmemiş'}
-                  </Text>
-                </View>
-                
-                <View style={styles.row}>
-                  <View style={[styles.readOnlyField, styles.halfField]}>
-                    <Text style={[styles.fieldLabel, { color: theme.colors.text.secondary }]}>Yıl</Text>
-                    <Text style={[styles.fieldValue, { color: theme.colors.text.primary }]}>
-                      {vehicleInfo.year || 'Belirtilmemiş'}
-                    </Text>
-                  </View>
-                  
-                  <View style={[styles.readOnlyField, styles.halfField]}>
-                    <Text style={[styles.fieldLabel, { color: theme.colors.text.secondary }]}>Motor</Text>
-                    <Text style={[styles.fieldValue, { color: theme.colors.text.primary }]}>
-                      {vehicleInfo.engine || 'Belirtilmemiş'}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </Card>
-          )}
-
-          {/* Tire Details (for tire services) */}
-          {(selectedPart === 'tire_change' || selectedPart === 'tire_tamir' || selectedPart === 'tire_purchase') && (
-            <Card style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
-                Lastik Detayları
-              </Text>
-              <Text style={[styles.sectionDescription, { color: theme.colors.text.secondary }]}>
-                Lastik ölçüsü, markası ve modelini seçebilirsiniz. En ünlü markalar ve modelleri mevcuttur.
-              </Text>
-              
-              <Input
-                label="Lastik Ölçüsü"
-                value={tireSize}
-                onChangeText={handleTireSizeChange}
-                placeholder="205/55 R16"
-                style={styles.input}
-              />
-              
-              {/* Lastik Markası Seçimi */}
-              <View style={styles.dropdownContainer}>
-                <Text style={[styles.dropdownLabel, { color: theme.colors.text.secondary }]}>
-                  Lastik Markası
-                </Text>
-                <TouchableOpacity 
-                  style={styles.pickerButton}
-                  onPress={() => setShowBrandModal(true)}
-                >
-                  <Text style={[styles.pickerButtonText, { color: theme.colors.text.primary }]}>
-                    {selectedTireBrand ? tireBrands.find(b => b.id === selectedTireBrand)?.name : 'Marka seçin'}
-                  </Text>
-                  <MaterialCommunityIcons name="chevron-down" size={20} color={theme.colors.text.secondary} />
-                </TouchableOpacity>
-              </View>
-              
-              {/* Lastik Modeli Seçimi */}
-              {availableModels.length > 0 && (
-                <View style={styles.dropdownContainer}>
-                  <Text style={[styles.dropdownLabel, { color: theme.colors.text.secondary }]}>
-                    Lastik Modeli
-                  </Text>
-                  <TouchableOpacity 
-                    style={styles.pickerButton}
-                    onPress={() => setShowModelModal(true)}
-                  >
-                    <Text style={[styles.pickerButtonText, { color: theme.colors.text.primary }]}>
-                      {selectedTireModel || 'Model seçin'}
-                    </Text>
-                    <MaterialCommunityIcons name="chevron-down" size={20} color={theme.colors.text.secondary} />
-                  </TouchableOpacity>
-                </View>
-              )}
-            </Card>
-          )}
-
-          {/* Quantity */}
-          {selectedPart && (
-            <Card style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
-                Miktar
-              </Text>
-              <Text style={[styles.sectionDescription, { color: theme.colors.text.secondary }]}>
-                Kaç adet istiyorsunuz?
-              </Text>
-              
-              <Input
-                label="Miktar"
-                value={quantity}
-                onChangeText={handleQuantityChange}
-                placeholder="1"
-                keyboardType="numeric"
-                style={styles.input}
-              />
-            </Card>
-          )}
-
-          {/* Description */}
-          {selectedPart && (
-            <Card style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
-                Açıklama
-              </Text>
-              <Text style={[styles.sectionDescription, { color: theme.colors.text.secondary }]}>
-                Ek bilgi veya özel istekleriniz
-              </Text>
-              
-              <Input
-                label="Açıklama"
-                value={description}
-                onChangeText={setDescription}
-                placeholder="Özel isteklerinizi yazın..."
-                multiline
-                numberOfLines={3}
-                style={styles.input}
-              />
-            </Card>
-          )}
-
-          {/* Fiyat tahmini kaldırıldı - ustalar fiyat belirleyecek */}
-
-          {/* Request Button */}
-          <Card style={styles.section}>
-            <Button
-              title={loading ? "Talep Gönderiliyor..." : "Talep Oluştur"}
-              onPress={handleRequestParts}
-              disabled={!selectedPart || loading}
-              style={styles.requestButton}
-              textStyle={styles.requestButtonText}
+        {/* Progress Indicator */}
+        <View style={[styles.progressContainer, { backgroundColor: theme.colors.background.secondary }]}>
+          {[1, 2, 3].map((s) => (
+            <View
+              key={s}
+              style={[
+                styles.progressDot,
+                {
+                  backgroundColor: step >= s 
+                    ? theme.colors.primary.main 
+                    : theme.colors.border.primary
+                }
+              ]}
             />
-          </Card>
+          ))}
+        </View>
 
-          {/* Bottom Spacing */}
-          <View style={{ height: 48 }} />
-        </ScrollView>
+        {/* Content */}
+        {step === 1 && renderStep1()}
+        {step === 2 && renderStep2()}
+        {step === 3 && renderStep3()}
 
-        {/* Brand Selection Modal */}
+        {/* Lastik Ölçüsü Modal */}
         <Modal
-          visible={showBrandModal}
-          transparent={true}
+          visible={showTireSizeModal}
+          transparent
           animationType="slide"
-          onRequestClose={() => setShowBrandModal(false)}
+          onRequestClose={() => setShowTireSizeModal(false)}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
+            <View style={[styles.modalContent, { backgroundColor: theme.colors.background.primary }]}>
+              <View style={[styles.modalHeader, { borderBottomColor: theme.colors.border.primary }]}>
                 <Text style={[styles.modalTitle, { color: theme.colors.text.primary }]}>
-                  Lastik Markası Seçin
+                  Lastik Ölçüsü Seçin
                 </Text>
-                <TouchableOpacity onPress={() => setShowBrandModal(false)}>
-                  <MaterialCommunityIcons name="close" size={24} color={theme.colors.text.secondary} />
+                <TouchableOpacity onPress={() => setShowTireSizeModal(false)}>
+                  <Ionicons name="close" size={28} color={theme.colors.text.secondary} />
                 </TouchableOpacity>
               </View>
               
               <ScrollView style={styles.modalList}>
-                {tireBrands.map(brand => (
+                {commonTireSizes.map((item, index) => (
                   <TouchableOpacity
-                    key={brand.id}
+                    key={index}
                     style={[
-                      styles.modalItem,
-                      selectedTireBrand === brand.id && { backgroundColor: theme.colors.primary.main + '20' }
+                      styles.tireSizeItem,
+                      {
+                        backgroundColor: tireSize === item.size
+                          ? theme.colors.primary.main + '15'
+                          : 'transparent',
+                        borderBottomColor: theme.colors.border.primary
+                      }
                     ]}
                     onPress={() => {
-                      handleTireBrandSelect(brand.id);
-                      setShowBrandModal(false);
+                      setTireSize(item.size);
+                      setShowTireSizeModal(false);
                     }}
                   >
-                    <Text style={[styles.modalItemText, { color: theme.colors.text.primary }]}>
-                      {brand.name}
-                    </Text>
-                    {selectedTireBrand === brand.id && (
-                      <MaterialCommunityIcons name="check" size={20} color={theme.colors.primary.main} />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Model Selection Modal */}
-        <Modal
-          visible={showModelModal}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={() => setShowModelModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: theme.colors.text.primary }]}>
-                  Lastik Modeli Seçin
-                </Text>
-                <TouchableOpacity onPress={() => setShowModelModal(false)}>
-                  <MaterialCommunityIcons name="close" size={24} color={theme.colors.text.secondary} />
-                </TouchableOpacity>
-              </View>
-              
-              <ScrollView style={styles.modalList}>
-                {availableModels.map(model => (
-                  <TouchableOpacity
-                    key={model}
-                    style={[
-                      styles.modalItem,
-                      selectedTireModel === model && { backgroundColor: theme.colors.primary.main + '20' }
-                    ]}
-                    onPress={() => {
-                      handleTireModelSelect(model);
-                      setShowModelModal(false);
-                    }}
-                  >
-                    <Text style={[styles.modalItemText, { color: theme.colors.text.primary }]}>
-                      {model}
-                    </Text>
-                    {selectedTireModel === model && (
-                      <MaterialCommunityIcons name="check" size={20} color={theme.colors.primary.main} />
+                    <View style={styles.tireSizeItemContent}>
+                      <Text style={[styles.tireSizeText, { color: theme.colors.text.primary }]}>
+                        {item.size}
+                      </Text>
+                      <Text style={[styles.tireSizeType, { color: theme.colors.text.secondary }]}>
+                        {item.type}
+                      </Text>
+                    </View>
+                    {tireSize === item.size && (
+                      <Ionicons name="checkmark-circle" size={24} color={theme.colors.primary.main} />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -741,215 +817,284 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  container: {
-    flex: 1,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+  },
+  backButton: {
+    padding: 4,
   },
   headerContent: {
     flex: 1,
-    alignItems: 'center',
+    marginLeft: 12,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '600',
-    marginBottom: 4,
   },
   headerSubtitle: {
     fontSize: 14,
-    opacity: 0.8,
+    marginTop: 2,
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  progressDot: {
+    width: 32,
+    height: 6,
+    borderRadius: 3,
+  },
+  scrollContent: {
+    flex: 1,
   },
   section: {
     marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
+    fontWeight: '600',
+    marginBottom: 8,
   },
   sectionDescription: {
     fontSize: 14,
     marginBottom: 16,
-    opacity: 0.8,
+    lineHeight: 20,
   },
-  partCard: {
-    borderRadius: 16,
-    borderWidth: 2,
-    marginBottom: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  partContent: {
+  serviceCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
   },
-  partIcon: {
+  serviceIcon: {
     width: 56,
     height: 56,
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  partText: {
+  serviceText: {
     flex: 1,
+    marginLeft: 12,
   },
-  partName: {
-    fontSize: 18,
+  serviceName: {
+    fontSize: 16,
     fontWeight: '600',
-    marginBottom: 4,
   },
-  partDescription: {
-    fontSize: 14,
-    fontWeight: '500',
-    opacity: 0.8,
+  serviceDescription: {
+    fontSize: 13,
+    marginTop: 2,
   },
-  vehicleForm: {
-    gap: 16,
+  vehicleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    marginBottom: 12,
+  },
+  vehicleInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  vehicleName: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  vehicleDetail: {
+    fontSize: 13,
+    marginTop: 2,
   },
   input: {
-    marginBottom: 0,
+    marginBottom: 16,
   },
-  row: {
+  optionCard: {
     flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    marginBottom: 12,
+  },
+  optionText: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  optionTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  optionDescription: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  nextButton: {
+    marginTop: 8,
+  },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  mechanicCard: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    marginBottom: 12,
+  },
+  mechanicHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mechanicAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mechanicAvatarText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  mechanicInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  mechanicName: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  mechanicShop: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  mechanicMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
     gap: 12,
   },
-  halfInput: {
-    flex: 1,
-  },
-  priceCard: {
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#F59E0B',
-  },
-  priceContent: {
+  ratingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    gap: 4,
   },
-  priceText: {
-    marginLeft: 16,
-  },
-  priceLabel: {
-    fontSize: 14,
+  ratingText: {
+    fontSize: 13,
     fontWeight: '500',
-    marginBottom: 4,
   },
-  priceAmount: {
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  priceNote: {
+  experienceText: {
     fontSize: 12,
-    fontWeight: '500',
-    fontStyle: 'italic',
   },
-  requestButton: {
-    paddingVertical: 16,
-    borderRadius: 16,
+  distanceText: {
+    fontSize: 12,
   },
-  requestButtonText: {
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: '600',
+    marginTop: 16,
   },
-  readOnlyField: {
-    marginBottom: 16,
-  },
-  fieldLabel: {
+  emptyDescription: {
     fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 4,
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 32,
   },
-  fieldValue: {
-    fontSize: 16,
-    fontWeight: '400',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E9ECEF',
+  summaryCard: {
+    padding: 16,
+    borderRadius: 12,
   },
-  halfField: {
-    flex: 1,
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
-  dropdownContainer: {
-    marginBottom: 16,
-    overflow: 'visible',
-    zIndex: 1000,
+  summaryLabel: {
+    fontSize: 14,
   },
-  dropdownLabel: {
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  summaryBadgesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+    gap: 8,
+  },
+  summaryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
+  },
+  summaryBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  submitButton: {
+    marginTop: 8,
+  },
+  inputLabel: {
     fontSize: 14,
     fontWeight: '500',
     marginBottom: 8,
-    color: '#374151',
   },
-  dropdown: {
-    height: 50,
-    marginBottom: 10,
+  tireSizeContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
   },
-  dropdownStyle: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#D1D5DB',
-    borderWidth: 1,
-    borderRadius: 8,
-  },
-  dropdownItemStyle: {
-    justifyContent: 'flex-start',
-    paddingHorizontal: 16,
-  },
-  dropdownListStyle: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#D1D5DB',
-    borderWidth: 1,
-    zIndex: 10000,
-    elevation: 1000,
-    borderRadius: 8,
-    maxHeight: 200,
-  },
-  pickerContainer: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#D1D5DB',
-    borderWidth: 1,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  picker: {
-    height: 50,
-    backgroundColor: '#FFFFFF',
-  },
-  pickerButton: {
+  tireSizeButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderColor: '#D1D5DB',
-    borderWidth: 1,
-    borderRadius: 8,
+    justifyContent: 'center',
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
   },
-  pickerButtonText: {
-    fontSize: 16,
-    fontWeight: '400',
+  tireSizeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  clearButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  helperText: {
+    fontSize: 12,
+    marginBottom: 12,
   },
   modalOverlay: {
     flex: 1,
@@ -957,10 +1102,9 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '70%',
+    maxHeight: '80%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -969,27 +1113,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
   },
   modalList: {
-    maxHeight: 400,
+    maxHeight: 500,
   },
-  modalItem: {
+  tireSizeItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
-  modalItemText: {
+  tireSizeItemContent: {
+    flex: 1,
+  },
+  tireSizeText: {
     fontSize: 16,
-    fontWeight: '400',
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  tireSizeType: {
+    fontSize: 13,
   },
 });
 

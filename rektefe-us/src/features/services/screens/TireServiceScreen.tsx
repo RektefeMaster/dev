@@ -20,6 +20,7 @@ import { useAuth } from '@/shared/context';
 import { Card, Button } from '@/shared/components';
 import { typography, spacing, borderRadius, shadows, dimensions } from '@/shared/theme';
 import apiService from '@/shared/services';
+import TirePriceQuoteModal from '../components/TirePriceQuoteModal';
 
 interface TireJob {
   id: string;
@@ -74,6 +75,8 @@ export default function TireServiceScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [jobs, setJobs] = useState<TireJob[]>([]);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
+  const [priceQuoteModalVisible, setPriceQuoteModalVisible] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 
   // Helper functions
   const getServiceTypeText = (type: string) => {
@@ -178,6 +181,15 @@ export default function TireServiceScreen() {
     Linking.openURL(`tel:${phone}`);
   };
 
+  const handleSendPriceQuote = (jobId: string) => {
+    setSelectedJobId(jobId);
+    setPriceQuoteModalVisible(true);
+  };
+
+  const handlePriceQuoteSuccess = () => {
+    fetchTireJobs(); // Listeyi yenile
+  };
+
   useEffect(() => {
     fetchTireJobs();
   }, []);
@@ -187,13 +199,57 @@ export default function TireServiceScreen() {
       setLoading(true);
       // Gerçek API çağrısı - lastik işleri
       const response = await apiService.getTireJobs();
-      if (response.success) {
-        setJobs(response.data || []);
+      
+      if (response.success && response.data) {
+        // API'den gelen veriyi TireJob formatına çevir
+        const formattedJobs = response.data.map((job: any) => ({
+          id: job._id,
+          customerName: job.userId?.name && job.userId?.surname 
+            ? `${job.userId.name} ${job.userId.surname}` 
+            : 'Bilinmiyor',
+          customerPhone: job.userId?.phone || '',
+          vehicleInfo: job.vehicleId 
+            ? `${job.vehicleId.brand} ${job.vehicleId.model || job.vehicleId.modelName}`
+            : job.vehicleInfo?.brand && job.vehicleInfo?.model
+              ? `${job.vehicleInfo.brand} ${job.vehicleInfo.model}`
+              : 'Araç bilgisi yok',
+          vehicleType: job.vehicleId?.type || 'car',
+          vehicleYear: job.vehicleId?.year || parseInt(job.vehicleInfo?.year) || new Date().getFullYear(),
+          vehicleBrand: job.vehicleId?.brand || job.vehicleInfo?.brand || '',
+          vehicleModel: job.vehicleId?.model || job.vehicleId?.modelName || job.vehicleInfo?.model || '',
+          vehiclePlate: job.vehicleId?.plateNumber || '',
+          location: job.location || { address: '', coordinates: { lat: 0, lng: 0 } },
+          serviceType: job.tireServiceType || 'tire_change',
+          tireSize: job.tireSize || '',
+          tireBrand: job.tireBrand,
+          tireModel: job.tireModel,
+          tireCondition: job.tireCondition || 'used',
+          status: job.status === 'TALEP_EDILDI' ? 'pending' 
+                  : job.status === 'ONAYLANDI' ? 'accepted'
+                  : job.status === 'DEVAM_EDIYOR' ? 'in_progress'
+                  : job.status === 'TAMAMLANDI' ? 'completed'
+                  : job.status === 'IPTAL_EDILDI' ? 'cancelled'
+                  : 'pending',
+          requestedAt: job.createdAt || new Date().toISOString(),
+          estimatedTime: job.timeSlot || 'Belirtilmedi',
+          estimatedDuration: job.estimatedDuration,
+          price: job.price || job.quotedPrice,
+          notes: job.description,
+          parts: [],
+          specialRequests: job.specialRequests ? [job.specialRequests] : [],
+          warrantyInfo: job.warrantyInfo,
+          isMobileService: job.isMobileService,
+          isUrgent: job.isUrgent
+        }));
+
+        setJobs(formattedJobs);
       } else {
         setJobs([]);
       }
     } catch (error) {
+      console.error('Lastik işleri yükleme hatası:', error);
       Alert.alert('Hata', 'Lastik işleri yüklenirken bir hata oluştu');
+      setJobs([]);
     } finally {
       setLoading(false);
     }
@@ -218,22 +274,29 @@ export default function TireServiceScreen() {
 
   const performJobAction = async (jobId: string, action: string) => {
     try {
-      // API çağrısı burada yapılacak
-      // Mock güncelleme
-      setJobs(prev => prev.map(job => 
-        job.id === jobId 
-          ? { 
-              ...job, 
-              status: action === 'accept' ? 'accepted' : 
-                     action === 'start' ? 'in_progress' : 
-                     action === 'complete' ? 'completed' : 'cancelled'
-            }
-          : job
-      ));
+      let response;
       
-      Alert.alert('Başarılı', 'İşlem tamamlandı');
-    } catch (error) {
-      Alert.alert('Hata', 'İşlem gerçekleştirilemedi');
+      if (action === 'accept') {
+        response = await apiService.acceptTireJob(jobId);
+      } else if (action === 'start') {
+        response = await apiService.startTireJob(jobId);
+      } else if (action === 'complete') {
+        response = await apiService.completeTireJob(jobId, {});
+      } else if (action === 'cancel') {
+        // İptal işlemi için appointment servisi kullan
+        response = await apiService.cancelAppointment(jobId);
+      }
+      
+      if (response?.success) {
+        // İşlem başarılı - listeyi yenile
+        await fetchTireJobs();
+        Alert.alert('Başarılı', 'İşlem tamamlandı');
+      } else {
+        throw new Error(response?.message || 'İşlem başarısız');
+      }
+    } catch (error: any) {
+      console.error('İş aksiyonu hatası:', error);
+      Alert.alert('Hata', error.message || 'İşlem gerçekleştirilemedi');
     }
   };
 
@@ -381,8 +444,8 @@ export default function TireServiceScreen() {
               style={styles.actionButton}
             />
             <Button
-              title="İptal"
-              onPress={() => handleJobAction(job.id, 'cancel')}
+              title="Fiyat Teklifi"
+              onPress={() => handleSendPriceQuote(job.id)}
               variant="secondary"
               size="small"
               style={styles.actionButton}
@@ -390,13 +453,24 @@ export default function TireServiceScreen() {
           </>
         )}
         {job.status === 'accepted' && (
-          <Button
-            title="Başlat"
-            onPress={() => handleJobAction(job.id, 'start')}
-            variant="primary"
-            size="small"
-            style={styles.actionButton}
-          />
+          <>
+            <Button
+              title="Başlat"
+              onPress={() => handleJobAction(job.id, 'start')}
+              variant="primary"
+              size="small"
+              style={styles.actionButton}
+            />
+            {!job.price && (
+              <Button
+                title="Fiyat Teklifi"
+                onPress={() => handleSendPriceQuote(job.id)}
+                variant="secondary"
+                size="small"
+                style={styles.actionButton}
+              />
+            )}
+          </>
         )}
         {job.status === 'in_progress' && (
           <Button
@@ -512,6 +586,19 @@ export default function TireServiceScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Fiyat Teklifi Modal */}
+      {selectedJobId && (
+        <TirePriceQuoteModal
+          visible={priceQuoteModalVisible}
+          jobId={selectedJobId}
+          onClose={() => {
+            setPriceQuoteModalVisible(false);
+            setSelectedJobId(null);
+          }}
+          onSuccess={handlePriceQuoteSuccess}
+        />
+      )}
     </SafeAreaView>
   );
 }

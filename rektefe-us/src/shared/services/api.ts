@@ -2669,7 +2669,129 @@ const apiService = {
   ...ReportService,
   handleError: AppointmentService.handleError,
   // Backward compatibility aliases
-  getWashJobs: CarWashService.getCarWashJobs
+  getWashJobs: CarWashService.getCarWashJobs,
+
+  // ===== TIRE SERVICE =====
+  
+  // Lastik işlerini getir (Usta için)
+  getTireJobs: async (filters?: { status?: string; serviceType?: string }) => {
+    try {
+      const response = await apiClient.get('/tire-service/jobs', { params: filters });
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Get tire jobs error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Lastik işleri getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  // İşi kabul et
+  acceptTireJob: async (jobId: string) => {
+    try {
+      const response = await apiClient.patch(`/tire-service/${jobId}/accept`);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Accept tire job error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'İş kabul edilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  // İşi başlat
+  startTireJob: async (jobId: string) => {
+    try {
+      const response = await apiClient.patch(`/tire-service/${jobId}/start`);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Start tire job error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'İş başlatılamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  // İşi tamamla
+  completeTireJob: async (jobId: string, data: {
+    notes?: string;
+    finalPrice?: number;
+    warrantyInfo?: {
+      duration: number;
+      conditions: string[];
+    };
+  }) => {
+    try {
+      const response = await apiClient.patch(`/tire-service/${jobId}/complete`, data);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Complete tire job error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'İş tamamlanamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  // Fiyat teklifi gönder
+  sendTirePriceQuote: async (jobId: string, quoteData: {
+    amount: number;
+    breakdown?: {
+      labor?: number;
+      parts?: number;
+      tax?: number;
+    };
+    notes?: string;
+    estimatedDuration?: number;
+  }) => {
+    try {
+      const response = await apiClient.post(`/tire-service/${jobId}/price-quote`, quoteData);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Send tire price quote error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Fiyat teklifi gönderilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  // Lastik sağlık kontrolü kaydet
+  saveTireHealthCheck: async (data: {
+    vehicleId: string;
+    userId: string;
+    checkDate?: Date;
+    treadDepth: [number, number, number, number];
+    pressure: [number, number, number, number];
+    condition: [string, string, string, string];
+    overallCondition: string;
+    photos?: string[];
+    recommendations: string[];
+    issues?: string[];
+    notes?: string;
+    nextCheckDate?: Date;
+    nextCheckKm?: number;
+  }) => {
+    try {
+      const response = await apiClient.post('/tire-service/health-check', data);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Save tire health check error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Lastik sağlık kontrolü kaydedilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  }
 };
 
 export default apiService;
