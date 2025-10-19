@@ -17,6 +17,7 @@
     "update-mongodb-ip": "node scripts/update-mongodb-ip.js",
     "seed:wash-packages": "ts-node -r dotenv/config src/scripts/seedWashPackages.ts",
     "create:test-users": "ts-node -r dotenv/config scripts/createTestUsers.ts",
+    "setup:wash-mechanic": "ts-node -r dotenv/config scripts/setupWashMechanic.ts",
     "clean": "rm -rf dist node_modules/.cache",
     "prebuild": "rm -rf dist"
   },

@@ -219,8 +219,9 @@ router.get('/my-orders', auth, async (req: Request, res: Response) => {
 /**
  * GET /api/wash/providers
  * Yakındaki işletmeleri listele
+ * NOT: Public endpoint - herkes görebilmeli
  */
-router.get('/providers', auth, async (req: Request, res: Response) => {
+router.get('/providers', async (req: Request, res: Response) => {
   try {
     const { latitude, longitude, type, maxDistance } = req.query;
 
@@ -240,7 +241,7 @@ router.get('/providers', auth, async (req: Request, res: Response) => {
       .populate('userId', 'name surname phone profilePhotoUrl')
       .lean();
 
-    // Mesafe hesapla ve sırala
+    // Mesafe hesapla ve sırala (eğer konum gönderildiyse)
     if (latitude && longitude) {
       const userLat = parseFloat(latitude as string);
       const userLng = parseFloat(longitude as string);
@@ -261,6 +262,11 @@ router.get('/providers', auth, async (req: Request, res: Response) => {
         const maxDist = parseFloat(maxDistance as string);
         providers = providers.filter((p: any) => p.distance <= maxDist);
       }
+    } else {
+      // Konum yoksa şehre göre sırala
+      providers.sort((a: any, b: any) => {
+        return a.location.city.localeCompare(b.location.city, 'tr');
+      });
     }
 
     res.json({
