@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Card, Input } from '@/shared/components';
+import { UserType } from '@/shared/types/enums';
 import { useAuth } from '@/context/AuthContext';
 import { borderRadius, colors, shadows, spacing, typography } from '@/theme/theme';
 
@@ -94,7 +95,7 @@ export default function AuthScreen({ navigation }: any) {
           name: formData.name,
           surname: formData.surname,
           phone: formData.phone,
-          userType: 'driver' // Şoför uygulamasından kayıt olanlar driver olarak kaydedilir
+          userType: UserType.DRIVER // Şoför uygulamasından kayıt olanlar driver olarak kaydedilir
         });
         
         setLoading(false); // Hemen loading'i kapat

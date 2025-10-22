@@ -10,5 +10,5 @@ if [ ! -d "dist" ]; then
     npx ts-node-dev --transpile-only --respawn src/index.ts
 else
     echo "Running compiled JavaScript..."
-    node dist/index.js
+    node dist/rest-api/src/index.js
 fi

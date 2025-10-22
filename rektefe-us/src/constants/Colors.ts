@@ -26,7 +26,6 @@ export const Colors = {
   success,
   warning,
   error,
-  info,
   
   // Info renkleri (bilgi kutuları için)
   info: {

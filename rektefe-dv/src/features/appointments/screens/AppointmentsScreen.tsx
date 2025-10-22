@@ -1353,14 +1353,12 @@ const styles = StyleSheet.create({
     color: '#1A1A1A',
     marginBottom: 2,
     lineHeight: 20,
-    numberOfLines: 2,
   },
   washCardSubtitle: {
     fontSize: 12,
     color: '#666',
     fontWeight: '500',
     lineHeight: 16,
-    numberOfLines: 1,
   },
   washStatusBadge: {
     paddingHorizontal: 10,

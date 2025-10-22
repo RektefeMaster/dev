@@ -58,7 +58,7 @@ export class MechanicEarningsController {
         vehicleInfo: apt.vehicleId ? `${(apt.vehicleId as any)?.brand} ${(apt.vehicleId as any)?.modelName} (${(apt.vehicleId as any)?.plateNumber})` : 'Araç bilgisi yok'
       }));
 
-      return sendResponse(res, 200, 'Kazanç bilgileri başarıyla getirildi', earnings);
+      return sendResponse(res, 200, earnings);
     } catch (error) {
       // Error handling - log in development only
       if (process.env.NODE_ENV === 'development') {
@@ -181,7 +181,7 @@ export class MechanicEarningsController {
           : 0
       };
 
-      return sendResponse(res, 200, 'Kazanç özeti başarıyla getirildi', summary);
+      return sendResponse(res, 200, summary);
     } catch (error) {
       // Error handled silently in production
       if (process.env.NODE_ENV === 'development') {
@@ -225,7 +225,7 @@ export class MechanicEarningsController {
         total: 10500
       };
 
-      return sendResponse(res, 200, 'Kazanç detayı başarıyla getirildi', mockBreakdown);
+      return sendResponse(res, 200, mockBreakdown);
     } catch (error) {
       return sendResponse(res, 500, 'Sunucu hatası');
     }
@@ -270,7 +270,7 @@ export class MechanicEarningsController {
         vehicleInfo: apt.vehicleId ? `${(apt.vehicleId as any)?.brand} ${(apt.vehicleId as any)?.modelName} (${(apt.vehicleId as any)?.plateNumber})` : 'Araç bilgisi yok'
       }));
 
-      return sendResponse(res, 200, 'İşlemler başarıyla getirildi', {
+      return sendResponse(res, 200, {
         transactions,
         pagination: {
           page: Number(page),
@@ -309,7 +309,7 @@ export class MechanicEarningsController {
         requestDate: new Date()
       };
 
-      return sendResponse(res, 200, 'Para çekme talebi başarıyla oluşturuldu', mockWithdrawal);
+      return sendResponse(res, 200, mockWithdrawal);
     } catch (error) {
       return sendResponse(res, 500, 'Sunucu hatası');
     }
@@ -337,7 +337,7 @@ export class MechanicEarningsController {
         .sort({ requestDate: -1 })
         .lean();
 
-      return sendResponse(res, 200, 'Para çekme talepleri başarıyla getirildi', withdrawals);
+      return sendResponse(res, 200, withdrawals);
     } catch (error) {
       return sendResponse(res, 500, 'Sunucu hatası');
     }

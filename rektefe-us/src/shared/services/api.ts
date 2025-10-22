@@ -548,15 +548,6 @@ export const AppointmentService = {
     }
   },
 
-  async rejectAppointment(id: string, reason: string): Promise<ApiResponse<any>> {
-    try {
-      const response = await apiClient.put(`/appointments/${id}/reject`, { rejectionReason: reason });
-      return response.data;
-    } catch (error: any) {
-      console.error('Reject appointment error:', error);
-      return createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, 'Randevu reddedilemedi', error.response?.data?.error?.details);
-    }
-  },
 
   async startAppointment(id: string): Promise<ApiResponse<any>> {
     try {
@@ -600,6 +591,12 @@ export const AppointmentService = {
       return createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, 'Ek ücret eklenemedi', error.response?.data?.error?.details);
     }
   },
+
+
+
+
+
+
 
   async updateJobStatus(id: string, status: string, notes?: string): Promise<ApiResponse<any>> {
     try {
@@ -683,7 +680,7 @@ export const AppointmentService = {
 
   async getTrustedMechanics(): Promise<ApiResponse<{ mechanics: any[] }>> {
     try {
-      const response = await apiClient.get('/mechanics/trusted');
+      const response = await apiClient.get('/job-referrals/trusted-mechanics');
       return response.data;
     } catch (error: any) {
       console.error('Get trusted mechanics error:', error);
@@ -1205,7 +1202,7 @@ export const CustomerService = {
    */
   async getMechanicCustomers(filters?: any): Promise<ApiResponse<{ customers: any[] }>> {
     try {
-      const response = await apiClient.get('/mechanic/customers', { params: filters });
+      const response = await apiClient.get('/customers', { params: filters });
       return response.data;
     } catch (error: any) {
       console.error('Get mechanic customers error:', error);

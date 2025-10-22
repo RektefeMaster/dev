@@ -140,7 +140,7 @@ export const SharedAuthProvider = ({
   // User data'yı API'den yükle
   const loadUserDataFromAPI = async (): Promise<void> => {
     try {
-      const userResponse = await config.apiService.get('/users/profile');
+      const userResponse = await config.apiService.request('GET', '/users/profile');
       
       if (userResponse.success && userResponse.data) {
         const userData: SharedUser = {
@@ -468,11 +468,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     userType: 'driver', // Default olarak driver
     appName: 'Rektefe App',
     storageKeys: {
-      token: 'auth_token',
-      user: 'user_data',
-      refreshToken: 'refresh_token'
+      AUTH_TOKEN: 'auth_token',
+      REFRESH_TOKEN: 'refresh_token',
+      USER_ID: 'user_id',
+      USER_DATA: 'user_data',
+      ERROR_LOGS: 'error_logs',
+      ONBOARDING_COMPLETED: 'onboarding_completed'
     },
-    apiService: new BaseApiService('http://localhost:3000') // Default API service
+    apiService: new BaseApiService({
+      baseURL: 'http://localhost:3000',
+      timeout: 10000,
+      storageKeys: {
+        AUTH_TOKEN: 'auth_token',
+        REFRESH_TOKEN: 'refresh_token',
+        USER_ID: 'user_id',
+        USER_DATA: 'user_data',
+        ERROR_LOGS: 'error_logs',
+        ONBOARDING_COMPLETED: 'onboarding_completed'
+      },
+      userType: 'driver',
+      appName: 'Rektefe App'
+    })
   };
   
   return (

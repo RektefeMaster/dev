@@ -145,7 +145,7 @@ export class AppointmentRatingController {
       } catch (notifyErr) {
         }
 
-      sendResponse(res, 201, 'Puanlama başarıyla kaydedildi', { 
+      sendResponse(res, 201, { 
         rating: newRating,
         message: 'Değerlendirmeniz kaydedildi ve ustanın puanı güncellendi'
       });
@@ -180,7 +180,7 @@ export class AppointmentRatingController {
       ]);
 
       if (result.length === 0) {
-        return sendResponse(res, 200, 'Henüz puan verilmemiş', {
+        return sendResponse(res, 200, {
           averageRating: 0,
           totalRatings: 0,
           ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
@@ -195,7 +195,7 @@ export class AppointmentRatingController {
         distribution[rating as keyof typeof distribution]++;
       });
 
-      sendResponse(res, 200, 'Usta puanı başarıyla getirildi', {
+      sendResponse(res, 200, {
         averageRating: Math.round(averageRating * 10) / 10,
         totalRatings,
         ratingDistribution: distribution
@@ -237,7 +237,7 @@ export class AppointmentRatingController {
 
       const total = await AppointmentRating.countDocuments({ mechanicId: new mongoose.Types.ObjectId(mechanicId) });
 
-      sendResponse(res, 200, 'Usta puanları başarıyla getirildi', {
+      sendResponse(res, 200, {
         ratings: validRatings,
         pagination: {
           page,
@@ -313,7 +313,7 @@ export class AppointmentRatingController {
         }
       }
 
-      sendResponse(res, 200, 'Puanlarınız başarıyla getirildi', {
+      sendResponse(res, 200, {
         ratings: populatedRatings
       });
     } catch (error) {

@@ -94,12 +94,12 @@ class MechanicApiService extends BaseApiService {
         userType: this.config.userType
       });
 
-      if (response.success && response.data?.token) {
-        const newToken = response.data.token;
+      if (response.success && (response.data as any)?.token) {
+        const newToken = (response.data as any).token;
         await this.setToken(newToken);
         
-        if (response.data.refreshToken) {
-          await this.setRefreshToken(response.data.refreshToken);
+        if ((response.data as any).refreshToken) {
+          await this.setRefreshToken((response.data as any).refreshToken);
         }
         
         return newToken;
@@ -171,7 +171,7 @@ export default function App() {
               ERROR_LOGS: STORAGE_KEYS.ERROR_LOGS,
               ONBOARDING_COMPLETED: STORAGE_KEYS.ONBOARDING_COMPLETED,
             },
-            apiService: apiService,
+            apiService: apiService as any,
           }}>
             <SettingsProvider>
               <AppNavigator />

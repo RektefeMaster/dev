@@ -26,13 +26,9 @@ export const serviceNameMapping: { [key: string]: string } = {
   'periyodik-bakim': 'Periyodik Bakım',
   
   // Onarım hizmetleri
-  'alt-takim': 'Alt Takım',
   'alt-takım': 'Alt Takım',
-  'ust-takim': 'Üst Takım',
   'ust-takım': 'Üst Takım',
-  'üst-takim': 'Üst Takım',
   'üst-takım': 'Üst Takım',
-  'kaporta': 'Kaporta/Boya',
   'kaporta-boya': 'Kaporta & Boya',
   'elektrik': 'Elektrik',
   'yedek-parca': 'Yedek Parça',

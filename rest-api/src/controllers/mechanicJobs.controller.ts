@@ -51,7 +51,7 @@ export class MechanicJobsController {
 
       return ResponseHandler.success(res, { jobs: filtered, summary }, 'İşler başarıyla getirildi');
     } catch (error) {
-      return ResponseHandler.error(res, 'Sunucu hatası', 500);
+      return ResponseHandler.error(res, 'Sunucu hatası');
     }
   }
 
@@ -69,7 +69,7 @@ export class MechanicJobsController {
       const job = await AppointmentService.getAppointmentById(jobId, userId);
       return ResponseHandler.success(res, job, 'İş detayı başarıyla getirildi');
     } catch (error) {
-      return ResponseHandler.error(res, 'Sunucu hatası', 500);
+      return ResponseHandler.error(res, 'Sunucu hatası');
     }
   }
 
@@ -84,7 +84,7 @@ export class MechanicJobsController {
       const updated = await AppointmentService.updateAppointmentStatus(jobId, status, rejectionReason, mechanicNotes);
       return ResponseHandler.success(res, updated, 'İş durumu başarıyla güncellendi');
     } catch (error) {
-      return ResponseHandler.error(res, 'Sunucu hatası', 500);
+      return ResponseHandler.error(res, 'Sunucu hatası');
     }
   }
 
@@ -116,7 +116,7 @@ export class MechanicJobsController {
 
       return ResponseHandler.success(res, { appointment }, 'Fiyat başarıyla güncellendi');
     } catch (error) {
-      return ResponseHandler.error(res, 'Sunucu hatası', 500);
+      return ResponseHandler.error(res, 'Sunucu hatası');
     }
   }
 
@@ -135,7 +135,7 @@ export class MechanicJobsController {
       const completed = await AppointmentService.completeAppointment(jobId, mechanicNotes || '', finalPrice, estimatedDuration);
       return ResponseHandler.success(res, completed, 'İş başarıyla tamamlandı');
     } catch (error) {
-      return ResponseHandler.error(res, 'Sunucu hatası', 500);
+      return ResponseHandler.error(res, 'Sunucu hatası');
     }
   }
 
@@ -152,7 +152,7 @@ export class MechanicJobsController {
       const stats = await AppointmentService.getAppointmentStats(userId);
       return ResponseHandler.success(res, stats, 'İstatistikler başarıyla getirildi');
     } catch (error) {
-      return ResponseHandler.error(res, 'Sunucu hatası', 500);
+      return ResponseHandler.error(res, 'Sunucu hatası');
     }
   }
 
@@ -170,7 +170,7 @@ export class MechanicJobsController {
       const schedule = await AppointmentService.getTodaysAppointments(userId);
       return ResponseHandler.success(res, schedule, 'Program başarıyla getirildi');
     } catch (error) {
-      return ResponseHandler.error(res, 'Sunucu hatası', 500);
+      return ResponseHandler.error(res, 'Sunucu hatası');
     }
   }
 

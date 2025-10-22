@@ -3,11 +3,17 @@
  * React Native doesn't have atob/btoa, so we provide polyfills
  */
 
+// Global type declarations for browser APIs
+declare global {
+  function atob(str: string): string;
+  function btoa(str: string): string;
+}
+
 // Polyfill for atob (base64 decode)
 export const base64Decode = (str: string): string => {
   // Check if running in browser with native atob
-  if (typeof atob !== 'undefined') {
-    return atob(str);
+  if (typeof (global as any).atob !== 'undefined') {
+    return (global as any).atob(str);
   }
   
   // React Native polyfill
@@ -38,8 +44,8 @@ export const base64Decode = (str: string): string => {
 // Polyfill for btoa (base64 encode)
 export const base64Encode = (str: string): string => {
   // Check if running in browser with native btoa
-  if (typeof btoa !== 'undefined') {
-    return btoa(str);
+  if (typeof (global as any).btoa !== 'undefined') {
+    return (global as any).btoa(str);
   }
   
   // React Native polyfill

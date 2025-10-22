@@ -520,7 +520,7 @@ export const AppointmentService = {
    */
   async updateAppointment(id: string, data: Partial<AppointmentData>): Promise<ApiResponse<{ appointment: any }>> {
     try {
-      const response = await apiClient.put(`/api/appointments/${id}`, data);
+      const response = await apiClient.put(`/appointments/${id}`, data);
       return response.data;
     } catch (error: any) {
       console.error('Update appointment error:', error);
@@ -537,7 +537,7 @@ export const AppointmentService = {
    */
   async cancelAppointment(id: string): Promise<ApiResponse<{ appointment: any }>> {
     try {
-      const response = await apiClient.put(`/api/appointments/${id}/cancel`, {});
+      const response = await apiClient.put(`/appointments/${id}/cancel`, {});
       return response.data;
     } catch (error: any) {
       console.error('Cancel appointment error:', error);
@@ -598,7 +598,7 @@ export const MechanicService = {
    */
   async getMechanicDetails(id: string): Promise<ApiResponse<{ mechanic: Mechanic }>> {
     try {
-      const response = await apiClient.get(`/api/mechanics/${id}`);
+      const response = await apiClient.get(`/mechanic/details/${id}`);
       return response.data;
     } catch (error: any) {
       console.error('Get mechanic details error:', error);
@@ -711,7 +711,7 @@ export const NotificationService = {
    */
   async markAllAsRead(): Promise<ApiResponse<void>> {
     try {
-      const response = await apiClient.put('/notifications/read-all');
+      const response = await apiClient.put('/notifications/driver/mark-all-read');
       return response.data;
     } catch (error: any) {
       console.error('Mark all notifications as read error:', error);
@@ -926,7 +926,7 @@ export const apiService = {
   sendMessage: MessageService.sendMessage,
   deleteMessage: async (messageId: string) => {
     try {
-      const response = await apiClient.delete(`/message/messages/${messageId}`);
+      const response = await apiClient.delete(`/message/${messageId}`);
       return response.data;
     } catch (error: any) {
       console.error('Delete message error:', error);
@@ -1016,6 +1016,16 @@ export const apiService = {
   },
   addBalance: async (amount: number) => {
     try {
+      // Frontend'de amount validation
+      if (!amount || typeof amount !== 'number' || amount <= 0 || amount > 999999999) {
+        console.error('Invalid amount for addBalance:', amount);
+        return createErrorResponse(
+          ErrorCode.INVALID_INPUT_FORMAT,
+          'Geçerli miktar giriniz (1-999,999,999 TL arası)',
+          { amount, type: typeof amount }
+        );
+      }
+
       const response = await apiClient.post('/wallet/add-money', { amount });
       return response.data;
     } catch (error: any) {
@@ -1027,6 +1037,7 @@ export const apiService = {
       );
     }
   },
+
 
   // Services
   createTirePartsRequest: async (data: any) => {
@@ -1149,26 +1160,6 @@ export const apiService = {
 
   // Yakındaki yıkama işletmelerini listele
   getWashProviders: async (params?: {
-    latitude?: number;
-    longitude?: number;
-    type?: 'shop' | 'mobile';
-    maxDistance?: number;
-  }) => {
-    try {
-      const response = await apiClient.get('/wash/providers', { params });
-      return response.data;
-    } catch (error: any) {
-      console.error('Get wash providers error:', error);
-      return createErrorResponse(
-        ErrorCode.INTERNAL_SERVER_ERROR,
-        'İşletmeler getirilemedi',
-        error.response?.data?.error?.details
-      );
-    }
-  },
-
-  // Yıkama işletmelerini listele
-  getWashProviders: async (params?: { 
     latitude?: number;
     longitude?: number;
     type?: 'shop' | 'mobile';

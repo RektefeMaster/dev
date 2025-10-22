@@ -201,6 +201,29 @@ fastlane/test_output
 # Testing
 /coverage
 
+# Android Keystore files
+*.keystore
+*.jks
+debug.keystore
+release.keystore
+*-release.keystore
+
+# iOS certificates and provisioning profiles
+*.mobileprovision
+*.p8
+*.p12
+*.cer
+*.certSigningRequest
+
+# Xcode environment files
+ios/.xcode.env.local
+ios/.xcode.env
+
+# Sensitive configuration files
+config/secrets.js
+config/production-secrets.js
+secrets.json
+
 # React Native
 .expo/
 dist/
@@ -260,3 +283,26 @@ fastlane/test_output
 
 # Testing
 /coverage
+
+# Android Keystore files
+*.keystore
+*.jks
+debug.keystore
+release.keystore
+*-release.keystore
+
+# iOS certificates and provisioning profiles
+*.mobileprovision
+*.p8
+*.p12
+*.cer
+*.certSigningRequest
+
+# Xcode environment files
+ios/.xcode.env.local
+ios/.xcode.env
+
+# Sensitive configuration files
+config/secrets.js
+config/production-secrets.js
+secrets.json

@@ -48,6 +48,9 @@ export interface ResponseMeta {
   cacheHit?: boolean;
   serverTime?: string;
   environment?: string;
+  timestamp?: string;
+  requestId?: string;
+  pagination?: PaginationInfo;
 }
 
 export interface ErrorInfo {
@@ -56,6 +59,8 @@ export interface ErrorInfo {
   details?: any;
   field?: string;
   stack?: string;
+  timestamp?: string;
+  requestId?: string;
 }
 
 // ===== ERROR CODES =====

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { OptimizedAuthService, JWTService } from '../services/optimizedAuth.service';
 import { ErrorHandler } from '../middleware/errorHandler';
 import { asyncHandler } from '../middleware/errorHandler';
+import { ResponseHandler } from '../utils/response';
 
 export class AuthController {
   // Kullanıcı kaydı

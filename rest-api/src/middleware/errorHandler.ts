@@ -29,6 +29,9 @@ export class CustomError extends Error implements ApiError {
 }
 
 // ===== ENHANCED ERROR HANDLER =====
+// Export ErrorCode as ErrorCodes for backward compatibility
+export { ErrorCode as ErrorCodes } from '../../../shared/types/apiResponse';
+
 export class ErrorHandler {
   /**
    * Create and send a standardized error response
@@ -46,11 +49,12 @@ export class ErrorHandler {
 
     const errorResponse: ApiResponse = {
       success: false,
+      timestamp: new Date().toISOString(),
+      version: '1.0.0',
       error: {
         code: errorCode,
         message,
         details,
-        timestamp: new Date().toISOString(),
         requestId
       }
     };
@@ -83,8 +87,9 @@ export class ErrorHandler {
       success: true,
       data,
       message,
+      timestamp: new Date().toISOString(),
+      version: '1.0.0',
       meta: {
-        timestamp: new Date().toISOString(),
         requestId
       }
     };
@@ -107,8 +112,9 @@ export class ErrorHandler {
       success: true,
       data,
       message: message || 'Kayıt başarıyla oluşturuldu',
+      timestamp: new Date().toISOString(),
+      version: '1.0.0',
       meta: {
-        timestamp: new Date().toISOString(),
         requestId
       }
     };
@@ -135,14 +141,17 @@ export class ErrorHandler {
       success: true,
       data,
       message: message || 'Veriler başarıyla getirildi',
+      timestamp: new Date().toISOString(),
+      version: '1.0.0',
       meta: {
-        timestamp: new Date().toISOString(),
         requestId,
         pagination: {
           page,
           limit,
           total,
-          totalPages
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1
         }
       }
     };

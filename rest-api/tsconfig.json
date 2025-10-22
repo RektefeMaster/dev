@@ -110,12 +110,14 @@
     "skipLibCheck": true                                 /* Skip type checking all .d.ts files. */
   },
   "include": [
-    "src/**/*"
+    "src/**/*",
+    "../shared/types/**/*",
+    "../shared/api/**/*",
+    "../shared/utils/**/*"
   ],
   "exclude": [
     "node_modules",
     "dist",
-    "shared",
     "**/*.test.ts",
     "**/*.spec.ts"
   ]

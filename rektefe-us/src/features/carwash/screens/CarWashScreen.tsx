@@ -1978,6 +1978,7 @@ export default function CarWashScreen() {
           <Ionicons name="add" size={24} color={colors.text.primary} />
         </TouchableOpacity>
       </View>
+      </View>
 
       {/* Tab Navigation */}
       <View style={styles.tabNavigation}>
@@ -2918,3 +2919,5 @@ const createStyles = (colors: any) => StyleSheet.create({
     textAlign: 'right',
   },
 });
+
+export default CarWashScreen;

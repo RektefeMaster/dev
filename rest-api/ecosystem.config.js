@@ -6,7 +6,7 @@ module.exports = {
   apps: [
     {
       name: 'rektefe-api',
-      script: 'dist/index.js',
+      script: 'dist/rest-api/src/index.js',
       instances: 'max',
       exec_mode: 'cluster',
       env: {

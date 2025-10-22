@@ -95,22 +95,31 @@ export class WalletController {
       });
     }
 
-    if (!amount || amount <= 0) {
+    // Amount validation - daha detaylı kontrol
+    if (!amount || typeof amount !== 'number' || amount <= 0 || amount > 999999999) {
       return res.status(400).json({
         success: false,
-        message: 'Geçerli miktar giriniz'
+        message: 'Geçerli miktar giriniz (1-999,999,999 TL arası)',
+        error: {
+          details: {
+            amount: amount,
+            type: typeof amount,
+            valid: amount > 0 && amount <= 999999999
+          }
+        }
       });
     }
 
     try {
       // MongoDB transaction ile atomik işlem
       const session = await mongoose.startSession();
+      let wallet: any = null;
       
       try {
         await session.startTransaction();
         
         // Wallet'ı bul veya oluştur
-        let wallet = await Wallet.findOne({ userId }).session(session);
+        wallet = await Wallet.findOne({ userId }).session(session);
         
         if (!wallet) {
           wallet = new Wallet({
@@ -174,14 +183,42 @@ export class WalletController {
       if (error.message.includes('Balance cannot be negative')) {
         return res.status(400).json({
           success: false,
-          message: 'Bakiye negatif olamaz'
+          message: 'Bakiye negatif olamaz',
+          error: {
+            details: {
+              currentBalance: 0, // wallet variable'ı burada erişilebilir değil
+              requestedAmount: amount,
+              operation: 'add_money'
+            }
+          }
+        });
+      }
+      
+      if (error.message.includes('Balance cannot exceed')) {
+        return res.status(400).json({
+          success: false,
+          message: 'Bakiye maksimum limiti aştı',
+          error: {
+            details: {
+              currentBalance: 0, // wallet variable'ı burada erişilebilir değil
+              requestedAmount: amount,
+              maxLimit: 999999999
+            }
+          }
         });
       }
       
       res.status(500).json({
         success: false,
         message: 'Bakiye yüklenirken hata oluştu',
-        error: error.message
+        error: {
+          message: error.message,
+          details: {
+            userId,
+            amount,
+            operation: 'add_money'
+          }
+        }
       });
     }
   });

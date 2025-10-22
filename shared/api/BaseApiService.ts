@@ -30,6 +30,7 @@ export interface AuthTokens {
   USER_ID: string;
   USER_DATA: string;
   ERROR_LOGS: string;
+  ONBOARDING_COMPLETED?: string;
 }
 
 export interface ApiConfig {
@@ -199,6 +200,27 @@ export class BaseApiService {
 
   protected async clearTokens(): Promise<void> {
     // Override in concrete classes
+  }
+
+  // ===== PUBLIC API METHODS =====
+  
+  public async request(method: string, url: string, data?: any): Promise<ApiResponse> {
+    try {
+      const config: AxiosRequestConfig = {
+        method: method.toLowerCase() as any,
+        url,
+        data
+      };
+      
+      const response = await this.api(config);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message,
+        error: error.response?.data?.error
+      };
+    }
   }
 
   // ===== TOKEN VALIDATION =====

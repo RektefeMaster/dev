@@ -16,7 +16,7 @@ cmds = [
 ]
 
 [start]
-cmd = 'NODE_ENV=production node rest-api/dist/index.js'
+cmd = 'NODE_ENV=production node rest-api/dist/rest-api/src/index.js'
 
 [variables]
 NPM_CONFIG_CACHE = '/tmp/.npm'

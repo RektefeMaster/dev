@@ -71,6 +71,12 @@ const WalletSchema = new Schema<IWallet>({
 WalletSchema.pre('save', function(next) {
   if (this.balance < 0) {
     const error = new Error('Balance cannot be negative');
+    error.name = 'ValidationError';
+    return next(error);
+  }
+  if (this.balance > 999999999) {
+    const error = new Error('Balance cannot exceed 999,999,999');
+    error.name = 'ValidationError';
     return next(error);
   }
   next();
@@ -86,6 +92,12 @@ WalletSchema.pre(['updateOne', 'findOneAndUpdate'], function(next) {
         const newBalance = doc.balance + update.$inc.balance;
         if (newBalance < 0) {
           const error = new Error('Balance cannot be negative');
+          error.name = 'ValidationError';
+          return next(error);
+        }
+        if (newBalance > 999999999) {
+          const error = new Error('Balance cannot exceed 999,999,999');
+          error.name = 'ValidationError';
           return next(error);
         }
       }

@@ -88,6 +88,16 @@ export interface PriceRange {
   max: number;
 }
 
+// ===== SHARED USER INTERFACE =====
+export interface SharedUser extends BaseUser {
+  _id: string;
+  name: string;
+  surname: string;
+  email: string;
+  phone: string;
+  userType: 'driver' | 'mechanic';
+}
+
 // ===== USER INTERFACES =====
 export interface BaseUser extends BaseEntity {
   name: string;
