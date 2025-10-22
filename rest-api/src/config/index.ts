@@ -27,8 +27,8 @@ export const MONGODB_OPTIONS = {
   // Railway için özel ayarlar
   authSource: 'admin',
   retryReads: true,
-  heartbeatFrequencyMS: 10000,
-  serverSelectionRetryDelayMS: 2000
+  heartbeatFrequencyMS: 10000
+  // serverSelectionRetryDelayMS kaldırıldı - desteklenmiyor
 } as const;
 
 // Server port

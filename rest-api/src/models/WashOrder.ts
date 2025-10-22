@@ -173,8 +173,8 @@ const WashOrderSchema = new Schema<IWashOrder>(
     orderNumber: {
       type: String,
       required: true,
-      unique: true,
-      index: true,
+      unique: true
+      // index: true kaldırıldı - aşağıda schema.index() ile tanımlanıyor
     },
     driverId: {
       type: Schema.Types.ObjectId,
