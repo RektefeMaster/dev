@@ -179,14 +179,14 @@ const WashOrderSchema = new Schema<IWashOrder>(
     driverId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
-      index: true,
+      required: true
+      // index: true kaldırıldı - aşağıda schema.index() ile tanımlanıyor
     },
     providerId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
-      index: true,
+      required: true
+      // index: true kaldırıldı - aşağıda schema.index() ile tanımlanıyor
     },
     vehicleId: {
       type: Schema.Types.ObjectId,
@@ -279,8 +279,8 @@ const WashOrderSchema = new Schema<IWashOrder>(
         'DISPUTED',
       ],
       required: true,
-      default: 'CREATED',
-      index: true,
+      default: 'CREATED'
+      // index: true kaldırıldı - aşağıda schema.index() ile tanımlanıyor
     },
     workSteps: [{
       step: { type: String, required: true },
