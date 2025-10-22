@@ -1,4 +1,8 @@
-import axios, { AxiosInstance, AxiosResponse, AxiosRequestConfig } from 'axios';
+// Axios will be provided by the consuming application (rest-api)
+declare const axios: any;
+declare const AxiosInstance: any;
+declare const AxiosResponse: any;
+declare const AxiosRequestConfig: any;
 
 // ===== INTERFACES =====
 

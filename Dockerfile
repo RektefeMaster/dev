@@ -7,13 +7,14 @@ RUN apk add --no-cache python3 make g++
 # Set working directory
 WORKDIR /app
 
-# Copy shared directory
+# Copy shared directory and install its dependencies
 COPY shared ./shared
+WORKDIR /app/shared
+RUN npm ci --no-cache
 
-# Copy rest-api files
+# Copy rest-api files and install dependencies
+WORKDIR /app
 COPY rest-api ./rest-api
-
-# Install dependencies and build
 WORKDIR /app/rest-api
 RUN npm ci --no-cache && \
     npm run build && \
