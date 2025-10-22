@@ -485,13 +485,20 @@ mongoose.connection.on('connected', () => {
 
 mongoose.connection.on('error', (err: Error) => {
   Logger.error('❌ MongoDB bağlantı hatası:', err);
+  // Railway için daha detaylı error logging
+  if (err.message.includes('TLS')) {
+    Logger.error('🔒 TLS bağlantı hatası - Railway MongoDB ayarlarını kontrol edin');
+  }
+  if (err.message.includes('timeout')) {
+    Logger.error('⏰ Bağlantı timeout - Network ayarlarını kontrol edin');
+  }
 });
 
 mongoose.connection.on('disconnected', () => {
   Logger.warn('⚠️ MongoDB bağlantısı kesildi');
-  Logger.info('🔄 5 saniye sonra otomatik yeniden bağlanma deneniyor...');
+  Logger.info('🔄 3 saniye sonra otomatik yeniden bağlanma deneniyor...');
   
-  // Otomatik yeniden bağlanma
+  // Railway için daha hızlı reconnect
   setTimeout(async () => {
     try {
       Logger.info('🔄 MongoDB yeniden bağlanıyor...');
@@ -499,19 +506,20 @@ mongoose.connection.on('disconnected', () => {
       Logger.info('✅ MongoDB başarıyla yeniden bağlandı');
     } catch (reconnectError) {
       Logger.error('❌ Yeniden bağlanma başarısız:', reconnectError);
-      Logger.info('🔄 10 saniye sonra tekrar denenecek...');
+      Logger.info('🔄 5 saniye sonra tekrar denenecek...');
       
-      // Başarısızsa 10 saniye sonra tekrar dene
+      // Railway için daha kısa retry interval
       setTimeout(async () => {
         try {
           await mongoose.connect(MONGODB_URI, MONGODB_OPTIONS);
           Logger.info('✅ MongoDB 2. denemede bağlandı');
         } catch (error) {
           Logger.error('❌ 2. deneme de başarısız. Manuel müdahale gerekli.');
+          Logger.error('🔧 Railway MongoDB URI kontrolü:', MONGODB_URI);
         }
-      }, 10000);
+      }, 5000);
     }
-  }, 5000);
+  }, 3000);
 });
 
 mongoose.connection.on('reconnected', () => {

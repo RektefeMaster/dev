@@ -28,6 +28,174 @@ export class CustomError extends Error implements ApiError {
   }
 }
 
+// ===== ENHANCED ERROR HANDLER =====
+export class ErrorHandler {
+  /**
+   * Create and send a standardized error response
+   */
+  static sendError(
+    res: Response,
+    errorCode: ErrorCode,
+    customMessage?: string,
+    details?: any,
+    req?: Request
+  ): void {
+    const statusCode = ERROR_STATUS_MAPPING[errorCode] || 500;
+    const message = customMessage || ERROR_MESSAGES_TR[errorCode];
+    const requestId = req?.headers['x-request-id'] as string;
+
+    const errorResponse: ApiResponse = {
+      success: false,
+      error: {
+        code: errorCode,
+        message,
+        details,
+        timestamp: new Date().toISOString(),
+        requestId
+      }
+    };
+
+    // Log error for debugging (except client errors)
+    if (statusCode >= 500) {
+      logger.error('Server Error:', {
+        errorCode,
+        message,
+        details,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    res.status(statusCode).json(errorResponse);
+  }
+
+  /**
+   * Create and send a standardized success response
+   */
+  static sendSuccess<T>(
+    res: Response,
+    data: T,
+    message?: string,
+    req?: Request
+  ): void {
+    const requestId = req?.headers['x-request-id'] as string;
+    
+    const successResponse: ApiResponse = {
+      success: true,
+      data,
+      message,
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId
+      }
+    };
+
+    res.json(successResponse);
+  }
+
+  /**
+   * Create and send a created response (201)
+   */
+  static sendCreated<T>(
+    res: Response,
+    data: T,
+    message?: string,
+    req?: Request
+  ): void {
+    const requestId = req?.headers['x-request-id'] as string;
+    
+    const successResponse: ApiResponse = {
+      success: true,
+      data,
+      message: message || 'Kayıt başarıyla oluşturuldu',
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId
+      }
+    };
+
+    res.status(201).json(successResponse);
+  }
+
+  /**
+   * Create and send a paginated response
+   */
+  static sendPaginated<T>(
+    res: Response,
+    data: T[],
+    page: number,
+    limit: number,
+    total: number,
+    message?: string,
+    req?: Request
+  ): void {
+    const requestId = req?.headers['x-request-id'] as string;
+    const totalPages = Math.ceil(total / limit);
+    
+    const paginatedResponse: ApiResponse = {
+      success: true,
+      data,
+      message: message || 'Veriler başarıyla getirildi',
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages
+        }
+      }
+    };
+
+    res.json(paginatedResponse);
+  }
+
+  /**
+   * Create and send a not found response
+   */
+  static sendNotFound(
+    res: Response,
+    resource?: string,
+    req?: Request
+  ): void {
+    const message = resource ? `${resource} bulunamadı` : 'Kaynak bulunamadı';
+    this.sendError(res, ErrorCode.NOT_FOUND, message, null, req);
+  }
+
+  /**
+   * Create and send an unauthorized response
+   */
+  static sendUnauthorized(
+    res: Response,
+    message?: string,
+    req?: Request
+  ): void {
+    this.sendError(res, ErrorCode.UNAUTHORIZED, message, null, req);
+  }
+
+  /**
+   * Create and send a forbidden response
+   */
+  static sendForbidden(
+    res: Response,
+    message?: string,
+    req?: Request
+  ): void {
+    this.sendError(res, ErrorCode.FORBIDDEN, message, null, req);
+  }
+
+  /**
+   * Create and send a validation error response
+   */
+  static sendValidationError(
+    res: Response,
+    errors: Record<string, string[]>,
+    req?: Request
+  ): void {
+    this.sendError(res, ErrorCode.VALIDATION_FAILED, 'Veri doğrulama hatası', errors, req);
+  }
+}
+
 export const errorHandler = (
   err: ApiError,
   req: Request,

@@ -4,10 +4,10 @@
 
 import Constants from 'expo-constants';
 
-// API Konfigürasyonu - Local test için
+// API Konfigürasyonu - Railway production için
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:3000/api',
-  SOCKET_URL: 'http://localhost:3000',
+  BASE_URL: 'https://dev-production-8a3d.up.railway.app/api',
+  SOCKET_URL: 'https://dev-production-8a3d.up.railway.app',
   TIMEOUT: 30000, // 30 saniye timeout - network gecikmeleri için
 };
 

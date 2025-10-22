@@ -9,7 +9,7 @@ import { Vehicle } from '../models/Vehicle';
 import { Mechanic } from '../models/Mechanic';
 import { User } from '../models/User';
 import { Appointment } from '../models/Appointment';
-import { ErrorHandler, ErrorCodes } from '../utils/errorHandler';
+import { ErrorHandler, ErrorCodes } from '../middleware/errorHandler';
 import { 
   FaultReportStatus, 
   Priority, 

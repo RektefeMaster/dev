@@ -1021,17 +1021,27 @@ export class AppointmentController {
             status: 'completed' as const
           };
           
-          // Müşteri cüzdanından para düş
+          // Müşteri cüzdanından para düş - Balance kontrolü ile
+          const customerWallet = await Wallet.findOne({ userId }).session(session);
+          
+          if (!customerWallet) {
+            await session.abortTransaction();
+            throw new CustomError('Müşteri cüzdanı bulunamadı', 404);
+          }
+          
+          if (customerWallet.balance < walletAmount) {
+            await session.abortTransaction();
+            throw new CustomError('Cüzdan bakiyeniz yetersiz', 400);
+          }
+          
           await Wallet.findOneAndUpdate(
             { userId },
             {
               $inc: { balance: -walletAmount }, // Balance'ı atomik olarak azalt
               $push: { transactions: customerTransaction }, // Transaction'ı atomik olarak ekle
-              $setOnInsert: { userId, createdAt: new Date() } // Eğer yeni wallet ise initial values
             },
             { 
               new: true, 
-              upsert: true, // Yoksa oluştur
               session // Transaction session
             }
           );

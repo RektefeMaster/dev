@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { OptimizedAuthService, JWTService } from '../services/optimizedAuth.service';
-import { ResponseHandler } from '../utils/response';
+import { ErrorHandler } from '../middleware/errorHandler';
 import { asyncHandler } from '../middleware/errorHandler';
 
 export class AuthController {
@@ -8,13 +8,13 @@ export class AuthController {
   static register = asyncHandler(async (req: Request, res: Response) => {
     const result = await OptimizedAuthService.register(req.body);
     
-    return ResponseHandler.created(res, {
+    return ErrorHandler.sendCreated(res, {
       userId: result.userId,
       userType: result.userType,
       token: result.accessToken,
       refreshToken: result.refreshToken,
       user: result.user
-    }, 'Kayıt başarılı!');
+    }, 'Kayıt başarılı!', req);
   });
 
   // Kullanıcı girişi
@@ -29,13 +29,13 @@ export class AuthController {
     
     const result = await OptimizedAuthService.login(email, password, userType, deviceInfo);
     
-    return ResponseHandler.success(res, {
+    return ErrorHandler.sendSuccess(res, {
       userId: result.userId,
       userType: result.userType,
       token: result.accessToken,
       refreshToken: result.refreshToken,
       user: result.user
-    }, 'Giriş başarılı!');
+    }, 'Giriş başarılı!', req);
   });
 
   // Token yenileme
