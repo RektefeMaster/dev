@@ -225,10 +225,15 @@ export default function TireServiceScreen() {
           tireModel: job.tireModel,
           tireCondition: job.tireCondition || 'used',
           status: job.status === 'TALEP_EDILDI' ? 'pending' 
-                  : job.status === 'ONAYLANDI' ? 'accepted'
-                  : job.status === 'DEVAM_EDIYOR' ? 'in_progress'
+                  : job.status === 'PLANLANDI' ? 'accepted'
+                  : job.status === 'SERVISTE' ? 'in_progress'
+                  : job.status === 'ODEME_BEKLIYOR' ? 'payment_pending'
                   : job.status === 'TAMAMLANDI' ? 'completed'
                   : job.status === 'IPTAL_EDILDI' ? 'cancelled'
+                  : job.status === 'NO_SHOW' ? 'no_show'
+                  // Eski status değerleri (geriye dönük uyumluluk)
+                  : job.status === 'ONAYLANDI' ? 'accepted'
+                  : job.status === 'DEVAM_EDIYOR' ? 'in_progress'
                   : 'pending',
           requestedAt: job.createdAt || new Date().toISOString(),
           estimatedTime: job.timeSlot || 'Belirtilmedi',

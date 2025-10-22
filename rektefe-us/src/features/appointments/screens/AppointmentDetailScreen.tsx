@@ -535,11 +535,19 @@ export default function AppointmentDetailScreen() {
       case 'in-progress': return 'Devam Ediyor';
       case 'completed': return 'Tamamlandı';
       case 'cancelled': return 'İptal Edildi';
+      // Yeni backend status değerleri
       case 'TALEP_EDILDI': return 'Talep Edildi';
-      case 'BEKLIYOR': return 'Bekliyor';
-      case 'ONAYLANDI': return 'Onaylandı';
-      case 'REDDEDILDI': return 'Reddedildi';
+      case 'PLANLANDI': return 'Planlandı';
+      case 'SERVISTE': return 'Serviste';
+      case 'ODEME_BEKLIYOR': return 'Ödeme Bekliyor';
       case 'TAMAMLANDI': return 'Tamamlandı';
+      case 'IPTAL_EDILDI': return 'İptal Edildi';
+      case 'NO_SHOW': return 'Gelmedi';
+      // Eski status değerleri (geriye dönük uyumluluk)
+      case 'BEKLIYOR': return 'Bekliyor';
+      case 'ONAYLANDI': return 'Planlandı';
+      case 'DEVAM_EDIYOR': return 'Serviste';
+      case 'REDDEDILDI': return 'Reddedildi';
       case 'IPTAL': return 'İptal Edildi';
       default: return status;
     }

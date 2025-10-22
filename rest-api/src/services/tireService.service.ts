@@ -6,6 +6,7 @@ import mongoose from 'mongoose';
 import { CustomError } from '../middleware/errorHandler';
 import { sendNotificationToUser } from '../utils/socketNotifications';
 import { sendPushNotification } from '../services/pushNotificationService';
+import { AppointmentStatus } from '../../../shared/types/enums';
 
 export class TireServiceService {
   /**
@@ -70,7 +71,7 @@ export class TireServiceService {
         location,
         appointmentDate: scheduledFor || new Date(),
         timeSlot: scheduledFor ? new Date(scheduledFor).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : 'En Kısa Sürede',
-        status: mechanicId ? 'ONAYLANDI' : 'TALEP_EDILDI',
+        status: mechanicId ? AppointmentStatus.SCHEDULED : AppointmentStatus.REQUESTED,
         requestType: isUrgent ? 'immediate' : 'scheduled',
         priceSource: 'to_be_determined',
         paymentStatus: 'PENDING',
@@ -117,7 +118,7 @@ export class TireServiceService {
       const query: any = {
         $or: [
           { mechanicId: new mongoose.Types.ObjectId(mechanicId) },
-          { mechanicId: { $exists: false }, status: 'TALEP_EDILDI' }
+          { mechanicId: { $exists: false }, status: AppointmentStatus.REQUESTED }
         ],
         serviceType: 'lastik-servisi'
       };
@@ -172,7 +173,7 @@ export class TireServiceService {
       if (filters?.status) {
         query.status = filters.status;
       } else if (!filters?.includeCompleted) {
-        query.status = { $nin: ['TAMAMLANDI', 'IPTAL_EDILDI'] };
+        query.status = { $nin: [AppointmentStatus.COMPLETED, AppointmentStatus.CANCELLED] };
       }
 
       const requests = await Appointment.find(query)
@@ -207,13 +208,13 @@ export class TireServiceService {
       }
 
       job.mechanicId = new mongoose.Types.ObjectId(mechanicId);
-      job.status = 'ONAYLANDI';
+      job.status = AppointmentStatus.SCHEDULED;
 
       if (!job.statusHistory) {
         job.statusHistory = [];
       }
       job.statusHistory.push({
-        status: 'ONAYLANDI',
+        status: AppointmentStatus.SCHEDULED,
         timestamp: new Date(),
         mechanicId,
         notes: 'İş kabul edildi'
@@ -230,7 +231,7 @@ export class TireServiceService {
         type: 'appointment_confirmed',
         data: {
           appointmentId: job._id,
-          status: 'ONAYLANDI'
+          status: AppointmentStatus.SCHEDULED
         }
       });
       await notification.save();
@@ -272,13 +273,13 @@ export class TireServiceService {
         throw new CustomError('İş bulunamadı veya yetkiniz yok', 404);
       }
 
-      job.status = 'DEVAM_EDIYOR';
+      job.status = AppointmentStatus.IN_SERVICE;
 
       if (!job.statusHistory) {
         job.statusHistory = [];
       }
       job.statusHistory.push({
-        status: 'DEVAM_EDIYOR',
+        status: AppointmentStatus.IN_SERVICE,
         timestamp: new Date(),
         mechanicId,
         notes: 'İş başlatıldı'
@@ -295,7 +296,7 @@ export class TireServiceService {
         type: 'system',
         data: {
           appointmentId: job._id,
-          status: 'DEVAM_EDIYOR'
+          status: AppointmentStatus.IN_SERVICE
         }
       });
       await notification.save();
@@ -343,7 +344,7 @@ export class TireServiceService {
         throw new CustomError('İş bulunamadı veya yetkiniz yok', 404);
       }
 
-      job.status = 'TAMAMLANDI';
+      job.status = AppointmentStatus.COMPLETED;
       job.completionDate = new Date();
       
       if (completionData?.notes) {
@@ -362,7 +363,7 @@ export class TireServiceService {
         job.statusHistory = [];
       }
       job.statusHistory.push({
-        status: 'TAMAMLANDI',
+        status: AppointmentStatus.COMPLETED,
         timestamp: new Date(),
         mechanicId,
         notes: completionData?.notes || 'İş tamamlandı'
@@ -379,7 +380,7 @@ export class TireServiceService {
         type: 'system',
         data: {
           appointmentId: job._id,
-          status: 'TAMAMLANDI'
+          status: AppointmentStatus.COMPLETED
         }
       });
       await notification.save();

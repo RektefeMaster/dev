@@ -40,8 +40,7 @@ const createRequestSchema = Joi.object({
   isUrgent: Joi.boolean().default(false),
   description: Joi.string().allow('', null).max(500).optional(),
   specialRequests: Joi.string().allow('', null).max(500).optional(),
-  scheduledFor: Joi.date().optional(),
-  mechanicId: Joi.string().optional()
+  scheduledFor: Joi.date().optional()
 });
 
 const priceQuoteSchema = Joi.object({

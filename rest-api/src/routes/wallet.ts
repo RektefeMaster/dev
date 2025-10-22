@@ -4,6 +4,7 @@ import { Wallet } from '../models/Wallet';
 import { WalletController } from '../controllers/wallet.controller';
 import { Appointment } from '../models/Appointment';
 import { Types } from 'mongoose';
+import { AppointmentStatus } from '../../../shared/types/enums';
 
 const router = Router();
 
@@ -98,7 +99,7 @@ router.get('/earnings-summary', auth, async (req: Request, res: Response) => {
     // Bekleyen randevuları getir
     const pendingAppointments = await Appointment.find({
       mechanicId: new Types.ObjectId(userId),
-      status: { $in: ['ONAYLANDI', 'BEKLEMEDE'] }
+      status: { $in: [AppointmentStatus.SCHEDULED, AppointmentStatus.REQUESTED] }
     });
     
     // Tüm zamanlar için toplam kazanç

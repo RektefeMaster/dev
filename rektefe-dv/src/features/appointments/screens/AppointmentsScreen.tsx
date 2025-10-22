@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndi
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_URL } from '@/constants/config';
+import { API_URL, STORAGE_KEYS } from '@/constants/config';
 import { apiService } from '@/shared/services/api';
 import { format, isBefore, addHours, differenceInHours, differenceInMinutes } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -13,15 +13,19 @@ import io from 'socket.io-client';
 import { translateServiceName } from '@/shared/utils/serviceTranslator';
 import { RootStackParamList } from '@/navigation/AppNavigator';
 import { BackButton } from '@/shared/components';
+import { useAuth } from '@/context/AuthContext';
 
 type AppointmentsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Appointments'>;
 
 const AppointmentsScreen = () => {
   const navigation = useNavigation<AppointmentsScreenNavigationProp>();
+  const { user } = useAuth();
   const [appointments, setAppointments] = useState<any[]>([]);
+  const [washOrders, setWashOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeUntilAppointment, setTimeUntilAppointment] = useState<{[key: string]: number}>({});
   const [activeTab, setActiveTab] = useState<'current' | 'completed' | 'past'>('current');
+  const [viewMode, setViewMode] = useState<'appointments' | 'wash'>('appointments');
   const [notificationSettings, setNotificationSettings] = useState({
     twoHoursBefore: true,
     oneHourBefore: true,
@@ -35,7 +39,7 @@ const AppointmentsScreen = () => {
     try {
       console.log('🔍 fetchAppointments başlatıldı');
       
-      const token = await AsyncStorage.getItem('auth_token');
+      const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
       if (!token) throw new Error('Token bulunamadı');
       
       console.log('🔍 Token alındı, API çağrısı yapılıyor...');
@@ -96,6 +100,31 @@ const AppointmentsScreen = () => {
     }
   };
 
+  const fetchWashOrders = async () => {
+    try {
+      console.log('🔍 fetchWashOrders başlatıldı');
+      
+      const response = await apiService.getMyWashOrders();
+      
+      console.log('🔍 Yıkama siparişleri yanıtı:', response);
+      
+      if (response.success && response.data) {
+        // Siparişleri tarihe göre sırala (en yeni en üstte)
+        const sortedOrders = (response.data || []).sort((a: any, b: any) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setWashOrders(sortedOrders);
+        console.log('✅ Yıkama siparişleri yüklendi:', sortedOrders.length);
+      }
+    } catch (error: any) {
+      console.error('❌ Yıkama siparişleri hatası:', error);
+      console.error('❌ Error response:', error.response?.data);
+      
+      // Sessizce başarısız ol - yıkama siparişleri opsiyonel
+      setWashOrders([]);
+    }
+  };
+
   // Socket.IO bağlantısı ve bildirim dinleme
   useEffect(() => {
     const newSocket = io(API_URL);
@@ -104,7 +133,7 @@ const AppointmentsScreen = () => {
     // Kullanıcı ID'sini al ve odaya katıl
     const joinUserRoom = async () => {
       try {
-        const token = await AsyncStorage.getItem('auth_token');
+        const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
         if (token) {
           // TODO: JWT decode için uygun bir kütüphane kullan
           // Şimdilik sabit bir userId kullan
@@ -151,6 +180,7 @@ const AppointmentsScreen = () => {
   // İlk yükleme ve her dakika randevu saatlerini güncelle
   useEffect(() => {
     fetchAppointments();
+    fetchWashOrders();
   }, []); // Sadece component mount olduğunda çalışsın
 
   // Her 5 dakikada randevu saatlerini güncelle (daha az sıklıkta)
@@ -225,10 +255,62 @@ const AppointmentsScreen = () => {
   const { current, completed, past } = categorizeAppointments(appointments);
   
 
+  // Yıkama siparişlerini kategorize et
+  const categorizeWashOrders = (orders: any[]) => {
+    const activewash: any[] = [];
+    const completedwash: any[] = [];
+    const cancelledwash: any[] = [];
+
+    orders.forEach(order => {
+      const status = order.status?.toLowerCase();
+      
+      // Aktif durumlar - devam eden siparişler
+      if ([
+        'created', 
+        'priced', 
+        'driver_confirmed', 
+        'provider_accepted', 
+        'en_route', 
+        'check_in', 
+        'in_progress', 
+        'qa_pending'
+      ].includes(status)) {
+        activewash.push(order);
+      } 
+      // Tamamlanan durumlar - başarıyla biten siparişler
+      else if ([
+        'completed', 
+        'paid', 
+        'reviewed'
+      ].includes(status)) {
+        completedwash.push(order);
+      } 
+      // İptal edilen durumlar - iptal edilen siparişler
+      else if ([
+        'cancelled_by_driver', 
+        'cancelled_by_provider', 
+        'disputed'
+      ].includes(status)) {
+        cancelledwash.push(order);
+      } 
+      // Bilinmeyen durumlar aktif sayılır
+      else {
+        activewash.push(order);
+      }
+    });
+
+    return { activewash, completedwash, cancelledwash };
+  };
+
+  const { activewash, completedwash, cancelledwash } = categorizeWashOrders(washOrders);
 
   // Randevuları filtrele
   const filteredAppointments = activeTab === 'current' ? current : 
                               activeTab === 'completed' ? completed : past;
+  
+  // Yıkama siparişlerini filtrele
+  const filteredWashOrders = activeTab === 'current' ? activewash : 
+                             activeTab === 'completed' ? completedwash : cancelledwash;
   
 
 
@@ -258,7 +340,7 @@ const AppointmentsScreen = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const token = await AsyncStorage.getItem('auth_token');
+              const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
               if (!token) throw new Error('Token bulunamadı');
 
               const response = await axios.put(
@@ -352,7 +434,7 @@ const AppointmentsScreen = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const token = await AsyncStorage.getItem('auth_token');
+              const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
               if (!token) throw new Error('Token bulunamadı');
 
               const response = await axios.delete(
@@ -399,7 +481,7 @@ const AppointmentsScreen = () => {
           text: 'Kaydet',
           onPress: async () => {
             try {
-              const token = await AsyncStorage.getItem('auth_token');
+              const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
               if (!token) throw new Error('Token bulunamadı');
 
               await axios.put(
@@ -465,7 +547,7 @@ const AppointmentsScreen = () => {
                     }
 
                     try {
-                      const token = await AsyncStorage.getItem('auth_token');
+                      const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
                       if (!token) throw new Error('Token bulunamadı');
 
                       const response = await axios.put(
@@ -804,6 +886,200 @@ const AppointmentsScreen = () => {
     );
   };
 
+  // Yıkama siparişi render fonksiyonu
+  const renderWashOrderItem = ({ item }: { item: any }) => {
+    const getStatusText = (status: string) => {
+      const statusMap: { [key: string]: string } = {
+        // Aktif durumlar
+        'created': 'Oluşturuldu',
+        'priced': 'Fiyatlandırıldı',
+        'driver_confirmed': 'Onaylandı',
+        'provider_accepted': 'Onaylandı',
+        'en_route': 'Yolda',
+        'check_in': 'Giriş Yapıldı',
+        'in_progress': 'Yıkama Yapılıyor',
+        'qa_pending': 'Kalite Kontrol',
+        
+        // Tamamlanan durumlar
+        'completed': 'Tamamlandı',
+        'paid': 'Ödendi',
+        'reviewed': 'Değerlendirildi',
+        
+        // İptal durumları - genel mesajlar
+        'cancelled_by_driver': 'İptal Edildi',
+        'cancelled_by_provider': 'İptal Edildi',
+        'disputed': 'Anlaşmazlık',
+        
+        // Eski durumlar (geriye uyumluluk)
+        'pending': 'Beklemede',
+        'confirmed': 'Onaylandı',
+        'assigned': 'Usta Atandı',
+        'on_the_way': 'Yolda',
+        'quality_check': 'Kalite Kontrol',
+        'quality_approved': 'Onaylandı',
+        'cancelled': 'İptal Edildi',
+        'rejected': 'Reddedildi',
+        'quality_rejected': 'Kalite Reddedildi',
+        'provider_confirmed': 'Onaylandı',
+        'payment_pending': 'Ödeme Bekliyor',
+        'payment_completed': 'Ödeme Tamamlandı',
+        'in_queue': 'Sırada',
+        'preparing': 'Hazırlanıyor',
+        'washing': 'Yıkama Yapılıyor',
+        'drying': 'Kurulanıyor',
+        'final_check': 'Son Kontrol',
+        'ready_for_pickup': 'Teslim Hazır',
+        'delivered': 'Teslim Edildi'
+      };
+      return statusMap[status?.toLowerCase()] || status;
+    };
+
+    const getStatusColor = (status: string) => {
+      const lowerStatus = status?.toLowerCase();
+      
+      // Aktif durumlar - Turuncu
+      if ([
+        'created', 'priced', 'driver_confirmed', 'provider_accepted',
+        'pending', 'confirmed', 'assigned', 'provider_confirmed'
+      ].includes(lowerStatus)) return '#FF9500';
+      
+      // Devam eden durumlar - Mavi
+      if ([
+        'en_route', 'check_in', 'in_progress', 'qa_pending',
+        'on_the_way', 'quality_check', 'in_queue', 'preparing', 
+        'washing', 'drying', 'final_check'
+      ].includes(lowerStatus)) return '#007AFF';
+      
+      // Tamamlanan durumlar - Yeşil
+      if ([
+        'completed', 'paid', 'reviewed',
+        'quality_approved', 'payment_completed', 'ready_for_pickup', 'delivered'
+      ].includes(lowerStatus)) return '#34C759';
+      
+      // İptal durumları - Kırmızı
+      if ([
+        'cancelled_by_driver', 'cancelled_by_provider', 'disputed',
+        'cancelled', 'rejected', 'quality_rejected'
+      ].includes(lowerStatus)) return '#FF3B30';
+      
+      // Ödeme bekleyen - Turuncu
+      if (['payment_pending'].includes(lowerStatus)) return '#FF9500';
+      
+      return '#666';
+    };
+
+    const getTypeText = (type: string) => {
+      return type === 'mobile' ? 'Mobil Yıkama' : 'İşletmede Yıkama';
+    };
+
+    const getTypeIcon = (type: string) => {
+      return type === 'mobile' ? 'truck-delivery' : 'store';
+    };
+
+    return (
+      <View style={styles.washOrderCard}>
+        {/* Header */}
+        <View style={styles.washCardHeader}>
+          <View style={styles.washCardTitleRow}>
+            <View style={styles.washIconContainer}>
+              <MaterialCommunityIcons name="car-wash" size={20} color="#FFF" />
+            </View>
+            <View style={styles.washTitleContainer}>
+              <Text style={styles.washCardTitle}>
+                {item.package?.name || 'Yıkama Hizmeti'}
+              </Text>
+              <Text style={styles.washCardSubtitle}>
+                {getTypeText(item.type)}
+              </Text>
+            </View>
+          </View>
+          <View style={[styles.washStatusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+            <Text style={styles.washStatusText}>{getStatusText(item.status)}</Text>
+          </View>
+        </View>
+
+        {/* Content */}
+        <View style={styles.washCardContent}>
+          {/* Sipariş No */}
+          <View style={styles.washInfoRow}>
+            <MaterialCommunityIcons name="barcode" size={16} color="#666" />
+            <Text style={styles.washInfoText}>
+              #{item._id?.slice(-8).toUpperCase()}
+            </Text>
+          </View>
+
+          {/* Araç Bilgisi */}
+          <View style={styles.washInfoRow}>
+            <MaterialCommunityIcons name="car" size={16} color="#007AFF" />
+            <Text style={styles.washInfoText}>
+              {item.vehicle?.brand} {item.vehicle?.model} - {item.vehicle?.plateNumber}
+            </Text>
+          </View>
+
+          {/* Konum/İşletme */}
+          {item.type === 'mobile' && item.location?.address && (
+            <View style={styles.washInfoRow}>
+              <MaterialCommunityIcons name="map-marker" size={16} color="#E63946" />
+              <Text style={styles.washInfoText} numberOfLines={1}>
+                {item.location.address}
+              </Text>
+            </View>
+          )}
+
+          {item.type === 'shop' && item.providerId && (
+            <View style={styles.washInfoRow}>
+              <MaterialCommunityIcons name="store" size={16} color="#10B981" />
+              <Text style={styles.washInfoText}>
+                {item.providerId.businessName || item.providerId.name}
+              </Text>
+            </View>
+          )}
+
+          {/* Tarih */}
+          {item.scheduling?.slotStart && (
+            <View style={styles.washInfoRow}>
+              <MaterialCommunityIcons name="calendar" size={16} color="#FF9500" />
+              <Text style={styles.washInfoText}>
+                {format(new Date(item.scheduling.slotStart), 'dd MMM yyyy', { locale: tr })}
+              </Text>
+            </View>
+          )}
+
+          {/* Fiyat */}
+          <View style={styles.washPriceContainer}>
+            <Text style={styles.washPriceLabel}>Toplam Tutar</Text>
+            <Text style={styles.washPriceAmount}>
+              {item.pricing?.finalPrice?.toFixed(2) || '0.00'} TL
+            </Text>
+          </View>
+        </View>
+
+        {/* Footer */}
+        <View style={styles.washCardFooter}>
+          <View style={styles.washCardMeta}>
+            <MaterialCommunityIcons name="clock-outline" size={14} color="#999" />
+            <Text style={styles.washCardMetaText}>
+              {format(new Date(item.createdAt), 'dd.MM.yyyy HH:mm', { locale: tr })}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.washTrackButton}
+            onPress={() => navigation.navigate('WashTracking', { orderId: item._id })}
+          >
+            <Text style={styles.washTrackButtonText}>
+              {(() => {
+                const status = item.status?.toLowerCase();
+                const isActive = ['created', 'priced', 'driver_confirmed', 'provider_accepted', 'en_route', 'check_in', 'in_progress', 'qa_pending'].includes(status);
+                return isActive ? 'Takip Et' : 'Detay Gör';
+              })()}
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={16} color="#007AFF" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -827,34 +1103,63 @@ const AppointmentsScreen = () => {
         <Text style={styles.headerTitle}>Randevularım</Text>
       </View>
 
+      {/* Ana View Mode Seçimi */}
+      <View style={styles.viewModeContainer}>
+        <TouchableOpacity
+          style={[styles.viewModeButton, viewMode === 'appointments' && styles.viewModeButtonActive]}
+          onPress={() => setViewMode('appointments')}
+        >
+          <MaterialCommunityIcons 
+            name="calendar-check" 
+            size={20} 
+            color={viewMode === 'appointments' ? '#FFF' : '#007AFF'} 
+          />
+          <Text style={[styles.viewModeText, viewMode === 'appointments' && styles.viewModeTextActive]}>
+            Randevular ({appointments.length})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.viewModeButton, viewMode === 'wash' && styles.viewModeButtonActive]}
+          onPress={() => setViewMode('wash')}
+        >
+          <MaterialCommunityIcons 
+            name="car-wash" 
+            size={20} 
+            color={viewMode === 'wash' ? '#FFF' : '#007AFF'} 
+          />
+          <Text style={[styles.viewModeText, viewMode === 'wash' && styles.viewModeTextActive]}>
+            Yıkama ({washOrders.length})
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'current' && styles.activeTab]}
           onPress={() => setActiveTab('current')}
         >
           <MaterialCommunityIcons 
-            name="calendar-clock" 
+            name={viewMode === 'appointments' ? 'calendar-clock' : 'timer-sand'} 
             size={24} 
             color={activeTab === 'current' ? '#007AFF' : '#666'} 
           />
           <Text style={[styles.tabText, activeTab === 'current' && styles.activeTabText]}>
-            Güncel ({current.length})
+            {viewMode === 'appointments' ? `Güncel\n(${current.length})` : `Aktif\n(${activewash.length})`}
           </Text>
         </TouchableOpacity>
-
-
 
         <TouchableOpacity
           style={[styles.tab, activeTab === 'completed' && styles.activeTab]}
           onPress={() => setActiveTab('completed')}
         >
           <MaterialCommunityIcons 
-            name="credit-card" 
+            name={viewMode === 'appointments' ? 'credit-card' : 'check-circle'} 
             size={24} 
             color={activeTab === 'completed' ? '#007AFF' : '#666'} 
           />
           <Text style={[styles.tabText, activeTab === 'completed' && styles.activeTabText]}>
-            Ödeme Bekleyen ({completed.length})
+            {viewMode === 'appointments' ? `Ödeme\n(${completed.length})` : `Tamamlanan\n(${completedwash.length})`}
           </Text>
         </TouchableOpacity>
 
@@ -863,42 +1168,60 @@ const AppointmentsScreen = () => {
           onPress={() => setActiveTab('past')}
         >
           <MaterialCommunityIcons 
-            name="history" 
+            name={viewMode === 'appointments' ? 'history' : 'close-circle'} 
             size={24} 
             color={activeTab === 'past' ? '#007AFF' : '#666'} 
           />
           <Text style={[styles.tabText, activeTab === 'past' && styles.activeTabText]}>
-            Geçmiş ({past.length})
+            {viewMode === 'appointments' ? `Geçmiş\n(${past.length})` : `İptal\n(${cancelledwash.length})`}
           </Text>
         </TouchableOpacity>
       </View>
 
       <FlatList
-        data={filteredAppointments}
-        renderItem={renderAppointmentItem}
+        data={viewMode === 'appointments' ? filteredAppointments : filteredWashOrders}
+        renderItem={viewMode === 'appointments' ? renderAppointmentItem : renderWashOrderItem}
         keyExtractor={(item) => item._id}
         contentContainerStyle={styles.listContainer}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <MaterialCommunityIcons 
-              name={activeTab === 'current' ? 'calendar-blank' : 
-                    activeTab === 'completed' ? 'credit-card' : 'history'} 
+              name={viewMode === 'appointments' 
+                ? (activeTab === 'current' ? 'calendar-blank' : 
+                   activeTab === 'completed' ? 'credit-card' : 'history')
+                : (activeTab === 'current' ? 'car-wash' :
+                   activeTab === 'completed' ? 'check-circle' : 'close-circle')
+              } 
               size={64} 
               color="#CCC" 
             />
             <Text style={styles.emptyTitle}>
-              {activeTab === 'current' 
-                ? 'Henüz Randevunuz Yok'
-                : activeTab === 'completed'
-                ? 'Ödeme Bekleyen Randevu Yok'
-                : 'Geçmiş Randevu Yok'}
+              {viewMode === 'appointments'
+                ? (activeTab === 'current' 
+                  ? 'Henüz Randevunuz Yok'
+                  : activeTab === 'completed'
+                  ? 'Ödeme Bekleyen Randevu Yok'
+                  : 'Geçmiş Randevu Yok')
+                : (activeTab === 'current'
+                  ? 'Henüz Aktif Yıkama Siparişiniz Yok'
+                  : activeTab === 'completed'
+                  ? 'Tamamlanan Yıkama Siparişi Yok'
+                  : 'İptal Edilen Yıkama Siparişi Yok')
+              }
             </Text>
             <Text style={styles.emptyText}>
-              {activeTab === 'current' 
-                ? 'İlk randevunuzu oluşturmak için "Bakım Planla" kısmını kullanın'
-                : activeTab === 'completed'
-                ? 'Tamamlanan randevular burada görünecek'
-                : 'Tamamlanan veya iptal edilen randevular burada görünecek'}
+              {viewMode === 'appointments'
+                ? (activeTab === 'current' 
+                  ? 'İlk randevunuzu oluşturmak için "Bakım Planla" kısmını kullanın'
+                  : activeTab === 'completed'
+                  ? 'Tamamlanan randevular burada görünecek'
+                  : 'Tamamlanan veya iptal edilen randevular burada görünecek')
+                : (activeTab === 'current'
+                  ? 'İlk yıkama siparişinizi oluşturmak için "Araç Yıkama" kısmını kullanın'
+                  : activeTab === 'completed'
+                  ? 'Tamamlanan yıkama siparişleri burada görünecek'
+                  : 'İptal edilen yıkama siparişleri burada görünecek')
+              }
             </Text>
           </View>
         }
@@ -930,6 +1253,210 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
     textAlign: 'center',
+  },
+  viewModeContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFF',
+    gap: 12,
+  },
+  viewModeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F0F8FF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#007AFF',
+    gap: 8,
+  },
+  viewModeButtonActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  viewModeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
+  viewModeTextActive: {
+    color: '#FFF',
+  },
+  trackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#F0F8FF',
+    borderRadius: 8,
+    marginTop: 12,
+    gap: 8,
+  },
+  trackButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
+  
+  // Yeni Yıkama Kart Stilleri
+  washOrderCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    overflow: 'hidden',
+    minHeight: 120,
+  },
+  washCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: 16,
+    backgroundColor: '#F8F9FA',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E9ECEF',
+    minHeight: 80,
+  },
+  washCardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flex: 1,
+    marginRight: 12,
+  },
+  washIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    flexShrink: 0,
+  },
+  washTitleContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  washCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 2,
+    lineHeight: 20,
+    numberOfLines: 2,
+  },
+  washCardSubtitle: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+    lineHeight: 16,
+    numberOfLines: 1,
+  },
+  washStatusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    minWidth: 70,
+    maxWidth: 120,
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  washStatusText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 14,
+    numberOfLines: 2,
+  },
+  washCardContent: {
+    padding: 16,
+    flex: 1,
+  },
+  washInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+    minHeight: 20,
+  },
+  washInfoText: {
+    fontSize: 14,
+    color: '#333',
+    marginLeft: 10,
+    flex: 1,
+    fontWeight: '500',
+    lineHeight: 18,
+    numberOfLines: 2,
+  },
+  washPriceContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+    minHeight: 44,
+  },
+  washPriceLabel: {
+    fontSize: 13,
+    color: '#666',
+    fontWeight: '500',
+    flex: 1,
+  },
+  washPriceAmount: {
+    fontSize: 16,
+    color: '#10B981',
+    fontWeight: '700',
+    flexShrink: 0,
+  },
+  washCardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#F8F9FA',
+    borderTopWidth: 1,
+    borderTopColor: '#E9ECEF',
+    minHeight: 50,
+  },
+  washCardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  washCardMetaText: {
+    fontSize: 11,
+    color: '#999',
+    marginLeft: 6,
+    fontWeight: '500',
+    flex: 1,
+    numberOfLines: 1,
+  },
+  washTrackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    flexShrink: 0,
+  },
+  washTrackButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    marginRight: 4,
   },
   loadingContainer: {
     flex: 1,
@@ -1137,19 +1664,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+    justifyContent: 'space-between',
+    alignItems: 'stretch',
   },
   tab: {
     flex: 1,
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 8,
+    marginHorizontal: 4,
     borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 12,
     borderWidth: 1,
     borderColor: '#F0F0F0',
     backgroundColor: '#FAFAFA',
+    minHeight: 80,
+    maxWidth: '33%',
   },
   activeTab: {
     backgroundColor: '#E3F2FD',
@@ -1161,10 +1692,13 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
     fontWeight: '500',
     textAlign: 'center',
+    flexWrap: 'wrap',
+    lineHeight: 16,
+    numberOfLines: 2,
   },
   activeTabText: {
     color: '#007AFF',
@@ -1302,6 +1836,112 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+  detailTextBold: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginLeft: 8,
+    flex: 1,
+  },
+  detailTextSmall: {
+    fontSize: 12,
+    color: '#999',
+    marginLeft: 8,
+  },
+  packageDescription: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  locationConditions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+    marginLeft: 26,
+  },
+  conditionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F8FF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  conditionText: {
+    fontSize: 11,
+    color: '#666',
+    fontWeight: '500',
+  },
+  extrasContainer: {
+    backgroundColor: '#F8F9FA',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  extrasHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  extrasTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+  },
+  extrasChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  extraChip: {
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#007AFF',
+  },
+  extraChipText: {
+    fontSize: 12,
+    color: '#007AFF',
+    fontWeight: '500',
+  },
+  notesContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF9E6',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 8,
+    gap: 8,
+  },
+  notesText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 18,
+  },
+  pricingContainer: {
+    backgroundColor: '#F0FDF4',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#10B981',
+  },
+  priceDetailText: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 4,
+  },
+  finalPriceText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#10B981',
+    marginTop: 4,
   },
 });
 

@@ -26,6 +26,8 @@ import { apiService } from '@/shared/services/api';
 import { useAuth } from '@/context/AuthContext';
 import axios from 'axios';
 import { API_URL } from '@/constants/config';
+import LocationPicker from '@/shared/components/LocationPicker';
+import { getRealUserLocation } from '@/shared/utils/distanceCalculator';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -173,6 +175,7 @@ const WashBookingScreen = () => {
     requiresWater: false,
     isIndoorParking: false,
   });
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
 
   // Fiyatlandırma
   const [pricing, setPricing] = useState<PricingInfo | null>(null);
@@ -658,6 +661,7 @@ const WashBookingScreen = () => {
           await loadWalletBalance();
         }
         
+        // Başarı mesajı göster ve otomatik olarak ana sayfaya yönlendir
         Alert.alert(
           'Sipariş Oluşturuldu!',
           'Yıkama siparişiniz başarıyla oluşturuldu. İşletme onayından sonra sizi bilgilendireceğiz.',
@@ -665,13 +669,28 @@ const WashBookingScreen = () => {
             {
               text: 'Siparişi Takip Et',
               onPress: () => navigation.navigate('WashTracking', { orderId }),
+              style: 'default',
             },
             {
               text: 'Ana Sayfaya Dön',
               onPress: () => navigation.navigate('Home'),
+              style: 'cancel', // iOS'ta vurgulu buton
             },
-          ]
+          ],
+          { 
+            cancelable: true,
+            onDismiss: () => {
+              // Alert dışına tıklanırsa veya dismiss edilirse ana sayfaya git
+              navigation.navigate('Home');
+            }
+          }
         );
+        
+        // 3 saniye sonra otomatik olarak ana sayfaya yönlendir (kullanıcı bir buton seçmediyse)
+        setTimeout(() => {
+          // Eğer navigation stack'te hala bu ekrandaysak ana sayfaya git
+          navigation.navigate('Home');
+        }, 3000);
       } else {
         Alert.alert('Hata', response.message || 'Sipariş oluşturulamadı');
       }
@@ -688,6 +707,96 @@ const WashBookingScreen = () => {
       setStep(step - 1);
     } else {
       navigation.goBack();
+    }
+  };
+
+  const handleUseCurrentLocation = async () => {
+    try {
+      setLoading(true);
+      const userLocation = await getRealUserLocation();
+      
+      if (userLocation) {
+        setLocation({
+          ...location,
+          latitude: userLocation.latitude,
+          longitude: userLocation.longitude,
+        });
+
+        // Reverse geocoding ile adres al
+        try {
+          const geocodingUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${userLocation.latitude}&lon=${userLocation.longitude}&accept-language=tr`;
+          const response = await fetch(geocodingUrl);
+          const data = await response.json();
+          
+          if (data && data.display_name) {
+            setLocation({
+              ...location,
+              address: data.display_name,
+              latitude: userLocation.latitude,
+              longitude: userLocation.longitude,
+            });
+          }
+        } catch (geoError) {
+          console.error('Adres alınamadı:', geoError);
+          // Konum alındı ama adres alınamadı, sadece koordinatları göster
+          setLocation({
+            ...location,
+            address: `Konum: ${userLocation.latitude.toFixed(6)}, ${userLocation.longitude.toFixed(6)}`,
+            latitude: userLocation.latitude,
+            longitude: userLocation.longitude,
+          });
+        }
+
+        Alert.alert('Başarılı', 'Mevcut konumunuz alındı');
+      } else {
+        Alert.alert('Hata', 'Konum alınamadı. Lütfen GPS\'in açık olduğundan emin olun.');
+      }
+    } catch (error) {
+      console.error('Konum alma hatası:', error);
+      Alert.alert('Hata', 'Konum alınamadı');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLocationConfirm = async (coordinate: { latitude: number; longitude: number }) => {
+    setShowLocationPicker(false);
+    
+    try {
+      setLoading(true);
+      
+      // Reverse geocoding ile adres al
+      const geocodingUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coordinate.latitude}&lon=${coordinate.longitude}&accept-language=tr`;
+      const response = await fetch(geocodingUrl);
+      const data = await response.json();
+      
+      if (data && data.display_name) {
+        setLocation({
+          ...location,
+          address: data.display_name,
+          latitude: coordinate.latitude,
+          longitude: coordinate.longitude,
+        });
+      } else {
+        // Adres bulunamadı, sadece koordinatları göster
+        setLocation({
+          ...location,
+          address: `Konum: ${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`,
+          latitude: coordinate.latitude,
+          longitude: coordinate.longitude,
+        });
+      }
+    } catch (error) {
+      console.error('Adres alınamadı:', error);
+      // Hata olsa bile koordinatları kaydet
+      setLocation({
+        ...location,
+        address: `Konum: ${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`,
+        latitude: coordinate.latitude,
+        longitude: coordinate.longitude,
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1184,23 +1293,65 @@ const WashBookingScreen = () => {
           <MaterialCommunityIcons name="map-marker" size={20} color={theme.colors.primary.main} />
           <Text style={[styles.label, { color: theme.colors.text.primary }]}>Adres *</Text>
         </View>
+        
+        {/* Konum Seçim Butonları */}
+        <View style={styles.locationButtonsContainer}>
+          <TouchableOpacity
+            style={[styles.locationButton, { 
+              backgroundColor: theme.colors.primary.main,
+              flex: 1,
+            }]}
+            onPress={handleUseCurrentLocation}
+            disabled={loading}
+          >
+            <MaterialCommunityIcons name="crosshairs-gps" size={20} color="#FFFFFF" />
+            <Text style={styles.locationButtonText}>Mevcut Konumum</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.locationButton, { 
+              backgroundColor: theme.colors.info?.main || theme.colors.primary.main,
+              flex: 1,
+            }]}
+            onPress={() => setShowLocationPicker(true)}
+            disabled={loading}
+          >
+            <MaterialCommunityIcons name="map-search" size={20} color="#FFFFFF" />
+            <Text style={styles.locationButtonText}>Haritadan Seç</Text>
+          </TouchableOpacity>
+        </View>
+
         <TextInput
           style={[styles.input, { 
             backgroundColor: theme.colors.background.secondary,
             color: theme.colors.text.primary,
-            borderColor: theme.colors.border.secondary,
+            borderColor: location.latitude !== 0 ? theme.colors.primary.main : theme.colors.border.secondary,
+            borderWidth: location.latitude !== 0 ? 2 : 1.5,
             minHeight: 80,
             textAlignVertical: 'top',
           }]}
           value={location.address}
           onChangeText={(text) => setLocation({ ...location, address: text })}
-          placeholder="Örnek: Atatürk Mahallesi, Cumhuriyet Caddesi No:123, Daire:5, Malatya"
+          placeholder="Adres girebilir veya yukarıdaki butonlardan konum seçebilirsiniz"
           placeholderTextColor={theme.colors.text.secondary}
           multiline
           numberOfLines={3}
         />
+        
+        {location.latitude !== 0 && (
+          <View style={[styles.coordinatesInfo, { 
+            backgroundColor: theme.colors.primary.main + '15',
+            borderColor: theme.colors.primary.main,
+          }]}>
+            <MaterialCommunityIcons name="map-check" size={18} color={theme.colors.primary.main} />
+            <Text style={[styles.coordinatesText, { color: theme.colors.primary.main }]}>
+              Konum seçildi: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+            </Text>
+          </View>
+        )}
+
         <Text style={[styles.helpText, { color: theme.colors.text.secondary }]}>
-          Detaylı adres bilgisi vererek hizmet kalitesini artırın
+          Ustanın size kolayca ulaşabilmesi için detaylı adres ve konum bilgisi verin
         </Text>
       </View>
 
@@ -1922,6 +2073,26 @@ const WashBookingScreen = () => {
         {/* Modals */}
         {renderVehicleModal()}
         {renderProviderModal()}
+        
+        {/* Location Picker Modal */}
+        <Modal
+          visible={showLocationPicker}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={() => setShowLocationPicker(false)}
+        >
+          <SafeAreaView style={{ flex: 1 }}>
+            <LocationPicker
+              initialCoordinate={location.latitude !== 0 ? {
+                latitude: location.latitude,
+                longitude: location.longitude,
+              } : undefined}
+              onConfirm={handleLocationConfirm}
+              onCancel={() => setShowLocationPicker(false)}
+              title="Yıkama Konumunu Seçin"
+            />
+          </SafeAreaView>
+        </Modal>
       </SafeAreaView>
     </Background>
   );
@@ -1937,8 +2108,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
@@ -1947,35 +2118,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   headerSubtitle: {
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 13,
+    marginTop: 4,
+    fontWeight: '500',
   },
   progressContainer: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
   progressBar: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
+    marginBottom: 12,
   },
   progressStep: {
     flex: 1,
-    height: 4,
-    borderRadius: 2,
+    height: 6,
+    borderRadius: 3,
   },
   progressText: {
-    fontSize: 12,
+    fontSize: 14,
     textAlign: 'center',
-    marginTop: 8,
-    fontWeight: '500',
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   scrollView: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
   },
   typeOptions: {
     flexDirection: 'row',
@@ -1983,14 +2159,14 @@ const styles = StyleSheet.create({
   },
   typeOption: {
     borderWidth: 2,
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 16,
+    padding: 24,
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
   },
   typeOptionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     marginTop: 12,
     marginBottom: 4,
   },
@@ -1999,180 +2175,198 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   stepCard: {
-    marginTop: 16,
-    marginBottom: 16,
+    marginTop: 20,
+    marginBottom: 8,
   },
   stepHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   stepTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 8,
+    fontSize: 19,
+    fontWeight: '700',
+    marginLeft: 12,
+    letterSpacing: 0.3,
   },
   selectButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 20,
+    paddingVertical: 24,
     borderWidth: 2,
-    borderRadius: 12,
+    borderRadius: 16,
     borderStyle: 'dashed',
-    gap: 8,
+    gap: 10,
   },
   selectButtonText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   selectedItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 12,
+    padding: 20,
+    borderRadius: 16,
     borderWidth: 2,
   },
   selectedItemContent: {
     flex: 1,
   },
   selectedItemTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 6,
   },
   selectedItemSubtitle: {
-    fontSize: 14,
-    marginBottom: 8,
+    fontSize: 15,
+    marginBottom: 10,
   },
   segmentBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
   },
   segmentBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   segmentBadgeSmall: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    marginTop: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    marginTop: 6,
   },
   segmentBadgeSmallText: {
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
   },
   changeButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 10,
   },
   changeButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   continueButton: {
-    marginTop: 16,
+    marginTop: 24,
   },
   packagesScroll: {
-    marginVertical: 8,
+    marginVertical: 12,
   },
   packageCard: {
-    width: SCREEN_WIDTH * 0.7,
-    padding: 16,
+    width: SCREEN_WIDTH * 0.72,
+    padding: 20,
     borderWidth: 2,
-    borderRadius: 16,
-    marginRight: 12,
+    borderRadius: 20,
+    marginRight: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
   },
   packageName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 6,
+    letterSpacing: 0.3,
   },
   packageDescription: {
     fontSize: 14,
-    marginBottom: 12,
+    marginBottom: 16,
+    lineHeight: 20,
   },
   packageMeta: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   packageMetaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   packageMetaText: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '500',
   },
   packagePrice: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   packageServices: {
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: 12,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
   },
   packageServiceItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
-    gap: 4,
+    marginBottom: 6,
+    gap: 6,
   },
   packageServiceText: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '500',
   },
   moreServices: {
-    fontSize: 11,
-    marginTop: 4,
+    fontSize: 12,
+    marginTop: 6,
     fontStyle: 'italic',
+    fontWeight: '500',
   },
   extrasSection: {
-    marginTop: 16,
+    marginTop: 20,
   },
   extrasSectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 16,
+    letterSpacing: 0.3,
   },
   extraItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 12,
+    padding: 16,
     borderWidth: 2,
-    borderRadius: 12,
-    marginBottom: 8,
+    borderRadius: 16,
+    marginBottom: 12,
   },
   extraContent: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    gap: 12,
+    gap: 14,
   },
   extraInfo: {
     flex: 1,
   },
   extraName: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 2,
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 4,
   },
   extraDescription: {
-    fontSize: 12,
+    fontSize: 13,
+    lineHeight: 18,
   },
   extraPrice: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
   },
   typeCard: {
     flex: 1,
@@ -2208,65 +2402,68 @@ const styles = StyleSheet.create({
   serviceSelectionDescription: {
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
+    marginBottom: 28,
+    lineHeight: 24,
+    fontWeight: '500',
   },
   serviceOptions: {
-    gap: 16,
+    gap: 20,
   },
   serviceOption: {
-    padding: 20,
+    padding: 28,
     borderWidth: 2,
-    borderRadius: 16,
+    borderRadius: 20,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 8,
   },
   serviceOptionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: 12,
-    marginBottom: 4,
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 16,
+    marginBottom: 8,
     textAlign: 'center',
+    letterSpacing: 0.5,
   },
   serviceOptionDescription: {
-    fontSize: 14,
+    fontSize: 15,
     textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 20,
+    marginBottom: 20,
+    lineHeight: 22,
   },
   serviceFeatures: {
     width: '100%',
-    gap: 8,
+    gap: 10,
   },
   serviceFeature: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
   },
   serviceFeatureText: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
   },
   masterSelectionDescription: {
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 22,
+    marginBottom: 24,
+    lineHeight: 24,
+    fontWeight: '500',
   },
   selectedMaster: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 12,
+    padding: 20,
+    borderRadius: 16,
     borderWidth: 2,
     borderColor: '#E5E7EB',
   },
@@ -2276,39 +2473,41 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   masterAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   masterDetails: {
     flex: 1,
   },
   masterName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 6,
   },
   masterBusiness: {
-    fontSize: 14,
-    marginBottom: 6,
+    fontSize: 15,
+    marginBottom: 8,
   },
   masterMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   masterRating: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '500',
   },
   masterDivider: {
-    fontSize: 12,
-    marginHorizontal: 4,
+    fontSize: 13,
+    marginHorizontal: 6,
   },
   masterDistance: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '500',
   },
   mobileServiceInfo: {
     alignItems: 'center',
@@ -2401,37 +2600,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   sectionLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 16,
+    letterSpacing: 0.3,
   },
   datesScroll: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   dateButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
     borderWidth: 2,
-    borderRadius: 16,
-    marginRight: 12,
+    borderRadius: 18,
+    marginRight: 14,
     alignItems: 'center',
-    minWidth: 90,
+    minWidth: 95,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 3,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 6,
   },
   dateDay: {
-    fontSize: 12,
-    marginBottom: 4,
+    fontSize: 13,
+    marginBottom: 6,
+    fontWeight: '600',
   },
   dateNumber: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
   },
   loadingContainer: {
     flexDirection: 'row',
@@ -2460,12 +2661,12 @@ const styles = StyleSheet.create({
   slotsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 8,
+    gap: 12,
+    marginTop: 12,
   },
   slotButton: {
-    width: (SCREEN_WIDTH - 80) / 3,
-    paddingVertical: 16,
+    width: (SCREEN_WIDTH - 88) / 3,
+    paddingVertical: 18,
     borderWidth: 2,
     borderRadius: 16,
     alignItems: 'center',
@@ -2473,104 +2674,121 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 3,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 6,
   },
   slotTime: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
   },
   slotLane: {
-    fontSize: 11,
-    marginTop: 2,
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '500',
   },
   formGroup: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   formRow: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   labelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
+    marginBottom: 10,
+    gap: 10,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
   },
   requirementsSection: {
-    marginTop: 8,
+    marginTop: 12,
   },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: 12,
   },
   switchLabel: {
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '500',
   },
   timeWindowsScroll: {
-    marginTop: 8,
+    marginTop: 12,
   },
   timeWindowButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderWidth: 2,
-    borderRadius: 12,
-    marginRight: 8,
+    borderRadius: 16,
+    marginRight: 12,
     alignItems: 'center',
-    minWidth: 120,
+    minWidth: 130,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 6,
   },
   timeWindowLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 2,
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 4,
+    letterSpacing: 0.3,
   },
   timeWindowTime: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '500',
   },
   paymentScroll: {
     flex: 1,
   },
   pricingBreakdown: {
-    marginTop: 8,
+    marginTop: 12,
   },
   pricingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingVertical: 8,
   },
   pricingLabel: {
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '500',
   },
   pricingValue: {
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '600',
   },
   pricingDivider: {
     height: 1,
-    marginVertical: 8,
+    marginVertical: 12,
   },
   pricingTotalLabel: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   pricingTotalValue: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   tefePuanSection: {
     marginTop: 16,
@@ -2612,62 +2830,65 @@ const styles = StyleSheet.create({
   },
   // Ödeme yöntemi styles
   paymentMethodContainer: {
-    gap: 12,
-    marginTop: 8,
-    marginBottom: 16,
+    gap: 16,
+    marginTop: 12,
+    marginBottom: 20,
   },
   paymentMethodOption: {
-    padding: 16,
+    padding: 20,
     borderWidth: 2,
-    borderRadius: 12,
+    borderRadius: 16,
   },
   paymentMethodHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 16,
   },
   paymentMethodInfo: {
     flex: 1,
   },
   paymentMethodTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 6,
   },
   paymentMethodBalance: {
-    fontSize: 13,
+    fontSize: 14,
+    fontWeight: '500',
   },
   insufficientBalanceWarning: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: 14,
+    paddingTop: 14,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
-    gap: 6,
+    gap: 8,
   },
   insufficientBalanceText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#EF4444',
+    fontWeight: '600',
   },
   escrowNotice: {
     flexDirection: 'row',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 16,
-    gap: 8,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    marginTop: 20,
+    gap: 12,
   },
   escrowNoticeText: {
     flex: 1,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '500',
   },
   bottomButtonContainer: {
-    padding: 16,
+    padding: 20,
   },
   createOrderButton: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   modalContainer: {
     flex: 1,
@@ -2676,17 +2897,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
     borderBottomWidth: 1,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   modalContent: {
     flex: 1,
-    padding: 16,
+    padding: 20,
   },
   emptyVehicles: {
     flex: 1,
@@ -2695,43 +2917,54 @@ const styles = StyleSheet.create({
     paddingVertical: 64,
   },
   emptyText: {
-    fontSize: 16,
-    marginTop: 16,
-    marginBottom: 8,
+    fontSize: 17,
+    marginTop: 20,
+    marginBottom: 10,
+    fontWeight: '600',
   },
   emptySubtext: {
-    fontSize: 13,
+    fontSize: 14,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
+    fontWeight: '500',
   },
   emptyPackages: {
     alignItems: 'center',
-    paddingVertical: 32,
+    paddingVertical: 40,
   },
   emptyButton: {
-    marginTop: 16,
+    marginTop: 20,
   },
   vehicleCard: {
-    borderWidth: 1,
-    borderRadius: 12,
-    marginBottom: 12,
+    borderWidth: 1.5,
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
   },
   vehicleCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    gap: 12,
+    padding: 20,
+    gap: 16,
   },
   vehicleInfo: {
     flex: 1,
   },
   vehicleName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 6,
   },
   vehiclePlate: {
-    fontSize: 13,
+    fontSize: 14,
+    fontWeight: '500',
   },
   emptyProviders: {
     alignItems: 'center',
@@ -2739,20 +2972,28 @@ const styles = StyleSheet.create({
     paddingVertical: 64,
   },
   providerCard: {
-    borderWidth: 1,
-    borderRadius: 12,
-    marginBottom: 12,
+    borderWidth: 1.5,
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
   },
   providerCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    gap: 12,
+    padding: 20,
+    gap: 16,
   },
   providerIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2760,13 +3001,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   providerCardName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 6,
   },
   providerCardAddress: {
-    fontSize: 13,
-    marginBottom: 6,
+    fontSize: 14,
+    marginBottom: 8,
+    fontWeight: '500',
   },
   providerCardMeta: {
     flexDirection: 'row',
@@ -2775,17 +3017,61 @@ const styles = StyleSheet.create({
   providerRatingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   providerCardRating: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '600',
   },
   providerCardDistance: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '600',
   },
   helpText: {
+    fontSize: 13,
+    marginTop: 6,
+    fontWeight: '500',
+  },
+  locationButtonsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  locationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  locationButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  coordinatesInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 12,
+    gap: 8,
+  },
+  coordinatesText: {
     fontSize: 12,
-    marginTop: 4,
+    fontWeight: '700',
+    flex: 1,
   },
 });
 

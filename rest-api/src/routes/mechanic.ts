@@ -166,7 +166,7 @@ router.get('/wallet', auth, async (req: Request, res: Response) => {
             { $group: { _id: null, count: { $sum: 1 }, earnings: { $sum: { $ifNull: ['$finalPrice', '$price'] } } } }
           ],
           pending: [
-            { $match: { status: { $in: ['ONAYLANDI', 'BEKLEMEDE'] } } },
+            { $match: { status: { $in: [AppointmentStatus.SCHEDULED, AppointmentStatus.REQUESTED] } } },
             { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: { $ifNull: ['$finalPrice', '$price'] } } } }
           ],
           allTime: [
@@ -342,7 +342,7 @@ router.get('/earnings-summary', auth, async (req: Request, res: Response) => {
     // Bekleyen randevuları getir
     const pendingAppointments = await Appointment.find({
       mechanicId: new Types.ObjectId(userId),
-      status: { $in: ['ONAYLANDI', 'BEKLEMEDE'] }
+      status: { $in: [AppointmentStatus.SCHEDULED, AppointmentStatus.REQUESTED] }
     });
     
     // Tüm zamanlar için toplam kazanç

@@ -67,9 +67,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const storedUserId = await AsyncStorage.getItem(STORAGE_KEYS.USER_ID);
         const storedRefreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
         
-        console.log('🔍 Stored Token:', storedToken ? 'Mevcut' : 'Yok');
-        console.log('🔍 Stored UserId:', storedUserId ? 'Mevcut' : 'Yok');
-        console.log('🔍 Stored RefreshToken:', storedRefreshToken ? 'Mevcut' : 'Yok');
+        console.log('🔍 AuthContext - Storage Durumu:');
+        console.log('  - Token:', storedToken ? `Mevcut (${storedToken.substring(0, 20)}...)` : 'YOK');
+        console.log('  - UserId:', storedUserId ? storedUserId : 'YOK');
+        console.log('  - RefreshToken:', storedRefreshToken ? `Mevcut (${storedRefreshToken.substring(0, 20)}...)` : 'YOK');
         
         // Token validation kontrolü
         if (storedToken && storedUserId) {
@@ -80,32 +81,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setToken(storedToken);
             setUserId(storedUserId);
             setIsAuthenticated(true);
-            console.log('✅ AuthContext: Token geçerli, kullanıcı giriş yapıldı');
+            console.log('✅ AuthContext: Token geçerli, kullanıcı authenticated');
           } else {
-            // Geçersiz token'ı temizle
-            console.log('❌ AuthContext: Token geçersiz, temizleniyor');
-            await AsyncStorage.multiRemove([
-              STORAGE_KEYS.AUTH_TOKEN,
-              STORAGE_KEYS.REFRESH_TOKEN,
-              STORAGE_KEYS.USER_ID
-            ]);
-            setToken(null);
-            setUserId(null);
-            setIsAuthenticated(false);
+            // Token geçersiz ama refresh token varsa, otomatik logout yapma
+            // Token refresh mekanizması çalışacak
+            if (storedRefreshToken) {
+              console.log('⚠️ AuthContext: Token süresi dolmuş ama refresh token mevcut');
+              console.log('⚠️ İlk API çağrısında token otomatik yenilenecek');
+              // Token'ı geçici olarak set et, API çağrısında otomatik yenilenecek
+              setToken(storedToken);
+              setUserId(storedUserId);
+              setIsAuthenticated(true);
+            } else {
+              // Refresh token da yoksa temizle
+              console.log('❌ AuthContext: Token geçersiz ve refresh token yok, temizleniyor');
+              await AsyncStorage.multiRemove([
+                STORAGE_KEYS.AUTH_TOKEN,
+                STORAGE_KEYS.REFRESH_TOKEN,
+                STORAGE_KEYS.USER_ID,
+                STORAGE_KEYS.USER_DATA
+              ]);
+              setToken(null);
+              setUserId(null);
+              setIsAuthenticated(false);
+            }
           }
         } else {
           // Token veya userId yoksa temizle
-          console.log('⚠️ AuthContext: Token veya userId bulunamadı');
-          if (storedToken) {
-            await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-          }
+          console.log('⚠️ AuthContext: Token veya userId bulunamadı, temizleniyor');
+          await AsyncStorage.multiRemove([
+            STORAGE_KEYS.AUTH_TOKEN,
+            STORAGE_KEYS.REFRESH_TOKEN,
+            STORAGE_KEYS.USER_ID,
+            STORAGE_KEYS.USER_DATA
+          ]);
           setToken(null);
           setUserId(null);
           setIsAuthenticated(false);
         }
       } catch (error) {
         // Hata durumunda temizle
-        console.log('❌ AuthContext: Hata durumunda temizleme');
+        console.error('❌ AuthContext: Hata durumunda temizleme:', error);
         setToken(null);
         setUserId(null);
         setIsAuthenticated(false);
@@ -123,16 +139,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       // Eğer token silinmişse state'i güncelle
       if (!currentToken && token) {
-        console.log('🔄 AuthContext: Token silinmiş, state güncelleniyor');
+        console.log('🔄 AuthContext: Token silinmiş (API interceptor logout), state güncelleniyor');
         setToken(null);
         setUserId(null);
         setUser(null);
         setIsAuthenticated(false);
       }
+      
+      // Eğer token eklenmişse (refresh sonrası) state'i güncelle
+      if (currentToken && currentToken !== token) {
+        console.log('🔄 AuthContext: Token güncellendi (API interceptor refresh), state güncelleniyor');
+        setToken(currentToken);
+        if (currentUserId) {
+          setUserId(currentUserId);
+        }
+        setIsAuthenticated(true);
+      }
     };
 
-    // Her 2 saniyede bir kontrol et (API service logout'u yakalamak için)
-    const interval = setInterval(checkAuthState, 2000);
+    // Her 1 saniyede bir kontrol et (daha responsive)
+    const interval = setInterval(checkAuthState, 1000);
     
     return () => clearInterval(interval);
   }, [token]);
@@ -155,29 +181,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (email: string, password: string) => {
     try {
-      // Direkt axios ile hızlı istek - Hardcoded URL kullan
-      // Use API_URL from config instead of hardcoded
+      // Direkt axios ile hızlı istek
       const FULL_URL = `${API_URL}/auth/login`;
       console.log('🔍 AuthContext Login Debug:');
-      console.log('API_URL:', API_URL);
-      console.log('FULL_URL:', FULL_URL);
-      console.log('Environment EXPO_PUBLIC_API_BASE_URL:', process.env.EXPO_PUBLIC_API_BASE_URL);
+      console.log('  - API_URL:', API_URL);
+      console.log('  - Email:', email);
+      
       const response = await axios.post(FULL_URL, {
         email,
         password,
         userType: 'driver'
       }, {
-        timeout: 15000, // 15 saniye timeout - network gecikmeleri için
+        timeout: 15000, // 15 saniye timeout
         headers: {
           'Content-Type': 'application/json',
         }
       });
       
+      console.log('🔍 Login Response:', response.data);
+      
       if (response.data && response.data.success) {
-        const userId = response.data.data?.userId || response.data.userId;
-        const token = response.data.data?.token || response.data.token;
-        const userType = response.data.data?.userType || response.data.userType;
-        const userData = response.data.data?.user || response.data.user;
+        const responseData = response.data.data || response.data;
+        const userId = responseData.userId || responseData.user?._id || responseData.user?.id;
+        const token = responseData.token;
+        const refreshToken = responseData.refreshToken;
+        const userType = responseData.userType || responseData.user?.userType;
+        const userData = responseData.user;
+        
+        console.log('🔍 Parsed Data:');
+        console.log('  - userId:', userId);
+        console.log('  - token:', token ? `${token.substring(0, 20)}...` : 'YOK');
+        console.log('  - refreshToken:', refreshToken ? `${refreshToken.substring(0, 20)}...` : 'YOK');
+        console.log('  - userType:', userType);
+        console.log('  - userData:', userData ? 'Mevcut' : 'YOK');
         
         // UserType kontrolü - sadece driver kabul edilir
         if (userType !== 'driver') {
@@ -185,27 +221,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
         
         if (userId && token) {
-          // Refresh token'ı da kaydet
-          const refreshToken = response.data.data?.refreshToken || response.data.refreshToken;
+          // Refresh token'ı kaydet (KRİTİK - Bu olmadan token yenilemesi çalışmaz)
           if (refreshToken) {
             await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
             console.log('✅ Refresh token kaydedildi');
           } else {
-            console.log('⚠️ Refresh token bulunamadı');
+            console.error('❌ KRİTİK: Refresh token backend\'den gelmedi!');
+            console.error('❌ Token yenileme mekanizması çalışmayacak!');
+            // Yine de devam et ama kullanıcıyı uyar
           }
           
           await setTokenAndUserId(token, userId);
           if (userData) {
             setUser(userData);
+            await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
           }
+          
+          console.log('✅ Login başarılı, tüm veriler kaydedildi');
           return { success: true };
         } else {
+          console.error('❌ Token veya userId eksik:', { userId, token: !!token });
           return { success: false, message: 'Token bilgileri alınamadı' };
         }
       } else {
         return { success: false, message: response.data?.message || 'Giriş başarısız' };
       }
     } catch (error: any) {
+      console.error('❌ Login hatası:', error);
       if (error.code === 'ECONNABORTED') {
         return { success: false, message: 'Bağlantı zaman aşımı. Lütfen tekrar deneyin.' };
       }

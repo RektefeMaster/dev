@@ -128,10 +128,15 @@ const TireServiceTrackingScreen = () => {
   const getStatusText = (status: string) => {
     const statusMap: Record<string, string> = {
       'TALEP_EDILDI': 'Talep Edildi',
-      'ONAYLANDI': 'Kabul Edildi',
-      'DEVAM_EDIYOR': 'Devam Ediyor',
+      'PLANLANDI': 'Planlandı',
+      'SERVISTE': 'Serviste',
+      'ODEME_BEKLIYOR': 'Ödeme Bekliyor',
       'TAMAMLANDI': 'Tamamlandı',
       'IPTAL_EDILDI': 'İptal Edildi',
+      'NO_SHOW': 'Gelmedi',
+      // Eski değerler (geriye dönük uyumluluk)
+      'ONAYLANDI': 'Planlandı',
+      'DEVAM_EDIYOR': 'Serviste',
       'pending': 'Bekliyor',
       'accepted': 'Kabul Edildi',
       'in_progress': 'Devam Ediyor',
@@ -144,10 +149,15 @@ const TireServiceTrackingScreen = () => {
   const getStatusColor = (status: string) => {
     const colorMap: Record<string, string> = {
       'TALEP_EDILDI': '#FF9800',
-      'ONAYLANDI': '#2196F3',
-      'DEVAM_EDIYOR': '#4CAF50',
+      'PLANLANDI': '#2196F3',
+      'SERVISTE': '#4CAF50',
+      'ODEME_BEKLIYOR': '#FFC107',
       'TAMAMLANDI': '#4CAF50',
       'IPTAL_EDILDI': '#F44336',
+      'NO_SHOW': '#757575',
+      // Eski değerler (geriye dönük uyumluluk)
+      'ONAYLANDI': '#2196F3',
+      'DEVAM_EDIYOR': '#4CAF50',
       'pending': '#FF9800',
       'accepted': '#2196F3',
       'in_progress': '#4CAF50',
@@ -160,10 +170,15 @@ const TireServiceTrackingScreen = () => {
   const getStatusIcon = (status: string) => {
     const iconMap: Record<string, any> = {
       'TALEP_EDILDI': 'time-outline',
-      'ONAYLANDI': 'checkmark-circle-outline',
-      'DEVAM_EDIYOR': 'construct-outline',
+      'PLANLANDI': 'checkmark-circle-outline',
+      'SERVISTE': 'construct-outline',
+      'ODEME_BEKLIYOR': 'card-outline',
       'TAMAMLANDI': 'checkmark-done-circle',
       'IPTAL_EDILDI': 'close-circle-outline',
+      'NO_SHOW': 'alert-circle-outline',
+      // Eski değerler (geriye dönük uyumluluk)
+      'ONAYLANDI': 'checkmark-circle-outline',
+      'DEVAM_EDIYOR': 'construct-outline',
       'pending': 'time-outline',
       'accepted': 'checkmark-circle-outline',
       'in_progress': 'construct-outline',

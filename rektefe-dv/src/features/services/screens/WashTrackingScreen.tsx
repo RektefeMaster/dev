@@ -48,16 +48,34 @@ interface WashOrder {
     plateNumber: string;
     segment: string;
   };
+  vehicleId?: {
+    brand: string;
+    modelName: string;
+    year: number;
+    plateNumber: string;
+    segment: string;
+  };
   package: {
     name: string;
     basePrice: number;
     duration: number;
+  };
+  packageId?: {
+    name: string;
+    basePrice: number;
+    duration: number;
+    extras: Array<{
+      name: string;
+      price: number;
+      duration: number;
+    }>;
   };
   providerId: {
     _id: string;
     name: string;
     surname: string;
     phone: string;
+    businessName?: string;
   };
   location: {
     address: string;
@@ -533,10 +551,10 @@ const WashTrackingScreen = () => {
                     Araç
                   </Text>
                   <Text style={[styles.infoValue, { color: theme.colors.text.primary }]}>
-                    {order.vehicle.brand} {order.vehicle.model}
+                    {(order.vehicle?.brand || order.vehicleId?.brand)} {(order.vehicle?.model || order.vehicleId?.modelName)}
                   </Text>
                   <Text style={[styles.infoSubvalue, { color: theme.colors.text.secondary }]}>
-                    {order.vehicle.plateNumber}
+                    {order.vehicle?.plateNumber || order.vehicleId?.plateNumber}
                   </Text>
                 </View>
               </View>
@@ -552,10 +570,10 @@ const WashTrackingScreen = () => {
                     Paket
                   </Text>
                   <Text style={[styles.infoValue, { color: theme.colors.text.primary }]}>
-                    {order.package.name}
+                    {order.package?.name || order.packageId?.name}
                   </Text>
                   <Text style={[styles.infoSubvalue, { color: theme.colors.text.secondary }]}>
-                    {order.package.duration} dakika • {order.pricing.finalPrice} TL
+                    {order.package?.duration || order.packageId?.duration} dakika • {order.pricing.finalPrice} TL
                   </Text>
                 </View>
               </View>
@@ -656,8 +674,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
@@ -666,19 +684,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   headerSubtitle: {
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 13,
+    marginTop: 4,
+    fontWeight: '600',
   },
   callButton: {
-    padding: 8,
+    padding: 10,
   },
   scrollView: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
   },
   loadingContainer: {
     flex: 1,
@@ -686,48 +706,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 14,
+    marginTop: 16,
+    fontSize: 15,
+    fontWeight: '500',
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 40,
   },
   errorText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 16,
-    marginBottom: 24,
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 20,
+    marginBottom: 28,
   },
   errorButton: {
     marginHorizontal: 0,
   },
   card: {
-    marginTop: 16,
+    marginTop: 20,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
+    fontSize: 18,
+    fontWeight: '700',
+    marginLeft: 12,
+    letterSpacing: 0.3,
   },
   statusCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    gap: 16,
+    padding: 20,
+    borderRadius: 16,
+    gap: 20,
   },
   statusIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -735,143 +757,155 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statusLabel: {
-    fontSize: 13,
-    marginBottom: 4,
+    fontSize: 14,
+    marginBottom: 6,
+    fontWeight: '600',
   },
   statusValue: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   infoRow: {
-    marginBottom: 12,
+    marginBottom: 16,
   },
   infoItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: 14,
   },
   infoContent: {
     flex: 1,
   },
   infoLabel: {
-    fontSize: 12,
-    marginBottom: 4,
+    fontSize: 13,
+    marginBottom: 6,
+    fontWeight: '600',
   },
   infoValue: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 2,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+    letterSpacing: 0.3,
   },
   infoSubvalue: {
-    fontSize: 13,
+    fontSize: 14,
+    fontWeight: '500',
   },
   infoDivider: {
     height: 1,
-    marginVertical: 12,
+    marginVertical: 16,
   },
   timeline: {
-    marginTop: 8,
+    marginTop: 12,
   },
   timelineItem: {
     flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   timelineIndicator: {
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 20,
   },
   timelineIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   timelineLine: {
-    width: 2,
+    width: 3,
     flex: 1,
-    minHeight: 32,
-    marginTop: 4,
+    minHeight: 36,
+    marginTop: 6,
   },
   timelineContent: {
     flex: 1,
-    paddingBottom: 16,
+    paddingBottom: 20,
   },
   timelineTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 6,
+    letterSpacing: 0.3,
   },
   statusBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginTop: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    marginTop: 6,
   },
   statusBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
   },
   timelineTime: {
-    fontSize: 13,
-    marginTop: 4,
+    fontSize: 14,
+    marginTop: 6,
+    fontWeight: '600',
   },
   timelineNotes: {
-    fontSize: 13,
-    marginTop: 6,
+    fontSize: 14,
+    marginTop: 8,
     fontStyle: 'italic',
+    fontWeight: '500',
   },
   photosButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
-    gap: 4,
+    marginTop: 10,
+    gap: 6,
   },
   photosButtonText: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
   },
   qaNotice: {
     flexDirection: 'row',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 12,
-    gap: 8,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    marginBottom: 16,
+    gap: 12,
   },
   qaNoticeText: {
     flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
   },
   autoApproveText: {
-    fontSize: 12,
+    fontSize: 13,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
+    fontWeight: '500',
   },
   qaPhotosContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   qaPhotoSection: {
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
   },
   qaPhotoLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 8,
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 12,
+    letterSpacing: 0.3,
   },
   qaPhotoCount: {
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 13,
+    marginTop: 4,
+    fontWeight: '600',
   },
   qaActions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 16,
   },
   qaApproveButton: {
     flex: 1,
@@ -883,15 +917,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderWidth: 2,
-    borderRadius: 12,
-    marginTop: 16,
-    gap: 8,
+    borderRadius: 16,
+    marginTop: 20,
+    gap: 10,
   },
   cancelButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
 

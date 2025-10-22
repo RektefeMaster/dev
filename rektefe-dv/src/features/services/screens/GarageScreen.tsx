@@ -381,7 +381,7 @@ const GarageScreen = () => {
             <MaterialCommunityIcons name="speedometer" size={16} color="#666" />
             <Text style={styles.detailLabel}>Kilometre</Text>
           </View>
-          <Text style={styles.detailValue}>{vehicle.mileage.toLocaleString('tr-TR')} km</Text>
+          <Text style={styles.detailValue}>{vehicle.mileage ? vehicle.mileage.toLocaleString('tr-TR') : '0'} km</Text>
         </View>
         <View style={styles.detailRow}>
           <View style={styles.detailLabelContainer}>

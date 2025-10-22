@@ -837,8 +837,9 @@ export class WashService {
         ],
       })
         .populate('driverId', 'name surname phone')
-        .populate('providerId', 'name surname phone')
-        .populate('packageId');
+        .populate('providerId', 'name surname phone businessName')
+        .populate('packageId', 'name basePrice duration extras')
+        .populate('vehicleId', 'brand modelName year plateNumber segment');
 
       if (!order) {
         throw new CustomError('Sipariş bulunamadı', 404);
@@ -866,7 +867,8 @@ export class WashService {
       }
 
       const orders = await WashOrder.find(query)
-        .populate('providerId', 'name surname phone')
+        .populate('providerId', 'name surname phone businessName')
+        .populate('packageId', 'name basePrice duration')
         .sort({ createdAt: -1 });
 
       return {
