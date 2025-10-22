@@ -201,12 +201,12 @@ fastlane/test_output
 # Testing
 /coverage
 
-# Android Keystore files
-*.keystore
-*.jks
+# Android Keystore files (except release keystores)
 debug.keystore
-release.keystore
-*-release.keystore
+*.jks
+# Keep release keystores for production builds
+# rektefe-dv-release.keystore
+# rektefe-us-release.keystore
 
 # iOS certificates and provisioning profiles
 *.mobileprovision
@@ -215,9 +215,8 @@ release.keystore
 *.cer
 *.certSigningRequest
 
-# Xcode environment files
+# Xcode environment files (keep .xcode.env, ignore .xcode.env.local)
 ios/.xcode.env.local
-ios/.xcode.env
 
 # Sensitive configuration files
 config/secrets.js
@@ -284,12 +283,12 @@ fastlane/test_output
 # Testing
 /coverage
 
-# Android Keystore files
-*.keystore
-*.jks
+# Android Keystore files (except release keystores)
 debug.keystore
-release.keystore
-*-release.keystore
+*.jks
+# Keep release keystores for production builds
+# rektefe-dv-release.keystore
+# rektefe-us-release.keystore
 
 # iOS certificates and provisioning profiles
 *.mobileprovision
@@ -298,9 +297,8 @@ release.keystore
 *.cer
 *.certSigningRequest
 
-# Xcode environment files
+# Xcode environment files (keep .xcode.env, ignore .xcode.env.local)
 ios/.xcode.env.local
-ios/.xcode.env
 
 # Sensitive configuration files
 config/secrets.js
