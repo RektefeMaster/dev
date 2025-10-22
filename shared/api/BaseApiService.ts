@@ -1,8 +1,9 @@
-// Axios will be provided by the consuming application (rest-api)
-declare const axios: any;
-declare const AxiosInstance: any;
-declare const AxiosResponse: any;
-declare const AxiosRequestConfig: any;
+import axios from 'axios';
+
+// Manual type definitions to avoid import issues
+type AxiosInstance = any;
+type AxiosResponse<T = any> = any;
+type AxiosRequestConfig = any;
 
 // ===== INTERFACES =====
 
