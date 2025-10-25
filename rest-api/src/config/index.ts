@@ -11,23 +11,20 @@ export const MONGODB_URI: string = process.env.MONGODB_URI || 'mongodb://127.0.0
 
 // Railway MongoDB için optimize edilmiş ayarlar
 export const MONGODB_OPTIONS = {
-  serverSelectionTimeoutMS: 30000, // Railway için daha uzun timeout
-  connectTimeoutMS: 30000,
-  socketTimeoutMS: 60000,
-  maxPoolSize: 10, // Railway limitlerine uygun
-  minPoolSize: 1,  // Minimum connection pool
+  serverSelectionTimeoutMS: 10000, // Daha kısa timeout
+  connectTimeoutMS: 10000,
+  socketTimeoutMS: 30000,
+  maxPoolSize: 5, // Daha küçük pool
+  minPoolSize: 1,
   maxIdleTimeMS: 30000,
   bufferCommands: true,
   retryWrites: true,
   w: 'majority' as const,
   // Railway MongoDB için TLS ayarları
-  // MongoDB Atlas +srv connection string'inde TLS otomatik etkin
-  // Local development için TLS kapalı, production'da +srv TLS kullanır
   tls: process.env.MONGODB_URI?.includes('mongodb+srv://') ? true : (process.env.NODE_ENV === 'production' ? true : false),
   tlsAllowInvalidCertificates: false,
   tlsAllowInvalidHostnames: false,
   // Railway için özel ayarlar
-  // authSource: 'admin', // MongoDB Atlas'ta gerekmez
   retryReads: true,
   heartbeatFrequencyMS: 10000,
   // Railway için connection retry ayarları
