@@ -388,6 +388,18 @@ app.use(errorHandler);
 async function startServer() {
   try {
     Logger.info('MongoDB bağlantısı başlatılıyor...');
+    
+    // MongoDB URI kontrolü (şifreyi gösterme)
+    const maskedUri = MONGODB_URI?.replace(/:([^:@]+)@/, ':*****@');
+    Logger.info(`MongoDB URI: ${maskedUri}`);
+    Logger.info(`MongoDB Options: ${JSON.stringify({
+      serverSelectionTimeoutMS: MONGODB_OPTIONS.serverSelectionTimeoutMS,
+      connectTimeoutMS: MONGODB_OPTIONS.connectTimeoutMS,
+      maxPoolSize: MONGODB_OPTIONS.maxPoolSize,
+      minPoolSize: MONGODB_OPTIONS.minPoolSize,
+      tls: MONGODB_OPTIONS.tls
+    })}`);
+    
     await mongoose.connect(MONGODB_URI, MONGODB_OPTIONS);
     Logger.info('✅ MongoDB bağlantısı başarılı');
     
@@ -418,9 +430,37 @@ async function startServer() {
       Logger.info('✅ MongoDB bağlantısı ve server hazır');
       Logger.info(`📚 API Documentation: http://localhost:${PORT}/docs`);
     });
-  } catch (err) {
+  } catch (err: any) {
     Logger.error('❌ MongoDB bağlantı hatası:', err);
-    Logger.error('MongoDB URI:', MONGODB_URI);
+    
+    // Detaylı hata analizi
+    if (err?.message) {
+      Logger.error(`Hata Mesajı: ${err.message}`);
+    }
+    
+    if (err?.message?.includes('whitelist') || err?.message?.includes('IP')) {
+      Logger.error('🔒 IP Whitelist Sorunu Tespit Edildi');
+      Logger.error('📝 Çözüm: MongoDB Atlas Network Access ayarlarından "Allow Access from Anywhere" (0.0.0.0/0) ekleyin');
+    }
+    
+    if (err?.message?.includes('authentication')) {
+      Logger.error('🔐 Authentication Sorunu Tespit Edildi');
+      Logger.error('📝 Çözüm: MongoDB Atlas kullanıcı adı ve şifresini kontrol edin');
+    }
+    
+    if (err?.message?.includes('TLS') || err?.message?.includes('SSL')) {
+      Logger.error('🔒 TLS/SSL Sorunu Tespit Edildi');
+      Logger.error('📝 Çözüm: MongoDB Atlas TLS ayarlarını kontrol edin');
+    }
+    
+    if (err?.message?.includes('timeout')) {
+      Logger.error('⏰ Timeout Sorunu Tespit Edildi');
+      Logger.error('📝 Çözüm: Network bağlantısını ve MongoDB Atlas endpoint\'ini kontrol edin');
+    }
+    
+    const maskedUri = MONGODB_URI?.replace(/:([^:@]+)@/, ':*****@');
+    Logger.error(`MongoDB URI (masked): ${maskedUri}`);
+    
     process.exit(1);
   }
 }
