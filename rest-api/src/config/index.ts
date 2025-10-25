@@ -23,7 +23,7 @@ export const MONGODB_OPTIONS = {
   // Railway MongoDB için TLS ayarları
   // MongoDB Atlas +srv connection string'inde TLS otomatik etkin
   // Local development için TLS kapalı, production'da +srv TLS kullanır
-  tls: process.env.MONGODB_URI?.includes('mongodb+srv://') ? undefined : (process.env.NODE_ENV === 'production' ? true : false),
+  tls: process.env.MONGODB_URI?.includes('mongodb+srv://') ? true : (process.env.NODE_ENV === 'production' ? true : false),
   tlsAllowInvalidCertificates: false,
   tlsAllowInvalidHostnames: false,
   // Railway için özel ayarlar
