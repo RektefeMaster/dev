@@ -290,15 +290,16 @@ app.get('/ip-test', (req, res) => {
   });
 });
 
-// IP test endpoint'i
+// IP test endpoint'i - Railway IP adresini öğrenmek için
 app.get('/ip-test', async (req, res) => {
   try {
     const response = await fetch('https://api.ipify.org?format=json');
     const data = await response.json();
     res.json({
       success: true,
-      renderIP: data.ip,
-      timestamp: new Date().toISOString()
+      railwayIP: data.ip,
+      timestamp: new Date().toISOString(),
+      message: 'Bu IP adresini MongoDB Atlas Network Access\'e ekleyin'
     });
   } catch (error) {
     res.json({

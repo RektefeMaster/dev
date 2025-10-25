@@ -133,20 +133,20 @@ const WashDisputeSchema = new Schema<IWashDispute>(
       type: Schema.Types.ObjectId,
       ref: 'WashOrder',
       required: true,
-      unique: true,
-      index: true,
+      unique: true
+      // index: true kaldırıldı - aşağıda schema.index() ile tanımlanıyor
     },
     driverId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
-      index: true,
+      required: true
+      // index: true kaldırıldı - aşağıda schema.index() ile tanımlanıyor
     },
     providerId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
-      index: true,
+      required: true
+      // index: true kaldırıldı - aşağıda schema.index() ile tanımlanıyor
     },
     type: {
       type: String,

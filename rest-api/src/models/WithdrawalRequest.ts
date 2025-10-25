@@ -21,8 +21,8 @@ const WithdrawalRequestSchema = new Schema<IWithdrawalRequest>({
   mechanicId: {
     type: Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
-    index: true
+    required: true
+    // index: true kaldırıldı - aşağıda schema.index() ile tanımlanıyor
   },
   amount: {
     type: Number,

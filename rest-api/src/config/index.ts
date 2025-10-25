@@ -11,9 +11,9 @@ export const MONGODB_URI: string = process.env.MONGODB_URI || 'mongodb://127.0.0
 
 // Railway MongoDB için optimize edilmiş ayarlar
 export const MONGODB_OPTIONS = {
-  serverSelectionTimeoutMS: 10000, // Railway için daha kısa timeout
-  connectTimeoutMS: 10000,
-  socketTimeoutMS: 45000,
+  serverSelectionTimeoutMS: 15000, // Railway için daha uzun timeout
+  connectTimeoutMS: 15000,
+  socketTimeoutMS: 60000,
   maxPoolSize: 10, // Railway limitlerine uygun
   minPoolSize: 2,  // Minimum connection pool
   maxIdleTimeMS: 30000,
@@ -27,8 +27,12 @@ export const MONGODB_OPTIONS = {
   // Railway için özel ayarlar
   authSource: 'admin',
   retryReads: true,
-  heartbeatFrequencyMS: 10000
-  // serverSelectionRetryDelayMS kaldırıldı - desteklenmiyor
+  heartbeatFrequencyMS: 10000,
+  // Railway için connection retry ayarları
+  maxConnecting: 2,
+  // Railway için daha agresif retry
+  retryDelayMS: 1000,
+  maxRetryDelayMS: 5000
 } as const;
 
 // Server port
