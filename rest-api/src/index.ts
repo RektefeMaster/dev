@@ -27,6 +27,7 @@ import {
 
 // Route'ları import et
 import authRoutes from './routes/auth';
+import networkRoutes from './routes/network';
 import maintenanceRoutes from './routes/maintenance';
 import insuranceRoutes from './routes/insurance';
 import vehicleStatusRoutes from './routes/vehicleStatus';
@@ -326,6 +327,7 @@ app.get('/api', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/network', networkRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/insurance', insuranceRoutes);

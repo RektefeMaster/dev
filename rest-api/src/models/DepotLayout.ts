@@ -119,7 +119,7 @@ const depotLayoutSchema = new Schema<IDepotLayout>({
 });
 
 // Index'ler
-depotLayoutSchema.index({ mechanicId: 1 });
+// mechanicId index removed - already has unique: true in schema
 
 // Pre-save middleware
 depotLayoutSchema.pre('save', function(next) {

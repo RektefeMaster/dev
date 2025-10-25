@@ -149,7 +149,7 @@ const seasonalReminderSchema = new Schema<ISeasonalReminder>({
 });
 
 // Index'ler
-seasonalReminderSchema.index({ mechanicId: 1 });
+// mechanicId index removed - already has unique: true in schema
 seasonalReminderSchema.index({ 'sentReminders.sentDate': 1 });
 
 // Pre-save middleware

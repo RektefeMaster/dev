@@ -200,7 +200,7 @@ const carWashLoyaltyProgramSchema = new Schema<ICarWashLoyaltyProgram>({
 });
 
 // Index'ler
-carWashLoyaltyProgramSchema.index({ mechanicId: 1 });
+// mechanicId index removed - already has unique: true in schema
 carWashLoyaltyProgramSchema.index({ isActive: 1 });
 
 // Pre-save middleware
