@@ -368,7 +368,7 @@ const WashOrderSchema = new Schema<IWashOrder>(
 );
 
 // İndeksler
-WashOrderSchema.index({ orderNumber: 1 });
+// orderNumber index removed - already has unique: true in schema
 WashOrderSchema.index({ driverId: 1, status: 1 });
 WashOrderSchema.index({ providerId: 1, status: 1 });
 WashOrderSchema.index({ 'scheduling.slotStart': 1 });

@@ -384,13 +384,13 @@ const AppointmentSchema: Schema = new Schema({
 
 // Performance optimization: Add indexes for common queries
 AppointmentSchema.index({ userId: 1, appointmentDate: -1 }); // User's appointments by date
-AppointmentSchema.index({ mechanicId: 1, status: 1, appointmentDate: -1 }); // Mechanic's appointments by status and date
+// mechanicId index moved to composite index below for better performance
 AppointmentSchema.index({ status: 1, appointmentDate: 1 }); // Appointments by status and date
 AppointmentSchema.index({ faultReportId: 1 }, { sparse: true }); // Fault report appointments
 AppointmentSchema.index({ createdAt: -1 }); // Recent appointments
 AppointmentSchema.index({ serviceType: 1, status: 1 }); // Service type queries
 
-// Additional composite index for appointment scheduling
+// Additional composite index for appointment scheduling (includes mechanicId)
 AppointmentSchema.index({ 
   mechanicId: 1, 
   appointmentDate: 1, 

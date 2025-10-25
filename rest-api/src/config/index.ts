@@ -30,9 +30,8 @@ export const MONGODB_OPTIONS = {
   heartbeatFrequencyMS: 10000,
   // Railway için connection retry ayarları
   maxConnecting: 2,
-  // Railway için daha agresif retry
-  retryDelayMS: 1000,
-  maxRetryDelayMS: 5000
+  // Railway için daha agresif retry (desteklenen seçenekler)
+  // retryDelayMS ve maxRetryDelayMS MongoDB driver tarafından desteklenmiyor
 } as const;
 
 // Server port
