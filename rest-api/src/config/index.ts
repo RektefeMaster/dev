@@ -17,7 +17,7 @@ export const MONGODB_OPTIONS = {
   maxPoolSize: 10, // Railway limitlerine uygun
   minPoolSize: 1,  // Minimum connection pool
   maxIdleTimeMS: 30000,
-  bufferCommands: false,
+  bufferCommands: true,
   retryWrites: true,
   w: 'majority' as const,
   // Railway MongoDB için TLS ayarları
@@ -31,7 +31,7 @@ export const MONGODB_OPTIONS = {
   retryReads: true,
   heartbeatFrequencyMS: 10000,
   // Railway için connection retry ayarları
-  maxConnecting: 2,
+  // maxConnecting: 2, // MongoDB Atlas için sorun yaratabilir
   // Railway için daha agresif retry (desteklenen seçenekler)
   // retryDelayMS ve maxRetryDelayMS MongoDB driver tarafından desteklenmiyor
 } as const;
