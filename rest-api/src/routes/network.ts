@@ -1,4 +1,4 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
 
 // Railway IP adresini öğrenmek için endpoint
@@ -22,9 +22,9 @@ router.get('/ip', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
 
-module.exports = router;
+export default router;
