@@ -55,8 +55,8 @@ const EmergencyTowingRequestSchema = new Schema<IEmergencyTowingRequest>({
   userId: {
     type: String,
     required: true,
-    ref: 'User',
-    index: true
+    ref: 'User'
+    // index: true removed - covered by composite index below
   },
   vehicleInfo: {
     type: {

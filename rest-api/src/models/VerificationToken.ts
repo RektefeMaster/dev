@@ -17,8 +17,8 @@ const verificationTokenSchema = new Schema<IVerificationToken>({
   userId: {
     type: Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
-    index: true
+    required: true
+    // index: true removed - covered by composite index below
   },
   type: {
     type: String,

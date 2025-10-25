@@ -247,7 +247,7 @@ const WashProviderSchema = new Schema<IWashProvider>(
 WashProviderSchema.index({ 'location.coordinates': '2dsphere' });
 
 // Diğer indeksler
-WashProviderSchema.index({ userId: 1 });
+// userId index removed - already has unique: true and index: true in schema
 WashProviderSchema.index({ type: 1, isActive: 1 });
 WashProviderSchema.index({ 'metrics.averageRating': -1 });
 WashProviderSchema.index({ isVerified: 1, isActive: 1 });
