@@ -25,7 +25,7 @@ export const MONGODB_OPTIONS = {
   tlsAllowInvalidCertificates: false,
   tlsAllowInvalidHostnames: false,
   // Railway için özel ayarlar
-  authSource: 'admin',
+  // authSource: 'admin', // MongoDB Atlas'ta gerekmez
   retryReads: true,
   heartbeatFrequencyMS: 10000,
   // Railway için connection retry ayarları
