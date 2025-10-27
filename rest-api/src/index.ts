@@ -524,6 +524,7 @@ process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
 
 mongoose.connection.on('connected', () => {
   Logger.info('✅ MongoDB bağlantısı kuruldu');
+  reconnectAttempts = 0; // Başarılı bağlantıda counter'ı resetle
 });
 
 mongoose.connection.on('error', (err: Error) => {
@@ -537,32 +538,35 @@ mongoose.connection.on('error', (err: Error) => {
   }
 });
 
+// Retry sayacı - sonsuz loop'u engeller
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 10;
+
 mongoose.connection.on('disconnected', () => {
-  Logger.warn('⚠️ MongoDB bağlantısı kesildi');
-  Logger.info('🔄 3 saniye sonra otomatik yeniden bağlanma deneniyor...');
+  reconnectAttempts++;
   
-  // Railway için daha hızlı reconnect
+  if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
+    Logger.error(`❌ Maksimum yeniden bağlanma denemesi (${MAX_RECONNECT_ATTEMPTS}) aşıldı. Railway'den manuel müdahale gerekli.`);
+    Logger.error('🔧 MongoDB Atlas Network Access ayarlarını kontrol edin: https://cloud.mongodb.com/security/network/list');
+    return;
+  }
+  
+  Logger.warn(`⚠️ MongoDB bağlantısı kesildi (deneme ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+  Logger.info('🔄 5 saniye sonra otomatik yeniden bağlanma deneniyor...');
+  
+  // Railway için daha uzun reconnect interval
   setTimeout(async () => {
     try {
       Logger.info('🔄 MongoDB yeniden bağlanıyor...');
       await mongoose.connect(MONGODB_URI, MONGODB_OPTIONS);
       Logger.info('✅ MongoDB başarıyla yeniden bağlandı');
-    } catch (reconnectError) {
-      Logger.error('❌ Yeniden bağlanma başarısız:', reconnectError);
-      Logger.info('🔄 5 saniye sonra tekrar denenecek...');
-      
-      // Railway için daha kısa retry interval
-      setTimeout(async () => {
-        try {
-          await mongoose.connect(MONGODB_URI, MONGODB_OPTIONS);
-          Logger.info('✅ MongoDB 2. denemede bağlandı');
-        } catch (error) {
-          Logger.error('❌ 2. deneme de başarısız. Manuel müdahale gerekli.');
-          Logger.error('🔧 Railway MongoDB URI kontrolü:', MONGODB_URI);
-        }
-      }, 5000);
+      reconnectAttempts = 0; // Başarılı olduğunda reset
+    } catch (reconnectError: any) {
+      Logger.error('❌ Yeniden bağlanma başarısız:', reconnectError.message);
+      Logger.error(`🔢 Hata Kodu: ${reconnectError.code || 'Bilinmiyor'}`);
+      Logger.error(`🔢 Hata Adı: ${reconnectError.name || 'Bilinmiyor'}`);
     }
-  }, 3000);
+  }, 5000);
 });
 
 mongoose.connection.on('reconnected', () => {
