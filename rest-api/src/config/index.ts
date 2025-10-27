@@ -26,13 +26,8 @@ export const MONGODB_OPTIONS: mongoose.ConnectOptions = {
   // Railway için özel ayarlar
   retryReads: true,
   heartbeatFrequencyMS: 10000,
-  // mongodb+srv:// için özel ayarlar
-  ...(process.env.MONGODB_URI?.includes('mongodb+srv://') ? {
-    // SRV için özel ayarlar
-    srvMaxHosts: 3, // SRV kayıtlarında maksimum host sayısı
-    srvServiceName: 'mongodb', // SRV servis adı
-    compressors: ['zlib'], // Compression
-  } : {}),
+  // NOT: mongodb+srv:// kullandığımızda SRV ayarları yok
+  // srvMaxHosts ve srvServiceName sadece normal mongodb:// için kullanılır
   // mongodb+srv:// kullanıldığında otomatik TLS gereklidir
   // TLS ayarlarını sadece production'da force et
   ...(process.env.NODE_ENV === 'production' && !process.env.MONGODB_URI?.includes('mongodb+srv://') ? {
