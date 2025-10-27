@@ -15,10 +15,16 @@ config.resolver.nodeModulesPaths = [
 ];
 
 // Alias mapping ekle
-config.resolver.alias = {
-  '@': path.resolve(__dirname, 'src'),
-  '@shared': path.resolve(__dirname, 'src/shared'),
-  '@features': path.resolve(__dirname, 'src/features'),
+config.resolver = {
+  ...config.resolver,
+  alias: {
+    '@': path.resolve(__dirname, 'src'),
+    '@/shared': path.resolve(__dirname, 'src/shared'),
+    '@shared': path.resolve(__dirname, 'src/shared'),
+    '@features': path.resolve(__dirname, 'src/features'),
+    '@/context': path.resolve(__dirname, 'src/shared/context'),
+    '@/theme': path.resolve(__dirname, 'src/shared/theme'),
+  },
 };
 
 // Ensure that all platforms are included

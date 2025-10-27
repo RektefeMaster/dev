@@ -1,3 +1,5 @@
+const path = require('path');
+
 module.exports = function (api) {
   api.cache(true);
   return {
@@ -6,11 +8,15 @@ module.exports = function (api) {
       [
         'module-resolver',
         {
-          root: ['./src'],
+          root: [path.resolve(__dirname, 'src')],
+          extensions: ['.ios.js', '.android.js', '.js', '.ts', '.tsx', '.json'],
           alias: {
-            '@': './src',
-            '@shared': './src/shared',
-            '@features': './src/features',
+            '@': path.resolve(__dirname, 'src'),
+            '@/shared': path.resolve(__dirname, 'src/shared'),
+            '@shared': path.resolve(__dirname, 'src/shared'),
+            '@features': path.resolve(__dirname, 'src/features'),
+            '@/context': path.resolve(__dirname, 'src/shared/context'),
+            '@/theme': path.resolve(__dirname, 'src/shared/theme'),
           },
         },
       ],

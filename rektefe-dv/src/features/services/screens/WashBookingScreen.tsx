@@ -556,8 +556,12 @@ const WashBookingScreen = () => {
     // Ödeme validasyonu
     if (paymentMethod === 'wallet') {
       const totalPrice = (pricing?.finalPrice || 0) - tefePuanUsed;
+      if (walletBalance <= 0) {
+        Alert.alert('Yetersiz Bakiye', 'Cüzdan bakiyeniz 0 TL. Lütfen kart ile ödeme yapın.');
+        return;
+      }
       if (walletBalance < totalPrice) {
-        Alert.alert('Yetersiz Bakiye', 'Cüzdan bakiyeniz yetersiz. Lütfen kart ile ödeme yapın.');
+        Alert.alert('Yetersiz Bakiye', `Cüzdan bakiyeniz yetersiz (${walletBalance.toFixed(2)} TL). Gerekli tutar: ${totalPrice.toFixed(2)} TL. Lütfen kart ile ödeme yapın.`);
         return;
       }
     } else if (paymentMethod === 'card') {
@@ -1661,9 +1665,20 @@ const WashBookingScreen = () => {
                   backgroundColor: paymentMethod === 'wallet'
                     ? (theme.colors.primary.main || '#007AFF') + '10'
                     : theme.colors.background.secondary,
+                  opacity: walletBalance < (safeFinalPrice - safeTefePuan) ? 0.5 : 1,
                 }
               ]}
-              onPress={() => setPaymentMethod('wallet')}
+              onPress={() => {
+                if (walletBalance >= (safeFinalPrice - safeTefePuan)) {
+                  setPaymentMethod('wallet');
+                } else {
+                  Alert.alert(
+                    'Yetersiz Bakiye',
+                    'Cüzdan bakiyeniz yetersiz. Lütfen kart ile ödeme yapın.'
+                  );
+                }
+              }}
+              disabled={walletBalance < (safeFinalPrice - safeTefePuan)}
             >
               <View style={styles.paymentMethodHeader}>
                 <MaterialCommunityIcons
@@ -1854,7 +1869,7 @@ const WashBookingScreen = () => {
           <Button
             title={loading ? "İşleniyor..." : "Siparişi Oluştur"}
             onPress={handleCreateOrder}
-            disabled={loading}
+            disabled={loading || (paymentMethod === 'wallet' && walletBalance < (safeFinalPrice - safeTefePuan))}
             style={styles.createOrderButton}
           />
         </View>

@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Card, Input } from '@/shared/components';
-import { UserType } from '@/shared/types/enums';
+import { UserType } from '@/shared/types/common';
 import { useAuth } from '@/context/AuthContext';
 import { borderRadius, colors, shadows, spacing, typography } from '@/theme/theme';
 
