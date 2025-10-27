@@ -25,6 +25,9 @@ import {
   metricsHandler 
 } from './utils/monitoring';
 
+// Config import (dependency olabilecek route'lardan önce)
+import { MONGODB_URI, MONGODB_OPTIONS, PORT as CONFIG_PORT, CORS_ORIGIN, JWT_SECRET } from './config';
+
 // Route'ları import et
 import authRoutes from './routes/auth';
 import networkRoutes from './routes/network';
@@ -87,9 +90,6 @@ app.use(requestLogger);
 
 // Rate limiting (tüm API route'ları için)
 app.use('/api/', apiLimiter);
-
-// CORS configuration
-import { MONGODB_URI, MONGODB_OPTIONS, PORT as CONFIG_PORT, CORS_ORIGIN, JWT_SECRET } from './config';
 
 // Secure CORS configuration - no wildcards
 const allowedOrigins = CORS_ORIGIN.split(',').map(origin => origin.trim());

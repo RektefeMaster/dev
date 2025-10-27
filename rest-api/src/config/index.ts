@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 
 dotenv.config();
 
@@ -10,7 +11,7 @@ if (!process.env.JWT_SECRET) {
 export const MONGODB_URI: string = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/rektefe';
 
 // Railway MongoDB için optimize edilmiş ayarlar
-export const MONGODB_OPTIONS = {
+export const MONGODB_OPTIONS: mongoose.ConnectOptions = {
   serverSelectionTimeoutMS: 10000, // Daha kısa timeout
   connectTimeoutMS: 10000,
   socketTimeoutMS: 30000,
@@ -19,7 +20,7 @@ export const MONGODB_OPTIONS = {
   maxIdleTimeMS: 30000,
   bufferCommands: true,
   retryWrites: true,
-  w: 'majority' as const,
+  w: 'majority',
   // Railway MongoDB için TLS ayarları
   tls: process.env.MONGODB_URI?.includes('mongodb+srv://') ? true : (process.env.NODE_ENV === 'production' ? true : false),
   tlsAllowInvalidCertificates: false,
@@ -31,7 +32,7 @@ export const MONGODB_OPTIONS = {
   // maxConnecting: 2, // MongoDB Atlas için sorun yaratabilir
   // Railway için daha agresif retry (desteklenen seçenekler)
   // retryDelayMS ve maxRetryDelayMS MongoDB driver tarafından desteklenmiyor
-} as const;
+};
 
 // Server port
 export const PORT: number = Number(process.env.PORT) || 3000;
