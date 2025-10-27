@@ -272,40 +272,34 @@ app.get('/', (req, res) => {
   res.send('API Çalışıyor!');
 });
 
-// Render IP test endpoint'i
-app.get('/ip-test', (req, res) => {
-  const clientIP = req.ip || req.connection.remoteAddress || req.socket.remoteAddress;
-  const forwardedIP = req.headers['x-forwarded-for'];
-  const realIP = req.headers['x-real-ip'];
-  
-  res.json({
-    success: true,
-    message: 'IP test endpoint',
-    ips: {
-      clientIP,
-      forwardedIP,
-      realIP,
-      userAgent: req.headers['user-agent'],
-      allHeaders: req.headers
-    }
-  });
-});
-
 // IP test endpoint'i - Railway IP adresini öğrenmek için
 app.get('/ip-test', async (req, res) => {
   try {
+    // Client IP bilgilerini topla
+    const clientIP = req.ip || req.connection.remoteAddress || req.socket.remoteAddress;
+    const forwardedIP = req.headers['x-forwarded-for'];
+    const realIP = req.headers['x-real-ip'];
+    
+    // Railway'in outbound IP'sini öğren
     const response = await fetch('https://api.ipify.org?format=json');
     const data = await response.json();
+    
     res.json({
       success: true,
-      railwayIP: data.ip,
+      railwayOutboundIP: data.ip,
+      clientIP: {
+        ip: clientIP,
+        forwardedIP: forwardedIP,
+        realIP: realIP
+      },
       timestamp: new Date().toISOString(),
-      message: 'Bu IP adresini MongoDB Atlas Network Access\'e ekleyin'
+      message: 'Bu IP adresini MongoDB Atlas Network Access\'e ekleyin',
+      mongoDbFormat: `${data.ip}/32`
     });
-  } catch (error) {
+  } catch (error: any) {
     res.json({
       success: false,
-      error: error.message
+      error: error.message || 'Unknown error'
     });
   }
 });
@@ -440,7 +434,8 @@ async function startServer() {
     
     if (err?.message?.includes('whitelist') || err?.message?.includes('IP')) {
       Logger.error('🔒 IP Whitelist Sorunu Tespit Edildi');
-      Logger.error('📝 Çözüm: MongoDB Atlas Network Access ayarlarından "Allow Access from Anywhere" (0.0.0.0/0) ekleyin');
+      Logger.error('📝 Çözüm: MongoDB Atlas Network Access ayarlarına Railway outbound IP adresini ekleyin');
+      Logger.error('📝 Railway IP: https://api.ipify.org veya /ip-test endpoint\'ini kullanarak öğrenebilirsiniz');
     }
     
     if (err?.message?.includes('authentication')) {
@@ -547,7 +542,8 @@ mongoose.connection.on('disconnected', () => {
   
   if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
     Logger.error(`❌ Maksimum yeniden bağlanma denemesi (${MAX_RECONNECT_ATTEMPTS}) aşıldı. Railway'den manuel müdahale gerekli.`);
-    Logger.error('🔧 MongoDB Atlas Network Access ayarlarını kontrol edin: https://cloud.mongodb.com/security/network/list');
+    Logger.error('🔧 MongoDB Atlas Network Access: Railway IP adresini whitelist\'e ekleyin');
+    Logger.error('🔍 Railway IP adresini öğrenmek için: https://your-app.railway.app/ip-test');
     return;
   }
   

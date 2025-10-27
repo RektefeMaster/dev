@@ -4,9 +4,18 @@
 
 ### 1. MongoDB Connection String
 Railway dashboard'da şu environment variable'ı ayarlayın:
+
+**a) Railway MongoDB kullanıyorsanız:**
 ```
 MONGODB_URI=mongodb://mongo:27017/rektefe
 ```
+Not: Bu MongoDB servisi Railway'de aynı projede çalışıyorsa geçerlidir.
+
+**b) MongoDB Atlas kullanıyorsanız:**
+```
+MONGODB_URI=mongodb+srv://rektefekadnur09:rektefekadnur09@cluster0.agf6m9t.mongodb.net/rektefe?retryWrites=true&w=majority
+```
+Not: MongoDB Atlas Network Access ayarlarından Railway IP'lerini whitelist'e ekleyin (0.0.0.0/0 tüm IP'ler için).
 
 ### 2. Database Persistent Volume
 Railway'de MongoDB servisi için:
@@ -20,8 +29,8 @@ Railway'de MongoDB servisi için:
 Railway dashboard'da şu değişkenlerin olduğundan emin olun:
 
 ```bash
-# Database
-MONGODB_URI=mongodb://mongo:27017/rektefe
+# Database - MongoDB Atlas
+MONGODB_URI=mongodb+srv://rektefekadnur09:rektefekadnur09@cluster0.agf6m9t.mongodb.net/rektefe?retryWrites=true&w=majority
 
 # JWT Secrets
 JWT_SECRET=your-super-secret-jwt-key-here

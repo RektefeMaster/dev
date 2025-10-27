@@ -13,10 +13,10 @@ export const MONGODB_URI: string = process.env.MONGODB_URI || 'mongodb://127.0.0
 // Railway MongoDB için optimize edilmiş ayarlar
 export const MONGODB_OPTIONS: mongoose.ConnectOptions = {
   // Railway'den MongoDB Atlas'e bağlantı için daha uzun timeout'lar
-  serverSelectionTimeoutMS: 45000, // 45 saniye - Railway network latency için
-  connectTimeoutMS: 45000, // 45 saniye
-  socketTimeoutMS: 60000, // 60 saniye socket timeout
-  family: 4, // IPv4 kullan (Railway IPv6 sorunları olabilir)
+  serverSelectionTimeoutMS: 60000, // 60 saniye - Railway network latency için
+  connectTimeoutMS: 60000, // 60 saniye
+  socketTimeoutMS: 90000, // 90 saniye socket timeout
+  family: 4 as 4, // IPv4 kullan (Railway IPv6 sorunları olabilir)
   maxPoolSize: 10,
   minPoolSize: 2,
   maxIdleTimeMS: 30000,
@@ -26,6 +26,13 @@ export const MONGODB_OPTIONS: mongoose.ConnectOptions = {
   // Railway için özel ayarlar
   retryReads: true,
   heartbeatFrequencyMS: 10000,
+  // mongodb+srv:// için özel ayarlar
+  ...(process.env.MONGODB_URI?.includes('mongodb+srv://') ? {
+    // SRV için özel ayarlar
+    srvMaxHosts: 3, // SRV kayıtlarında maksimum host sayısı
+    srvServiceName: 'mongodb', // SRV servis adı
+    compressors: ['zlib'], // Compression
+  } : {}),
   // mongodb+srv:// kullanıldığında otomatik TLS gereklidir
   // TLS ayarlarını sadece production'da force et
   ...(process.env.NODE_ENV === 'production' && !process.env.MONGODB_URI?.includes('mongodb+srv://') ? {
