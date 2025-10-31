@@ -3,7 +3,15 @@ import { Appointment } from '../models/Appointment';
 
 export const checkRatingTimeLimit = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { appointmentId } = req.params;
+    // appointmentId params veya body'den gelebilir
+    const appointmentId = req.params.appointmentId || req.body.appointmentId;
+    
+    if (!appointmentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Randevu ID bulunamadı'
+      });
+    }
     
     // Randevu bilgilerini getir
     const appointment = await Appointment.findById(appointmentId);

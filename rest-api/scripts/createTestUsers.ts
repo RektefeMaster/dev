@@ -8,6 +8,9 @@ import { User } from '../src/models/User';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 
+// Environment variables
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
+
 dotenv.config();
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/rektefe';
@@ -19,7 +22,7 @@ const testUsers = [
     email: 'testdv@gmail.com',
     phone: '5551234567',
     password: 'test123',
-    role: 'şöför',
+    userType: 'driver', // FIXED: role yerine userType
     isVerified: true,
     isActive: true
   },
@@ -27,9 +30,10 @@ const testUsers = [
     name: 'Test',
     surname: 'Usta',
     email: 'testus@gmail.com',
+    username: 'test_usta', // Mechanic için zorunlu
     phone: '5559876543',
     password: 'test123',
-    role: 'usta',
+    userType: 'mechanic', // FIXED: role yerine userType
     isVerified: true,
     isActive: true
   }
@@ -59,7 +63,7 @@ async function createTestUsers() {
         password: hashedPassword
       });
 
-      console.log(`✅ ${userData.role.toUpperCase()} kullanıcısı oluşturuldu: ${userData.email}`);
+      console.log(`✅ ${userData.userType?.toUpperCase()} kullanıcısı oluşturuldu: ${userData.email}`);
       console.log(`   ID: ${newUser._id}`);
       console.log(`   Şifre: ${userData.password}`);
     }

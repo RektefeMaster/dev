@@ -86,8 +86,9 @@ WalletSchema.pre('save', function(next) {
 WalletSchema.pre(['updateOne', 'findOneAndUpdate'], function(next) {
   const update = this.getUpdate() as any;
   if (update.$inc && update.$inc.balance) {
-    // Balance değişikliğini kontrol et
-    this.findOne().then((doc: any) => {
+    // Balance değişikliğini kontrol et - getQuery() ile mevcut sorgu kullan
+    const query = this.getQuery();
+    this.model.findOne(query).then((doc: any) => {
       if (doc) {
         const newBalance = doc.balance + update.$inc.balance;
         if (newBalance < 0) {

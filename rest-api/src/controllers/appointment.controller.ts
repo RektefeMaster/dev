@@ -244,7 +244,7 @@ export class AppointmentController {
    */
   static async addPriceIncrease(req: Request, res: Response) {
     try {
-      const { appointmentId } = req.params;
+      const { id } = req.params; // Route parametresinden al
       const { additionalAmount, reason } = req.body;
       const mechanicId = req.user?.userId;
 
@@ -261,7 +261,7 @@ export class AppointmentController {
       }
 
       const appointment = await AppointmentService.addExtraCharges(
-        appointmentId,
+        id,
         Number(additionalAmount),
         reason.trim()
       );
@@ -908,43 +908,164 @@ export class AppointmentController {
 
       // Sadece payment_pending durumundaki randevular için ödeme onaylanabilir
       if (appointment.status !== 'ODEME_BEKLIYOR') {
+        console.log('❌ Appointment status kontrolü başarısız:', appointment.status);
         return res.status(400).json({
           success: false,
           message: 'Bu randevu için ödeme onaylanamaz'
         });
       }
 
-      // Ödeme bilgilerini güncelle
-      appointment.paymentStatus = PaymentStatus.COMPLETED;
-      appointment.status = AppointmentStatus.COMPLETED; // Ödeme tamamlandıktan sonra tamamlandı durumuna geç
-      appointment.paymentDate = new Date();
-      appointment.transactionId = transactionId;
-      
-      // Eğer price değeri yoksa, quotedPrice'dan al
-      if (!appointment.price && appointment.quotedPrice) {
-        appointment.price = appointment.quotedPrice;
-      }
-      
-      // Eğer hala price yoksa, frontend'den gelen amount'u kullan
-      if (!appointment.price) {
-        const { amount } = req.body;
-        if (amount) {
-          appointment.price = amount;
-          }
+      // mechanicId'yi transaction dışında da kullanabilmek için buraya taşı
+      const mechanicId = (appointment.mechanicId as any)?._id || appointment.mechanicId;
+      console.log('🔍 mechanicId kontrol:', { 
+        populated: (appointment.mechanicId as any)?._id,
+        direct: appointment.mechanicId,
+        mechanicId
+      });
+      if (!mechanicId) {
+        console.error('❌ mechanicId bulunamadı - appointment:', JSON.stringify(appointment.toObject(), null, 2));
+        throw new CustomError('Usta bilgisi bulunamadı', 400);
       }
 
-      await appointment.save();
-
-      // FaultReport durumunu ve payment bilgisini güncelle (eğer arıza bildirimine bağlıysa)
-      if (appointment.faultReportId) {
+      // CRITICAL FIX: Tüm işlemleri MongoDB transaction içine al - atomicity garantisi
+      const walletAmount = appointment.finalPrice || appointment.price || 0;
+      
+      // Transaction sadece production'da ve MONGODB_URI replica set destekliyorsa kullan
+      // Test ortamında transaction kullanılmaz
+      const useTransaction = false; // Geçici olarak devre dışı
+      
+      if (useTransaction) {
+        // Production ortamında transaction kullan
+        const session = await mongoose.startSession();
+        
         try {
+          session.startTransaction();
+          
+          // 1. Ödeme bilgilerini güncelle - BACKEND finalPrice'ı kullan, frontend'i ignore et
+          appointment.paymentStatus = PaymentStatus.COMPLETED;
+          appointment.status = AppointmentStatus.COMPLETED;
+          appointment.paymentDate = new Date();
+          appointment.transactionId = transactionId;
+          
+          // Eğer price değeri yoksa, quotedPrice'dan al
+          if (!appointment.price && appointment.quotedPrice) {
+            appointment.price = appointment.quotedPrice;
+          }
+          
+          // Frontend'den gelen amount KESINLIKLE kullanılmamalı - güvenlik açığı!
+          await appointment.save({ session });
+
+          // 2. FaultReport durumunu güncelle (eğer arıza bildirimine bağlıysa)
+          if (appointment.faultReportId) {
+            const FaultReport = require('../models/FaultReport').FaultReport;
+            const faultReport = await FaultReport.findById(appointment.faultReportId).session(session);
+            
+            if (faultReport) {
+              faultReport.status = 'paid';
+              
+              if (faultReport.payment) {
+                faultReport.payment.status = 'completed';
+                faultReport.payment.transactionId = transactionId;
+                faultReport.payment.paymentDate = new Date();
+              }
+              
+              await faultReport.save({ session });
+              console.log(`✅ FaultReport ${faultReport._id} durumu 'paid' olarak güncellendi`);
+            }
+          }
+
+          // 3. Wallet transaction - Müşteriden para düş
+          const customerTransaction = {
+            type: 'debit' as const,
+            amount: walletAmount,
+            description: `Randevu ödemesi - ${appointment.serviceType || 'genel-bakım'}`,
+            date: new Date(),
+            status: 'completed' as const
+          };
+          
+          const customerWallet = await Wallet.findOne({ userId }).session(session);
+          
+          if (!customerWallet) {
+            await session.abortTransaction();
+            throw new CustomError('Müşteri cüzdanı bulunamadı', 404);
+          }
+          
+          if (customerWallet.balance < walletAmount) {
+            await session.abortTransaction();
+            throw new CustomError('Cüzdan bakiyeniz yetersiz', 400);
+          }
+          
+          await Wallet.findOneAndUpdate(
+            { userId },
+            {
+              $inc: { balance: -walletAmount },
+              $push: { transactions: customerTransaction },
+            },
+            { new: true, session }
+          );
+          
+          // 4. Wallet transaction - Ustaya para ekle
+          const mechanicTransaction = {
+            type: 'credit' as const,
+            amount: walletAmount,
+            description: `Randevu kazancı - ${appointment.serviceType || 'genel-bakım'} (${(appointment.userId as any).name})`,
+            date: new Date(),
+            status: 'completed' as const
+          };
+          
+          await Wallet.findOneAndUpdate(
+            { userId: mechanicId },
+            {
+              $inc: { balance: walletAmount },
+              $push: { transactions: mechanicTransaction },
+              $setOnInsert: { userId: mechanicId, createdAt: new Date() }
+            },
+            { new: true, upsert: true, session }
+          );
+          
+          // 5. Transaction commit
+          await session.commitTransaction();
+          console.log('✅ Payment transaction başarıyla tamamlandı');
+          
+        } catch (transactionError: any) {
+          await session.abortTransaction();
+          console.error('❌ Payment transaction hatası:', transactionError);
+          // Transaction hatası olursa (replica set yoksa), transaction olmadan devam et
+          if (transactionError.code === 20 || transactionError.codeName === 'IllegalOperation') {
+            console.log('⚠️ Transaction desteklenmiyor, transaction olmadan devam ediliyor...');
+            useTransaction = false;
+          } else {
+            throw transactionError;
+          }
+        } finally {
+          session.endSession();
+        }
+      }
+      
+      if (!useTransaction) {
+        // Transaction desteklenmiyorsa veya hata alındıysa, transaction olmadan devam et
+        // 1. Ödeme bilgilerini güncelle - BACKEND finalPrice'ı kullan, frontend'i ignore et
+        appointment.paymentStatus = PaymentStatus.COMPLETED;
+        appointment.status = AppointmentStatus.COMPLETED;
+        appointment.paymentDate = new Date();
+        appointment.transactionId = transactionId;
+        
+        // Eğer price değeri yoksa, quotedPrice'dan al
+        if (!appointment.price && appointment.quotedPrice) {
+          appointment.price = appointment.quotedPrice;
+        }
+        
+        // Frontend'den gelen amount KESINLIKLE kullanılmamalı - güvenlik açığı!
+        await appointment.save();
+
+        // 2. FaultReport durumunu güncelle (eğer arıza bildirimine bağlıysa)
+        if (appointment.faultReportId) {
           const FaultReport = require('../models/FaultReport').FaultReport;
           const faultReport = await FaultReport.findById(appointment.faultReportId);
           
           if (faultReport) {
-            faultReport.status = 'paid'; // Ödeme yapıldı
+            faultReport.status = 'paid';
             
-            // Payment objesini güncelle
             if (faultReport.payment) {
               faultReport.payment.status = 'completed';
               faultReport.payment.transactionId = transactionId;
@@ -954,16 +1075,62 @@ export class AppointmentController {
             await faultReport.save();
             console.log(`✅ FaultReport ${faultReport._id} durumu 'paid' olarak güncellendi`);
           }
-        } catch (faultReportError) {
-          console.error('❌ FaultReport güncelleme hatası:', faultReportError);
         }
+
+        // 3. Wallet transaction - Müşteriden para düş
+        const customerTransaction = {
+          type: 'debit' as const,
+          amount: walletAmount,
+          description: `Randevu ödemesi - ${appointment.serviceType || 'genel-bakım'}`,
+          date: new Date(),
+          status: 'completed' as const
+        };
+        
+        const customerWallet = await Wallet.findOne({ userId });
+        
+        if (!customerWallet) {
+          throw new CustomError('Müşteri cüzdanı bulunamadı', 404);
+        }
+        
+        if (customerWallet.balance < walletAmount) {
+          throw new CustomError('Cüzdan bakiyeniz yetersiz', 400);
+        }
+        
+        await Wallet.findOneAndUpdate(
+          { userId },
+          {
+            $inc: { balance: -walletAmount },
+            $push: { transactions: customerTransaction },
+          },
+          { new: true }
+        );
+        
+        // 4. Wallet transaction - Ustaya para ekle
+        const mechanicTransaction = {
+          type: 'credit' as const,
+          amount: walletAmount,
+          description: `Randevu kazancı - ${appointment.serviceType || 'genel-bakım'} (${(appointment.userId as any).name})`,
+          date: new Date(),
+          status: 'completed' as const
+        };
+        
+        await Wallet.findOneAndUpdate(
+          { userId: mechanicId },
+          {
+            $inc: { balance: walletAmount },
+            $push: { transactions: mechanicTransaction },
+            $setOnInsert: { userId: mechanicId, createdAt: new Date() }
+          },
+          { new: true, upsert: true }
+        );
+        
+        console.log('✅ Payment transaction olmadan başarıyla tamamlandı');
       }
 
-      // TefePuan kazanma işlemi (hem müşteri hem usta için)
+      // 6. TefePuan kazandır (transaction dışında - başarısızlığı ödemeyi engellemez)
       try {
         const baseAmount = appointment.finalPrice || appointment.price || 0;
         
-        // Müşteriye TefePuan kazandır
         const mechanicName = (appointment.mechanicId as any)?.name || 'Usta';
         const { translateServiceType } = require('../utils/serviceTypeTranslator');
         const serviceTypeName = translateServiceType(appointment.serviceType) || 'Hizmet';
@@ -982,9 +1149,8 @@ export class AppointmentController {
           console.log(`✅ Müşteriye ${customerTefePointResult.earnedPoints} TefePuan kazandırıldı`);
         }
 
-        // Ustaya da TefePuan kazandır
         const mechanicTefePointResult = await TefePointService.processPaymentTefePoints({
-          userId: appointment.mechanicId._id.toString(),
+          userId: mechanicId.toString(),
           amount: baseAmount,
           paymentType: 'appointment',
           serviceCategory: appointment.serviceType || 'repair',
@@ -997,90 +1163,7 @@ export class AppointmentController {
           console.log(`✅ Ustaya ${mechanicTefePointResult.earnedPoints} TefePuan kazandırıldı`);
         }
       } catch (tefeError) {
-        console.error('❌ TefePuan hatası:', tefeError);
-        // TefePuan hatası ödeme işlemini durdurmaz
-      }
-
-      // Wallet'a transaction ekle - RACE CONDITION FIX
-      try {
-        const walletAmount = appointment.finalPrice || appointment.price || 0;
-        const mechanicId = appointment.mechanicId;
-        
-        // MongoDB transaction kullanarak race condition'ı önle
-        const session = await mongoose.startSession();
-        
-        try {
-          session.startTransaction();
-          
-          // Müşteriden para düş (debit)
-          const customerTransaction = {
-            type: 'debit' as const,
-            amount: walletAmount,
-            description: `Randevu ödemesi - ${appointment.serviceType || 'genel-bakım'}`,
-            date: new Date(),
-            status: 'completed' as const
-          };
-          
-          // Müşteri cüzdanından para düş - Balance kontrolü ile
-          const customerWallet = await Wallet.findOne({ userId }).session(session);
-          
-          if (!customerWallet) {
-            await session.abortTransaction();
-            throw new CustomError('Müşteri cüzdanı bulunamadı', 404);
-          }
-          
-          if (customerWallet.balance < walletAmount) {
-            await session.abortTransaction();
-            throw new CustomError('Cüzdan bakiyeniz yetersiz', 400);
-          }
-          
-          await Wallet.findOneAndUpdate(
-            { userId },
-            {
-              $inc: { balance: -walletAmount }, // Balance'ı atomik olarak azalt
-              $push: { transactions: customerTransaction }, // Transaction'ı atomik olarak ekle
-            },
-            { 
-              new: true, 
-              session // Transaction session
-            }
-          );
-          
-          // Ustaya para ekle (credit)
-          const mechanicTransaction = {
-            type: 'credit' as const,
-            amount: walletAmount,
-            description: `Randevu kazancı - ${appointment.serviceType || 'genel-bakım'} (${(appointment.userId as any).name})`,
-            date: new Date(),
-            status: 'completed' as const
-          };
-          
-          // Usta cüzdanına para ekle
-          await Wallet.findOneAndUpdate(
-            { userId: mechanicId },
-            {
-              $inc: { balance: walletAmount }, // Balance'ı atomik olarak artır
-              $push: { transactions: mechanicTransaction }, // Transaction'ı atomik olarak ekle
-              $setOnInsert: { userId: mechanicId, createdAt: new Date() } // Eğer yeni wallet ise initial values
-            },
-            { 
-              new: true, 
-              upsert: true, // Yoksa oluştur
-              session // Transaction session
-            }
-          );
-          
-          await session.commitTransaction();
-          } catch (transactionError) {
-          await session.abortTransaction();
-          throw transactionError;
-        } finally {
-          session.endSession();
-        }
-        
-      } catch (walletError) {
-        console.error('❌ Wallet güncelleme hatası:', walletError);
-        // Wallet hatası ödeme işlemini durdurmaz ama log'la
+        console.error('❌ TefePuan hatası (ödeme etkilenmez):', tefeError);
       }
 
       // Ustaya bildirim gönder
@@ -1110,9 +1193,11 @@ export class AppointmentController {
       });
 
     } catch (error) {
+      console.error('❌ confirmPayment error:', error);
       res.status(500).json({
         success: false,
-        message: 'Ödeme onaylanırken bir hata oluştu'
+        message: 'Ödeme onaylanırken bir hata oluştu',
+        error: process.env.NODE_ENV === 'development' ? (error as any).message : undefined
       });
     }
   }

@@ -130,7 +130,7 @@ const AppointmentSchema: Schema = new Schema({
   },
   mechanicId: { 
     type: Schema.Types.ObjectId, 
-    ref: 'Mechanic', 
+    ref: 'User', 
     required: false 
   },
   serviceType: { 

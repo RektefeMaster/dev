@@ -52,13 +52,14 @@ export class AppointmentService {
       }
 
       // Ustanın müsait olup olmadığını kontrol et
-      const mechanic = await User.findById(data.mechanicId);
+      let mechanic = await User.findById(data.mechanicId);
       if (!mechanic || mechanic.userType !== 'mechanic') {
         console.log('⚠️ Usta bulunamadı, geçici usta oluşturuluyor');
         // Geçici usta oluştur veya mevcut bir ustayı kullan
         const tempMechanic = await User.findOne({ userType: 'mechanic' });
         if (tempMechanic) {
           data.mechanicId = tempMechanic._id.toString();
+          mechanic = tempMechanic; // CRITICAL FIX: mechanic değişkenini güncelle
         } else {
           throw new CustomError('Sistemde kayıtlı usta bulunamadı', 404);
         }
@@ -107,7 +108,7 @@ export class AppointmentService {
       // Eğer vehicleId gönderilmemişse, kullanıcının son kayıtlı aracını ata
       let resolvedVehicleId: mongoose.Types.ObjectId | undefined;
       if (!data.vehicleId) {
-        const lastVehicle = await Vehicle.findOne({ userId: userId }).sort({ updatedAt: -1, createdAt: -1 });
+        const lastVehicle = await Vehicle.findOne({ userId: userId }).sort({ createdAt: -1 }); // FIXED: updatedAt kaldırıldı
         if (lastVehicle) {
           resolvedVehicleId = new mongoose.Types.ObjectId((lastVehicle as any)._id.toString());
         }

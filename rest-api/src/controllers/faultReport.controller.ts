@@ -1163,7 +1163,8 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
     console.log('🔍 Request params:', req.params);
     console.log('🔍 Request body:', req.body);
     
-    const { faultReportId, appointmentDate, timeSlot } = req.body;
+    const { id } = req.params; // Route parametresinden faultReportId al
+    const { appointmentDate, timeSlot } = req.body;
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -1173,7 +1174,7 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
       });
     }
 
-    if (!faultReportId) {
+    if (!id) {
       return res.status(400).json({
         success: false,
         message: 'Arıza bildirimi ID\'si gereklidir'
@@ -1188,7 +1189,7 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
     }
 
     // FaultReport'u bul
-    const faultReport = await FaultReport.findById(faultReportId)
+    const faultReport = await FaultReport.findById(id)
       .populate('userId', 'name surname phone')
       .populate('vehicleId', 'brand modelName plateNumber year');
 
@@ -1201,8 +1202,8 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
 
     // Aynı faultReportId ile zaten randevu var mı kontrol et
     const existingAppointment = await Appointment.findOne({
-      faultReportId: faultReportId,
-      status: { $nin: ['cancelled', 'completed'] }
+      faultReportId: id,
+      status: { $nin: ['IPTAL_EDILDI', 'TAMAMLANDI'] } // FIXED: Enum değerleri kullan
     });
 
     if (existingAppointment) {
@@ -1214,6 +1215,7 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
 
     // selectedQuote'dan mechanicId'yi al, null ise quotes array'inden bul
     let mechanicId = faultReport.selectedQuote?.mechanicId;
+    console.log('🔍 Initial mechanicId from selectedQuote:', mechanicId);
     
     if (!mechanicId) {
       // Aynı fiyata sahip accepted quote'u bul
@@ -1224,6 +1226,7 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
       
       if (matchingQuote) {
         mechanicId = matchingQuote.mechanicId;
+        console.log('🔍 mechanicId from matchingQuote:', mechanicId);
       }
     }
 
@@ -1234,13 +1237,17 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
       );
       if (anyQuote) {
         mechanicId = anyQuote.mechanicId;
+        console.log('🔍 mechanicId from anyQuote:', mechanicId);
       }
     }
 
     // Eğer hala mechanicId yoksa, geçici bir ID oluştur
     if (!mechanicId) {
+      console.log('⚠️ mechanicId bulunamadı, geçici ID oluşturuluyor');
       mechanicId = new mongoose.Types.ObjectId();
     }
+
+    console.log('🔍 Final mechanicId:', mechanicId);
 
     // ServiceCategory'yi ServiceType'a çevir
     console.log('🔍 faultReport.serviceCategory:', faultReport.serviceCategory);
@@ -1259,7 +1266,7 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
       timeSlot: timeSlot,
       description: faultReport.faultDescription,
       vehicleId: new mongoose.Types.ObjectId(faultReport.vehicleId),
-      faultReportId: new mongoose.Types.ObjectId(faultReportId),
+      faultReportId: new mongoose.Types.ObjectId(id),
       price: faultReport.selectedQuote?.quoteAmount || 0,
       quotedPrice: faultReport.selectedQuote?.quoteAmount || 0,
       finalPrice: faultReport.selectedQuote?.quoteAmount || 0,
@@ -1293,7 +1300,9 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
         appointment: {
           _id: appointment._id,
           price: appointment.price,
-          status: appointment.status
+          status: appointment.status,
+          faultReportId: appointment.faultReportId,
+          mechanicId: appointment.mechanicId
         }
       }
     });

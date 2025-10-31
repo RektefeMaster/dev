@@ -14,7 +14,8 @@ export class AppointmentRatingController {
    */
   static async createRating(req: Request, res: Response) {
     try {
-      const { appointmentId } = req.params;
+      // appointmentId params veya body'den gelebilir
+      const appointmentId = req.params.appointmentId || req.body.appointmentId;
       const { rating, comment, mechanicId: mechanicIdFromBody } = req.body;
       const userId = req.user?.userId;
 
@@ -348,13 +349,20 @@ export class AppointmentRatingController {
         const { averageRating, totalRatings } = result[0] as { averageRating: number; totalRatings: number };
 
         const updatedRating = Math.round(averageRating * 10) / 10;
+        
+        // Hem Mechanic hem User modelinde güncelle
         await Mechanic.updateOne({ _id: mechanicId }, {
+          $set: { rating: updatedRating, ratingCount: totalRatings }
+        });
+        
+        await User.updateOne({ _id: mechanicId, userType: 'mechanic' }, {
           $set: { rating: updatedRating, ratingCount: totalRatings }
         });
   
       } else {
         // Hiç puan yoksa sıfırla
         await Mechanic.updateOne({ _id: mechanicId }, { $set: { rating: 0, ratingCount: 0 } });
+        await User.updateOne({ _id: mechanicId, userType: 'mechanic' }, { $set: { rating: 0, ratingCount: 0 } });
   
       }
     } catch (error) {
