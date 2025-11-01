@@ -139,6 +139,31 @@ router.get('/market', validate(searchPartsSchema), async (req: Request, res: Res
 });
 
 /**
+ * GET /api/parts/my-reservations
+ * Kullanıcı rezervasyonlarını listele
+ * NOT: Bu route /:id route'undan ÖNCE olmalı (route çakışmasını önlemek için)
+ */
+router.get('/my-reservations', auth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Kullanıcı doğrulanamadı'
+      });
+    }
+
+    const result = await PartsService.getMyReservations(userId, req.query as any);
+    res.json(result);
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Rezervasyonlar yüklenemedi'
+    });
+  }
+});
+
+/**
  * GET /api/parts/:id
  * Parça detayını getir
  */
@@ -197,30 +222,6 @@ router.post('/reserve', auth, validate(createReservationSchema), async (req: Req
     res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || 'Rezervasyon oluşturulamadı'
-    });
-  }
-});
-
-/**
- * GET /api/parts/my-reservations
- * Kullanıcı rezervasyonlarını listele
- */
-router.get('/my-reservations', auth, async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Kullanıcı doğrulanamadı'
-      });
-    }
-
-    const result = await PartsService.getMyReservations(userId, req.query as any);
-    res.json(result);
-  } catch (error: any) {
-    res.status(error.statusCode || 500).json({
-      success: false,
-      message: error.message || 'Rezervasyonlar yüklenemedi'
     });
   }
 });

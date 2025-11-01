@@ -342,7 +342,7 @@ const PartsReservationsScreen = () => {
                           <View style={styles.ratingRow}>
                             <Ionicons name="star" size={12} color="#FBBF24" />
                             <Text style={[styles.ratingText, { color: theme.colors.text.secondary }]}>
-                              {reservation.sellerId.rating.toFixed(1)} ({reservation.sellerId.ratingCount || 0})
+                              {typeof reservation.sellerId.rating === 'number' ? reservation.sellerId.rating.toFixed(1) : reservation.sellerId.rating} ({reservation.sellerId.ratingCount || 0})
                             </Text>
                           </View>
                         )}
@@ -374,11 +374,13 @@ const PartsReservationsScreen = () => {
                       </View>
                       <View style={styles.partDetails}>
                         <Text style={[styles.detailText, { color: theme.colors.text.secondary }]}>
-                          Adet: {reservation.quantity}
+                          Adet: {reservation.quantity || 1}
                         </Text>
-                        <Text style={[styles.detailText, { color: theme.colors.text.secondary }]}>
-                          Durum: {reservation.partInfo.condition}
-                        </Text>
+                        {reservation.partInfo?.condition && (
+                          <Text style={[styles.detailText, { color: theme.colors.text.secondary }]}>
+                            Durum: {reservation.partInfo.condition}
+                          </Text>
+                        )}
                       </View>
                     </View>
 
@@ -389,9 +391,9 @@ const PartsReservationsScreen = () => {
                           Toplam
                         </Text>
                         <Text style={[styles.priceValue, { color: theme.colors.text.primary }]}>
-                          {reservation.negotiatedPrice || reservation.totalPrice} TL
+                          {(reservation.negotiatedPrice || reservation.totalPrice || 0).toLocaleString('tr-TR')} TL
                         </Text>
-                        {reservation.negotiatedPrice && (
+                        {reservation.negotiatedPrice && reservation.totalPrice && (
                           <Text style={[styles.oldPrice, { color: theme.colors.text.secondary }]}>
                             <Text style={styles.strikethrough}>{reservation.totalPrice.toLocaleString('tr-TR')} TL</Text>
                           </Text>

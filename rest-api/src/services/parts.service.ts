@@ -175,9 +175,12 @@ export class PartsService {
       const skip = (page - 1) * limit;
 
       const query: any = {
-        isPublished: true,
-        isActive: true,
-        'stock.available': { $gt: 0 }
+        isActive: true
+        // isPublished ve stock kontrolü şimdilik gevşetildi - mock datalar için
+        // TODO: Production'da şu kontroller eklenebilir:
+        // isPublished: true,
+        // 'stock.available': { $gt: 0 },
+        // 'moderation.status': 'approved'
       };
 
       // Text search
