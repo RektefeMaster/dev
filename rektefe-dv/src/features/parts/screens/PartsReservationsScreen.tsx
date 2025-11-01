@@ -313,19 +313,19 @@ const PartsReservationsScreen = () => {
               {reservations.map((reservation) => (
                 <TouchableOpacity 
                   key={reservation._id}
-                  onPress={() => handlePartPress(reservation.partId._id)}
+                  onPress={() => reservation.partId?._id && handlePartPress(reservation.partId._id)}
                   activeOpacity={0.7}
                 >
                   <Card variant="elevated" style={styles.reservationCard}>
                     {/* Header */}
                     <View style={styles.reservationHeader}>
-                      <View style={[styles.statusBadge, { backgroundColor: getStatusColor(reservation.status) + '20' }]}>
-                        <Text style={[styles.statusText, { color: getStatusColor(reservation.status) }]}>
-                          {getStatusLabel(reservation.status)}
+                      <View style={[styles.statusBadge, { backgroundColor: getStatusColor(reservation?.status || 'pending') + '20' }]}>
+                        <Text style={[styles.statusText, { color: getStatusColor(reservation?.status || 'pending') }]}>
+                          {getStatusLabel(reservation?.status || 'pending')}
                         </Text>
                       </View>
                       <Text style={[styles.reservationDate, { color: theme.colors.text.secondary }]}>
-                        {new Date(reservation.createdAt).toLocaleDateString('tr-TR')}
+                        {reservation?.createdAt ? new Date(reservation.createdAt).toLocaleDateString('tr-TR') : ''}
                       </Text>
                     </View>
 
@@ -336,9 +336,9 @@ const PartsReservationsScreen = () => {
                       </View>
                       <View style={styles.sellerDetails}>
                         <Text style={[styles.sellerName, { color: theme.colors.text.primary }]}>
-                          {reservation.sellerId.shopName || `${reservation.sellerId.name} ${reservation.sellerId.surname}`}
+                          {reservation.sellerId?.shopName || (reservation.sellerId?.name && reservation.sellerId?.surname ? `${reservation.sellerId.name} ${reservation.sellerId.surname}` : 'Satıcı')}
                         </Text>
-                        {reservation.sellerId.rating && (
+                        {reservation.sellerId?.rating && (
                           <View style={styles.ratingRow}>
                             <Ionicons name="star" size={12} color="#FBBF24" />
                             <Text style={[styles.ratingText, { color: theme.colors.text.secondary }]}>
@@ -352,7 +352,7 @@ const PartsReservationsScreen = () => {
                     {/* Part Info */}
                     <View style={styles.partInfo}>
                       <View style={styles.partHeader}>
-                        {reservation.partId.photos && reservation.partId.photos.length > 0 ? (
+                        {reservation.partId?.photos && reservation.partId.photos.length > 0 ? (
                           <Image
                             source={{ uri: reservation.partId.photos[0] }}
                             style={styles.partImage}
@@ -365,11 +365,13 @@ const PartsReservationsScreen = () => {
                         )}
                         <View style={styles.partTextInfo}>
                           <Text style={[styles.partName, { color: theme.colors.text.primary }]}>
-                            {reservation.partInfo.partName}
+                            {reservation.partInfo?.partName || 'Parça Adı'}
                           </Text>
-                          <Text style={[styles.partBrand, { color: theme.colors.text.secondary }]}>
-                            {reservation.partInfo.brand}
-                          </Text>
+                          {reservation.partInfo?.brand && (
+                            <Text style={[styles.partBrand, { color: theme.colors.text.secondary }]}>
+                              {reservation.partInfo.brand}
+                            </Text>
+                          )}
                         </View>
                       </View>
                       <View style={styles.partDetails}>
@@ -402,12 +404,14 @@ const PartsReservationsScreen = () => {
                     </View>
 
                     {/* Delivery Info */}
-                    <View style={styles.deliveryInfo}>
-                      <Ionicons name="car-outline" size={16} color={theme.colors.text.secondary} />
-                      <Text style={[styles.deliveryLabel, { color: theme.colors.text.secondary }]}>
-                        {getDeliveryMethodLabel(reservation.delivery.method)}
-                      </Text>
-                    </View>
+                    {reservation.delivery?.method && (
+                      <View style={styles.deliveryInfo}>
+                        <Ionicons name="car-outline" size={16} color={theme.colors.text.secondary} />
+                        <Text style={[styles.deliveryLabel, { color: theme.colors.text.secondary }]}>
+                          {getDeliveryMethodLabel(reservation.delivery.method)}
+                        </Text>
+                      </View>
+                    )}
 
                     {/* Actions */}
                     {reservation.status === 'pending' && (
