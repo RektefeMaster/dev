@@ -11,6 +11,9 @@ import {
   Image,
   Dimensions,
   Modal,
+  TextInput,
+  Linking,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
@@ -88,10 +91,36 @@ const PartDetailScreen = () => {
   const [deliveryMethod, setDeliveryMethod] = useState<'pickup' | 'standard' | 'express'>('pickup');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'transfer'>('cash');
   const [reserving, setReserving] = useState(false);
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [loadingVehicles, setLoadingVehicles] = useState(false);
 
   useEffect(() => {
     fetchPartDetail();
+    fetchVehicles();
   }, [partId]);
+
+  const fetchVehicles = async () => {
+    try {
+      setLoadingVehicles(true);
+      const response = await apiService.getVehicles();
+      if (response.success && response.data) {
+        const vehicleList = Array.isArray(response.data) ? response.data : (response.data.vehicles || []);
+        setVehicles(vehicleList);
+        // Otomatik olarak favori aracı seç
+        const favorite = vehicleList.find((v: any) => v.isFavorite);
+        if (favorite) {
+          setSelectedVehicle(favorite);
+        } else if (vehicleList.length > 0) {
+          setSelectedVehicle(vehicleList[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Araçlar yüklenemedi:', error);
+    } finally {
+      setLoadingVehicles(false);
+    }
+  };
 
   const fetchPartDetail = async () => {
     try {
@@ -125,6 +154,12 @@ const PartDetailScreen = () => {
   const handleConfirmReservation = async () => {
     if (!part) return;
 
+    // Validasyon
+    if (deliveryMethod !== 'pickup' && !deliveryAddress.trim()) {
+      Alert.alert('Uyarı', 'Teslimat adresi giriniz');
+      return;
+    }
+
     try {
       setReserving(true);
       const response = await apiService.createPartsReservation({
@@ -133,7 +168,7 @@ const PartDetailScreen = () => {
         quantity,
         delivery: {
           method: deliveryMethod,
-          address: deliveryMethod !== 'pickup' ? 'Adres girilecek' : undefined,
+          address: deliveryMethod !== 'pickup' ? deliveryAddress.trim() : undefined,
         },
         payment: {
           method: paymentMethod,
@@ -149,6 +184,7 @@ const PartDetailScreen = () => {
               text: 'Tamam',
               onPress: () => {
                 setShowReserveModal(false);
+                setDeliveryAddress('');
                 navigation.navigate('PartsReservations' as never);
               },
             },
@@ -163,6 +199,56 @@ const PartDetailScreen = () => {
     } finally {
       setReserving(false);
     }
+  };
+
+  const handleCallMechanic = () => {
+    if (!part?.mechanicId?.phone) return;
+    
+    const phoneNumber = part.mechanicId.phone.replace(/[^0-9+]/g, '');
+    const url = Platform.OS === 'ios' ? `telprompt:${phoneNumber}` : `tel:${phoneNumber}`;
+    
+    Linking.canOpenURL(url)
+      .then((supported) => {
+        if (supported) {
+          return Linking.openURL(url);
+        } else {
+          Alert.alert('Hata', 'Telefon araması desteklenmiyor');
+        }
+      })
+      .catch((err) => {
+        console.error('Arama hatası:', err);
+        Alert.alert('Hata', 'Telefon araması açılamadı');
+      });
+  };
+
+
+  const getCategoryLabel = (category: string) => {
+    const categories: { [key: string]: string } = {
+      engine: 'Motor',
+      electrical: 'Elektrik',
+      suspension: 'Süspansiyon',
+      brake: 'Fren',
+      body: 'Kaporta',
+      interior: 'İç Donanım',
+      exterior: 'Dış Donanım',
+      fuel: 'Yakıt',
+      cooling: 'Soğutma',
+      transmission: 'Şanzıman',
+      exhaust: 'Egzoz',
+      other: 'Diğer',
+    };
+    return categories[category] || category;
+  };
+
+  const getConditionLabel = (condition: string) => {
+    const conditions: { [key: string]: string } = {
+      new: 'Sıfır',
+      used: 'İkinci El',
+      refurbished: 'Yenilenmiş',
+      oem: 'Orijinal',
+      aftermarket: 'Yan Sanayi',
+    };
+    return conditions[condition] || condition;
   };
 
   if (loading) {
@@ -214,25 +300,45 @@ const PartDetailScreen = () => {
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           {/* Photos */}
           {part.photos && part.photos.length > 0 ? (
-            <ScrollView
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              style={styles.photoScroll}
-            >
-              {part.photos.map((photo, index) => (
-                <View key={index} style={styles.photoContainer}>
-                  {/* Placeholder for image */}
-                  <View style={styles.photoPlaceholder}>
-                    <Ionicons name="image" size={80} color={theme.colors.text.secondary} />
+            <View style={styles.photoScrollContainer}>
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                style={styles.photoScroll}
+                onMomentumScrollEnd={(e) => {
+                  const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+                  setCurrentPhotoIndex(index);
+                }}
+              >
+                {part.photos.map((photo, index) => (
+                  <View key={index} style={styles.photoContainer}>
+                    <Image
+                      source={{ uri: photo }}
+                      style={styles.photoImage}
+                      resizeMode="cover"
+                      onError={() => {
+                        console.error('Fotoğraf yüklenemedi:', photo);
+                      }}
+                    />
                   </View>
+                ))}
+              </ScrollView>
+              {part.photos.length > 1 && (
+                <View style={styles.photoIndicator}>
+                  <Text style={[styles.photoIndicatorText, { color: '#FFFFFF' }]}>
+                    {currentPhotoIndex + 1} / {part.photos.length}
+                  </Text>
                 </View>
-              ))}
-            </ScrollView>
+              )}
+            </View>
           ) : (
             <View style={styles.photoContainer}>
               <View style={styles.photoPlaceholder}>
                 <Ionicons name="cube" size={80} color={theme.colors.text.secondary} />
+                <Text style={[styles.photoPlaceholderText, { color: theme.colors.text.secondary }]}>
+                  Fotoğraf Yok
+                </Text>
               </View>
             </View>
           )}
@@ -271,21 +377,35 @@ const PartDetailScreen = () => {
             <View style={styles.badgeContainer}>
               <View style={[styles.badge, { backgroundColor: theme.colors.primary.light }]}>
                 <Text style={[styles.badgeText, { color: theme.colors.primary.main }]}>
-                  {part.category}
+                  {getCategoryLabel(part.category)}
                 </Text>
               </View>
               <View style={[styles.badge, { backgroundColor: theme.colors.success.light }]}>
                 <Text style={[styles.badgeText, { color: theme.colors.success.main }]}>
-                  {part.condition}
+                  {getConditionLabel(part.condition)}
                 </Text>
               </View>
+              {part.partNumber && (
+                <View style={[styles.badge, { backgroundColor: theme.colors.background.secondary }]}>
+                  <Text style={[styles.badgeText, { color: theme.colors.text.secondary }]}>
+                    No: {part.partNumber}
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* Price */}
             <View style={styles.priceContainer}>
-              <Text style={[styles.price, { color: theme.colors.text.primary }]}>
-                {part.pricing.unitPrice} {part.pricing.currency}
-              </Text>
+              <View style={styles.priceLeft}>
+                <Text style={[styles.price, { color: theme.colors.text.primary }]}>
+                  {part.pricing.unitPrice.toLocaleString('tr-TR')} {part.pricing.currency}
+                </Text>
+                {part.pricing.oldPrice && (
+                  <Text style={[styles.oldPrice, { color: theme.colors.text.secondary }]}>
+                    {part.pricing.oldPrice.toLocaleString('tr-TR')} {part.pricing.currency}
+                  </Text>
+                )}
+              </View>
               {part.pricing.isNegotiable && (
                 <View style={[styles.negotiableBadge, { backgroundColor: theme.colors.warning.light }]}>
                   <Ionicons name="chatbubbles" size={16} color={theme.colors.warning.main} />
@@ -313,12 +433,31 @@ const PartDetailScreen = () => {
               <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
                 Uyumluluk
               </Text>
-              <Text style={[styles.compatibilityText, { color: theme.colors.text.secondary }]}>
-                Araçlar: {part.compatibility.makeModel.join(', ')}
-              </Text>
-              <Text style={[styles.compatibilityText, { color: theme.colors.text.secondary }]}>
-                Yıllar: {part.compatibility.years.start} - {part.compatibility.years.end}
-              </Text>
+              <View style={styles.compatibilityRow}>
+                <Ionicons name="car" size={16} color={theme.colors.text.secondary} />
+                <Text style={[styles.compatibilityText, { color: theme.colors.text.secondary }]}>
+                  {part.compatibility.makeModel.join(', ')}
+                </Text>
+              </View>
+              <View style={styles.compatibilityRow}>
+                <Ionicons name="calendar" size={16} color={theme.colors.text.secondary} />
+                <Text style={[styles.compatibilityText, { color: theme.colors.text.secondary }]}>
+                  {part.compatibility.years.start} - {part.compatibility.years.end}
+                </Text>
+              </View>
+              {part.compatibility.engine && part.compatibility.engine.length > 0 && (
+                <View style={styles.compatibilityRow}>
+                  <Ionicons name="settings" size={16} color={theme.colors.text.secondary} />
+                  <Text style={[styles.compatibilityText, { color: theme.colors.text.secondary }]}>
+                    Motor: {part.compatibility.engine.join(', ')}
+                  </Text>
+                </View>
+              )}
+              {part.compatibility.notes && (
+                <Text style={[styles.compatibilityNotes, { color: theme.colors.text.secondary }]}>
+                  {part.compatibility.notes}
+                </Text>
+              )}
             </View>
 
             {/* Warranty */}
@@ -361,10 +500,7 @@ const PartDetailScreen = () => {
               {part.mechanicId.phone && (
                 <TouchableOpacity
                   style={[styles.phoneButton, { borderColor: theme.colors.primary.main }]}
-                  onPress={() => {
-                    // TODO: Call mechanic
-                    Alert.alert('Bilgi', 'Arama özelliği yakında eklenecek');
-                  }}
+                  onPress={handleCallMechanic}
                 >
                   <Ionicons name="call" size={20} color={theme.colors.primary.main} />
                 </TouchableOpacity>
@@ -469,6 +605,58 @@ const PartDetailScreen = () => {
                   </View>
                 </View>
 
+                {/* Vehicle Selection */}
+                <View style={styles.modalSection}>
+                  <Text style={[styles.modalSectionTitle, { color: theme.colors.text.primary }]}>
+                    Araç Seçimi (Opsiyonel)
+                  </Text>
+                  {loadingVehicles ? (
+                    <ActivityIndicator size="small" color={theme.colors.primary.main} />
+                  ) : vehicles.length > 0 ? (
+                    <ScrollView style={styles.vehicleScroll} nestedScrollEnabled>
+                      {vehicles.map((vehicle) => (
+                        <TouchableOpacity
+                          key={vehicle._id}
+                          style={[
+                            styles.vehicleOption,
+                            {
+                              borderColor: selectedVehicle?._id === vehicle._id ? theme.colors.primary.main : theme.colors.border.primary,
+                              backgroundColor: selectedVehicle?._id === vehicle._id ? theme.colors.primary.light : 'transparent',
+                            }
+                          ]}
+                          onPress={() => setSelectedVehicle(vehicle)}
+                        >
+                          <Ionicons
+                            name="car"
+                            size={20}
+                            color={selectedVehicle?._id === vehicle._id ? theme.colors.primary.main : theme.colors.text.secondary}
+                          />
+                          <View style={styles.vehicleInfo}>
+                            <Text style={[
+                              styles.vehicleText,
+                              { color: selectedVehicle?._id === vehicle._id ? theme.colors.primary.main : theme.colors.text.primary }
+                            ]}>
+                              {vehicle.brand} {vehicle.modelName} ({vehicle.year})
+                            </Text>
+                            {vehicle.plateNumber && (
+                              <Text style={[styles.vehiclePlate, { color: theme.colors.text.secondary }]}>
+                                {vehicle.plateNumber}
+                              </Text>
+                            )}
+                          </View>
+                          {selectedVehicle?._id === vehicle._id && (
+                            <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary.main} />
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  ) : (
+                    <Text style={[styles.emptyText, { color: theme.colors.text.secondary }]}>
+                      Araç bulunamadı
+                    </Text>
+                  )}
+                </View>
+
                 {/* Delivery Method */}
                 <View style={styles.modalSection}>
                   <Text style={[styles.modalSectionTitle, { color: theme.colors.text.primary }]}>
@@ -494,15 +682,46 @@ const PartDetailScreen = () => {
                         size={24}
                         color={deliveryMethod === method ? theme.colors.primary.main : theme.colors.text.secondary}
                       />
-                      <Text style={[
-                        styles.optionText,
-                        { color: deliveryMethod === method ? theme.colors.primary.main : theme.colors.text.primary }
-                      ]}>
-                        {method === 'pickup' ? 'Mağazadan Al' :
-                         method === 'standard' ? 'Standart Kargo' : 'Hızlı Kargo'}
-                      </Text>
+                      <View style={styles.optionCardContent}>
+                        <Text style={[
+                          styles.optionText,
+                          { color: deliveryMethod === method ? theme.colors.primary.main : theme.colors.text.primary }
+                        ]}>
+                          {method === 'pickup' ? 'Mağazadan Al' :
+                           method === 'standard' ? 'Standart Kargo' : 'Hızlı Kargo'}
+                        </Text>
+                        {method !== 'pickup' && (
+                          <Text style={[styles.optionSubtext, { color: theme.colors.text.secondary }]}>
+                            Kargo ücreti usta ile görüşülecek
+                          </Text>
+                        )}
+                      </View>
                     </TouchableOpacity>
                   ))}
+                  {deliveryMethod !== 'pickup' && (
+                    <View style={styles.addressInputContainer}>
+                      <Text style={[styles.inputLabel, { color: theme.colors.text.primary }]}>
+                        Teslimat Adresi *
+                      </Text>
+                      <TextInput
+                        style={[
+                          styles.addressInput,
+                          {
+                            borderColor: theme.colors.border.primary,
+                            color: theme.colors.text.primary,
+                            backgroundColor: theme.colors.background.secondary,
+                          }
+                        ]}
+                        placeholder="Adres bilgilerini giriniz"
+                        placeholderTextColor={theme.colors.text.secondary}
+                        value={deliveryAddress}
+                        onChangeText={setDeliveryAddress}
+                        multiline
+                        numberOfLines={4}
+                        textAlignVertical="top"
+                      />
+                    </View>
+                  )}
                 </View>
 
                 {/* Payment Method */}
@@ -614,12 +833,20 @@ const createStyles = (theme: any) => StyleSheet.create({
     marginTop: 16,
     textAlign: 'center',
   },
+  photoScrollContainer: {
+    position: 'relative',
+    height: 300,
+  },
   photoScroll: {
-    height: 250,
+    height: 300,
   },
   photoContainer: {
     width: SCREEN_WIDTH,
-    height: 250,
+    height: 300,
+  },
+  photoImage: {
+    width: '100%',
+    height: '100%',
   },
   photoPlaceholder: {
     width: '100%',
@@ -627,6 +854,23 @@ const createStyles = (theme: any) => StyleSheet.create({
     backgroundColor: theme.colors.background.secondary,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  photoPlaceholderText: {
+    marginTop: 8,
+    fontSize: 14,
+  },
+  photoIndicator: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  photoIndicatorText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   infoCard: {
     margin: 16,
@@ -682,12 +926,20 @@ const createStyles = (theme: any) => StyleSheet.create({
   priceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 16,
+  },
+  priceLeft: {
+    flex: 1,
   },
   price: {
     fontSize: 24,
     fontWeight: '700',
-    marginRight: 12,
+  },
+  oldPrice: {
+    fontSize: 14,
+    textDecorationLine: 'line-through',
+    marginTop: 4,
   },
   negotiableBadge: {
     flexDirection: 'row',
@@ -713,9 +965,20 @@ const createStyles = (theme: any) => StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  compatibilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
   compatibilityText: {
     fontSize: 14,
-    marginBottom: 4,
+    flex: 1,
+  },
+  compatibilityNotes: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginTop: 4,
   },
   warrantyText: {
     fontSize: 16,
@@ -873,6 +1136,29 @@ const createStyles = (theme: any) => StyleSheet.create({
     minWidth: 40,
     textAlign: 'center',
   },
+  vehicleScroll: {
+    maxHeight: 150,
+  },
+  vehicleOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+    marginBottom: 8,
+    gap: 12,
+  },
+  vehicleInfo: {
+    flex: 1,
+  },
+  vehicleText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  vehiclePlate: {
+    fontSize: 12,
+    marginTop: 2,
+  },
   optionCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -880,11 +1166,50 @@ const createStyles = (theme: any) => StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     marginBottom: 12,
+    gap: 12,
+  },
+  optionCardContent: {
+    flex: 1,
   },
   optionText: {
     fontSize: 16,
     fontWeight: '600',
-    marginLeft: 12,
+  },
+  optionSubtext: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  addressInputContainer: {
+    marginTop: 12,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  addressInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    minHeight: 100,
+  },
+  priceInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  inputHint: {
+    fontSize: 12,
+    marginTop: 8,
+  },
+  currentPrice: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginTop: 4,
   },
   totalSection: {
     flexDirection: 'row',

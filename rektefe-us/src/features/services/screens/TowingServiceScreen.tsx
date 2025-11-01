@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -82,7 +82,7 @@ interface TowingRequest {
 
 export default function TowingServiceScreen() {
   const navigation = useNavigation();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -93,10 +93,29 @@ export default function TowingServiceScreen() {
   // Ustanın konumu
   const [mechanicLocation, setMechanicLocation] = useState<{ lat: number; lng: number } | null>(null);
 
+  // Ustanın hizmet kategorilerini kontrol et
+  const userServiceCategories = useMemo(() => {
+    return user?.serviceCategories || [];
+  }, [user?.serviceCategories]);
+
+  const hasTowingServiceAccess = useMemo(() => {
+    if (!userServiceCategories || userServiceCategories.length === 0) return false;
+    return userServiceCategories.some(cat => 
+      ['towing', 'cekici', 'Çekici'].includes(cat)
+    );
+  }, [userServiceCategories]);
+
   useFocusEffect(
     useCallback(() => {
-      fetchTowingRequests();
-    }, [statusFilter])
+      // Eğer usta bu kategoride hizmet vermiyorsa, ekranı gösterme ve geri yönlendir
+      if (!hasTowingServiceAccess && isAuthenticated && user) {
+        navigation.goBack();
+        return;
+      }
+      if (hasTowingServiceAccess) {
+        fetchTowingRequests();
+      }
+    }, [statusFilter, hasTowingServiceAccess, isAuthenticated, user, navigation])
   );
 
   const fetchTowingRequests = async () => {
@@ -185,6 +204,11 @@ export default function TowingServiceScreen() {
       setRefreshing(false);
     }
   };
+
+  // Eğer usta bu kategoride hizmet vermiyorsa hiçbir şey gösterme
+  if (!hasTowingServiceAccess) {
+    return null;
+  }
 
   const onRefresh = () => {
     setRefreshing(true);

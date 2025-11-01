@@ -29,6 +29,7 @@ import { FaultReportsScreen, FaultReportDetailScreen } from '@/features/fault-re
 import { TowingServiceScreen, RepairServiceScreen, WashServiceScreen, TireServiceScreen } from '@/features/services/screens';
 import { WashPackageManagementScreen, WashJobsScreen, WashJobDetailScreen, WashProviderSetupScreen, InventoryScreen } from '@/features/wash/screens';
 import { AppointmentsScreen } from '@/features/appointments/screens';
+import { PartsInventoryScreen, PartsReservationsScreen, AddPartScreen } from '@/features/parts/screens';
 import { NotificationsScreen, NotificationSettingsScreen } from '@/features/notifications/screens';
 import EmergencyNotificationScreen from '@/features/emergency/screens/EmergencyNotificationScreen';
 import { ReportsScreen, EndOfDayScreen } from '@/features/reports/screens';
@@ -321,6 +322,27 @@ const AppNavigator = () => {
         <Stack.Screen
           name="Inventory"
           component={InventoryScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="PartsInventory"
+          component={PartsInventoryScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="PartsReservations"
+          component={PartsReservationsScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="AddPart"
+          component={AddPartScreen}
           options={{
             headerShown: false,
           }}

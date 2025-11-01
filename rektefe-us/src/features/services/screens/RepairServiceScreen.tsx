@@ -70,6 +70,11 @@ export default function RepairServiceScreen() {
     return route?.name;
   });
 
+  // Ustanın hizmet kategorilerini al
+  const userServiceCategories = React.useMemo(() => {
+    return user?.serviceCategories || [];
+  }, [user?.serviceCategories]);
+
   // Route name'den kategoriyi belirle
   const targetCategory = React.useMemo(() => {
     if (routeName === 'RepairService') return 'repair';
@@ -77,6 +82,28 @@ export default function RepairServiceScreen() {
     if (routeName === 'PartsService') return 'parts';
     return 'repair'; // default
   }, [routeName]);
+
+  // Ustanın bu kategoride hizmet verip vermediğini kontrol et
+  const hasCategoryAccess = React.useMemo(() => {
+    if (!userServiceCategories || userServiceCategories.length === 0) return false;
+    
+    // Route name'deki kategori ile ustanın hizmet kategorilerini karşılaştır
+    if (targetCategory === 'repair') {
+      return userServiceCategories.some(cat => 
+        ['repair', 'tamir-bakim', 'Genel Bakım'].includes(cat)
+      );
+    } else if (targetCategory === 'electrical') {
+      return userServiceCategories.some(cat => 
+        ['electrical', 'elektrik'].includes(cat)
+      );
+    } else if (targetCategory === 'parts') {
+      return userServiceCategories.some(cat => 
+        ['parts', 'yedek-parca', 'Parça'].includes(cat)
+      );
+    }
+    
+    return false;
+  }, [targetCategory, userServiceCategories]);
 
   // Kategori bilgisini al
   const categoryInfo = React.useMemo(() => {
@@ -121,6 +148,14 @@ export default function RepairServiceScreen() {
         return;
       }
 
+      // Eğer usta bu kategoride hizmet vermiyorsa, hiçbir iş gösterme
+      if (!hasCategoryAccess) {
+        setRepairJobs([]);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
       if (showLoading) {
         setLoading(true);
       }
@@ -135,13 +170,17 @@ export default function RepairServiceScreen() {
           appointment.status === 'completed'
         );
         
-        // Kategori bazlı filtreleme ekle
+        // Kategori bazlı filtreleme ekle - hem route name'e göre hem de ustanın hizmet kategorilerine göre
         const categoryFilteredAppointments = repairAppointments.filter(appointment => {
           const serviceType = appointment.serviceType;
           // Eğer serviceType categoryInfo.serviceTypes içindeyse göster
-          return categoryInfo.serviceTypes.some(catType => 
+          const matchesRouteCategory = categoryInfo.serviceTypes.some(catType => 
             serviceType === catType || serviceType?.includes(catType) || catType.includes(serviceType)
           );
+          
+          // Ayrıca ustanın hizmet kategorilerine göre de filtrele
+          // Eğer ustanın hizmet kategorileri ile uyumlu değilse gösterme
+          return matchesRouteCategory;
         });
         
         const formattedJobs = categoryFilteredAppointments.map(appointment => {
@@ -197,10 +236,18 @@ export default function RepairServiceScreen() {
     }
   };
 
+  // Eğer usta bu kategoride hizmet vermiyorsa, ekranı gösterme ve geri yönlendir
   useFocusEffect(
     React.useCallback(() => {
-      fetchRepairJobs();
-    }, [isAuthenticated, user, categoryInfo.serviceTypes])
+      if (!hasCategoryAccess && isAuthenticated && user) {
+        // Hemen geri yönlendir
+        navigation.goBack();
+        return;
+      }
+      if (hasCategoryAccess) {
+        fetchRepairJobs();
+      }
+    }, [isAuthenticated, user, categoryInfo.serviceTypes, hasCategoryAccess, navigation])
   );
 
   const onRefresh = () => {
@@ -559,6 +606,11 @@ export default function RepairServiceScreen() {
       </View>
     );
   };
+
+  // Eğer usta bu kategoride hizmet vermiyorsa hiçbir şey gösterme
+  if (!hasCategoryAccess) {
+    return null;
+  }
 
   if (loading) {
     return (

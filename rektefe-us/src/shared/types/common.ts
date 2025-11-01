@@ -559,6 +559,7 @@ export type RootStackParamList = {
   Inventory: undefined;
   PartsInventory: undefined;
   PartsReservations: undefined;
+  AddPart: { partId?: string } | undefined;
 };
 
 // ===== DRAWER NAVIGATION TYPES =====

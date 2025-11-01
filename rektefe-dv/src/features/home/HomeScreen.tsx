@@ -147,6 +147,10 @@ const HomeScreen = () => {
           onPress: () => navigation.navigate('PartsMarket'),
         },
         {
+          label: 'Parça Rezervasyonlarım',
+          onPress: () => navigation.navigate('PartsReservations'),
+        },
+        {
           label: 'Lastik',
           onPress: () => navigation.navigate('TireParts'),
         },

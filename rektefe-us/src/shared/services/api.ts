@@ -2780,6 +2780,32 @@ export const PartsService = {
   },
 
   /**
+   * Parça fotoğrafı yükle
+   */
+  async uploadPartPhoto(photoUri: string): Promise<ApiResponse<any>> {
+    try {
+      const formData = new FormData();
+      formData.append('image', {
+        uri: photoUri,
+        type: 'image/jpeg',
+        name: 'photo.jpg',
+      } as any);
+
+      const response = await apiClient.post('/upload/parts', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Upload part photo error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR, 
+        'Fotoğraf yüklenemedi', 
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
    * Rezervasyon oluştur
    */
   async createReservation(data: {
@@ -2873,6 +2899,54 @@ export const PartsService = {
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Rezervasyonlar yüklenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Rezervasyon için pazarlık teklifi gönder
+   */
+  async negotiateReservationPrice(
+    reservationId: string,
+    requestedPrice: number,
+    message?: string
+  ): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/parts/reservations/${reservationId}/negotiate`, {
+        requestedPrice,
+        message
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Negotiate reservation price error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Pazarlık teklifi gönderilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Pazarlık teklifini yanıtla (Usta için)
+   */
+  async respondToNegotiation(
+    reservationId: string,
+    action: 'accept' | 'reject',
+    counterPrice?: number
+  ): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/parts/reservations/${reservationId}/negotiation-response`, {
+        action,
+        counterPrice
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Respond to negotiation error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Pazarlık yanıtı verilemedi',
         error.response?.data?.error?.details
       );
     }

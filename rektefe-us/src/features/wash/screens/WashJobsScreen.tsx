@@ -66,7 +66,7 @@ interface WashJob {
 export default function WashJobsScreen() {
   const navigation = useNavigation();
   const { themeColors: colors } = useTheme();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const styles = createStyles(colors);
 
   const [loading, setLoading] = useState(true);
@@ -74,11 +74,35 @@ export default function WashJobsScreen() {
   const [jobs, setJobs] = useState<WashJob[]>([]);
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
 
+  // Ustanın hizmet kategorilerini kontrol et
+  const userServiceCategories = useMemo(() => {
+    return user?.serviceCategories || [];
+  }, [user?.serviceCategories]);
+
+  const hasWashServiceAccess = useMemo(() => {
+    if (!userServiceCategories || userServiceCategories.length === 0) return false;
+    return userServiceCategories.some(cat => 
+      ['wash', 'arac-yikama', 'Yıkama Hizmeti'].includes(cat)
+    );
+  }, [userServiceCategories]);
+
   useFocusEffect(
     React.useCallback(() => {
-      fetchJobs();
-    }, [selectedFilter])
+      // Eğer usta bu kategoride hizmet vermiyorsa, ekranı gösterme ve geri yönlendir
+      if (!hasWashServiceAccess && isAuthenticated && user) {
+        navigation.goBack();
+        return;
+      }
+      if (hasWashServiceAccess) {
+        fetchJobs();
+      }
+    }, [selectedFilter, hasWashServiceAccess, isAuthenticated, user, navigation])
   );
+
+  // Eğer usta bu kategoride hizmet vermiyorsa hiçbir şey gösterme
+  if (!hasWashServiceAccess) {
+    return null;
+  }
 
   const fetchJobs = async () => {
     try {

@@ -12,6 +12,7 @@ import {
   RefreshControl,
   TextInput,
   Modal,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
@@ -44,6 +45,7 @@ interface Part {
   };
   pricing: {
     unitPrice: number;
+    oldPrice?: number;
     currency: string;
     isNegotiable: boolean;
   };
@@ -164,14 +166,21 @@ const PartsMarketScreen = () => {
         {/* Photo */}
         {item.photos && item.photos.length > 0 ? (
           <View style={styles.photoContainer}>
-            {/* Placeholder for image */}
-            <View style={styles.photoPlaceholder}>
-              <Ionicons name="image" size={40} color={theme.colors.text.secondary} />
-            </View>
+            <Image
+              source={{ uri: item.photos[0] }}
+              style={styles.photoImage}
+              resizeMode="cover"
+              onError={() => {
+                console.error('Fotoğraf yüklenemedi:', item.photos[0]);
+              }}
+            />
           </View>
         ) : (
           <View style={styles.photoPlaceholder}>
             <Ionicons name="cube" size={40} color={theme.colors.text.secondary} />
+            <Text style={[styles.photoPlaceholderText, { color: theme.colors.text.secondary }]}>
+              Fotoğraf Yok
+            </Text>
           </View>
         )}
 
@@ -215,13 +224,23 @@ const PartsMarketScreen = () => {
 
           {/* Price */}
           <View style={styles.priceContainer}>
-            <Text style={[styles.price, { color: theme.colors.text.primary }]}>
-              {item.pricing.unitPrice} {item.pricing.currency}
-            </Text>
-            {item.pricing.isNegotiable && (
-              <Text style={[styles.negotiableText, { color: theme.colors.warning.main }]}>
-                Pazarlık Yapılabilir
+            <View style={styles.priceLeft}>
+              <Text style={[styles.price, { color: theme.colors.text.primary }]}>
+                {item.pricing.unitPrice.toLocaleString('tr-TR')} {item.pricing.currency}
               </Text>
+              {item.pricing.oldPrice && (
+                <Text style={[styles.oldPrice, { color: theme.colors.text.secondary }]}>
+                  {item.pricing.oldPrice.toLocaleString('tr-TR')} {item.pricing.currency}
+                </Text>
+              )}
+            </View>
+            {item.pricing.isNegotiable && (
+              <View style={[styles.negotiableBadge, { backgroundColor: theme.colors.warning.light }]}>
+                <Ionicons name="chatbubbles" size={12} color={theme.colors.warning.main} />
+                <Text style={[styles.negotiableText, { color: theme.colors.warning.main }]}>
+                  Pazarlık
+                </Text>
+              </View>
             )}
           </View>
 
@@ -254,16 +273,24 @@ const PartsMarketScreen = () => {
           <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
             Yedek Parça Market
           </Text>
-          <TouchableOpacity 
-            onPress={() => setShowFilters(!showFilters)}
-            style={styles.filterButton}
-          >
-            <Ionicons 
-              name="options-outline" 
-              size={24} 
-              color={showFilters ? theme.colors.primary.main : theme.colors.text.secondary} 
-            />
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            <TouchableOpacity 
+              onPress={() => navigation.navigate('PartsReservations' as never)}
+              style={styles.reservationsButton}
+            >
+              <Ionicons name="list" size={24} color={theme.colors.primary.main} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => setShowFilters(!showFilters)}
+              style={styles.filterButton}
+            >
+              <Ionicons 
+                name="options-outline" 
+                size={24} 
+                color={showFilters ? theme.colors.primary.main : theme.colors.text.secondary} 
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Search Bar */}
@@ -458,6 +485,16 @@ const createStyles = (theme: any) => StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '600',
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  reservationsButton: {
+    padding: 8,
   },
   filterButton: {
     padding: 4,
@@ -552,6 +589,12 @@ const createStyles = (theme: any) => StyleSheet.create({
   photoContainer: {
     width: '100%',
     height: 120,
+    overflow: 'hidden',
+  },
+  photoImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: theme.colors.background.secondary,
   },
   photoPlaceholder: {
     width: '100%',
@@ -559,6 +602,10 @@ const createStyles = (theme: any) => StyleSheet.create({
     backgroundColor: theme.colors.background.secondary,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  photoPlaceholderText: {
+    marginTop: 4,
+    fontSize: 10,
   },
   partInfo: {
     padding: 12,
@@ -599,16 +646,34 @@ const createStyles = (theme: any) => StyleSheet.create({
     marginLeft: 4,
   },
   priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 8,
+  },
+  priceLeft: {
+    flex: 1,
   },
   price: {
     fontSize: 16,
     fontWeight: '700',
   },
-  negotiableText: {
+  oldPrice: {
     fontSize: 11,
-    fontStyle: 'italic',
+    textDecorationLine: 'line-through',
     marginTop: 2,
+  },
+  negotiableBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  negotiableText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   sellerContainer: {
     flexDirection: 'row',

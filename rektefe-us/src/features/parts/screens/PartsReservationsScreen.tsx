@@ -9,6 +9,9 @@ import {
   Alert,
   RefreshControl,
   ActivityIndicator,
+  Modal,
+  TextInput,
+  Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -84,6 +87,10 @@ export default function PartsReservationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled'>('all');
+  const [showNegotiationModal, setShowNegotiationModal] = useState(false);
+  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [counterPrice, setCounterPrice] = useState('');
+  const [responding, setResponding] = useState(false);
 
   useEffect(() => {
     fetchReservations();
@@ -163,6 +170,62 @@ export default function PartsReservationsScreen() {
         },
       ]
     );
+  };
+
+  const handleNegotiationResponse = (reservation: Reservation, action: 'accept' | 'reject') => {
+    setSelectedReservation(reservation);
+    if (action === 'reject') {
+      setCounterPrice('');
+    }
+    setShowNegotiationModal(true);
+  };
+
+  const handleConfirmNegotiationResponse = async (action: 'accept' | 'reject') => {
+    if (!selectedReservation) return;
+
+    try {
+      setResponding(true);
+      let response;
+      
+      if (action === 'accept') {
+        response = await apiService.PartsService.respondToNegotiation(
+          selectedReservation._id,
+          'accept'
+        );
+      } else {
+        const counterPriceValue = parseFloat(counterPrice);
+        if (counterPrice && (!isNaN(counterPriceValue) && counterPriceValue > 0)) {
+          // Karşı teklif var
+          const unitPrice = counterPriceValue / selectedReservation.quantity;
+          response = await apiService.PartsService.respondToNegotiation(
+            selectedReservation._id,
+            'reject',
+            unitPrice
+          );
+        } else {
+          // Sadece reddet
+          response = await apiService.PartsService.respondToNegotiation(
+            selectedReservation._id,
+            'reject'
+          );
+        }
+      }
+
+      if (response.success) {
+        Alert.alert('Başarılı', response.message || 'Pazarlık yanıtı verildi');
+        setShowNegotiationModal(false);
+        setSelectedReservation(null);
+        setCounterPrice('');
+        await fetchReservations();
+      } else {
+        Alert.alert('Hata', response.message || 'Pazarlık yanıtı verilemedi');
+      }
+    } catch (error) {
+      console.error('Pazarlık yanıt hatası:', error);
+      Alert.alert('Hata', 'Pazarlık yanıtı verilemedi');
+    } finally {
+      setResponding(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -343,7 +406,7 @@ export default function PartsReservationsScreen() {
                   </Text>
                   {reservation.negotiatedPrice && (
                     <Text style={[styles.oldPrice, { color: colors.textSecondary }]}>
-                      {reservation.totalPrice} TL
+                      <Text style={styles.strikethrough}>{reservation.totalPrice.toLocaleString('tr-TR')} TL</Text>
                     </Text>
                   )}
                 </View>
@@ -357,26 +420,56 @@ export default function PartsReservationsScreen() {
                 {/* Actions */}
                 {reservation.status === 'pending' && (
                   <View style={styles.actions}>
-                    <Button
-                      title="Onayla"
-                      onPress={() => handleApprove(reservation)}
-                      style={[styles.actionButton, { flex: 1 }]}
-                      textStyle={{ color: '#FFFFFF' }}
-                    />
-                    <Button
-                      title="İptal Et"
-                      onPress={() => handleCancel(reservation)}
-                      style={[
-                        styles.actionButton,
-                        {
-                          flex: 1,
-                          backgroundColor: colors.background,
-                          borderWidth: 1,
-                          borderColor: '#EF4444',
-                        }
-                      ]}
-                      textStyle={{ color: '#EF4444' }}
-                    />
+                    {reservation.negotiatedPrice ? (
+                      <>
+                        <Button
+                          title="Kabul Et"
+                          onPress={() => {
+                            setSelectedReservation(reservation);
+                            handleConfirmNegotiationResponse('accept');
+                          }}
+                          style={[styles.actionButton, { flex: 1, backgroundColor: '#10B981' }]}
+                          textStyle={{ color: '#FFFFFF' }}
+                        />
+                        <Button
+                          title="Yanıtla"
+                          onPress={() => handleNegotiationResponse(reservation, 'reject')}
+                          style={[
+                            styles.actionButton,
+                            {
+                              flex: 1,
+                              backgroundColor: colors.background,
+                              borderWidth: 1,
+                              borderColor: colors.primary,
+                            }
+                          ]}
+                          textStyle={{ color: colors.primary }}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          title="Onayla"
+                          onPress={() => handleApprove(reservation)}
+                          style={[styles.actionButton, { flex: 1 }]}
+                          textStyle={{ color: '#FFFFFF' }}
+                        />
+                        <Button
+                          title="İptal Et"
+                          onPress={() => handleCancel(reservation)}
+                          style={[
+                            styles.actionButton,
+                            {
+                              flex: 1,
+                              backgroundColor: colors.background,
+                              borderWidth: 1,
+                              borderColor: '#EF4444',
+                            }
+                          ]}
+                          textStyle={{ color: '#EF4444' }}
+                        />
+                      </>
+                    )}
                   </View>
                 )}
               </Card>
@@ -386,6 +479,113 @@ export default function PartsReservationsScreen() {
 
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      {/* Negotiation Response Modal */}
+      <Modal
+        visible={showNegotiationModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => {
+          setShowNegotiationModal(false);
+          setSelectedReservation(null);
+          setCounterPrice('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                Pazarlık Teklifi
+              </Text>
+              <TouchableOpacity onPress={() => {
+                setShowNegotiationModal(false);
+                setSelectedReservation(null);
+                setCounterPrice('');
+              }}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalScroll}>
+              {selectedReservation && (
+                <>
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalSectionTitle, { color: colors.text }]}>
+                      Müşteri Teklifi
+                    </Text>
+                    <Text style={[styles.currentPrice, { color: colors.textSecondary }]}>
+                      {selectedReservation.negotiatedPrice?.toLocaleString('tr-TR')} TL
+                    </Text>
+                    <Text style={[styles.modalHint, { color: colors.textSecondary }]}>
+                      Orijinal: {selectedReservation.totalPrice.toLocaleString('tr-TR')} TL
+                    </Text>
+                  </View>
+
+                  <View style={styles.modalSection}>
+                    <Text style={[styles.modalSectionTitle, { color: colors.text }]}>
+                      Karşı Teklif (İsteğe Bağlı)
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.priceInput,
+                        {
+                          borderColor: colors.border,
+                          color: colors.text,
+                          backgroundColor: colors.inputBackground,
+                        }
+                      ]}
+                      placeholder="Toplam fiyat giriniz"
+                      placeholderTextColor={colors.textSecondary}
+                      value={counterPrice}
+                      onChangeText={setCounterPrice}
+                      keyboardType="decimal-pad"
+                    />
+                    <Text style={[styles.inputHint, { color: colors.textSecondary }]}>
+                      Boş bırakırsanız teklif reddedilir
+                    </Text>
+                  </View>
+                </>
+              )}
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <Button
+                title="İptal"
+                variant="outline"
+                onPress={() => {
+                  setShowNegotiationModal(false);
+                  setSelectedReservation(null);
+                  setCounterPrice('');
+                }}
+                style={styles.modalButton}
+                disabled={responding}
+              />
+              <Button
+                title="Kabul Et"
+                onPress={() => handleConfirmNegotiationResponse('accept')}
+                style={[styles.modalButton, { backgroundColor: '#10B981' }]}
+                disabled={responding}
+                loading={responding}
+              />
+              <Button
+                title={counterPrice ? "Karşı Teklif Gönder" : "Reddet"}
+                onPress={() => handleConfirmNegotiationResponse('reject')}
+                style={[
+                  styles.modalButton,
+                  {
+                    backgroundColor: counterPrice ? colors.primary : colors.background,
+                    borderWidth: counterPrice ? 0 : 1,
+                    borderColor: '#EF4444',
+                  }
+                ]}
+                textStyle={{ color: counterPrice ? '#FFFFFF' : '#EF4444' }}
+                disabled={responding}
+                loading={responding}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -549,6 +749,9 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   oldPrice: {
     ...typography.caption,
+    marginTop: spacing.xs,
+  },
+  strikethrough: {
     textDecorationLine: 'line-through',
   },
   deliveryInfo: {
@@ -564,6 +767,65 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   actionButton: {
     paddingVertical: spacing.sm,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xl,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  modalTitle: {
+    ...typography.h3,
+  },
+  modalScroll: {
+    maxHeight: 400,
+  },
+  modalSection: {
+    marginBottom: spacing.lg,
+  },
+  modalSectionTitle: {
+    ...typography.body,
+    fontWeight: '600',
+    marginBottom: spacing.sm,
+  },
+  currentPrice: {
+    ...typography.h2,
+    marginBottom: spacing.xs,
+  },
+  modalHint: {
+    ...typography.caption,
+  },
+  priceInput: {
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    ...typography.body,
+    marginTop: spacing.sm,
+  },
+  inputHint: {
+    ...typography.caption,
+    marginTop: spacing.xs,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  modalButton: {
+    flex: 1,
   },
 });
 

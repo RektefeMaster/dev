@@ -447,7 +447,7 @@ const mechanicCapabilities = [
       });
     }
 
-    if (userCapabilities.includes('electrical')) {
+    if (userCapabilities.includes('electrical') || userCapabilities.includes('elektrik')) {
       capabilityItems.push({
         id: 'electrical',
         label: 'Elektrik Hizmetleri',
@@ -464,7 +464,7 @@ const mechanicCapabilities = [
       });
     }
 
-    if (userCapabilities.includes('parts')) {
+    if (userCapabilities.includes('parts') || userCapabilities.includes('yedek-parca') || userCapabilities.includes('Parça')) {
       capabilityItems.push({
         id: 'parts',
         label: 'Yedek Parça Hizmetleri',

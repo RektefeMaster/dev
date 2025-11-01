@@ -7,7 +7,8 @@ import {
   updatePartSchema,
   searchPartsSchema,
   createReservationSchema,
-  updateReservationSchema
+  updateReservationSchema,
+  negotiatePriceSchema
 } from '../validators/parts.validation';
 
 const router = Router();
@@ -273,6 +274,72 @@ router.post('/reservations/:id/cancel', auth, async (req: Request, res: Response
     res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || 'Rezervasyon iptal edilemedi'
+    });
+  }
+});
+
+/**
+ * POST /api/parts/reservations/:id/negotiate
+ * Rezervasyon için pazarlık teklifi gönder
+ */
+router.post('/reservations/:id/negotiate', auth, validate(negotiatePriceSchema), async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Kullanıcı doğrulanamadı'
+      });
+    }
+
+    const result = await PartsService.negotiateReservationPrice(
+      req.params.id,
+      userId,
+      req.body.requestedPrice,
+      req.body.message
+    );
+    res.json(result);
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Pazarlık teklifi gönderilemedi'
+    });
+  }
+});
+
+/**
+ * POST /api/parts/reservations/:id/negotiation-response
+ * Usta pazarlık teklifini kabul/reddet
+ */
+router.post('/reservations/:id/negotiation-response', auth, async (req: Request, res: Response) => {
+  try {
+    const sellerId = req.user?.userId;
+    if (!sellerId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Kullanıcı doğrulanamadı'
+      });
+    }
+
+    const { action, counterPrice } = req.body;
+    if (!action || !['accept', 'reject'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Geçersiz aksiyon'
+      });
+    }
+
+    const result = await PartsService.respondToNegotiation(
+      req.params.id,
+      sellerId,
+      action,
+      counterPrice
+    );
+    res.json(result);
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Pazarlık yanıtı verilemedi'
     });
   }
 });

@@ -11,6 +11,7 @@ import {
   TextInput,
   RefreshControl,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -246,9 +247,17 @@ export default function PartsInventoryScreen() {
               <Card key={part._id} style={styles.partCard}>
                 <View style={styles.partHeader}>
                   <View style={styles.partHeaderLeft}>
-                    <View style={[styles.categoryIcon, { backgroundColor: colors.primary + '20' }]}>
-                      <Ionicons name="settings" size={24} color={colors.primary} />
-                    </View>
+                    {part.photos && part.photos.length > 0 ? (
+                      <Image
+                        source={{ uri: part.photos[0] }}
+                        style={styles.partImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={[styles.categoryIcon, { backgroundColor: colors.primary + '20' }]}>
+                        <Ionicons name="settings" size={24} color={colors.primary} />
+                      </View>
+                    )}
                     <View style={styles.partInfo}>
                       <Text style={[styles.partName, { color: colors.text }]}>
                         {part.partName}
@@ -262,6 +271,12 @@ export default function PartsInventoryScreen() {
                     </View>
                   </View>
                   <View style={styles.partActions}>
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate('AddPart', { partId: part._id } as never)}
+                      style={styles.actionButton}
+                    >
+                      <Ionicons name="pencil" size={20} color={colors.primary} />
+                    </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => togglePublish(part)}
                       style={styles.actionButton}
@@ -308,9 +323,16 @@ export default function PartsInventoryScreen() {
                       <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
                         Fiyat
                       </Text>
-                      <Text style={[styles.detailValue, { color: colors.text }]}>
-                        {part.pricing.unitPrice} {part.pricing.currency}
-                      </Text>
+                      <View>
+                        <Text style={[styles.detailValue, { color: colors.text }]}>
+                          {part.pricing.unitPrice.toLocaleString('tr-TR')} {part.pricing.currency}
+                        </Text>
+                        {part.pricing.oldPrice && (
+                          <Text style={[styles.oldPrice, { color: colors.textSecondary }]}>
+                            {part.pricing.oldPrice.toLocaleString('tr-TR')} {part.pricing.currency}
+                          </Text>
+                        )}
+                      </View>
                     </View>
                   </View>
 
@@ -470,6 +492,12 @@ const createStyles = (colors: any) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  partImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+  },
   partInfo: {
     flex: 1,
   },
@@ -508,6 +536,11 @@ const createStyles = (colors: any) => StyleSheet.create({
   detailValue: {
     ...typography.body,
     fontWeight: '600',
+  },
+  oldPrice: {
+    ...typography.caption,
+    textDecorationLine: 'line-through',
+    marginTop: 2,
   },
   moderationBadge: {
     flexDirection: 'row',

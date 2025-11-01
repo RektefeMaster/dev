@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { serviceNameMapping } from '@/shared/utils/serviceTranslator';
 
@@ -58,13 +58,35 @@ interface WashJob {
 export default function WashServiceScreen() {
   const navigation = useNavigation();
   const { themeColors: colors } = useTheme();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const styles = createStyles(colors);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [jobs, setJobs] = useState<WashJob[]>([]);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
+
+  // Ustanın hizmet kategorilerini kontrol et
+  const userServiceCategories = useMemo(() => {
+    return user?.serviceCategories || [];
+  }, [user?.serviceCategories]);
+
+  const hasWashServiceAccess = useMemo(() => {
+    if (!userServiceCategories || userServiceCategories.length === 0) return false;
+    return userServiceCategories.some(cat => 
+      ['wash', 'arac-yikama', 'Yıkama Hizmeti'].includes(cat)
+    );
+  }, [userServiceCategories]);
+
+  // Eğer usta bu kategoride hizmet vermiyorsa, ekranı gösterme ve geri yönlendir
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!hasWashServiceAccess && isAuthenticated && user) {
+        navigation.goBack();
+        return;
+      }
+    }, [hasWashServiceAccess, isAuthenticated, user, navigation])
+  );
   
   // Hizmet ismini çeviren fonksiyon
   const translateServiceName = (serviceName: string): string => {
@@ -373,6 +395,11 @@ export default function WashServiceScreen() {
       </View>
     </Card>
   );
+
+  // Eğer usta bu kategoride hizmet vermiyorsa hiçbir şey gösterme
+  if (!hasWashServiceAccess) {
+    return null;
+  }
 
   const activeJobs = jobs.filter(job => ['pending', 'accepted', 'in_progress'].includes(job.status));
   const historyJobs = jobs.filter(job => ['completed', 'cancelled'].includes(job.status));

@@ -502,6 +502,114 @@ export class PartsService {
   }
 
   /**
+   * Rezervasyon için pazarlık teklifi gönder (Rezervasyon oluşturulduktan sonra)
+   */
+  static async negotiateReservationPrice(
+    reservationId: string,
+    userId: string,
+    requestedPrice: number,
+    message?: string
+  ) {
+    try {
+      const reservation = await PartsReservation.findById(reservationId);
+      
+      if (!reservation) {
+        throw new CustomError('Rezervasyon bulunamadı', 404);
+      }
+
+      // Sadece buyer pazarlık yapabilir
+      if (reservation.buyerId.toString() !== userId) {
+        throw new CustomError('Bu rezervasyon için pazarlık yapma yetkiniz yok', 403);
+      }
+
+      // Sadece pending rezervasyonlar için pazarlık yapılabilir
+      if (reservation.status !== 'pending') {
+        throw new CustomError('Sadece bekleyen rezervasyonlar için pazarlık yapılabilir', 400);
+      }
+
+      // Fiyat kontrolü
+      const totalRequestedPrice = requestedPrice * reservation.quantity;
+      if (totalRequestedPrice >= reservation.totalPrice) {
+        throw new CustomError('Pazarlık fiyatı toplam fiyattan düşük olmalıdır', 400);
+      }
+
+      // Pazarlık fiyatını kaydet
+      reservation.negotiatedPrice = totalRequestedPrice;
+      await reservation.save();
+
+      // TODO: Bildirim gönder (usta'ya pazarlık teklifi bildirimi)
+
+      return {
+        success: true,
+        data: reservation,
+        message: 'Pazarlık teklifi gönderildi. Usta değerlendirecek.'
+      };
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  /**
+   * Usta pazarlık teklifini kabul/reddet
+   */
+  static async respondToNegotiation(
+    reservationId: string,
+    sellerId: string,
+    action: 'accept' | 'reject',
+    counterPrice?: number
+  ) {
+    try {
+      const reservation = await PartsReservation.findById(reservationId);
+      
+      if (!reservation) {
+        throw new CustomError('Rezervasyon bulunamadı', 404);
+      }
+
+      if (reservation.sellerId.toString() !== sellerId) {
+        throw new CustomError('Bu pazarlık teklifini yanıtlama yetkiniz yok', 403);
+      }
+
+      if (!reservation.negotiatedPrice) {
+        throw new CustomError('Bu rezervasyon için pazarlık teklifi bulunmuyor', 400);
+      }
+
+      if (action === 'accept') {
+        // Pazarlık fiyatını onayla
+        // negotiatedPrice zaten kayıtlı, sadece onaylandığını işaretlemek yeterli
+        // Status pending kalır, buyer onay bekler
+        return {
+          success: true,
+          data: reservation,
+          message: 'Pazarlık teklifi kabul edildi'
+        };
+      } else if (action === 'reject' && counterPrice) {
+        // Karşı teklif gönder
+        if (counterPrice * reservation.quantity >= reservation.totalPrice) {
+          throw new CustomError('Karşı teklif toplam fiyattan düşük olmalıdır', 400);
+        }
+        reservation.negotiatedPrice = counterPrice * reservation.quantity;
+        await reservation.save();
+        return {
+          success: true,
+          data: reservation,
+          message: 'Karşı teklif gönderildi'
+        };
+      } else {
+        // Reddet - pazarlık fiyatını temizle
+        reservation.negotiatedPrice = undefined;
+        await reservation.save();
+        return {
+          success: true,
+          data: reservation,
+          message: 'Pazarlık teklifi reddedildi'
+        };
+      }
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  /**
    * Süresi dolmuş rezervasyonları temizle (cron job)
    * Her 5 dakikada çalışır
    */

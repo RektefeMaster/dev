@@ -4,17 +4,23 @@ import path from 'path';
 import fs from 'fs';
 import { Request, Response } from 'express';
 import { auth } from '../middleware/optimizedAuth';
+import cloudinary, { isCloudinaryConfigured } from '../utils/cloudinary';
+import { Readable } from 'stream';
 
 const router = express.Router();
 
-// Local dosya sistemi için storage
-const storage = multer.diskStorage({
+// Memory storage (Cloudinary için)
+const memoryStorage = multer.memoryStorage();
+
+// Local dosya sistemi için storage (fallback)
+const diskStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const type = req.query.type || 'profile';
     let folder = 'uploads/profile_photos';
     if (type === 'cover') folder = 'uploads/cover_photos';
     if (type === 'insurance') folder = 'uploads/insurance_docs';
     if (type === 'fault_report') folder = 'uploads/fault_reports';
+    if (type === 'parts') folder = 'uploads/parts';
     
     // Klasör yoksa oluştur
     if (!fs.existsSync(folder)) {
@@ -36,8 +42,23 @@ const allowedMimeTypes = new Set([
   'image/gif'
 ]);
 
-const upload = multer({ 
-  storage,
+// Upload middleware (memory storage - Cloudinary için)
+const uploadMemory = multer({ 
+  storage: memoryStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Sadece resim dosyaları yüklenebilir (JPEG, PNG, WEBP, GIF)'));
+    }
+  }
+});
+
+// Upload middleware (disk storage - local fallback)
+const uploadDisk = multer({ 
+  storage: diskStorage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: (req, file, cb) => {
     if (!allowedMimeTypes.has(file.mimetype)) {
@@ -47,8 +68,31 @@ const upload = multer({
   }
 });
 
-// type: profile | cover | insurance | fault_report
-router.post('/upload', auth, upload.single('image'), async (req, res) => {
+// Cloudinary'ye yükleme fonksiyonu
+const uploadToCloudinary = (buffer: Buffer, folder: string): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: `rektefe/${folder}`,
+        resource_type: 'image',
+        transformation: [
+          { width: 1000, height: 1000, crop: 'limit' },
+          { quality: 'auto' }
+        ]
+      },
+      (error, result) => {
+        if (error) reject(error);
+        else resolve(result);
+      }
+    );
+    
+    const readable = Readable.from(buffer);
+    readable.pipe(uploadStream);
+  });
+};
+
+// type: profile | cover | insurance | fault_report | parts
+router.post('/upload', auth, uploadDisk.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'Dosya yüklenmedi' });
@@ -68,6 +112,55 @@ router.post('/upload', auth, upload.single('image'), async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// ===== PARTS PHOTO UPLOAD (Cloudinary) =====
+
+/**
+ * POST /api/upload/parts
+ * Parça fotoğraflarını yükle (Cloudinary)
+ */
+router.post('/parts', auth, uploadMemory.single('image'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Fotoğraf yüklenmedi'
+      });
+    }
+
+    // Cloudinary konfigürasyon kontrolü
+    if (!isCloudinaryConfigured()) {
+      console.error('❌ Cloudinary credentials eksik - parça fotoğrafı yüklenemedi');
+      return res.status(500).json({
+        success: false,
+        message: 'Fotoğraf yükleme servisi yapılandırılmamış'
+      });
+    }
+
+    // Cloudinary'ye yükle
+    console.log('📸 Parça fotoğrafı yükleniyor...');
+    const result = await uploadToCloudinary(req.file.buffer, 'parts');
+    console.log('✅ Cloudinary upload başarılı:', result.secure_url);
+
+    return res.json({
+      success: true,
+      data: {
+        url: result.secure_url,
+        publicId: result.public_id,
+        width: result.width,
+        height: result.height
+      },
+      message: 'Fotoğraf başarıyla yüklendi'
+    });
+
+  } catch (error: any) {
+    console.error('❌ Parça fotoğrafı yükleme hatası:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Fotoğraf yüklenemedi'
+    });
   }
 });
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { serviceNameMapping } from '@/shared/utils/serviceTranslator';
 
@@ -68,7 +68,7 @@ interface TireJob {
 export default function TireServiceScreen() {
   const navigation = useNavigation();
   const { themeColors: colors } = useTheme();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const styles = createStyles(colors);
 
   const [loading, setLoading] = useState(true);
@@ -77,6 +77,28 @@ export default function TireServiceScreen() {
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const [priceQuoteModalVisible, setPriceQuoteModalVisible] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+
+  // Ustanın hizmet kategorilerini kontrol et
+  const userServiceCategories = useMemo(() => {
+    return user?.serviceCategories || [];
+  }, [user?.serviceCategories]);
+
+  const hasTireServiceAccess = useMemo(() => {
+    if (!userServiceCategories || userServiceCategories.length === 0) return false;
+    return userServiceCategories.some(cat => 
+      ['tire', 'lastik', 'Lastik & Parça'].includes(cat)
+    );
+  }, [userServiceCategories]);
+
+  // Eğer usta bu kategoride hizmet vermiyorsa, ekranı gösterme ve geri yönlendir
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!hasTireServiceAccess && isAuthenticated && user) {
+        navigation.goBack();
+        return;
+      }
+    }, [hasTireServiceAccess, isAuthenticated, user, navigation])
+  );
 
   // Helper functions
   const getServiceTypeText = (type: string) => {
@@ -507,6 +529,11 @@ export default function TireServiceScreen() {
       </View>
     </Card>
   );
+
+  // Eğer usta bu kategoride hizmet vermiyorsa hiçbir şey gösterme
+  if (!hasTireServiceAccess) {
+    return null;
+  }
 
   const activeJobs = jobs.filter(job => ['pending', 'accepted', 'in_progress'].includes(job.status));
   const historyJobs = jobs.filter(job => ['completed', 'cancelled'].includes(job.status));

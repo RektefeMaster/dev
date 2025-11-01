@@ -502,7 +502,7 @@ const TabNavigator = () => {
       />
 
       {/* Tamir & Bakım Hizmeti */}
-      {userCapabilities.includes('repair') && (
+      {(userCapabilities.includes('repair') || userCapabilities.includes('tamir-bakim') || userCapabilities.includes('Genel Bakım')) && (
         <Tab.Screen 
           name="RepairService" 
           component={require('../features/services/screens/RepairServiceScreen').default}
@@ -516,7 +516,7 @@ const TabNavigator = () => {
       )}
 
       {/* Çekici Hizmeti */}
-      {userCapabilities.includes('towing') && (
+      {(userCapabilities.includes('towing') || userCapabilities.includes('cekici') || userCapabilities.includes('Çekici')) && (
         <Tab.Screen 
           name="TowingService" 
           component={require('../features/services/screens/TowingServiceScreen').default}
@@ -530,7 +530,7 @@ const TabNavigator = () => {
       )}
 
       {/* Lastik Hizmeti */}
-      {userCapabilities.includes('tire') && (
+      {(userCapabilities.includes('tire') || userCapabilities.includes('lastik') || userCapabilities.includes('Lastik & Parça')) && (
         <Tab.Screen 
           name="TireService" 
           component={require('../features/services/screens/TireServiceScreen').default}
@@ -544,7 +544,7 @@ const TabNavigator = () => {
       )}
 
       {/* Araç Yıkama Hizmeti */}
-      {userCapabilities.includes('wash') && (
+      {(userCapabilities.includes('wash') || userCapabilities.includes('arac-yikama') || userCapabilities.includes('Yıkama Hizmeti')) && (
         <Tab.Screen
           name="CarWash"
           component={require('../features/wash/screens/WashJobsScreen').default}
@@ -558,7 +558,7 @@ const TabNavigator = () => {
       )}
 
       {/* Kaporta & Boya Hizmeti */}
-      {userCapabilities.includes('bodywork') && (
+      {(userCapabilities.includes('bodywork') || userCapabilities.includes('kaporta') || userCapabilities.includes('Kaporta & Boya')) && (
         <Tab.Screen 
           name="Bodywork" 
           component={require('../features/bodywork/screens/BodyworkScreen').default}
@@ -572,7 +572,7 @@ const TabNavigator = () => {
       )}
 
       {/* Elektrik & Elektronik Hizmeti */}
-      {userCapabilities.includes('electrical') && (
+      {(userCapabilities.includes('electrical') || userCapabilities.includes('elektrik')) && (
           <Tab.Screen 
           name="ElectricalService" 
           component={require('../features/services/screens/RepairServiceScreen').default}
@@ -586,7 +586,7 @@ const TabNavigator = () => {
       )}
 
       {/* Yedek Parça Hizmeti */}
-      {userCapabilities.includes('parts') && (
+      {(userCapabilities.includes('parts') || userCapabilities.includes('yedek-parca') || userCapabilities.includes('Parça')) && (
         <Tab.Screen 
           name="PartsService" 
           component={require('../features/services/screens/RepairServiceScreen').default}

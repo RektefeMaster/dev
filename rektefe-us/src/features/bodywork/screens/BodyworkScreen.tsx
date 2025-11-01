@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
   Image,
   Dimensions,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/context';
 import { useAuth } from '@/shared/context';
@@ -94,7 +94,7 @@ interface BodyworkJob {
 export default function BodyworkScreen() {
   const navigation = useNavigation();
   const { themeColors: colors } = useTheme();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const styles = createStyles(colors);
 
   const [loading, setLoading] = useState(true);
@@ -107,6 +107,28 @@ export default function BodyworkScreen() {
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [showWorkflowModal, setShowWorkflowModal] = useState(false);
   const [selectedJob, setSelectedJob] = useState<BodyworkJob | null>(null);
+
+  // Ustanın hizmet kategorilerini kontrol et
+  const userServiceCategories = useMemo(() => {
+    return user?.serviceCategories || [];
+  }, [user?.serviceCategories]);
+
+  const hasBodyworkServiceAccess = useMemo(() => {
+    if (!userServiceCategories || userServiceCategories.length === 0) return false;
+    return userServiceCategories.some(cat => 
+      ['bodywork', 'kaporta', 'Kaporta & Boya'].includes(cat)
+    );
+  }, [userServiceCategories]);
+
+  // Eğer usta bu kategoride hizmet vermiyorsa, ekranı gösterme ve geri yönlendir
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!hasBodyworkServiceAccess && isAuthenticated && user) {
+        navigation.goBack();
+        return;
+      }
+    }, [hasBodyworkServiceAccess, isAuthenticated, user, navigation])
+  );
   
   // Create job form
   const [createJobForm, setCreateJobForm] = useState({
@@ -142,8 +164,10 @@ export default function BodyworkScreen() {
   });
 
   useEffect(() => {
-    fetchBodyworkJobs();
-  }, []);
+    if (hasBodyworkServiceAccess) {
+      fetchBodyworkJobs();
+    }
+  }, [hasBodyworkServiceAccess]);
 
   const fetchBodyworkJobs = async () => {
     try {
@@ -819,6 +843,11 @@ export default function BodyworkScreen() {
       </SafeAreaView>
     </Modal>
   );
+
+  // Eğer usta bu kategoride hizmet vermiyorsa hiçbir şey gösterme
+  if (!hasBodyworkServiceAccess) {
+    return null;
+  }
 
   if (loading) {
     return (

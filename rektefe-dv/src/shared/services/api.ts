@@ -852,6 +852,30 @@ export const PartsService = {
         error.response?.data?.error?.details
       );
     }
+  },
+
+  /**
+   * Rezervasyon için pazarlık teklifi gönder
+   */
+  async negotiateReservationPrice(
+    reservationId: string,
+    requestedPrice: number,
+    message?: string
+  ): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/parts/reservations/${reservationId}/negotiate`, {
+        requestedPrice,
+        message
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Negotiate reservation price error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Pazarlık teklifi gönderilemedi',
+        error.response?.data?.error?.details
+      );
+    }
   }
 };
 
@@ -1610,6 +1634,7 @@ export const apiService = {
   
   // Kullanıcı rezervasyonlarını getir
   getMyPartsReservations: PartsService.getMyReservations,
+  negotiateReservationPrice: PartsService.negotiateReservationPrice,
 
   // Campaigns/Ads
   getAds: async () => {
