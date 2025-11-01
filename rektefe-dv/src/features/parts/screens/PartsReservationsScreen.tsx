@@ -102,11 +102,16 @@ const PartsReservationsScreen = () => {
         filter !== 'all' ? { status: filter } : undefined
       );
       if (response.success && response.data) {
-        setReservations(response.data);
+        // Güvenli array kontrolü - response.data array değilse boş array kullan
+        const reservationsArray = Array.isArray(response.data) ? response.data : [];
+        setReservations(reservationsArray);
+      } else {
+        setReservations([]);
       }
     } catch (error) {
       console.error('Rezervasyonlar yüklenemedi:', error);
       Alert.alert('Hata', 'Rezervasyonlar yüklenemedi');
+      setReservations([]);
     } finally {
       setLoading(false);
     }
@@ -157,7 +162,8 @@ const PartsReservationsScreen = () => {
     }
   };
 
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = (status?: string | null) => {
+    if (!status) return 'Bilinmiyor';
     switch (status) {
       case 'pending': return 'Beklemede';
       case 'confirmed': return 'Onaylandı';
@@ -165,16 +171,17 @@ const PartsReservationsScreen = () => {
       case 'cancelled': return 'İptal Edildi';
       case 'expired': return 'Süresi Doldu';
       case 'delivered': return 'Teslim Edildi';
-      default: return status;
+      default: return String(status);
     }
   };
 
-  const getDeliveryMethodLabel = (method: string) => {
+  const getDeliveryMethodLabel = (method?: string | null) => {
+    if (!method) return 'Bilinmiyor';
     switch (method) {
       case 'pickup': return 'Mağazadan Al';
       case 'standard': return 'Standart Kargo';
       case 'express': return 'Hızlı Kargo';
-      default: return method;
+      default: return String(method);
     }
   };
 
@@ -241,7 +248,9 @@ const PartsReservationsScreen = () => {
     );
   }
 
-  const pendingCount = reservations.filter(r => r.status === 'pending').length;
+  const pendingCount = Array.isArray(reservations) 
+    ? reservations.filter(r => r && r.status === 'pending').length 
+    : 0;
 
   return (
     <Background>
@@ -301,7 +310,7 @@ const PartsReservationsScreen = () => {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          {reservations.length === 0 ? (
+          {!Array.isArray(reservations) || reservations.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Ionicons name="document-text-outline" size={64} color={theme.colors.text.secondary} />
               <Text style={[styles.emptyText, { color: theme.colors.text.secondary }]}>
@@ -310,7 +319,9 @@ const PartsReservationsScreen = () => {
             </View>
           ) : (
             <View style={styles.reservationsContainer}>
-              {reservations.map((reservation) => (
+              {Array.isArray(reservations) && reservations.map((reservation) => {
+                if (!reservation || !reservation._id) return null;
+                return (
                 <TouchableOpacity 
                   key={reservation._id}
                   onPress={() => reservation.partId?._id && handlePartPress(reservation.partId._id)}
@@ -447,7 +458,8 @@ const PartsReservationsScreen = () => {
                     )}
                   </Card>
                 </TouchableOpacity>
-              ))}
+                );
+              })}
             </View>
           )}
 
