@@ -249,8 +249,9 @@ export default function AuthScreen() {
         });
         
         if (response.success) {
-          // Kayıt başarılı - E-posta doğrulama ekranına yönlendir
-          navigation.navigate('EmailVerification', { email: formData.email });
+          // Kayıt başarılı - Test için direkt ana ekrana yönlendir (email doğrulama devre dışı)
+          // TODO: Email doğrulama aktif edildiğinde EmailVerification ekranına yönlendirilecek
+          navigation.navigate('Main');
         } else {
           Alert.alert('Hata', response.message || 'Kayıt başarısız');
         }
