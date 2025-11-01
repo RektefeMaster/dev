@@ -119,9 +119,16 @@ const PartsMarketScreen = () => {
       if (priceRange.max) filters.maxPrice = parseFloat(priceRange.max);
 
       const response = await apiService.searchParts(filters);
+      console.log('🔍 PartsMarket - API Response:', JSON.stringify(response, null, 2));
       
       if (response.success && response.data) {
-        setParts(response.data.parts || []);
+        const partsArray = Array.isArray(response.data.parts) ? response.data.parts : [];
+        console.log('🔍 PartsMarket - Parts Array:', partsArray.length, 'items');
+        console.log('🔍 PartsMarket - First Item:', partsArray[0]);
+        setParts(partsArray);
+      } else {
+        console.log('⚠️ PartsMarket - No data in response:', response);
+        setParts([]);
       }
     } catch (error) {
       console.error('Parçalar yüklenemedi:', error);

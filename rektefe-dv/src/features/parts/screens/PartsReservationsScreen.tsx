@@ -101,15 +101,20 @@ const PartsReservationsScreen = () => {
       const response = await apiService.getMyPartsReservations(
         filter !== 'all' ? { status: filter } : undefined
       );
+      console.log('🔍 PartsReservations - API Response:', JSON.stringify(response, null, 2));
+      
       if (response.success && response.data) {
         // Güvenli array kontrolü - response.data array değilse boş array kullan
         const reservationsArray = Array.isArray(response.data) ? response.data : [];
+        console.log('🔍 PartsReservations - Reservations Array:', reservationsArray.length, 'items');
+        console.log('🔍 PartsReservations - First Item:', reservationsArray[0]);
         setReservations(reservationsArray);
       } else {
+        console.log('⚠️ PartsReservations - No data in response:', response);
         setReservations([]);
       }
     } catch (error) {
-      console.error('Rezervasyonlar yüklenemedi:', error);
+      console.error('❌ Rezervasyonlar yüklenemedi:', error);
       Alert.alert('Hata', 'Rezervasyonlar yüklenemedi');
       setReservations([]);
     } finally {
