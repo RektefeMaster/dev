@@ -304,18 +304,34 @@ export class OptimizedAuthService {
     await user.save();
 
     // Mechanic ise ek bilgileri kaydet
+    let fullUserData = user.toObject();
     if (userType === UserType.MECHANIC) {
+      // Username oluştur (email'den otomatik)
+      const emailPrefix = normalizedEmail.split('@')[0];
+      const timestamp = Date.now();
+      const username = `${emailPrefix}_${timestamp}`;
+      
       const mechanic = new Mechanic({
         _id: user._id,
+        email: normalizedEmail,
+        password: hashedPassword,
+        name,
+        surname,
+        username,
+        phone: phone || '',
         experience: experience || 0,
         specialties: specialties || [],
         serviceCategories: serviceCategories || [],
         location: location || null,
         rating: 0,
-        totalRatings: 0,
-        availability: true
+        ratingCount: 0,
+        totalServices: 0,
+        isAvailable: true
       });
       await mechanic.save();
+      
+      // Return için Mechanic verilerini merge et (login ile aynı pattern)
+      fullUserData = { ...fullUserData, ...(mechanic.toObject() as any) };
     }
 
     // Token çifti oluştur
@@ -325,7 +341,7 @@ export class OptimizedAuthService {
       userId: user._id,
       userType: user.userType,
       ...tokenPair,
-      user: user.toObject()
+      user: fullUserData
     };
   }
 

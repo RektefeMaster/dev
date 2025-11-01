@@ -116,7 +116,9 @@ const MechanicSearchScreen: React.FC<NavigationProps> = ({ navigation, route }) 
 
   const handleOpenInMaps = async (mechanic: MechanicSearchResult) => {
     if (mechanic.location?.coordinates) {
-      const [longitude, latitude] = mechanic.location.coordinates;
+      const coords = mechanic.location.coordinates;
+      const latitude = coords.latitude;
+      const longitude = coords.longitude;
       await openLocationInMaps({ latitude, longitude }, mechanic.name);
     } else {
       Alert.alert('Bilgi', 'Bu ustanın konum bilgisi mevcut değil.');

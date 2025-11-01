@@ -13,9 +13,10 @@ Not: Bu MongoDB servisi Railway'de aynı projede çalışıyorsa geçerlidir.
 
 **b) MongoDB Atlas kullanıyorsanız:**
 ```
-MONGODB_URI=mongodb+srv://rektefekadnur09:rektefekadnur09@cluster0.agf6m9t.mongodb.net/rektefe?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://USERNAME:PASSWORD@cluster.mongodb.net/rektefe?retryWrites=true&w=majority
 ```
 Not: MongoDB Atlas Network Access ayarlarından Railway IP'lerini whitelist'e ekleyin (0.0.0.0/0 tüm IP'ler için).
+USERNAME ve PASSWORD değerlerini kendi MongoDB Atlas bilgilerinizle değiştirin.
 
 ### 2. Database Persistent Volume
 Railway'de MongoDB servisi için:
@@ -30,7 +31,7 @@ Railway dashboard'da şu değişkenlerin olduğundan emin olun:
 
 ```bash
 # Database - MongoDB Atlas
-MONGODB_URI=mongodb+srv://rektefekadnur09:rektefekadnur09@cluster0.agf6m9t.mongodb.net/rektefe?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://USERNAME:PASSWORD@cluster.mongodb.net/rektefe?retryWrites=true&w=majority
 
 # JWT Secrets
 JWT_SECRET=your-super-secret-jwt-key-here
@@ -42,6 +43,8 @@ CORS_ORIGIN=https://dev-production-8a3d.up.railway.app
 # Environment
 NODE_ENV=production
 ```
+
+**Not:** USERNAME ve PASSWORD değerlerini kendi MongoDB Atlas bilgilerinizle değiştirin.
 
 ### 4. Railway Service Configuration
 Her deployment'ta veri kaybını önlemek için:

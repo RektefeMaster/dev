@@ -447,6 +447,40 @@ const mechanicCapabilities = [
       });
     }
 
+    if (userCapabilities.includes('electrical')) {
+      capabilityItems.push({
+        id: 'electrical',
+        label: 'Elektrik Hizmetleri',
+        links: [
+          {
+            label: 'Aktif Elektrik İşleri',
+            onPress: () => navigation.navigate('ElectricalService'),
+          },
+          {
+            label: 'Elektrik Geçmişi',
+            onPress: () => navigation.navigate('ElectricalService'),
+          },
+        ],
+      });
+    }
+
+    if (userCapabilities.includes('parts')) {
+      capabilityItems.push({
+        id: 'parts',
+        label: 'Yedek Parça Hizmetleri',
+        links: [
+          {
+            label: 'Aktif Parça İşleri',
+            onPress: () => navigation.navigate('PartsService'),
+          },
+          {
+            label: 'Parça Geçmişi',
+            onPress: () => navigation.navigate('PartsService'),
+          },
+        ],
+      });
+    }
+
     // Tüm menüleri birleştir: Hizmet kategorileri + İş Yönetimi + Finansal + Hesap
     return [...capabilityItems, ...workManagementItems, ...financialItems, ...accountItems];
   }, [user?.serviceCategories, navigation]); // Sadece user capabilities değiştiğinde yeniden hesapla

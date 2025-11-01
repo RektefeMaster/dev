@@ -117,8 +117,9 @@ export const useMechanicDetail = (mechanic: MechanicDetail) => {
         { showErrorAlert: false }
       );
 
-      if (reviewsData && reviewsData.success) {
-        setReviews(reviewsData.data.ratings);
+      if (reviewsData && reviewsData.success && reviewsData.data) {
+        const data = reviewsData.data as any;
+        setReviews(data.ratings || data.reviews || []);
       }
     } finally {
       setLoading(false);

@@ -1,12 +1,11 @@
-
 class Logger {
-  static log(message: string, ...args: any[]): void {
+  static log(message: string, ...args: unknown[]): void {
     if (process.env.NODE_ENV === 'development') {
       console.log(message, ...args);
     }
   }
   
-  static error(message: string, ...args: any[]): void {
+  static error(message: string, ...args: unknown[]): void {
     if (process.env.NODE_ENV === 'development') {
       console.error(message, ...args);
     } else {
@@ -15,19 +14,19 @@ class Logger {
     }
   }
   
-  static warn(message: string, ...args: any[]): void {
+  static warn(message: string, ...args: unknown[]): void {
     if (process.env.NODE_ENV === 'development') {
       console.warn(message, ...args);
     }
   }
   
-  static info(message: string, ...args: any[]): void {
+  static info(message: string, ...args: unknown[]): void {
     if (process.env.NODE_ENV === 'development') {
       console.info(message, ...args);
     }
   }
   
-  static reportError(message: string, args: any[]): void {
+  static reportError(message: string, args: unknown[]): void {
     // Production error reporting burada implement edilecek
     // Örnek: Sentry, LogRocket, vb.
   }

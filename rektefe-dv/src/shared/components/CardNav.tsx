@@ -442,7 +442,10 @@ const CardNav: React.FC<CardNavProps> = ({
 
       {item.links && item.links.length > 0 && (
         <View style={styles.cardLinks}>
-          {console.log('🔍 CardNav: Links rendering başladı, item:', item.id, 'links count:', item.links.length)}
+          {(() => { 
+            console.log('🔍 CardNav: Links rendering başladı, item:', item.id, 'links count:', item.links.length); 
+            return null as null; 
+          })()}
           {item.links.map((link, linkIndex) => {
             if (link.label === 'ACİL ÇEKİCİ') {
               console.log('🚨 CardNav: ACİL ÇEKİCİ linki bulundu!', link);

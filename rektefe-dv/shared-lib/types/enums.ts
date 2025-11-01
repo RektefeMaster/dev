@@ -48,11 +48,13 @@ export enum ServiceType {
  * Bu kategoriler, ServiceType enum'undaki detaylı hizmetleri gruplandırır
  */
 export enum ServiceCategory {
-  REPAIR = 'repair',           // Tamir ve Bakım (genel, ağır bakım, alt takım, üst takım, elektrik, parça, egzoz)
+  REPAIR = 'repair',           // Tamir ve Bakım (genel, ağır bakım, alt takım, üst takım, egzoz)
   TOWING = 'towing',           // Çekici Hizmeti
   WASH = 'wash',               // Araç Yıkama
   TIRE = 'tire',               // Lastik Hizmetleri
-  BODYWORK = 'bodywork'        // Kaporta & Boya
+  BODYWORK = 'bodywork',       // Kaporta & Boya
+  ELECTRICAL = 'electrical',   // Elektrik-Elektronik
+  PARTS = 'parts'              // Yedek Parça
 }
 
 // ===== SERVICE TYPE TO CATEGORY MAPPING =====
@@ -66,9 +68,13 @@ export const SERVICE_TYPE_TO_CATEGORY: Record<ServiceType, ServiceCategory> = {
   [ServiceType.HEAVY_MAINTENANCE]: ServiceCategory.REPAIR,
   [ServiceType.ALIGNMENT]: ServiceCategory.REPAIR,
   [ServiceType.SUSPENSION]: ServiceCategory.REPAIR,
-  [ServiceType.ELECTRICAL]: ServiceCategory.REPAIR,
-  [ServiceType.PARTS]: ServiceCategory.REPAIR,
   [ServiceType.EXHAUST]: ServiceCategory.REPAIR,
+  
+  // Electrical kategorisi
+  [ServiceType.ELECTRICAL]: ServiceCategory.ELECTRICAL,
+  
+  // Parts kategorisi
+  [ServiceType.PARTS]: ServiceCategory.PARTS,
   
   // Bodywork kategorisi
   [ServiceType.BODY_PAINT]: ServiceCategory.BODYWORK,
@@ -90,17 +96,22 @@ export const SERVICE_TYPE_TO_CATEGORY: Record<ServiceType, ServiceCategory> = {
  */
 export const FAULT_CATEGORY_TO_SERVICE_CATEGORY: Record<string, ServiceCategory> = {
   // Repair kategorisi
+  'Tamir ve Bakım': ServiceCategory.REPAIR, // Frontend'den gelen ana kategori
   'Ağır Bakım': ServiceCategory.REPAIR,
   'Genel Bakım': ServiceCategory.REPAIR,
   'Üst Takım': ServiceCategory.REPAIR,
   'Alt Takım': ServiceCategory.REPAIR,
-  'Elektrik-Elektronik': ServiceCategory.REPAIR,
-  'Yedek Parça': ServiceCategory.REPAIR,
   'Egzoz & Emisyon': ServiceCategory.REPAIR,
   'Ekspertiz': ServiceCategory.REPAIR,
   'Sigorta & Kasko': ServiceCategory.REPAIR,
   'Motor Tamiri': ServiceCategory.REPAIR,
   'Fren Sistemi': ServiceCategory.REPAIR,
+  
+  // Electrical kategorisi
+  'Elektrik-Elektronik': ServiceCategory.ELECTRICAL,
+  
+  // Parts kategorisi
+  'Yedek Parça': ServiceCategory.PARTS,
   
   // Bodywork kategorisi
   'Kaporta/Boya': ServiceCategory.BODYWORK,
@@ -126,7 +137,9 @@ export const SERVICE_CATEGORY_TURKISH_NAMES: Record<ServiceCategory, string[]> =
   [ServiceCategory.TOWING]: ['Çekici', 'Çekici Hizmeti', 'Kurtarma', 'towing'],
   [ServiceCategory.WASH]: ['Araç Yıkama', 'Yıkama', 'wash'],
   [ServiceCategory.TIRE]: ['Lastik', 'Lastik Servisi', 'Lastik & Parça', 'tire'],
-  [ServiceCategory.BODYWORK]: ['Kaporta & Boya', 'Kaporta', 'Boya', 'bodywork']
+  [ServiceCategory.BODYWORK]: ['Kaporta & Boya', 'Kaporta', 'Boya', 'bodywork'],
+  [ServiceCategory.ELECTRICAL]: ['Elektrik-Elektronik', 'Elektrik', 'Elektronik', 'electrical'],
+  [ServiceCategory.PARTS]: ['Yedek Parça', 'Parça', 'parts']
 };
 
 // ===== NOTIFICATION TYPE ENUM =====
@@ -253,7 +266,9 @@ export const getServiceCategoryDescription = (category: ServiceCategory): string
     [ServiceCategory.TOWING]: 'Çekici Hizmeti',
     [ServiceCategory.WASH]: 'Araç Yıkama',
     [ServiceCategory.TIRE]: 'Lastik Servisi',
-    [ServiceCategory.BODYWORK]: 'Kaporta & Boya'
+    [ServiceCategory.BODYWORK]: 'Kaporta & Boya',
+    [ServiceCategory.ELECTRICAL]: 'Elektrik-Elektronik',
+    [ServiceCategory.PARTS]: 'Yedek Parça'
   };
   return descriptions[category];
 };
@@ -263,6 +278,24 @@ export const getServiceCategoryDescription = (category: ServiceCategory): string
  */
 export const getServiceCategoryFromType = (serviceType: ServiceType): ServiceCategory => {
   return SERVICE_TYPE_TO_CATEGORY[serviceType];
+};
+
+/**
+ * ServiceCategory'den ServiceType'a çevirir
+ * Bir ServiceCategory için varsayılan ServiceType'ı döndürür
+ */
+export const getServiceTypeFromCategory = (category: ServiceCategory): ServiceType => {
+  const categoryToTypeMapping: Record<ServiceCategory, ServiceType> = {
+    [ServiceCategory.REPAIR]: ServiceType.GENERAL_MAINTENANCE,
+    [ServiceCategory.BODYWORK]: ServiceType.BODY_PAINT,
+    [ServiceCategory.TIRE]: ServiceType.TIRE_SERVICE,
+    [ServiceCategory.WASH]: ServiceType.CAR_WASH,
+    [ServiceCategory.TOWING]: ServiceType.TOWING,
+    [ServiceCategory.ELECTRICAL]: ServiceType.ELECTRICAL,
+    [ServiceCategory.PARTS]: ServiceType.PARTS
+  };
+  
+  return categoryToTypeMapping[category] || ServiceType.GENERAL_MAINTENANCE;
 };
 
 /**
@@ -290,6 +323,8 @@ export const normalizeToServiceCategory = (value: string): ServiceCategory | nul
   if (/yıkama|yikama|wash/.test(lowercaseValue)) return ServiceCategory.WASH;
   if (/lastik|tire/.test(lowercaseValue)) return ServiceCategory.TIRE;
   if (/kaporta|boya|bodywork/.test(lowercaseValue)) return ServiceCategory.BODYWORK;
+  if (/elektrik|electrical/.test(lowercaseValue)) return ServiceCategory.ELECTRICAL;
+  if (/parça|part/.test(lowercaseValue)) return ServiceCategory.PARTS;
   
   return null;
 };
@@ -381,6 +416,7 @@ export default {
   getServiceTypeDescription,
   getServiceCategoryDescription,
   getServiceCategoryFromType,
+  getServiceTypeFromCategory,
   normalizeToServiceCategory,
   hasValidServiceCategory,
   normalizeServiceCategories,

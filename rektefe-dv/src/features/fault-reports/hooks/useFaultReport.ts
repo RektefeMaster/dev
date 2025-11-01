@@ -103,7 +103,8 @@ export const useFaultReport = () => {
     );
 
     if (data && data.success) {
-      setVehicles(data.data);
+      const vehicleList = Array.isArray(data.data) ? data.data : (data.data?.vehicles || []);
+      setVehicles(vehicleList);
     }
   };
 

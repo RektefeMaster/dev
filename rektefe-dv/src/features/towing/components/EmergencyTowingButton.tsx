@@ -17,7 +17,6 @@ import { useAuth } from '@/context/AuthContext';
 import { API_URL, STORAGE_KEYS } from '@/constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSocket } from '@/shared/hooks/useSocket';
-import { driverApi } from '@/shared/services/api';
 
 interface EmergencyTowingButtonProps {
   style?: any;
@@ -237,10 +236,11 @@ export const EmergencyTowingButton: React.FC<EmergencyTowingButtonProps> = ({
   const getVehicleData = async () => {
     try {
       // API'den gerçek araç bilgilerini al
-      const response = await driverApi.getVehicles();
+      const response = await apiService.getVehicles();
       
-      if (response.success && response.data && response.data.length > 0) {
-        const vehicle = response.data[0]; // İlk aracı al
+      const vehicleList = Array.isArray(response.data) ? response.data : (response.data?.vehicles || []);
+      if (response.success && vehicleList.length > 0) {
+        const vehicle = vehicleList[0]; // İlk aracı al
         return {
           vehicleType: vehicle.fuelType || 'binek',
           vehicleBrand: vehicle.brand || 'Bilinmiyor',
@@ -252,8 +252,9 @@ export const EmergencyTowingButton: React.FC<EmergencyTowingButtonProps> = ({
       
       // Fallback - apiService'den al
       const fallbackResponse = await apiService.getVehicles();
-      if (fallbackResponse.success && fallbackResponse.data && fallbackResponse.data.length > 0) {
-        const vehicle = fallbackResponse.data.find((v: any) => v.isFavorite) || fallbackResponse.data[0];
+      const fallbackVehicleList = Array.isArray(fallbackResponse.data) ? fallbackResponse.data : (fallbackResponse.data?.vehicles || []);
+      if (fallbackResponse.success && fallbackVehicleList.length > 0) {
+        const vehicle = fallbackVehicleList.find((v: any) => v.isFavorite) || fallbackVehicleList[0];
         return {
           id: vehicle._id,
           brand: vehicle.brand,
@@ -540,15 +541,18 @@ export const useEmergencyTowing = () => {
       const vehicleData = await getVehicleData();
       const userData = await getUserData();
 
+      // vehicleData array olabilir, ilk elemanı al veya direkt object kullan
+      const vehicle = Array.isArray(vehicleData) ? vehicleData[0] : vehicleData;
+
       const emergencyData: EmergencyTowingData = {
         requestId: `EMR_${Date.now()}_${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
         userId: userId!,
         vehicleInfo: {
-          type: vehicleData.vehicleType || 'binek',
-          brand: vehicleData.vehicleBrand || 'Bilinmiyor',
-          model: vehicleData.vehicleModel || 'Bilinmiyor',
-          year: parseInt(vehicleData.vehicleYear) || new Date().getFullYear(),
-          plate: vehicleData.vehiclePlate || 'Bilinmiyor'
+          type: (vehicle as any)?.vehicleType || (vehicle as any)?.fuelType || 'binek',
+          brand: (vehicle as any)?.vehicleBrand || (vehicle as any)?.brand || 'Bilinmiyor',
+          model: (vehicle as any)?.vehicleModel || (vehicle as any)?.model || 'Bilinmiyor',
+          year: parseInt((vehicle as any)?.vehicleYear || (vehicle as any)?.year) || new Date().getFullYear(),
+          plate: (vehicle as any)?.vehiclePlate || (vehicle as any)?.plateNumber || 'Bilinmiyor'
         },
         location: {
           coordinates: { latitude: location.latitude, longitude: location.longitude },
@@ -613,10 +617,11 @@ export const useEmergencyTowing = () => {
 
   const getVehicleData = async () => {
     try {
-      const response = await driverApi.getVehicles();
+      const response = await apiService.getVehicles();
 
-      if (response.success && response.data && response.data.length > 0) {
-        const vehicle = response.data[0];
+      const vehicleList = Array.isArray(response.data) ? response.data : (response.data?.vehicles || []);
+      if (response.success && vehicleList.length > 0) {
+        const vehicle = vehicleList[0];
         return {
           vehicleType: vehicle.fuelType || 'binek',
           vehicleBrand: vehicle.brand || 'Bilinmiyor',
@@ -640,8 +645,9 @@ export const useEmergencyTowing = () => {
     }
 
     const fallbackResponse = await apiService.getVehicles();
-    if (fallbackResponse.success && fallbackResponse.data && fallbackResponse.data.length > 0) {
-      return fallbackResponse.data.map((vehicle: any) => ({
+    const fallbackVehicleList = Array.isArray(fallbackResponse.data) ? fallbackResponse.data : (fallbackResponse.data?.vehicles || []);
+    if (fallbackResponse.success && fallbackVehicleList.length > 0) {
+      return fallbackVehicleList.map((vehicle: any) => ({
         id: vehicle._id,
         brand: vehicle.brand,
         model: vehicle.modelName || vehicle.model,

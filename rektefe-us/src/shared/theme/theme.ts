@@ -318,7 +318,7 @@ export const createTheme = (isDark: boolean = false) => {
       // Özel metin stilleri
       label: {
         fontSize: 15,
-        fontWeight: '500',
+        fontWeight: '500' as const,
         lineHeight: 20,
         letterSpacing: -0.24,
       },
@@ -476,7 +476,7 @@ export const colorStrings = {
   error: theme.colors.error.main,
   info: theme.colors.info.main,
   text: {
-    primary: theme.colors.text.primary.main,
+    primary: theme.colors.text.primary,
     secondary: theme.colors.text.secondary,
     tertiary: theme.colors.text.tertiary,
     inverse: theme.colors.text.inverse,

@@ -158,9 +158,7 @@ export class NotificationService {
           sound: true,
           priority: Notifications.AndroidNotificationPriority.HIGH,
         },
-        trigger: {
-          date: triggerDate,
-        },
+        trigger: { date: triggerDate } as Notifications.NotificationTriggerInput,
       });
 
       // Backend'e de kaydet (1 saat sonra gönderilecek)

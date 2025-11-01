@@ -741,6 +741,120 @@ export const NotificationService = {
   }
 };
 
+// ===== PARTS SERVICES (MARKETPLACE) =====
+
+export const PartsService = {
+  /**
+   * Market'te parça ara
+   */
+  async searchParts(filters?: {
+    query?: string;
+    category?: string;
+    makeModel?: string;
+    year?: number;
+    vin?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    condition?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get('/parts/market', { params: filters });
+      return response.data;
+    } catch (error: any) {
+      console.error('Search parts error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Arama yapılamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Parça detayını getir
+   */
+  async getPartDetail(partId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get(`/parts/${partId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Get part detail error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Parça detayı yüklenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Rezervasyon oluştur
+   */
+  async createReservation(data: {
+    partId: string;
+    vehicleId?: string;
+    quantity: number;
+    delivery: {
+      method: string;
+      address?: string;
+    };
+    payment: {
+      method: string;
+    };
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post('/parts/reserve', data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Create reservation error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Rezervasyon oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Rezervasyonu iptal et
+   */
+  async cancelReservation(reservationId: string, reason?: string, cancelledBy?: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/parts/reservations/${reservationId}/cancel`, {
+        reason,
+        cancelledBy
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Cancel reservation error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Rezervasyon iptal edilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Kullanıcı rezervasyonlarını getir
+   */
+  async getMyReservations(filters?: { status?: string }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get('/parts/my-reservations', { params: filters });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get my reservations error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Rezervasyonlar yüklenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  }
+};
+
 // ===== EXPORT ALL SERVICES =====
 
 export const apiService = {
@@ -821,6 +935,10 @@ export const apiService = {
         error.response?.data?.error?.details
       );
     }
+  },
+  getMechanicById: async (mechanicId: string) => {
+    // Alias for getMechanicDetails
+    return apiService.getMechanicDetails(mechanicId);
   },
   getMechanicReviews: async (mechanicId: string, params?: any) => {
     try {
@@ -1476,16 +1594,178 @@ export const apiService = {
     }
   },
 
-  // Lastik & Parça talebi oluştur (Eski endpoint ile uyumluluk için)
-  createTirePartsRequest: async (data: any) => {
+  // ===== PARTS MARKETPLACE =====
+  
+  // Market'te parça ara
+  searchParts: PartsService.searchParts,
+  
+  // Parça detayını getir
+  getPartDetail: PartsService.getPartDetail,
+  
+  // Rezervasyon oluştur
+  createPartsReservation: PartsService.createReservation,
+  
+  // Rezervasyonu iptal et
+  cancelPartsReservation: PartsService.cancelReservation,
+  
+  // Kullanıcı rezervasyonlarını getir
+  getMyPartsReservations: PartsService.getMyReservations,
+
+  // Campaigns/Ads
+  getAds: async () => {
     try {
-      const response = await apiClient.post('/service-requests/tire-parts', data);
+      const response = await apiClient.get('/campaigns/ads');
       return response.data;
     } catch (error: any) {
-      console.error('Create tire parts request error:', error);
+      console.error('Get ads error:', error);
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
-        'Lastik & Parça talebi oluşturulamadı',
+        'Reklamlar alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  // Mechanic rating stats
+  getMechanicRatingStats: async (mechanicId: string) => {
+    try {
+      const response = await apiClient.get(`/mechanic/${mechanicId}/rating-stats`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Get mechanic rating stats error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Usta puan istatistikleri alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  // Become customer
+  becomeCustomer: async (mechanicId: string) => {
+    try {
+      const response = await apiClient.post(`/mechanic/${mechanicId}/become-customer`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Become customer error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Müşteri kaydı yapılamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  // Remove customer
+  removeCustomer: async (mechanicId: string) => {
+    try {
+      const response = await apiClient.delete(`/mechanic/${mechanicId}/remove-customer`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Remove customer error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Müşteri kaydı kaldırılamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  // Notification settings
+  getNotificationSettings: async () => {
+    try {
+      const response = await apiClient.get('/users/notification-settings');
+      return response.data;
+    } catch (error: any) {
+      console.error('Get notification settings error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Bildirim ayarları alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  updateNotificationSettings: async (settings: any) => {
+    try {
+      const response = await apiClient.put('/users/notification-settings', settings);
+      return response.data;
+    } catch (error: any) {
+      console.error('Update notification settings error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Bildirim ayarları güncellenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  updatePushToken: async (pushToken: string) => {
+    try {
+      const response = await apiClient.put('/users/push-token', { pushToken });
+      return response.data;
+    } catch (error: any) {
+      console.error('Update push token error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Push token güncellenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  createNotification: async (notificationData: any) => {
+    try {
+      const response = await apiClient.post('/notifications', notificationData);
+      return response.data;
+    } catch (error: any) {
+      console.error('Create notification error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Bildirim oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  // Emergency Towing
+  createTowingRequest: async (data: any) => {
+    try {
+      const response = await apiClient.post('/emergency/towing-request', data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Create towing request error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Çekici talebi oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  getEmergencyTowingRequest: async (requestId: string) => {
+    try {
+      const response = await apiClient.get(`/emergency/towing-request/${requestId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Get emergency towing request error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Çekici talebi alınamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  cancelEmergencyTowingRequest: async (requestId: string) => {
+    try {
+      const response = await apiClient.delete(`/emergency/towing-request/${requestId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Cancel emergency towing request error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Çekici talebi iptal edilemedi',
         error.response?.data?.error?.details
       );
     }
@@ -1502,6 +1782,7 @@ export default {
   MechanicService,
   MessageService,
   NotificationService,
+  PartsService,
   apiService,
   apiClient
 };

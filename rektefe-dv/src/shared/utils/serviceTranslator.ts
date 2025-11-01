@@ -28,15 +28,10 @@ export const serviceNameMapping: { [key: string]: string } = {
   // Onarım hizmetleri
   'alt-takım': 'Alt Takım',
   'ust-takım': 'Üst Takım',
-  'üst-takım': 'Üst Takım',
-  'kaporta-boya': 'Kaporta & Boya',
   'elektrik': 'Elektrik',
-  'yedek-parca': 'Yedek Parça',
-  'lastik': 'Lastik Servisi',
   'egzoz': 'Egzoz',
   'ekspertiz': 'Ekspertiz',
   'sigorta': 'Sigorta',
-  'arac-yikama': 'Araç Yıkama',
   'fren': 'Fren Sistemi',
   'fren-sistemi': 'Fren Sistemi',
   'suspansiyon': 'Süspansiyon',
@@ -70,36 +65,8 @@ export const serviceNameMapping: { [key: string]: string } = {
   'yikama-servisi': 'Yıkama Servisi',
   'inspection': 'Muayene',
   'muayene': 'Muayene',
-  'towing': 'Çekici',
-  'cekici': 'Çekici',
   'emergency': 'Acil Servis',
-  'acil-servis': 'Acil Servis',
-  
-  // İngilizce terimler için çeviriler
-  'repair': 'Genel Onarım',
-  'maintenance': 'Genel Bakım',
-  'service': 'Servis',
-  'tire': 'Lastik Servisi',
-  'wash': 'Araç Yıkama',
-  'towing': 'Çekici Hizmeti',
-  'diagnostic': 'Arıza Tespiti',
-  'inspection': 'Muayene',
-  'oil': 'Yağ Değişimi',
-  'filter': 'Filtre Değişimi',
-  'brake': 'Fren Servisi',
-  'battery': 'Aku Servisi',
-  'ac': 'Klima Servisi',
-  'exhaust': 'Egzoz Servisi',
-  'body': 'Kaporta Onarımı',
-  'paint': 'Boya Servisi',
-  'wash-service': 'Yıkama Servisi',
-  'tire-service': 'Lastik Servisi',
-  'brake-service': 'Fren Servisi',
-  'battery-service': 'Aku Servisi',
-  'ac-service': 'Klima Servisi',
-  'exhaust-service': 'Egzoz Servisi',
-  'body-repair': 'Kaporta Onarımı',
-  'paint-service': 'Boya Servisi'
+  'acil-servis': 'Acil Servis'
 };
 
 /**

@@ -143,7 +143,11 @@ const HomeScreen = () => {
           onPress: () => navigation.navigate('WashBooking'),
         },
         {
-          label: 'Lastik & Parça',
+          label: 'Yedek Parça',
+          onPress: () => navigation.navigate('PartsMarket'),
+        },
+        {
+          label: 'Lastik',
           onPress: () => navigation.navigate('TireParts'),
         },
       ],

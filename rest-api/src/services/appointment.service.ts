@@ -6,6 +6,15 @@ import { CustomError } from '../utils/response';
 import { Vehicle } from '../models/Vehicle';
 import { AppointmentStatus, PaymentStatus } from '../../../shared/types/enums';
 
+// Mechanic model'ini dinamik olarak import et (circular dependency'den kaçınmak için)
+let MechanicModel: typeof Mechanic;
+const getMechanicModel = async () => {
+  if (!MechanicModel) {
+    MechanicModel = (await import('../models/Mechanic')).Mechanic;
+  }
+  return MechanicModel;
+};
+
 export interface CreateAppointmentData {
   userId?: string;
   customerId?: string;
@@ -31,6 +40,13 @@ export interface CreateAppointmentData {
     oneHourBefore?: boolean;
     twoHoursBefore?: boolean;
   };
+  // Service-specific fields
+  electricalSystemType?: string;
+  electricalProblemType?: string;
+  electricalUrgencyLevel?: string;
+  isRecurring?: boolean;
+  lastWorkingCondition?: string;
+  [key: string]: any; // Allow any additional fields
 }
 
 export interface UpdateAppointmentData {
@@ -45,28 +61,43 @@ export class AppointmentService {
    */
   static async createAppointment(data: CreateAppointmentData) {
     try {
-      // Arıza bildirimi için mechanicId null kontrolü
+      // CRITICAL FIX: mechanicId validation ve doğru model'de arama
       if (!data.mechanicId || data.mechanicId === 'temp' || data.mechanicId === 'unknown') {
-        console.log('⚠️ mechanicId geçersiz, geçici ID oluşturuluyor');
-        data.mechanicId = new mongoose.Types.ObjectId().toString();
+        throw new CustomError('Geçerli bir usta ID\'si gereklidir', 400);
       }
 
-      // Ustanın müsait olup olmadığını kontrol et
-      const mechanic = await User.findById(data.mechanicId);
-      if (!mechanic || mechanic.userType !== 'mechanic') {
-        console.log('⚠️ Usta bulunamadı, geçici usta oluşturuluyor');
-        // Geçici usta oluştur veya mevcut bir ustayı kullan
-        const tempMechanic = await User.findOne({ userType: 'mechanic' });
-        if (tempMechanic) {
-          data.mechanicId = tempMechanic._id.toString();
+      // Önce ObjectId formatını kontrol et
+      if (!mongoose.Types.ObjectId.isValid(data.mechanicId)) {
+        throw new CustomError('Geçersiz usta ID formatı', 400);
+      }
+
+      // Önce Mechanic collection'ında ara (Appointment model'inde ref: 'Mechanic' olduğu için)
+      const MechanicModel = await getMechanicModel();
+      let mechanic = await MechanicModel.findById(data.mechanicId);
+      
+      // Eğer Mechanic collection'ında bulunamazsa, User collection'ında userType: 'mechanic' olanları kontrol et
+      if (!mechanic) {
+        const userAsMechanic = await User.findOne({ 
+          _id: data.mechanicId, 
+          userType: 'mechanic' 
+        });
+        
+        if (userAsMechanic) {
+          // User'ı mechanic olarak kabul et
+          mechanic = userAsMechanic as any;
         } else {
-          throw new CustomError('Sistemde kayıtlı usta bulunamadı', 404);
+          console.error(`❌ Usta bulunamadı - mechanicId: ${data.mechanicId}`);
+          throw new CustomError('Belirtilen usta bulunamadı. Lütfen geçerli bir usta seçin.', 404);
         }
       }
 
+      // Ustanın müsait olup olmadığını kontrol et
       if (!mechanic.isAvailable) {
         throw new CustomError('Usta şu anda müsait değil', 400);
       }
+
+      // mechanicId'yi doğru formatta sakla (eğer User'dan geldiyse bile ObjectId olarak sakla)
+      const finalMechanicId = mechanic._id ? mechanic._id.toString() : data.mechanicId;
 
       // userId veya customerId'den birini al
       const userId = data.userId || data.customerId;
@@ -79,7 +110,7 @@ export class AppointmentService {
       
       // Aynı tarih ve saatte çakışan randevu var mı kontrol et
       const conflictingAppointment = await Appointment.findOne({
-        mechanicId: data.mechanicId,
+        mechanicId: finalMechanicId,
         appointmentDate: {
           $gte: new Date(appointmentDateObj.getFullYear(), appointmentDateObj.getMonth(), appointmentDateObj.getDate()),
           $lt: new Date(appointmentDateObj.getFullYear(), appointmentDateObj.getMonth(), appointmentDateObj.getDate() + 1)
@@ -107,7 +138,7 @@ export class AppointmentService {
       // Eğer vehicleId gönderilmemişse, kullanıcının son kayıtlı aracını ata
       let resolvedVehicleId: mongoose.Types.ObjectId | undefined;
       if (!data.vehicleId) {
-        const lastVehicle = await Vehicle.findOne({ userId: userId }).sort({ updatedAt: -1, createdAt: -1 });
+        const lastVehicle = await Vehicle.findOne({ userId: userId }).sort({ createdAt: -1 }); // FIXED: updatedAt kaldırıldı
         if (lastVehicle) {
           resolvedVehicleId = new mongoose.Types.ObjectId((lastVehicle as any)._id.toString());
         }
@@ -140,10 +171,10 @@ export class AppointmentService {
           }
       }
 
-      // Randevu oluştur
-      const appointment = new Appointment({
+      // Randevu oluştur - tüm servis-specific alanları dahil et
+      const appointmentData: any = {
         userId: new mongoose.Types.ObjectId(userId),
-        mechanicId: new mongoose.Types.ObjectId(data.mechanicId),
+        mechanicId: new mongoose.Types.ObjectId(finalMechanicId),
         serviceType: data.serviceType,
         appointmentDate: appointmentDateObj,
         timeSlot: data.timeSlot,
@@ -165,9 +196,21 @@ export class AppointmentService {
           twoHoursBefore: false
         },
         createdAt: new Date()
-      });
+      };
 
+      // Service-specific fields (electrical, tire, wash, towing, bodywork, etc.)
+      if (data.electricalSystemType) appointmentData.electricalSystemType = data.electricalSystemType;
+      if (data.electricalProblemType) appointmentData.electricalProblemType = data.electricalProblemType;
+      if (data.electricalUrgencyLevel) appointmentData.electricalUrgencyLevel = data.electricalUrgencyLevel;
+      if (data.isRecurring !== undefined) appointmentData.isRecurring = data.isRecurring;
+      if (data.lastWorkingCondition) appointmentData.lastWorkingCondition = data.lastWorkingCondition;
+
+      const appointment = new Appointment(appointmentData);
       await appointment.save();
+      
+      // CRITICAL FIX: Dönen appointment'ta mechanicId'nin doğru olduğundan emin ol
+      console.log(`✅ Randevu oluşturuldu - appointmentId: ${appointment._id}, mechanicId: ${appointment.mechanicId}`);
+      
       return appointment;
     } catch (error) {
       throw error;
@@ -228,6 +271,12 @@ export class AppointmentService {
    */
   static async getMechanicAppointments(mechanicId: string, statusFilter?: string, filters?: any) {
     try {
+      // CRITICAL FIX: mechanicId validation
+      if (!mechanicId || !mongoose.Types.ObjectId.isValid(mechanicId)) {
+        console.error(`❌ Geçersiz mechanicId: ${mechanicId}`);
+        return [];
+      }
+
       const mapENtoTR: Record<string, string> = {
         'pending': 'TALEP_EDILDI',
         'confirmed': 'PLANLANDI',
@@ -248,7 +297,8 @@ export class AppointmentService {
         'NO_SHOW': ['no-show']
       };
 
-      const query: any = { mechanicId: mechanicId };
+      // CRITICAL FIX: mechanicId'yi ObjectId'ye dönüştür (MongoDB sorgusu için)
+      const query: any = { mechanicId: new mongoose.Types.ObjectId(mechanicId) };
       
       if (statusFilter) {
         // İngilizce status'ları Türkçe'ye çevir

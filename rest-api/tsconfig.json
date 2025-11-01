@@ -27,7 +27,7 @@
 
     /* Modules */
     "module": "commonjs",                                /* Specify what module code is generated. */
-    // "rootDir": "./",                               /* Removed: conflicts with shared folder import */
+    "rootDir": "../",                                    /* Set to parent to include both rest-api/src and shared */
     // "moduleResolution": "node10",                     /* Specify how TypeScript looks up a file from a given module specifier. */
     "baseUrl": "./",                                     /* Specify the base directory to resolve non-relative module names. */
     "paths": {

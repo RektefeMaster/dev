@@ -22,6 +22,17 @@ interface Notification {
   message: string;
   isRead: boolean;
   createdAt: string;
+  data?: {
+    appointmentId?: string;
+    mechanicId?: string;
+    mechanicName?: string;
+    serviceType?: string;
+    quoteCount?: number;
+    priceRange?: string;
+    serviceCategory?: string;
+    amount?: string;
+    [key: string]: any;
+  };
 }
 
 interface NotificationListProps {
@@ -96,7 +107,7 @@ export const NotificationList: React.FC<NotificationListProps> = ({
       console.log('📱 NotificationList API Response:', JSON.stringify(response, null, 2));
       
       // API response formatını kontrol et
-      let notificationsData = [];
+      let notificationsData: Notification[] = [];
       if (response && response.success && response.data && Array.isArray(response.data.notifications)) {
         notificationsData = response.data.notifications;
       } else if (response && response.success && Array.isArray(response.data)) {

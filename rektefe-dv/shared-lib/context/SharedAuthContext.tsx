@@ -140,13 +140,14 @@ export const SharedAuthProvider = ({
   // User data'yı API'den yükle
   const loadUserDataFromAPI = async (): Promise<void> => {
     try {
-      const userResponse = await config.apiService.get('/users/profile');
+      const userResponse = await config.apiService.request('GET', '/users/profile');
       
       if (userResponse.success && userResponse.data) {
+        const responseData = userResponse.data as Record<string, unknown>;
         const userData: SharedUser = {
-          ...userResponse.data,
+          ...(typeof responseData === 'object' && responseData !== null ? responseData : {}),
           userType: config.userType
-        };
+        } as SharedUser;
         
         setUser(userData);
         await AsyncStorage.setItem(config.storageKeys.USER_DATA, JSON.stringify(userData));
@@ -464,15 +465,26 @@ export const createDriverAuthProvider = (apiService: BaseApiService, storageKeys
 
 // Basit AuthProvider wrapper
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const storageKeys = {
+    AUTH_TOKEN: 'auth_token',
+    REFRESH_TOKEN: 'refresh_token',
+    USER_ID: 'user_id',
+    USER_DATA: 'user_data',
+    ERROR_LOGS: 'error_logs',
+    ONBOARDING_COMPLETED: 'onboarding_completed'
+  };
+  
   const config: AuthConfig = {
     userType: 'driver', // Default olarak driver
     appName: 'Rektefe App',
-    storageKeys: {
-      token: 'auth_token',
-      user: 'user_data',
-      refreshToken: 'refresh_token'
-    },
-    apiService: new BaseApiService('http://localhost:3000') // Default API service
+    storageKeys,
+    apiService: new BaseApiService({
+      baseURL: 'http://localhost:3000',
+      timeout: 10000,
+      storageKeys,
+      userType: 'driver',
+      appName: 'Rektefe App'
+    })
   };
   
   return (

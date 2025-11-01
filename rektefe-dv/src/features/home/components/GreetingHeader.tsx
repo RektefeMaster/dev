@@ -85,18 +85,18 @@ export const GreetingHeader: React.FC<GreetingHeaderProps> = ({ userName, favori
       onPress: () => navigation.navigate('WashBooking'),
     },
     {
+      id: 'Yedek Parça',
+      title: 'Yedek Parça',
+      icon: 'package-variant',
+      color: '#8B5CF6', // Mor
+      onPress: () => navigation.navigate('PartsMarket'),
+    },
+    {
       id: 'Lastik',
       title: 'Lastik',
       icon: 'car',
       color: '#F59E0B', // Turuncu
       onPress: () => navigation.navigate('TireParts'),
-    },
-    {
-      id: 'Çekici',
-      title: 'Çekici',
-      icon: 'truck',
-      color: '#EF4444', // Kırmızı
-      onPress: () => navigation.navigate('TowingRequest'),
     },
   ];
 

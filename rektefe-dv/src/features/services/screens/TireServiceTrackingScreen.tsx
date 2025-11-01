@@ -12,9 +12,12 @@ import {
   Linking,
 } from 'react-native';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '@/navigation/AppNavigator';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
-import { RootStackParamList } from '@/navigation/AppNavigator';
+
+type TireServiceTrackingNavigationProp = StackNavigationProp<RootStackParamList, 'TireServiceTracking'>;
 import { BackButton, Card, Button } from '@/shared/components';
 import { apiService } from '@/shared/services/api';
 import { serviceNameMapping } from '@/shared/utils/serviceTranslator';
@@ -31,6 +34,7 @@ interface TireJob {
     brand: string;
     model: string;
     year: string;
+    plateNumber?: string;
   };
   vehicleId?: {
     brand: string;
@@ -74,13 +78,14 @@ interface TireJob {
     duration: number;
     conditions: string[];
   };
+  rating?: number;
   createdAt: string;
   updatedAt: string;
 }
 
 const TireServiceTrackingScreen = () => {
   const route = useRoute<TireServiceTrackingRouteProp>();
-  const navigation = useNavigation();
+  const navigation = useNavigation<TireServiceTrackingNavigationProp>();
   const { theme } = useTheme();
   const styles = createStyles(theme);
 
@@ -523,7 +528,6 @@ const TireServiceTrackingScreen = () => {
               onPress={openLocation}
               variant="secondary"
               style={styles.actionButton}
-              leftIcon={<Ionicons name="map" size={20} color={theme.colors.primary.main} />}
             />
           </Card>
         )}

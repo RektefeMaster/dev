@@ -76,7 +76,7 @@ const CampaignDetailScreen = () => {
   const handleBookAppointment = () => {
     if (campaign) {
       // Randevu oluşturma sayfasına yönlendir
-      navigation.navigate('BookAppointment' as never, {
+      navigation.navigate('BookAppointment', {
         mechanicId: campaign.id.toString(),
         mechanicName: campaign.company,
         mechanicSurname: '',

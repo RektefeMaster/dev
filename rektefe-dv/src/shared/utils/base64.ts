@@ -12,8 +12,8 @@ declare global {
 // Polyfill for atob (base64 decode)
 export const base64Decode = (str: string): string => {
   // Check if running in browser with native atob
-  if (typeof (global as any).atob !== 'undefined') {
-    return (global as any).atob(str);
+  if (typeof globalThis !== 'undefined' && typeof (globalThis as any).atob !== 'undefined') {
+    return (globalThis as any).atob(str);
   }
   
   // React Native polyfill
@@ -44,8 +44,8 @@ export const base64Decode = (str: string): string => {
 // Polyfill for btoa (base64 encode)
 export const base64Encode = (str: string): string => {
   // Check if running in browser with native btoa
-  if (typeof (global as any).btoa !== 'undefined') {
-    return (global as any).btoa(str);
+  if (typeof globalThis !== 'undefined' && typeof (globalThis as any).btoa !== 'undefined') {
+    return (globalThis as any).btoa(str);
   }
   
   // React Native polyfill

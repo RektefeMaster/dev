@@ -26,19 +26,13 @@ export const serviceNameMapping: { [key: string]: string } = {
   'periyodik-bakim': 'Periyodik Bakım',
   
   // Onarım hizmetleri
-  'alt-takim': 'Alt Takım',
   'alt-takım': 'Alt Takım',
-  'ust-takim': 'Üst Takım',
   'ust-takım': 'Üst Takım',
   'üst-takim': 'Üst Takım',
   'üst-takım': 'Üst Takım',
   'kaporta': 'Kaporta/Boya',
-  'kaporta-boya': 'Kaporta & Boya',
   'elektrik': 'Elektrik',
-  'yedek-parca': 'Yedek Parça',
-  'lastik': 'Lastik Servisi',
   'egzoz': 'Egzoz',
-  'arac-yikama': 'Araç Yıkama',
   'fren': 'Fren Sistemi',
   'fren-sistemi': 'Fren Sistemi',
   'suspansiyon': 'Süspansiyon',
@@ -73,7 +67,6 @@ export const serviceNameMapping: { [key: string]: string } = {
   'inspection': 'Muayene',
   'muayene': 'Muayene',
   'towing': 'Çekici',
-  'cekici': 'Çekici',
   'emergency': 'Acil Servis',
   'acil-servis': 'Acil Servis',
   
@@ -156,8 +149,13 @@ export const serviceNameMapping: { [key: string]: string } = {
   
   // Bakım terimleri
   'maintenance': 'Bakım',
-  'repair': 'Onarım',
+  'repair': 'Tamir & Bakım',
   'service': 'Servis',
+  
+  // Hizmet kategorileri (yeni sistem)
+  'wash': 'Araç Yıkama',
+  'tire': 'Lastik Servisi',
+  'bodywork': 'Kaporta & Boya',
   
   // Teknik terimler
   'engine': 'Motor',
@@ -165,9 +163,7 @@ export const serviceNameMapping: { [key: string]: string } = {
   'brake': 'Fren',
   'suspension': 'Süspansiyon',
   'electrical': 'Elektrik',
-  'bodywork': 'Kaporta',
   'oil_change': 'Yağ Değişimi',
-  'inspection': 'Muayene',
   'ac': 'Klima',
   'exhaust': 'Egzoz',
   'fuel_system': 'Yakıt Sistemi',

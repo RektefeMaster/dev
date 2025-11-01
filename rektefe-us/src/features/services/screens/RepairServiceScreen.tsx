@@ -14,7 +14,7 @@ import {
   Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useNavigationState } from '@react-navigation/native';
 import { serviceNameMapping } from '@/shared/utils/serviceTranslator';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/shared/context';
@@ -64,6 +64,56 @@ export default function RepairServiceScreen() {
   const [repairPrice, setRepairPrice] = useState('');
   const [scaleAnim] = useState(new Animated.Value(1));
 
+  // Route name'i al ve kategoriyi tespit et
+  const routeName = useNavigationState(state => {
+    const route = state?.routes[state.index];
+    return route?.name;
+  });
+
+  // Route name'den kategoriyi belirle
+  const targetCategory = React.useMemo(() => {
+    if (routeName === 'RepairService') return 'repair';
+    if (routeName === 'ElectricalService') return 'electrical';
+    if (routeName === 'PartsService') return 'parts';
+    return 'repair'; // default
+  }, [routeName]);
+
+  // Kategori bilgisini al
+  const categoryInfo = React.useMemo(() => {
+    const info: { title: string; icon: string; color: string; gradientColors: string[]; serviceTypes: string[] } = {
+      title: 'Tamir & Bakım',
+      icon: 'construct',
+      color: '#3B82F6',
+      gradientColors: ['#3B82F6', '#2563EB'],
+      serviceTypes: []
+    };
+
+    if (targetCategory === 'repair') {
+      info.title = 'Tamir & Bakım';
+      info.icon = 'construct';
+      info.color = '#3B82F6';
+      info.gradientColors = ['#3B82F6', '#2563EB'];
+      // Repair kategorisi: genel-bakim, agir-bakim, alt-takim, ust-takim, egzoz-emisyon
+      info.serviceTypes = ['genel-bakim', 'agir-bakim', 'alt-takim', 'ust-takim', 'egzoz-emisyon'];
+    } else if (targetCategory === 'electrical') {
+      info.title = 'Elektrik & Elektronik';
+      info.icon = 'flask';
+      info.color = '#F97316';
+      info.gradientColors = ['#F97316', '#EA580C'];
+      // Electrical kategorisi
+      info.serviceTypes = ['elektrik-elektronik'];
+    } else if (targetCategory === 'parts') {
+      info.title = 'Yedek Parça';
+      info.icon = 'settings';
+      info.color = '#6366F1';
+      info.gradientColors = ['#6366F1', '#4F46E5'];
+      // Parts kategorisi
+      info.serviceTypes = ['yedek-parca'];
+    }
+
+    return info;
+  }, [targetCategory]);
+
   const fetchRepairJobs = async (showLoading = true) => {
     try {
       if (!isAuthenticated || !user) {
@@ -85,7 +135,16 @@ export default function RepairServiceScreen() {
           appointment.status === 'completed'
         );
         
-        const formattedJobs = repairAppointments.map(appointment => {
+        // Kategori bazlı filtreleme ekle
+        const categoryFilteredAppointments = repairAppointments.filter(appointment => {
+          const serviceType = appointment.serviceType;
+          // Eğer serviceType categoryInfo.serviceTypes içindeyse göster
+          return categoryInfo.serviceTypes.some(catType => 
+            serviceType === catType || serviceType?.includes(catType) || catType.includes(serviceType)
+          );
+        });
+        
+        const formattedJobs = categoryFilteredAppointments.map(appointment => {
           // Fiyat önceliği: finalPrice > price > quotedPrice
           const appointmentPrice = appointment.finalPrice || appointment.price || appointment.quotedPrice || 0;
           
@@ -141,7 +200,7 @@ export default function RepairServiceScreen() {
   useFocusEffect(
     React.useCallback(() => {
       fetchRepairJobs();
-    }, [isAuthenticated, user])
+    }, [isAuthenticated, user, categoryInfo.serviceTypes])
   );
 
   const onRefresh = () => {
@@ -183,7 +242,7 @@ export default function RepairServiceScreen() {
   const getStatusText = (status: string) => {
     switch (status) {
       case 'pending': return 'Beklemede';
-      case 'accepted': return 'Tamir Yapılıyor';
+      case 'accepted': return 'İşlem Yapılıyor';
       case 'in_progress': return 'Ödeme Bekleniyor';
       case 'completed': return 'Tamamlandı';
       case 'cancelled': return 'İptal Edildi';
@@ -279,7 +338,7 @@ export default function RepairServiceScreen() {
     const renderStatusProgress = () => {
       const steps = [
         { key: 'pending', label: 'Onaylandı', icon: 'checkmark-circle' },
-        { key: 'accepted', label: 'Tamir Yapılıyor', icon: 'construct' },
+        { key: 'accepted', label: 'İşlem Yapılıyor', icon: categoryInfo.icon as any },
         { key: 'in_progress', label: 'Ödeme Bekleniyor', icon: 'card' },
         { key: 'completed', label: 'Tamamlandı', icon: 'trophy' },
       ];
@@ -333,18 +392,18 @@ export default function RepairServiceScreen() {
         case 'pending':
           return (
             <TouchableOpacity
-              style={[styles.modernActionButton, { backgroundColor: '#3B82F6' }]}
+              style={[styles.modernActionButton, { backgroundColor: categoryInfo.color }]}
               onPress={() => handleAppointmentStatusUpdate(job._id, 'in-progress')}
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={['#3B82F6', '#2563EB']}
+                colors={categoryInfo.gradientColors}
                 style={styles.buttonGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               >
                 <Ionicons name="play-circle" size={22} color="#FFFFFF" />
-                <Text style={styles.modernActionButtonText}>Tamire Başla</Text>
+                <Text style={styles.modernActionButtonText}>İşe Başla</Text>
                 <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
               </LinearGradient>
             </TouchableOpacity>
@@ -355,7 +414,7 @@ export default function RepairServiceScreen() {
             <View style={styles.actionGroup}>
               <View style={styles.infoCard}>
                 <Ionicons name="time" size={20} color="#F59E0B" />
-                <Text style={styles.infoCardText}>Tamir devam ediyor...</Text>
+                <Text style={styles.infoCardText}>İşlem devam ediyor...</Text>
               </View>
               <TouchableOpacity
                 style={[styles.modernActionButton, { backgroundColor: '#10B981' }]}
@@ -369,7 +428,7 @@ export default function RepairServiceScreen() {
                   end={{ x: 1, y: 0 }}
                 >
                   <Ionicons name="cash" size={22} color="#FFFFFF" />
-                  <Text style={styles.modernActionButtonText}>Tamiri Tamamla & Ücret Belirle</Text>
+                  <Text style={styles.modernActionButtonText}>İşi Tamamla & Ücret Belirle</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -401,7 +460,7 @@ export default function RepairServiceScreen() {
               <View style={styles.completedHeader}>
                 <Ionicons name="checkmark-circle" size={32} color="#10B981" />
                 <View style={styles.completedTextContainer}>
-                  <Text style={styles.completedTitle}>Tamir Tamamlandı! 🎉</Text>
+                  <Text style={styles.completedTitle}>İşlem Tamamlandı!</Text>
                   <Text style={styles.completedSubtitle}>Kazanç: {job.price}₺</Text>
                 </View>
               </View>
@@ -477,7 +536,7 @@ export default function RepairServiceScreen() {
 
           <View style={styles.infoRow}>
             <View style={styles.iconBadge}>
-              <Ionicons name="construct" size={18} color="#F59E0B" />
+              <Ionicons name={categoryInfo.icon as any} size={18} color={categoryInfo.color} />
             </View>
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Hizmet Türü</Text>
@@ -505,8 +564,8 @@ export default function RepairServiceScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <Ionicons name="construct" size={64} color="#3B82F6" />
-          <Text style={styles.loadingText}>Tamir işleri yükleniyor...</Text>
+          <Ionicons name={categoryInfo.icon as any} size={64} color={categoryInfo.color} />
+          <Text style={styles.loadingText}>{categoryInfo.title} işleri yükleniyor...</Text>
         </View>
       </SafeAreaView>
     );
@@ -523,11 +582,11 @@ export default function RepairServiceScreen() {
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Tamir & Bakım</Text>
+          <Text style={styles.headerTitle}>{categoryInfo.title}</Text>
           <Text style={styles.headerSubtitle}>{filteredJobs.length} aktif iş</Text>
         </View>
         <TouchableOpacity onPress={onRefresh} style={styles.refreshButton}>
-          <Ionicons name="refresh" size={22} color="#3B82F6" />
+          <Ionicons name="refresh" size={22} color={categoryInfo.color} />
         </TouchableOpacity>
       </View>
 
@@ -537,7 +596,7 @@ export default function RepairServiceScreen() {
           {[
             { key: 'all', label: 'Tümü', icon: 'list' },
             { key: 'pending', label: 'Onaylandı', icon: 'checkmark-circle' },
-            { key: 'accepted', label: 'Tamir Yapılıyor', icon: 'construct' },
+            { key: 'accepted', label: 'İşlem Yapılıyor', icon: categoryInfo.icon },
             { key: 'in_progress', label: 'Ödeme Bekleniyor', icon: 'card' },
             { key: 'completed', label: 'Tamamlandı', icon: 'trophy' },
           ].map((filterItem) => (
@@ -570,14 +629,14 @@ export default function RepairServiceScreen() {
       <ScrollView
         style={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3B82F6" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={categoryInfo.color} />
         }
         showsVerticalScrollIndicator={false}
       >
         {filteredJobs.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="construct-outline" size={80} color="#E5E7EB" />
-            <Text style={styles.emptyTitle}>Henüz Tamir İşi Yok</Text>
+            <Ionicons name={`${categoryInfo.icon}-outline` as any} size={80} color="#E5E7EB" />
+            <Text style={styles.emptyTitle}>Henüz {categoryInfo.title} İşi Yok</Text>
             <Text style={styles.emptyDescription}>
               {filter === 'all' 
                 ? 'Onaylanan randevular burada görünecektir'
@@ -608,11 +667,11 @@ export default function RepairServiceScreen() {
           >
             <View style={styles.modalHeader}>
               <View style={styles.modalIconContainer}>
-                <Ionicons name="cash-outline" size={32} color="#3B82F6" />
+                <Ionicons name="cash-outline" size={32} color={categoryInfo.color} />
               </View>
-              <Text style={styles.modalTitle}>Tamir Ücreti Belirle</Text>
+              <Text style={styles.modalTitle}>{categoryInfo.title} Ücreti Belirle</Text>
               <Text style={styles.modalSubtitle}>
-                Tamir işlemi tamamlandı! Müşteriye gönderilecek ücreti belirleyin.
+                İşlem tamamlandı! Müşteriye gönderilecek ücreti belirleyin.
               </Text>
             </View>
             

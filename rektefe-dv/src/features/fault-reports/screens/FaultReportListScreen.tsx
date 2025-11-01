@@ -253,7 +253,7 @@ const FaultReportListScreen = () => {
             </Text>
             <TouchableOpacity
               style={[styles.createButton, { backgroundColor: theme.colors.primary.main }]}
-              onPress={() => navigation.navigate('FaultReport')}
+              onPress={() => navigation.navigate('FaultReport' as never)}
             >
               <Text style={styles.createButtonText}>Arıza Bildir</Text>
             </TouchableOpacity>

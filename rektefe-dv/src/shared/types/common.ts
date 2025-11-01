@@ -172,14 +172,44 @@ export interface MechanicSearchFilters {
 }
 
 export interface MechanicSearchResult {
-  mechanic: SharedMechanic;
+  _id?: string;
+  mechanic?: SharedMechanic;
   distance: number; // km
   estimatedArrival?: Date;
-  averageRating: number;
-  totalReviews: number;
-  isAvailable: boolean;
+  averageRating?: number;
+  rating?: number;
+  totalReviews?: number;
+  ratingCount?: number;
+  isAvailable?: boolean;
   estimatedCost?: number;
-  specialties: ServiceType[];
+  specialties?: ServiceType[];
+  serviceCategories?: string[];
+  // Flat properties from SharedMechanic for easy access
+  name?: string;
+  surname?: string;
+  avatar?: string;
+  shopName?: string;
+  city?: string;
+  phone?: string;
+  experience?: number;
+  totalJobs?: number;
+  workingHours?: string;
+  formattedDistance?: string;
+  bio?: string;
+  location?: {
+    city?: string;
+    district?: string;
+    coordinates?: {
+      latitude: number;
+      longitude: number;
+    };
+  };
+}
+
+// Navigation props type
+export interface NavigationProps {
+  navigation: any;
+  route: any;
 }
 
 // ===== API REQUEST/RESPONSE TYPES =====

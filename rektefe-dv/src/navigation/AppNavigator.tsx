@@ -46,6 +46,7 @@ import TirePartsScreen from '@/features/services/screens/TirePartsScreen';
 import TireServiceTrackingScreen from '@/features/services/screens/TireServiceTrackingScreen';
 import TireHealthScreen from '@/features/services/screens/TireHealthScreen';
 import CampaignDetailScreen from '@/features/campaigns/screens/CampaignDetailScreen';
+import { PartsMarketScreen, PartDetailScreen, PartsReservationsScreen } from '@/features/parts/screens';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -67,6 +68,7 @@ export type RootStackParamList = {
   FaultReportDetail: { faultReportId: string };
   Appointments: undefined;
   Wallet: undefined;
+  AddBalance: undefined;
   Garage: undefined;
   Support: undefined;
   TefeWallet: undefined;
@@ -142,6 +144,10 @@ export type RootStackParamList = {
   TireParts: undefined;
   TireServiceTracking: { jobId: string };
   TireHealth: { vehicleId?: string };
+  // Yedek Parça Marketplace
+  PartsMarket: undefined;
+  PartDetail: { partId: string };
+  PartsReservations: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -351,6 +357,29 @@ const AppNavigator = () => {
         <Stack.Screen 
           name="TireHealth" 
           component={TireHealthScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        
+        {/* Yedek Parça Marketplace */}
+        <Stack.Screen 
+          name="PartsMarket" 
+          component={PartsMarketScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="PartDetail" 
+          component={PartDetailScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="PartsReservations" 
+          component={PartsReservationsScreen}
           options={{
             headerShown: false,
           }}

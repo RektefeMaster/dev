@@ -42,23 +42,8 @@ router.get('/', auth, async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: error.message });
   }
 });
-router.post('/', auth, validate(createAppointmentSchema), async (req: Request, res: Response) => {
-  try {
-    // req.user'dan userId'yi al ve req.body'ye ekle
-    const userId = (req.user as any)?.userId;
-    const appointmentData = {
-      ...req.body,
-      userId: userId
-    };
-    
-    const appointment = await AppointmentService.createAppointment(appointmentData);
-    res.status(201).json({ success: true, data: appointment });
-  } catch (error: any) {
-    // Validation hatası ise 400, diğer hatalar 500
-    const statusCode = error.message.includes('validation') || error.message.includes('required') ? 400 : 500;
-    res.status(statusCode).json({ success: false, message: error.message });
-  }
-});
+// CRITICAL FIX: Controller kullanıyoruz - bildirimler ve tüm işlemler dahil
+router.post('/', auth, validate(createAppointmentSchema), AppointmentController.createAppointment);
 
 router.get('/driver', auth, async (req: Request, res: Response) => {
   try {
@@ -197,7 +182,7 @@ router.put('/:id/start', auth, async (req: Request, res: Response) => {
   try {
     const appointment = await AppointmentService.updateAppointmentStatus(
       req.params.id,
-      'in-progress',
+      'SERVISTE', // CRITICAL FIX: Status enum standardizasyonu
       undefined,
       undefined
     );
@@ -241,27 +226,7 @@ router.put('/:id/payment/link', auth, async (req: Request, res: Response) => {
   }
 });
 
-// Ödemeyi onayla (stub) ve TAMAMLANDI durumuna geçir
-router.put('/:id/payment/confirm', auth, async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const appt: any = await Appointment.findById(id);
-    if (!appt) return res.status(404).json({ success: false, message: 'Randevu bulunamadı' });
-    if (appt.status !== 'ODEME_BEKLIYOR') {
-      return res.status(400).json({ success: false, message: 'Sadece ödeme bekleyen işlerde onay yapılır' });
-    }
-    appt.paymentStatus = 'completed';
-    appt.paymentDate = new Date();
-    appt.status = 'TAMAMLANDI';
-    await appt.save();
-
-    // TefePuan kazanımı appointment.controller.ts'de yapılıyor
-
-    res.json({ success: true, data: appt });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+// DEPRECATED: Bu endpoint kaldırıldı, AppointmentController.confirmPayment kullanılıyor
 
 // Parça bekleniyor flip
 router.put('/:id/waiting-parts', auth, async (req: Request, res: Response) => {

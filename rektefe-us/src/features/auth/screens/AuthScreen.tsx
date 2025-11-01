@@ -129,6 +129,27 @@ export default function AuthScreen() {
       icon: 'car',
       color: '#F59E0B',
       description: 'Lastik ve yedek parça'
+    },
+    {
+      id: 'bodywork',
+      title: 'Kaporta & Boya',
+      icon: 'brush',
+      color: '#8B5CF6',
+      description: 'Kaporta düzeltme ve boya'
+    },
+    {
+      id: 'electrical',
+      title: 'Elektrik & Elektronik',
+      icon: 'flask',
+      color: '#F97316',
+      description: 'Elektrik ve elektronik arızalar'
+    },
+    {
+      id: 'parts',
+      title: 'Yedek Parça',
+      icon: 'settings',
+      color: '#6366F1',
+      description: 'Yedek parça satış ve montaj'
     }
   ];
 

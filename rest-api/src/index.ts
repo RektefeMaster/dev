@@ -24,6 +24,8 @@ import {
   healthCheckHandler,
   metricsHandler 
 } from './utils/monitoring';
+import schedule from 'node-schedule';
+import { PartsService } from './services/parts.service';
 
 // Config import (dependency olabilecek route'lardan önce)
 import { MONGODB_URI, MONGODB_OPTIONS, PORT as CONFIG_PORT, CORS_ORIGIN, JWT_SECRET } from './config';
@@ -62,6 +64,7 @@ import tireServiceRoutes from './routes/tireService';
 import bodyworkRoutes from './routes/bodywork';
 import carWashRoutes from './routes/carWash';
 import washRoutes from './routes/wash';
+import partsRoutes from './routes/parts';
 import customersRoutes from './routes/customers';
 import suppliersRoutes from './routes/suppliers';
 import statusNotificationsRoutes from './routes/statusNotifications';
@@ -160,6 +163,8 @@ import './models/CarWashJob';
 import './models/CarWashLoyaltyProgram';
 import './models/WithdrawalRequest';
 import './models/Wallet';
+import './models/PartsInventory';
+import './models/PartsReservation';
 
 // HTTP sunucusu oluştur
 const httpServer = createServer(app);
@@ -358,6 +363,7 @@ app.use('/api/tire-service', tireServiceRoutes);
 app.use('/api/bodywork', bodyworkRoutes);
 app.use('/api/carwash', carWashRoutes);
 app.use('/api/wash', washRoutes); // Yeni araç yıkama modülü
+app.use('/api/parts', partsRoutes); // Yedek parça marketplace modülü
 app.use('/api/customers', customersRoutes);
 app.use('/api/suppliers', suppliersRoutes);
 app.use('/api/status-notifications', statusNotificationsRoutes);
@@ -416,6 +422,25 @@ async function startServer() {
       Logger.info('✅ Monitoring sistemi başlatıldı');
     } catch (monitoringError) {
       Logger.warn('⚠️ Monitoring sistemi hatası (devam ediliyor):', monitoringError);
+    }
+    
+    // Cron job'ları başlat
+    Logger.info('⏰ Cron job\'lar başlatılıyor...');
+    try {
+      // Her 5 dakikada süresi dolmuş rezervasyonları temizle
+      schedule.scheduleJob('*/5 * * * *', async () => {
+        try {
+          const result = await PartsService.expireReservations();
+          if (result.expired > 0) {
+            Logger.info(`✅ [CRON] ${result.expired} rezervasyon süresi doldu`);
+          }
+        } catch (error: any) {
+          Logger.error('❌ [CRON] Parts expiry job hatası:', error.message);
+        }
+      });
+      Logger.info('✅ Cron job\'lar başlatıldı: Parts expiry (her 5 dakika)');
+    } catch (cronError) {
+      Logger.warn('⚠️ Cron job başlatma hatası (devam ediliyor):', cronError);
     }
     
     // MongoDB bağlantısı başarılı olduktan sonra server'ı başlat

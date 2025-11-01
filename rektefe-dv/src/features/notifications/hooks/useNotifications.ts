@@ -30,7 +30,7 @@ export const useNotifications = () => {
 
     if (data && data.success) {
       // API response formatını kontrol et
-      let notificationsData = [];
+      let notificationsData: Notification[] = [];
       if (data.data && Array.isArray(data.data.notifications)) {
         notificationsData = data.data.notifications;
         console.log('✅ useNotifications: notifications array bulundu:', notificationsData.length);

@@ -54,6 +54,8 @@ var ServiceCategory;
     ServiceCategory["WASH"] = "wash";
     ServiceCategory["TIRE"] = "tire";
     ServiceCategory["BODYWORK"] = "bodywork"; // Kaporta & Boya
+    ServiceCategory["ELECTRICAL"] = "electrical"; // Elektrik-Elektronik
+    ServiceCategory["PARTS"] = "parts"; // Yedek Parça
 })(ServiceCategory || (exports.ServiceCategory = ServiceCategory = {}));
 // ===== SERVICE TYPE TO CATEGORY MAPPING =====
 /**
@@ -66,9 +68,11 @@ exports.SERVICE_TYPE_TO_CATEGORY = {
     [ServiceType.HEAVY_MAINTENANCE]: ServiceCategory.REPAIR,
     [ServiceType.ALIGNMENT]: ServiceCategory.REPAIR,
     [ServiceType.SUSPENSION]: ServiceCategory.REPAIR,
-    [ServiceType.ELECTRICAL]: ServiceCategory.REPAIR,
-    [ServiceType.PARTS]: ServiceCategory.REPAIR,
     [ServiceType.EXHAUST]: ServiceCategory.REPAIR,
+    // Electrical kategorisi
+    [ServiceType.ELECTRICAL]: ServiceCategory.ELECTRICAL,
+    // Parts kategorisi
+    [ServiceType.PARTS]: ServiceCategory.PARTS,
     // Bodywork kategorisi
     [ServiceType.BODY_PAINT]: ServiceCategory.BODYWORK,
     // Tire kategorisi
@@ -90,13 +94,15 @@ exports.FAULT_CATEGORY_TO_SERVICE_CATEGORY = {
     'Genel Bakım': ServiceCategory.REPAIR,
     'Üst Takım': ServiceCategory.REPAIR,
     'Alt Takım': ServiceCategory.REPAIR,
-    'Elektrik-Elektronik': ServiceCategory.REPAIR,
-    'Yedek Parça': ServiceCategory.REPAIR,
     'Egzoz & Emisyon': ServiceCategory.REPAIR,
     'Ekspertiz': ServiceCategory.REPAIR,
     'Sigorta & Kasko': ServiceCategory.REPAIR,
     'Motor Tamiri': ServiceCategory.REPAIR,
     'Fren Sistemi': ServiceCategory.REPAIR,
+    // Electrical kategorisi
+    'Elektrik-Elektronik': ServiceCategory.ELECTRICAL,
+    // Parts kategorisi
+    'Yedek Parça': ServiceCategory.PARTS,
     // Bodywork kategorisi
     'Kaporta/Boya': ServiceCategory.BODYWORK,
     'Kaporta & Boya': ServiceCategory.BODYWORK,
@@ -117,7 +123,9 @@ exports.SERVICE_CATEGORY_TURKISH_NAMES = {
     [ServiceCategory.TOWING]: ['Çekici', 'Çekici Hizmeti', 'Kurtarma', 'towing'],
     [ServiceCategory.WASH]: ['Araç Yıkama', 'Yıkama', 'wash'],
     [ServiceCategory.TIRE]: ['Lastik', 'Lastik Servisi', 'Lastik & Parça', 'tire'],
-    [ServiceCategory.BODYWORK]: ['Kaporta & Boya', 'Kaporta', 'Boya', 'bodywork']
+    [ServiceCategory.BODYWORK]: ['Kaporta & Boya', 'Kaporta', 'Boya', 'bodywork'],
+    [ServiceCategory.ELECTRICAL]: ['Elektrik-Elektronik', 'Elektrik', 'Elektronik', 'electrical'],
+    [ServiceCategory.PARTS]: ['Yedek Parça', 'Parça', 'parts']
 };
 // ===== NOTIFICATION TYPE ENUM =====
 var NotificationType;
@@ -242,7 +250,9 @@ const getServiceCategoryDescription = (category) => {
         [ServiceCategory.TOWING]: 'Çekici Hizmeti',
         [ServiceCategory.WASH]: 'Araç Yıkama',
         [ServiceCategory.TIRE]: 'Lastik Servisi',
-        [ServiceCategory.BODYWORK]: 'Kaporta & Boya'
+        [ServiceCategory.BODYWORK]: 'Kaporta & Boya',
+        [ServiceCategory.ELECTRICAL]: 'Elektrik-Elektronik',
+        [ServiceCategory.PARTS]: 'Yedek Parça'
     };
     return descriptions[category];
 };
@@ -264,7 +274,9 @@ const getServiceTypeFromCategory = (category) => {
         [ServiceCategory.BODYWORK]: ServiceType.BODY_PAINT,
         [ServiceCategory.TIRE]: ServiceType.TIRE_SERVICE,
         [ServiceCategory.WASH]: ServiceType.CAR_WASH,
-        [ServiceCategory.TOWING]: ServiceType.TOWING
+        [ServiceCategory.TOWING]: ServiceType.TOWING,
+        [ServiceCategory.ELECTRICAL]: ServiceType.ELECTRICAL,
+        [ServiceCategory.PARTS]: ServiceType.PARTS
     };
     return categoryToTypeMapping[category] || ServiceType.GENERAL_MAINTENANCE;
 };
@@ -296,6 +308,10 @@ const normalizeToServiceCategory = (value) => {
         return ServiceCategory.TIRE;
     if (/kaporta|boya|bodywork/.test(lowercaseValue))
         return ServiceCategory.BODYWORK;
+    if (/elektrik|electrical/.test(lowercaseValue))
+        return ServiceCategory.ELECTRICAL;
+    if (/parça|part/.test(lowercaseValue))
+        return ServiceCategory.PARTS;
     return null;
 };
 exports.normalizeToServiceCategory = normalizeToServiceCategory;

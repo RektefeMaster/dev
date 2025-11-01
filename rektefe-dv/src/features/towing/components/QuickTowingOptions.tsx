@@ -7,6 +7,8 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  ViewStyle,
+  StyleProp,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
@@ -18,14 +20,14 @@ interface QuickTowingOption {
   id: string;
   title: string;
   subtitle: string;
-  icon: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
   color: string;
   reason: string;
   emergencyLevel: 'high' | 'medium';
 }
 
 interface QuickTowingOptionsProps {
-  style?: any;
+  style?: StyleProp<ViewStyle>;
 }
 
 export const QuickTowingOptions: React.FC<QuickTowingOptionsProps> = ({ style }) => {
@@ -47,7 +49,7 @@ export const QuickTowingOptions: React.FC<QuickTowingOptionsProps> = ({ style })
       id: 'accident',
       title: 'Kaza',
       subtitle: 'Kaza sonrası çekici',
-      icon: 'car-crash',
+      icon: 'car-multiple',
       color: '#DC2626',
       reason: 'accident',
       emergencyLevel: 'high'
@@ -107,12 +109,12 @@ export const QuickTowingOptions: React.FC<QuickTowingOptionsProps> = ({ style })
     );
   };
 
-  const executeQuickTowing = async (option: QuickTowingOption) => {
+  const executeQuickTowing = async (option: QuickTowingOption): Promise<void> => {
     try {
       setLoading(option.id);
 
       // Hızlı veri toplama
-      const location = await getRealUserLocation().catch(() => null);
+      const location: { latitude: number; longitude: number } | null = await getRealUserLocation().catch((): null => null);
       const vehicleData = {
         vehicleType: 'binek',
         vehicleBrand: 'Bilinmiyor',
@@ -159,7 +161,7 @@ export const QuickTowingOptions: React.FC<QuickTowingOptionsProps> = ({ style })
         [
           {
             text: 'Normal Form',
-            onPress: () => (navigation as any).navigate('TowingRequest')
+            onPress: () => navigation.navigate('TowingRequest' as never)
           },
           {
             text: 'Tamam',
@@ -207,7 +209,7 @@ export const QuickTowingOptions: React.FC<QuickTowingOptionsProps> = ({ style })
               <>
                 <View style={[styles.iconContainer, { backgroundColor: option.color }]}>
                   <MaterialCommunityIcons 
-                    name={option.icon as any} 
+                    name={option.icon} 
                     size={24} 
                     color="white" 
                   />
@@ -235,7 +237,7 @@ export const QuickTowingOptions: React.FC<QuickTowingOptionsProps> = ({ style })
             borderColor: theme.colors.border.primary,
           }
         ]}
-        onPress={() => (navigation as any).navigate('TowingRequest')}
+        onPress={() => navigation.navigate('TowingRequest' as never)}
         activeOpacity={0.7}
       >
         <MaterialCommunityIcons 

@@ -7,12 +7,12 @@ export class MessageService {
   // İki kullanıcı arasında sohbet bul veya oluştur
   static async findOrCreateConversation(userId1: string, userId2: string): Promise<IConversation> {
     try {
-      // Mevcut sohbeti ara - participants sırasından bağımsız olarak
+      // Mevcut sohbeti ara - participants sırasından bağımsız olarak ($or kullanarak)
       let conversation = await Conversation.findOne({
-        participants: { 
-          $all: [userId1, userId2],
-          $size: 2
-        }
+        $or: [
+          { participants: [userId1, userId2] },
+          { participants: [userId2, userId1] }
+        ]
       });
 
       // Sohbet yoksa oluştur
@@ -79,9 +79,17 @@ export class MessageService {
       
       await message.save();
       
-      // Conversation'ın lastMessage ve lastMessageAt'ini güncelle
+      // Conversation'ın lastMessage, lastMessageAt ve unreadCount'unu güncelle
       conversation.lastMessage = message._id as any;
       conversation.lastMessageAt = new Date();
+      
+      // UnreadCount'u artır
+      if (!conversation.unreadCount) {
+        conversation.unreadCount = new Map();
+      }
+      const currentCount = conversation.unreadCount.get(receiverId) || 0;
+      conversation.unreadCount.set(receiverId, currentCount + 1);
+      
       await conversation.save();
       
       return message;

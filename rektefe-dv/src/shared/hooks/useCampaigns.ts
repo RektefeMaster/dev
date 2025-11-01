@@ -1,31 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { campaignService } from '@/features/campaigns/services/campaignService';
+import { campaignService, Campaign as CampaignServiceCampaign } from '@/features/campaigns/services/campaignService';
 
-export interface Campaign {
-  id: number;
-  title: string;
-  description: string;
-  company: string;
-  serviceType: string;
-  discount: number;
-  startDate: string;
-  endDate: string;
-  isActive: boolean;
-  imageUrl?: string;
-  image?: string;
-  companyLogo?: string;
-  isVerified?: boolean;
-  rating?: number;
-  reviewCount?: number;
-  location?: string | { city?: string; district?: string; address?: string };
-  contactInfo?: {
-    phone?: string;
-    email?: string;
-    address?: string;
-  };
-  validUntil?: string;
-  conditions?: string[];
-}
+// Re-export Campaign type from service
+export type Campaign = CampaignServiceCampaign;
 
 interface UseCampaignsOptions {
   city?: string;
@@ -63,9 +40,12 @@ export const useCampaigns = (options: UseCampaignsOptions = {}): UseCampaignsRet
 
       // Şehir filtresi
       if (city) {
-        fetchedCampaigns = fetchedCampaigns.filter(campaign =>
-          campaign.location.city.toLowerCase().includes(city.toLowerCase())
-        );
+        fetchedCampaigns = fetchedCampaigns.filter(campaign => {
+          const locationCity = typeof campaign.location === 'string' 
+            ? campaign.location 
+            : campaign.location?.city || '';
+          return locationCity.toLowerCase().includes(city.toLowerCase());
+        });
       }
 
       // Hizmet türü filtresi
@@ -76,8 +56,9 @@ export const useCampaigns = (options: UseCampaignsOptions = {}): UseCampaignsRet
       }
 
       setCampaigns(fetchedCampaigns);
-    } catch (err: any) {
-      setError(err.message || 'Kampanyalar yüklenirken bir hata oluştu');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Kampanyalar yüklenirken bir hata oluştu';
+      setError(errorMessage);
       setCampaigns([]);
     } finally {
       setLoading(false);

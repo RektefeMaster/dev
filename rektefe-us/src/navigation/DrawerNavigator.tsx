@@ -14,6 +14,7 @@ import { SupportScreen } from '@/features/support/screens';
 import { CalendarScreen } from '@/features/appointments/screens';
 import { ProfileScreen, SettingsScreen } from '@/features/profile/screens';
 import WorkingHoursScreen from '@/features/profile/screens/WorkingHoursScreen';
+import { PartsInventoryScreen, PartsReservationsScreen } from '@/features/parts/screens';
 
 const Drawer = createDrawerNavigator<DrawerParamList>();
 
@@ -137,6 +138,23 @@ const CustomDrawerContent = (props: any) => {
           isActive={activeRoute === 'Messages'}
         />
 
+        {user?.serviceCategories?.includes('parts') && (
+          <>
+            <DrawerItem 
+              icon="cube-outline" 
+              label="Parça Envanteri" 
+              onPress={() => handleNavigation('PartsInventory')} 
+              isActive={activeRoute === 'PartsInventory'}
+            />
+            <DrawerItem 
+              icon="list-outline" 
+              label="Parça Rezervasyonları" 
+              onPress={() => handleNavigation('PartsReservations')} 
+              isActive={activeRoute === 'PartsReservations'}
+            />
+          </>
+        )}
+
         <Text style={[styles.menuTitle, { marginTop: spacing.lg }]}>Finansal</Text>
 
         <DrawerItem 
@@ -208,6 +226,7 @@ const CustomDrawerContent = (props: any) => {
 const DrawerNavigator = () => {
   return (
     <Drawer.Navigator
+      id={undefined}
       drawerContent={(props) => <CustomDrawerContent {...props} />}
       screenOptions={{
         headerShown: false,
@@ -230,6 +249,8 @@ const DrawerNavigator = () => {
       <Drawer.Screen name="WorkingHours" component={WorkingHoursScreen} />
       <Drawer.Screen name="Support" component={SupportScreen} />
       <Drawer.Screen name="Settings" component={SettingsScreen} />
+      <Drawer.Screen name="PartsInventory" component={PartsInventoryScreen} />
+      <Drawer.Screen name="PartsReservations" component={PartsReservationsScreen} />
     </Drawer.Navigator>
   );
 };

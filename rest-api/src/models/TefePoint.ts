@@ -156,6 +156,16 @@ export const SERVICE_CATEGORIES: IServiceCategory[] = [
     category: 'bodywork',
     multiplier: 0.01, // %1 - Optimize edilmiş sabit oran
     description: 'Kaporta & Boya'
+  },
+  {
+    category: 'electrical',
+    multiplier: 0.01, // %1 - Optimize edilmiş sabit oran
+    description: 'Elektrik-Elektronik'
+  },
+  {
+    category: 'parts',
+    multiplier: 0.01, // %1 - Optimize edilmiş sabit oran
+    description: 'Yedek Parça'
   }
 ];
 

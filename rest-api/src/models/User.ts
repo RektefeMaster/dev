@@ -306,12 +306,7 @@ const userSchema = new Schema<IUser>({
   },
   serviceCategories: [{
     type: String,
-    enum: [
-      'repair', 'towing', 'wash', 'tire', 'bodywork',
-      'tamir', 'bakim', 'yikama', 'lastik', 'Genel Bakım',
-      'motor', 'fren', 'süspansiyon', 'klima', 'elektrik',
-      'carwash', 'tirehotel', 'maintenance'
-    ],
+    enum: ['repair', 'towing', 'wash', 'tire', 'bodywork', 'electrical', 'parts'],
     default: []
   }],
   experience: {

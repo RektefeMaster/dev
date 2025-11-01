@@ -71,7 +71,7 @@ interface TowingRequest {
 }
 
 const EmergencyTrackingScreen = () => {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const navigation = useNavigation();
   const route = useRoute();
   const { userId, token } = useAuth();
@@ -280,7 +280,7 @@ const EmergencyTrackingScreen = () => {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
         <StatusBar 
-          barStyle={theme.isDark ? 'light-content' : 'dark-content'} 
+          barStyle={isDark ? 'light-content' : 'dark-content'} 
           backgroundColor={theme.colors.background.primary} 
         />
         <Background>
@@ -299,7 +299,7 @@ const EmergencyTrackingScreen = () => {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
         <StatusBar 
-          barStyle={theme.isDark ? 'light-content' : 'dark-content'} 
+          barStyle={isDark ? 'light-content' : 'dark-content'} 
           backgroundColor={theme.colors.background.primary} 
         />
         <Background>
@@ -330,7 +330,7 @@ const EmergencyTrackingScreen = () => {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
       <StatusBar 
-        barStyle={theme.isDark ? 'light-content' : 'dark-content'} 
+        barStyle={isDark ? 'light-content' : 'dark-content'} 
         backgroundColor={theme.colors.background.primary} 
       />
       <Background>

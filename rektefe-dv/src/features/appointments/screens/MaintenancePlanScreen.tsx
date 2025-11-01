@@ -54,6 +54,13 @@ const MaintenancePlanScreen = () => {
   const [showCalendar, setShowCalendar] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  
+  // Electrical-specific state
+  const [electricalSystemType, setElectricalSystemType] = useState('');
+  const [electricalProblemType, setElectricalProblemType] = useState('');
+  const [electricalUrgencyLevel, setElectricalUrgencyLevel] = useState('normal');
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [lastWorkingCondition, setLastWorkingCondition] = useState('');
 
   // Ekrana her girildiğinde state'leri sıfırla - SADECE İLK GİRİŞTE
   useEffect(() => {
@@ -66,7 +73,12 @@ const MaintenancePlanScreen = () => {
         selectedDate !== '' || 
         selectedTime !== '' || 
         notes !== '' || 
-        sharePhone !== false;
+        sharePhone !== false ||
+        electricalSystemType !== '' ||
+        electricalProblemType !== '' ||
+        electricalUrgencyLevel !== 'normal' ||
+        isRecurring !== false ||
+        lastWorkingCondition !== '';
       
       if (!hasAnySelection) {
         setStep(1);
@@ -80,6 +92,12 @@ const MaintenancePlanScreen = () => {
         setShowCalendar(false);
         setCurrentMonth(new Date());
         setSelectedDay(null);
+        // Electrical state reset
+        setElectricalSystemType('');
+        setElectricalProblemType('');
+        setElectricalUrgencyLevel('normal');
+        setIsRecurring(false);
+        setLastWorkingCondition('');
       }
     });
     return unsubscribe;
@@ -97,6 +115,28 @@ const MaintenancePlanScreen = () => {
     { id: 'lastik', name: 'Lastik Servisi', icon: 'tire' },
     { id: 'egzoz-emisyon', name: 'Egzoz & Emisyon', icon: 'smoke' },
     { id: 'arac-yikama', name: 'Araç Yıkama', icon: 'car-wash' },
+  ];
+
+  // Electrical-specific constants
+  const electricalSystems = [
+    { id: 'klima', name: 'Klima', icon: 'snowflake' },
+    { id: 'far', name: 'Far/Lamba', icon: 'lightbulb' },
+    { id: 'alternator', name: 'Alternatör', icon: 'cog' },
+    { id: 'batarya', name: 'Batarya/Aku', icon: 'battery-full' },
+    { id: 'elektrik-araci', name: 'Elektrikli Aygıtlar', icon: 'plugin' },
+    { id: 'sinyal', name: 'Sinyal/Göstergeler', icon: 'speedometer' },
+    { id: 'diger', name: 'Diğer', icon: 'settings' }
+  ];
+
+  const electricalProblems = [
+    { id: 'calismiyor', name: 'Çalışmıyor' },
+    { id: 'arizali-bos', name: 'Arızalı/Boş' },
+    { id: 'ariza-gostergesi', name: 'Arıza Göstergesi' },
+    { id: 'ses-yapiyor', name: 'Ses Yapıyor' },
+    { id: 'isinma-sorunu', name: 'Isınma Sorunu' },
+    { id: 'kisa-devre', name: 'Kısa Devre' },
+    { id: 'tetik-atmiyor', name: 'Tetik Atmıyor' },
+    { id: 'diger', name: 'Diğer' }
   ];
 
   // Araçları getir - useAuth'dan userId kullan
@@ -206,19 +246,20 @@ const MaintenancePlanScreen = () => {
           
           // Frontend hizmet kategorilerini backend formatına çevir
           const serviceCategoryMapping: { [key: string]: string } = {
-            'agir-bakim': 'Genel Bakım',
-            'genel-bakim': 'Genel Bakım', 
-            'alt-takim': 'Genel Bakım',
-            'ust-takim': 'Genel Bakım',
-            'kaporta-boya': 'Genel Bakım',
-            'elektrik-elektronik': 'Genel Bakım',
-            'yedek-parca': 'Genel Bakım',
-            'egzoz-emisyon': 'Genel Bakım',
-            'lastik': 'tamir', // Lastik servisi için tamir kullan
-            'arac-yikama': 'wash' // Araç yıkama için wash kullan
+            'agir-bakim': 'repair',
+            'genel-bakim': 'repair', 
+            'alt-takim': 'repair',
+            'ust-takim': 'repair',
+            'kaporta-boya': 'bodywork',
+            'elektrik-elektronik': 'electrical',
+            'yedek-parca': 'parts',
+            'egzoz-emisyon': 'repair',
+            'lastik': 'tire',
+            'arac-yikama': 'wash',
+            'cekici': 'towing'
           };
           
-          const backendServiceCategory = serviceCategoryMapping[selectedService] || 'Genel Bakım';
+          const backendServiceCategory = serviceCategoryMapping[selectedService] || 'repair';
           
           console.log('🔍 MaintenancePlanScreen: Seçilen hizmet:', selectedService);
           console.log('🔍 MaintenancePlanScreen: Backend kategori:', backendServiceCategory);
@@ -271,7 +312,7 @@ const MaintenancePlanScreen = () => {
       // selectedService zaten kod değeri (agir-bakim, genel-bakim, etc.)
       const backendServiceType = selectedService;
       
-      const appointmentData = {
+      const appointmentData: any = {
         vehicleId: selectedVehicle,
         serviceType: backendServiceType,
         appointmentDate: appointmentDateTime.toISOString(),
@@ -279,6 +320,15 @@ const MaintenancePlanScreen = () => {
         description: notes || 'Bakım randevusu',
         mechanicId: selectedMaster,
       };
+
+      // Electrical-specific fields
+      if (selectedService === 'elektrik-elektronik') {
+        if (electricalSystemType) appointmentData.electricalSystemType = electricalSystemType;
+        if (electricalProblemType) appointmentData.electricalProblemType = electricalProblemType;
+        appointmentData.electricalUrgencyLevel = electricalUrgencyLevel;
+        appointmentData.isRecurring = isRecurring;
+        if (lastWorkingCondition) appointmentData.lastWorkingCondition = lastWorkingCondition;
+      }
 
       console.log('📤 MaintenancePlanScreen: Gönderilen veri:', appointmentData);
 
@@ -332,11 +382,33 @@ const MaintenancePlanScreen = () => {
       Alert.alert('Uyarı', 'Lütfen tarih ve saat seçin');
       return;
     }
-    if (step === 5) {
-      createAppointment();
-    } else {
-      setStep(step + 1);
+    
+    // Electrical hizmeti için özel adım
+    if (step === 4 && selectedService === 'elektrik-elektronik') {
+      setStep(5); // Electrical-specific step
+      return;
     }
+    
+    if (step === 5) {
+      // Electrical için step 5 = electrical details, step 6 = notes/final
+      if (selectedService === 'elektrik-elektronik') {
+        if (!electricalSystemType || !electricalProblemType) {
+          Alert.alert('Uyarı', 'Lütfen elektrik sistemi tipini ve problem tipini seçin');
+          return;
+        }
+        setStep(6); // Notes step for electrical
+      } else {
+        createAppointment(); // Final step for non-electrical
+      }
+      return;
+    }
+    
+    if (step === 6) {
+      createAppointment(); // Final step for electrical
+      return;
+    }
+    
+    setStep(step + 1);
   };
 
   // Geri butonuna basınca normal çalışsın (sadece step'i azalt)
@@ -394,6 +466,12 @@ const MaintenancePlanScreen = () => {
             setShowCalendar(false);
             setCurrentMonth(new Date());
             setSelectedDay(null);
+            // Electrical state reset
+            setElectricalSystemType('');
+            setElectricalProblemType('');
+            setElectricalUrgencyLevel('normal');
+            setIsRecurring(false);
+            setLastWorkingCondition('');
             // Ana sayfaya git
             navigation.navigate('Main', { screen: 'Home' });
           },
@@ -502,9 +580,13 @@ const MaintenancePlanScreen = () => {
   };
 
   const renderStepIndicator = () => {
+    // Electrical için 6 step, diğerleri için 5 step
+    const totalSteps = selectedService === 'elektrik-elektronik' ? 6 : 5;
+    const stepsArray = Array.from({ length: totalSteps }, (_, i) => i + 1);
+    
     return (
       <View style={styles.stepIndicatorContainer}>
-        {[1, 2, 3, 4, 5].map((stepNumber) => (
+        {stepsArray.map((stepNumber) => (
           <View key={stepNumber} style={styles.stepIndicatorWrapper}>
             <View
               style={[
@@ -519,7 +601,7 @@ const MaintenancePlanScreen = () => {
                 <Text style={styles.stepIndicatorText}>{stepNumber}</Text>
               )}
             </View>
-            {stepNumber < 5 && (
+            {stepNumber < totalSteps && (
               <View
                 style={[
                   styles.stepIndicatorLine,
@@ -761,6 +843,136 @@ const MaintenancePlanScreen = () => {
         );
 
       case 5:
+        // Electrical için electrical details step, diğerleri için notes step
+        if (selectedService === 'elektrik-elektronik') {
+          return (
+            <View style={styles.stepContainer}>
+              <Text style={styles.stepTitle}>Elektrik Arıza Detayları</Text>
+              <Text style={styles.stepDescription}>
+                Elektrik arızası hakkında detaylı bilgi verin
+              </Text>
+              
+              <Text style={styles.inputLabel}>Elektrik Sistemi Tipi</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
+                {electricalSystems.map((system) => (
+                  <TouchableOpacity
+                    key={system.id}
+                    style={[
+                      styles.serviceCard,
+                      electricalSystemType === system.id && styles.serviceCardSelected,
+                      { marginRight: 12 }
+                    ]}
+                    onPress={() => setElectricalSystemType(system.id)}
+                  >
+                    <MaterialCommunityIcons
+                      name={system.icon as any}
+                      size={24}
+                      color={electricalSystemType === system.id ? '#fff' : '#0066cc'}
+                    />
+                    <Text
+                      style={[
+                        styles.serviceName,
+                        { fontSize: 12, marginTop: 8 },
+                        electricalSystemType === system.id && styles.serviceNameSelected,
+                      ]}
+                    >
+                      {system.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <Text style={styles.inputLabel}>Problem Tipi</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
+                {electricalProblems.map((problem) => (
+                  <TouchableOpacity
+                    key={problem.id}
+                    style={[
+                      styles.timeSlot,
+                      electricalProblemType === problem.id && styles.timeSlotSelected,
+                    ]}
+                    onPress={() => setElectricalProblemType(problem.id)}
+                  >
+                    <Text
+                      style={[
+                        styles.timeSlotText,
+                        electricalProblemType === problem.id && styles.timeSlotTextSelected,
+                      ]}
+                    >
+                      {problem.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <Text style={styles.inputLabel}>Son Çalışma Durumu (Opsiyonel)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Son çalıştığı durumu belirtin..."
+                value={lastWorkingCondition}
+                onChangeText={setLastWorkingCondition}
+              />
+
+              <View style={styles.phoneShareContainer}>
+                <Text style={styles.phoneShareText}>Tekrarlayan arıza</Text>
+                <Switch
+                  value={isRecurring}
+                  onValueChange={setIsRecurring}
+                  trackColor={{ false: '#e2e8f0', true: '#93c5fd' }}
+                  thumbColor={isRecurring ? '#3b82f6' : '#ffffff'}
+                  ios_backgroundColor="#e2e8f0"
+                />
+              </View>
+
+              <View style={styles.phoneShareContainer}>
+                <Text style={styles.phoneShareText}>Acil durum</Text>
+                <Switch
+                  value={electricalUrgencyLevel === 'acil'}
+                  onValueChange={(value) => setElectricalUrgencyLevel(value ? 'acil' : 'normal')}
+                  trackColor={{ false: '#e2e8f0', true: '#93c5fd' }}
+                  thumbColor={electricalUrgencyLevel === 'acil' ? '#3b82f6' : '#ffffff'}
+                  ios_backgroundColor="#e2e8f0"
+                />
+              </View>
+            </View>
+          );
+        } else {
+          // Notlar step for non-electrical
+          return (
+            <View style={styles.stepContainer}>
+              <Text style={styles.stepTitle}>Notlar ve İletişim</Text>
+              <Text style={styles.stepDescription}>
+                Bakım ile ilgili notlarınızı ekleyin ve iletişim tercihlerinizi belirleyin
+              </Text>
+              <View style={styles.notesContainer}>
+                <TextInput
+                  style={styles.notesInput}
+                  placeholder="Bakım ile ilgili notlarınızı buraya yazın..."
+                  value={notes}
+                  onChangeText={setNotes}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+              </View>
+              <View style={styles.phoneShareContainer}>
+                <Text style={styles.phoneShareText}>
+                  Telefon numaranızı ustayla paylaşın
+                </Text>
+                <Switch
+                  value={sharePhone}
+                  onValueChange={setSharePhone}
+                  trackColor={{ false: '#e2e8f0', true: '#93c5fd' }}
+                  thumbColor={sharePhone ? '#3b82f6' : '#ffffff'}
+                  ios_backgroundColor="#e2e8f0"
+                />
+              </View>
+            </View>
+          );
+        }
+
+      case 6:
+        // Notes step for electrical
         return (
           <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>Notlar ve İletişim</Text>
@@ -851,9 +1063,9 @@ const MaintenancePlanScreen = () => {
             ) : (
               <>
                 <Text style={styles.footerButtonText}>
-                  {step === 5 ? 'Randevu Oluştur' : 'İleri'}
+                  {(step === 5 && selectedService !== 'elektrik-elektronik') || step === 6 ? 'Randevu Oluştur' : 'İleri'}
                 </Text>
-                {step < 5 && (
+                {((step === 5 && selectedService !== 'elektrik-elektronik') || step === 6) ? null : (
                   <Ionicons name="arrow-forward" size={20} color="#fff" />
                 )}
               </>

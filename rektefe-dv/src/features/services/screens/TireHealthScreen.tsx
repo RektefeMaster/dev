@@ -520,7 +520,7 @@ const createStyles = (theme: any) => StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.round,
     marginRight: spacing.sm,
     borderWidth: 1,
   },

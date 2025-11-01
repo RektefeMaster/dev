@@ -172,7 +172,7 @@ export const MechanicCard: React.FC<MechanicCardProps> = ({
 
       {/* Hizmet kategorileri */}
       <View style={styles.servicesContainer}>
-        {mechanic.serviceCategories?.slice(0, 3).map((service, index) => (
+        {mechanic.serviceCategories?.slice(0, 3).map((service: string, index: number) => (
           <View
             key={index}
             style={[styles.serviceTag, { backgroundColor: theme.colors.primary.main + '20' }]}

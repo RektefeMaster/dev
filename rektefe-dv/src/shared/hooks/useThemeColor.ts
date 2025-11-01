@@ -15,7 +15,19 @@ export function useThemeColor(
   if (colorFromProps) {
     return colorFromProps;
   } else {
-    // Fallback to theme colors
-    return themeColors[colorName] || themeColors.primary?.main || '#4B6382';
+    // Fallback to theme colors - try to access nested color values
+    const colorKeys = colorName.split('.');
+    let colorValue: string | undefined;
+    
+    if (colorKeys.length === 1) {
+      // Direct property access - safe property lookup
+      const themeColorsRecord = themeColors as Record<string, unknown>;
+      if (colorName in themeColorsRecord) {
+        const value = themeColorsRecord[colorName];
+        colorValue = typeof value === 'string' ? value : undefined;
+      }
+    }
+    
+    return colorValue || themeColors.primary?.main || '#4B6382';
   }
 } 

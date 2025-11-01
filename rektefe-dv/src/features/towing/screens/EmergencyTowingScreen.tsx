@@ -19,7 +19,7 @@ import { getRealUserLocation } from '@/shared/utils/distanceCalculator';
 import { apiService } from '@/shared/services/api';
 
 const EmergencyTowingScreen = () => {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const navigation = useNavigation();
   const { userId, token, user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -195,8 +195,9 @@ const EmergencyTowingScreen = () => {
     try {
       const response = await apiService.getVehicles();
       
-      if (response.success && response.data && response.data.length > 0) {
-        const vehicle = response.data.find((v: any) => v.isFavorite) || response.data[0];
+      const vehicleList = Array.isArray(response.data) ? response.data : (response.data?.vehicles || []);
+      if (response.success && vehicleList.length > 0) {
+        const vehicle = vehicleList.find((v: any) => v.isFavorite) || vehicleList[0];
         return {
           vehicleType: vehicle.vehicleType || 'binek',
           vehicleBrand: vehicle.brand || 'Bilinmiyor',
@@ -261,7 +262,7 @@ const EmergencyTowingScreen = () => {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
       <StatusBar 
-        barStyle={theme.isDark ? 'light-content' : 'dark-content'} 
+        barStyle={isDark ? 'light-content' : 'dark-content'} 
         backgroundColor={theme.colors.background.primary} 
       />
       <Background>

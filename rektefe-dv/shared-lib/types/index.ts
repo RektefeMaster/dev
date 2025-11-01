@@ -11,6 +11,7 @@ export {
   AppointmentStatus,
   UserType,
   ServiceType,
+  ServiceCategory,
   NotificationType,
   MessageType,
   PaymentStatus,
@@ -24,11 +25,21 @@ export {
   getAppointmentStatusDescription,
   getUserTypeDescription,
   getServiceTypeDescription,
+  getServiceCategoryDescription,
+  getServiceCategoryFromType,
+  getServiceTypeFromCategory,
+  normalizeToServiceCategory,
+  hasValidServiceCategory,
+  normalizeServiceCategories,
   getPriorityDescription,
   getRatingStars,
   isValidAppointmentStatus,
   isValidUserType,
-  isValidServiceType
+  isValidServiceType,
+  isValidServiceCategory,
+  SERVICE_TYPE_TO_CATEGORY,
+  FAULT_CATEGORY_TO_SERVICE_CATEGORY,
+  SERVICE_CATEGORY_TURKISH_NAMES
 } from './enums';
 
 // ===== API RESPONSE TYPES =====

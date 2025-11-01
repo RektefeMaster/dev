@@ -62,6 +62,13 @@ export interface IAppointment extends Document {
   isUrgent?: boolean; // Acil mi?
   specialRequests?: string; // Özel istekler
   
+  // Electrical hizmeti için özel alanlar
+  electricalSystemType?: 'klima' | 'far' | 'alternator' | 'batarya' | 'elektrik-araci' | 'sinyal' | 'diger'; // Elektrik sistemi tipi
+  electricalProblemType?: 'calismiyor' | 'arizali-bos' | 'ariza-gostergesi' | 'ses-yapiyor' | 'isinma-sorunu' | 'kisa-devre' | 'tetik-atmiyor' | 'diger'; // Problem tipi
+  electricalUrgencyLevel?: 'normal' | 'acil'; // Aciliyet seviyesi
+  isRecurring?: boolean; // Tekrarlayan mı?
+  lastWorkingCondition?: string; // Son çalışma durumu
+  
   // Yeni alanlar
   parcaBekleniyor?: boolean;
   kdvDahil?: boolean;
@@ -317,6 +324,28 @@ const AppointmentSchema: Schema = new Schema({
     default: false
   },
   specialRequests: {
+    type: String
+  },
+  
+  // Electrical hizmeti için özel alanlar
+  electricalSystemType: {
+    type: String,
+    enum: ['klima', 'far', 'alternator', 'batarya', 'elektrik-araci', 'sinyal', 'diger']
+  },
+  electricalProblemType: {
+    type: String,
+    enum: ['calismiyor', 'arizali-bos', 'ariza-gostergesi', 'ses-yapiyor', 'isinma-sorunu', 'kisa-devre', 'tetik-atmiyor', 'diger']
+  },
+  electricalUrgencyLevel: {
+    type: String,
+    enum: ['normal', 'acil'],
+    default: 'normal'
+  },
+  isRecurring: {
+    type: Boolean,
+    default: false
+  },
+  lastWorkingCondition: {
     type: String
   },
   

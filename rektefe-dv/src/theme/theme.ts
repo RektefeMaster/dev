@@ -68,6 +68,7 @@ export const createTheme = (isDark: boolean = false) => {
         tertiary: themeColors.text.tertiary,
         quaternary: isDark ? themeColors.text.secondary : '#CDD5DB',
         inverse: themeColors.text.inverse,
+        placeholder: isDark ? themeColors.text.tertiary : '#9CA3AF',
         success: Colors.success,
         warning: Colors.warning,
         error: Colors.error,
@@ -209,12 +210,12 @@ export const createTheme = (isDark: boolean = false) => {
       
       // Font ağırlıkları
       fontWeights: {
-        light: '300',
-        normal: '400',
-        medium: '500',
-        semibold: '600',
-        bold: '700',
-        heavy: '800',
+        light: '300' as const,
+        normal: '400' as const,
+        medium: '500' as const,
+        semibold: '600' as const,
+        bold: '700' as const,
+        heavy: '800' as const,
       },
       
       // Başlıklar

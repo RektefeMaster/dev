@@ -292,12 +292,20 @@ const CustomTabBar = ({ state, descriptors, navigation }: TabBarProps) => {
         label = 'Oteli';
         break;
       case 'Bodywork':
-        icon = 'construct';
+        icon = 'brush';
         label = 'Kaporta';
         break;
       case 'CarWash':
         icon = 'water';
         label = 'Yıkama';
+        break;
+      case 'ElectricalService':
+        icon = 'flask';
+        label = 'Elektrik';
+        break;
+      case 'PartsService':
+        icon = 'settings';
+        label = 'Parça';
         break;
       case 'Messages':
         icon = 'chatbubble';
@@ -457,11 +465,13 @@ const TabNavigator = () => {
         console.log('includes("wash"):', userCapabilities.includes('wash'));
         console.log('includes("tire"):', userCapabilities.includes('tire'));
         console.log('includes("bodywork"):', userCapabilities.includes('bodywork'));
+        console.log('includes("electrical"):', userCapabilities.includes('electrical'));
+        console.log('includes("parts"):', userCapabilities.includes('parts'));
     console.log('='.repeat(60));
   }, [userCapabilities, user?.email, user]);
 
   // Ana hizmeti belirle (herkes için ana sayfa)
-  const getPrimaryService = () => {
+  const getPrimaryService = (): keyof TabParamList => {
     console.log('🎯 getPrimaryService - Her zaman Home (Ana Sayfa)');
     return 'Home';
   };
@@ -490,6 +500,20 @@ const TabNavigator = () => {
           ),
         }}
       />
+
+      {/* Tamir & Bakım Hizmeti */}
+      {userCapabilities.includes('repair') && (
+        <Tab.Screen 
+          name="RepairService" 
+          component={require('../features/services/screens/RepairServiceScreen').default}
+          options={{
+            title: 'Tamir',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="construct" size={size} color={color} />
+            ),
+          }}
+        />
+      )}
 
       {/* Çekici Hizmeti */}
       {userCapabilities.includes('towing') && (
@@ -523,11 +547,53 @@ const TabNavigator = () => {
       {userCapabilities.includes('wash') && (
         <Tab.Screen
           name="CarWash"
-          component={require('../features/carwash/screens/CarWashScreen').default}
+          component={require('../features/wash/screens/WashJobsScreen').default}
           options={{
             title: 'Yıkama',
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="water" size={size} color={color} />
+            ),
+          }}
+        />
+      )}
+
+      {/* Kaporta & Boya Hizmeti */}
+      {userCapabilities.includes('bodywork') && (
+        <Tab.Screen 
+          name="Bodywork" 
+          component={require('../features/bodywork/screens/BodyworkScreen').default}
+          options={{
+            title: 'Kaporta',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="brush" size={size} color={color} />
+            ),
+          }}
+        />
+      )}
+
+      {/* Elektrik & Elektronik Hizmeti */}
+      {userCapabilities.includes('electrical') && (
+          <Tab.Screen 
+          name="ElectricalService" 
+          component={require('../features/services/screens/RepairServiceScreen').default}
+          options={{
+            title: 'Elektrik',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="flask" size={size} color={color} />
+            ),
+          }}
+        />
+      )}
+
+      {/* Yedek Parça Hizmeti */}
+      {userCapabilities.includes('parts') && (
+        <Tab.Screen 
+          name="PartsService" 
+          component={require('../features/services/screens/RepairServiceScreen').default}
+          options={{
+            title: 'Parça',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="settings" size={size} color={color} />
             ),
           }}
         />

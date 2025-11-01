@@ -72,7 +72,7 @@ export class AuthService {
     if (finalUserType === 'mechanic') {
       // Mechanic özelliklerini User modelinde güncelle
       user.username = username || `${normalizedEmail.split('@')[0]}_${Date.now()}`;
-      user.serviceCategories = serviceCategories || specialties || ['Genel Bakım'];
+      user.serviceCategories = serviceCategories || specialties || ['repair'];
       user.experience = experience || 0;
       user.rating = 0;
       user.ratingCount = 0;

@@ -71,7 +71,7 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const flatListRef = useRef<FlatList>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastMessageIdRef = useRef<string | null>(null);
 
   const fetchMessages = useCallback(async () => {
@@ -225,10 +225,16 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
 
       // API service kullanarak mesaj gönder
       const response = await apiService.sendMessage({
+        _id: '',
+        senderId: userId || '',
         receiverId: otherParticipant._id,
+        conversationId: resolvedConversationId || '',
         content: messageContent,
-        messageType: 'text'
-      });
+        messageType: 'text',
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      } as any);
 
       if (response.success) {
         // Temp mesajı kaldır, gerçek mesaj polling ile gelecek

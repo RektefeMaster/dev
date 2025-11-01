@@ -1,4 +1,4 @@
-import { api } from '@/shared/services/api';
+import { apiService } from '@/shared/services/api';
 
 // Campaign interface - backend'den alınacak
 export interface Campaign {
@@ -49,7 +49,7 @@ class CampaignService {
       if (filters.limit) queryParams.append('limit', filters.limit.toString());
       if (filters.offset) queryParams.append('offset', filters.offset.toString());
 
-      const response = await api.get(`${this.baseUrl}?${queryParams.toString()}`);
+      const response = await apiService.get(`${this.baseUrl}?${queryParams.toString()}`);
       
       if (response.success && response.data) {
         return response.data;
@@ -130,7 +130,7 @@ class CampaignService {
     campaign?: Campaign;
   }> {
     try {
-      const response = await api.post(`${this.baseUrl}`, campaignData);
+      const response = await apiService.post(`${this.baseUrl}`, campaignData);
       
       if (response.success) {
         return {
@@ -161,7 +161,7 @@ class CampaignService {
     campaign?: Campaign;
   }> {
     try {
-      const response = await api.put(`${this.baseUrl}/${id}`, campaignData);
+      const response = await apiService.post(`${this.baseUrl}/${id}`, campaignData);
       
       if (response.success) {
         return {
@@ -191,7 +191,7 @@ class CampaignService {
     message: string;
   }> {
     try {
-      const response = await api.delete(`${this.baseUrl}/${id}`);
+      const response = await apiService.get(`${this.baseUrl}/${id}`, { params: { _method: 'DELETE' } });
       
       if (response.success) {
         return {
@@ -223,7 +223,7 @@ class CampaignService {
     totalClicks: number;
   }> {
     try {
-      const response = await api.get(`${this.baseUrl}/stats`);
+      const response = await apiService.get(`${this.baseUrl}/stats`);
       
       if (response.success && response.data) {
         return response.data;

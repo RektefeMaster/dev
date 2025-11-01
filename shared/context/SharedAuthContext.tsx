@@ -143,10 +143,11 @@ export const SharedAuthProvider = ({
       const userResponse = await config.apiService.request('GET', '/users/profile');
       
       if (userResponse.success && userResponse.data) {
+        const responseData = userResponse.data as Record<string, unknown>;
         const userData: SharedUser = {
-          ...userResponse.data,
+          ...(typeof responseData === 'object' && responseData !== null ? responseData : {}),
           userType: config.userType
-        };
+        } as SharedUser;
         
         setUser(userData);
         await AsyncStorage.setItem(config.storageKeys.USER_DATA, JSON.stringify(userData));

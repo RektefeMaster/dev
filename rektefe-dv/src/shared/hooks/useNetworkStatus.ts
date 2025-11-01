@@ -23,16 +23,21 @@ export const useNetworkStatus = () => {
     try {
       // Basit bir GET request ile connectivity test et
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 saniye timeout
+      const timeoutHandle = setTimeout(() => {
+        controller.abort();
+      }, 5000); // 5 saniye timeout
 
-      const response = await fetch('https://dev-production-8a3d.up.railway.app/health', {
-        method: 'HEAD',
-        signal: controller.signal,
-        cache: 'no-cache',
-      });
-
-      clearTimeout(timeoutId);
-      return response.ok;
+      try {
+        const response = await fetch('https://dev-production-8a3d.up.railway.app/health', {
+          method: 'HEAD',
+          signal: controller.signal,
+        } as RequestInit);
+        clearTimeout(timeoutHandle);
+        return response.ok;
+      } catch (fetchError) {
+        clearTimeout(timeoutHandle);
+        throw fetchError;
+      }
     } catch (error) {
       return false;
     }
@@ -59,8 +64,7 @@ export const useNetworkStatus = () => {
     } else if (!wasConnected && isConnected) {
       Alert.alert(
         'Bağlantı Yeniden Kuruldu',
-        'İnternet bağlantınız yeniden kuruldu.',
-        [{ text: 'Tamam' }]
+        'İnternet bağlantınız yeniden kuruldu.'
       );
     }
   };
@@ -70,7 +74,7 @@ export const useNetworkStatus = () => {
     updateNetworkState();
 
     // Periyodik connectivity check (30 saniyede bir)
-    const interval = setInterval(updateNetworkState, 30000);
+    const interval: ReturnType<typeof setInterval> = setInterval(updateNetworkState, 30000);
 
     return () => {
       clearInterval(interval);
@@ -90,12 +94,15 @@ export const withNetworkCheck = async <T>(
   onNetworkError?: () => void
 ): Promise<T> => {
   // Basit connectivity check
-  const isConnected = await fetch('https://www.google.com/favicon.ico', {
-    method: 'HEAD',
-    cache: 'no-cache',
-  })
-    .then(response => response.ok)
-    .catch(() => false);
+  let isConnected = false;
+  try {
+    const response = await fetch('https://www.google.com/favicon.ico', {
+      method: 'HEAD',
+    } as RequestInit);
+    isConnected = response.ok;
+  } catch {
+    isConnected = false;
+  }
 
   if (!isConnected) {
     const error = new Error('İnternet bağlantısı yok');

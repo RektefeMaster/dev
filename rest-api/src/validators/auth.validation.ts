@@ -27,7 +27,7 @@ export const registerSchema = Joi.object({
   phone: Joi.string().optional(),
   experience: Joi.number().min(0).optional(),
   specialties: Joi.array().items(Joi.string()).optional(),
-  serviceCategories: Joi.array().items(Joi.string().valid('towing', 'repair', 'wash', 'tire')).optional(),
+  serviceCategories: Joi.array().items(Joi.string().valid('towing', 'repair', 'wash', 'tire', 'bodywork', 'electrical', 'parts')).optional(),
   location: Joi.object({
     address: Joi.string().optional(),
     city: Joi.string().optional()

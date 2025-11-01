@@ -49,7 +49,7 @@ export const vehicleService = {
     return api.patch(`/vehicles/${vehicleId}/favorite`, { userId, isFavorite });
   },
 
-  getFavoriteVehicle: async () => {
+  getFavoriteVehicle: async (): Promise<any> => {
     const response = await api.get('/vehicles');
     return null;
   }

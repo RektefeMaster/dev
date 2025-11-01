@@ -741,14 +741,14 @@ const FaultReportDetailScreen = () => {
                 console.log('🔍 selectedQuote.mechanicId null, quotes array\'inde aranıyor...');
                 
                 // Önce accepted quote'u bul
-                let matchingQuote = faultReport.quotes.find(quote => 
+                let matchingQuote = faultReport.quotes.find((quote: any) => 
                   quote.status === 'accepted' && 
                   quote.quoteAmount === faultReport.selectedQuote.quoteAmount
                 );
                 
                 // Accepted bulunamazsa, aynı fiyata sahip herhangi bir quote'u kullan
                 if (!matchingQuote) {
-                  matchingQuote = faultReport.quotes.find(quote => 
+                  matchingQuote = faultReport.quotes.find((quote: any) => 
                     quote.quoteAmount === faultReport.selectedQuote.quoteAmount
                   );
                 }

@@ -18,6 +18,10 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '@/navigation/AppNavigator';
+
+type MechanicDetailScreenNavigationProp = StackNavigationProp<RootStackParamList, 'MechanicDetail'>;
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/context/ThemeContext';
@@ -82,7 +86,7 @@ const TAB_BAR_HEIGHT = 48;
 
 const MechanicDetailScreen: React.FC = () => {
   // --- Hooks ---
-  const navigation = useNavigation();
+  const navigation = useNavigation<MechanicDetailScreenNavigationProp>();
   const route = useRoute();
   const { theme } = useTheme();
   const routeParams = route.params as { mechanic: Mechanic } | undefined;
@@ -300,7 +304,8 @@ const MechanicDetailScreen: React.FC = () => {
   const handleMessage = () => {
     if (!mechanicDetails) return;
     
-    navigation.navigate('ChatScreen' as never, {
+    navigation.navigate('ChatScreen', {
+      conversationId: '',
       otherParticipant: {
         _id: mechanicDetails._id || mechanicDetails.id,
         name: mechanicDetails.name || '',
@@ -308,7 +313,7 @@ const MechanicDetailScreen: React.FC = () => {
         avatar: mechanicDetails.avatar,
         userType: 'mechanic'
       }
-    } as never);
+    });
   };
 
   const handleAppointment = () => {

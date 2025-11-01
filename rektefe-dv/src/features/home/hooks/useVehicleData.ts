@@ -19,7 +19,7 @@ export const useVehicleData = () => {
     );
 
     if (data && data.success && data.data) {
-      const vehicleList = data.data;
+      const vehicleList = Array.isArray(data.data) ? data.data : (data.data.vehicles || []);
       setVehicles(vehicleList);
       
       // Favori aracı bul

@@ -3,7 +3,7 @@
  * PLAN.md'de belirtildiği gibi her hizmet türü için farklı terminoloji kullanılır
  */
 
-export type ServiceCategory = 'repair' | 'wash' | 'tire' | 'towing' | 'bodywork';
+export type ServiceCategory = 'repair' | 'wash' | 'tire' | 'towing' | 'bodywork' | 'electrical' | 'parts';
 
 /**
  * Ustanın serviceCategories dizisinden ana hizmet kategorisini belirler

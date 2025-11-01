@@ -159,7 +159,7 @@ const ProfileScreen = () => {
         if (response.data.user) {
           setUser(response.data.user);
         } else {
-          setUser(prev => ({ 
+          setUser((prev: any) => ({ 
             ...prev, 
             [type === 'avatar' ? 'avatar' : 'cover']: newImageUrl 
           }));
@@ -280,14 +280,14 @@ const ProfileScreen = () => {
           onPress: async () => {
             try {
               // Loading göstergesi için kısa bir gecikme
-              await new Promise(resolve => setTimeout(resolve, 500));
+              await new Promise<void>(resolve => setTimeout(resolve, 500));
               
               await logout();
               
               // Logout sonrası Auth ekranına yönlendir
               navigation.reset({
                 index: 0,
-                routes: [{ name: 'Auth' }],
+                routes: [{ name: 'Auth' as never }],
               });
             } catch (error) {
               // Hata durumunda kullanıcıyı bilgilendir

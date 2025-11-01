@@ -1202,7 +1202,7 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
     // Aynı faultReportId ile zaten randevu var mı kontrol et
     const existingAppointment = await Appointment.findOne({
       faultReportId: faultReportId,
-      status: { $nin: ['cancelled', 'completed'] }
+      status: { $nin: ['IPTAL_EDILDI', 'TAMAMLANDI'] } // FIXED: Enum değerleri kullan
     });
 
     if (existingAppointment) {
@@ -1369,7 +1369,7 @@ async function findNearbyMechanics(
       email: user.email,
       phone: user.phone || '',
       // location kaldırıldı
-      serviceCategories: user.serviceCategories || ['Genel Bakım'],
+      serviceCategories: user.serviceCategories || ['repair'],
       supportedBrands: (user as any).supportedBrands || user.vehicleBrands || ['Genel'],
       isAvailable: user.isAvailable || true
     }));

@@ -1375,7 +1375,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     lineHeight: 14,
-    numberOfLines: 2,
   },
   washCardContent: {
     padding: 16,
@@ -1394,7 +1393,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontWeight: '500',
     lineHeight: 18,
-    numberOfLines: 2,
   },
   washPriceContainer: {
     flexDirection: 'row',
@@ -1439,7 +1437,6 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     fontWeight: '500',
     flex: 1,
-    numberOfLines: 1,
   },
   washTrackButton: {
     flexDirection: 'row',
@@ -1696,7 +1693,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     flexWrap: 'wrap',
     lineHeight: 16,
-    numberOfLines: 2,
   },
   activeTabText: {
     color: '#007AFF',

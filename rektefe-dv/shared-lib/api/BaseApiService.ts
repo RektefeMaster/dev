@@ -321,6 +321,21 @@ export class BaseApiService {
 
   // ===== COMMON API METHODS =====
 
+  public async request(method: string, url: string, data?: any): Promise<ApiResponse> {
+    try {
+      const config: AxiosRequestConfig = {
+        method: method.toLowerCase() as any,
+        url,
+        data
+      };
+      
+      const response = await this.api(config);
+      return response.data;
+    } catch (error: any) {
+      return this.handleError(error);
+    }
+  }
+
   protected async get<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
     try {
       const response = await this.api.get(url, config);

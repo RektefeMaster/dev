@@ -3,6 +3,7 @@ import { auth } from '../middleware/optimizedAuth';
 import { Appointment } from '../models/Appointment';
 import { User } from '../models/User';
 import { Types } from 'mongoose';
+import { AppointmentService } from '../services/appointment.service';
 
 const router = Router();
 
@@ -100,23 +101,29 @@ router.put('/:appointmentId/status', auth, async (req: Request, res: Response) =
       });
     }
 
-    // Durum geçmişini güncelle
+    // CRITICAL FIX: updateAppointmentStatus kullanarak valid transition kontrolü yap
+    const updatedAppointment = await AppointmentService.updateAppointmentStatus(
+      appointmentId,
+      status,
+      undefined, // rejectionReason
+      notes      // mechanicNotes
+    );
+    
+    // Status history'yi manuel ekle (updateAppointmentStatus içinde yok)
     const statusHistoryEntry = {
       status,
       timestamp: new Date(),
       mechanicId,
       notes: notes || ''
     };
-
-    // Randevuyu güncelle
-    const updatedAppointment = await Appointment.findByIdAndUpdate(
-      appointmentId,
-      {
-        $set: { status },
-        $push: { statusHistory: statusHistoryEntry }
-      },
-      { new: true }
-    );
+    
+    if (updatedAppointment.statusHistory) {
+      updatedAppointment.statusHistory.push(statusHistoryEntry);
+    } else {
+      updatedAppointment.statusHistory = [statusHistoryEntry];
+    }
+    
+    await updatedAppointment.save();
 
     // Müşteri bilgilerini getir
     const customer = await User.findById(appointment.userId);

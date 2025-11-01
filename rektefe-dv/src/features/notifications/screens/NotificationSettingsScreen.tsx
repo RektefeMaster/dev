@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { apiService } from '@/shared/services/api';
-import { notificationService, NotificationSettings } from '../services/notificationService';
+import { NotificationService, NotificationSettings } from '../services/notificationService';
 
 const NotificationSettingsScreen = ({ navigation }: any) => {
   const { isDark, colors: themeColors } = useTheme();
@@ -79,7 +79,7 @@ const NotificationSettingsScreen = ({ navigation }: any) => {
 
   const sendTestNotification = async () => {
     try {
-      await notificationService.sendTestNotification();
+      await NotificationService.getInstance().sendTestNotification();
       Alert.alert('Başarılı', 'Test bildirimi gönderildi!');
     } catch (error) {
       Alert.alert('Hata', 'Test bildirimi gönderilemedi');

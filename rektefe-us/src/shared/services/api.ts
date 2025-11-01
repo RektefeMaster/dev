@@ -2631,6 +2631,235 @@ export const ReportService = {
   }
 };
 
+// ===== PARTS MARKETPLACE SERVICE =====
+
+export const PartsService = {
+  /**
+   * Ustanın parçalarını listele
+   */
+  async getMechanicParts(filters?: { isPublished?: boolean; isActive?: boolean; category?: string }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get('/parts/mechanic', { params: filters });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get mechanic parts error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Parçalar yüklenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Yeni parça ekle
+   */
+  async createPart(data: {
+    partName: string;
+    brand: string;
+    partNumber?: string;
+    description?: string;
+    photos: string[];
+    category: string;
+    compatibility: {
+      makeModel: string[];
+      years: { start: number; end: number };
+      engine?: string[];
+      vinPrefix?: string[];
+      notes?: string;
+    };
+    stock: {
+      quantity: number;
+      lowThreshold: number;
+    };
+    pricing: {
+      unitPrice: number;
+      oldPrice?: number;
+      currency: string;
+      isNegotiable: boolean;
+    };
+    condition: string;
+    warranty?: {
+      months: number;
+      description: string;
+    };
+    isPublished?: boolean;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post('/parts', data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Create part error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Parça oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Parça güncelle
+   */
+  async updatePart(partId: string, data: any): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.put(`/parts/${partId}`, data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Update part error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Parça güncellenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Market'te parça ara
+   */
+  async searchParts(filters?: {
+    query?: string;
+    category?: string;
+    makeModel?: string;
+    year?: number;
+    vin?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    condition?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get('/parts/market', { params: filters });
+      return response.data;
+    } catch (error: any) {
+      console.error('Search parts error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Arama yapılamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Parça detayını getir
+   */
+  async getPartDetail(partId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get(`/parts/${partId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Get part detail error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Parça detayı yüklenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Rezervasyon oluştur
+   */
+  async createReservation(data: {
+    partId: string;
+    vehicleId?: string;
+    quantity: number;
+    delivery: {
+      method: string;
+      address?: string;
+    };
+    payment: {
+      method: string;
+    };
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post('/parts/reserve', data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Create reservation error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Rezervasyon oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Rezervasyonu onayla
+   */
+  async approveReservation(reservationId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/parts/reservations/${reservationId}/approve`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Approve reservation error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Rezervasyon onaylanamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Rezervasyonu iptal et
+   */
+  async cancelReservation(reservationId: string, reason?: string, cancelledBy?: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/parts/reservations/${reservationId}/cancel`, {
+        reason,
+        cancelledBy
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Cancel reservation error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Rezervasyon iptal edilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Usta rezervasyonlarını getir
+   */
+  async getMechanicReservations(filters?: { status?: string }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get('/parts/mechanic/reservations', { params: filters });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get mechanic reservations error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Rezervasyonlar yüklenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Kullanıcı rezervasyonlarını getir
+   */
+  async getMyReservations(filters?: { status?: string }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get('/parts/my-reservations', { params: filters });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get my reservations error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Rezervasyonlar yüklenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  }
+};
+
 // ===== EXPORT ALL SERVICES =====
 
 const apiService = {
@@ -2649,6 +2878,7 @@ const apiService = {
   BodyworkService,
   CarWashService,
   ReportService,
+  PartsService,
   // Spread all service methods to top level for backward compatibility
   ...AuthService,
   ...AppointmentService,
@@ -2664,6 +2894,7 @@ const apiService = {
   ...BodyworkService,
   ...CarWashService,
   ...ReportService,
+  ...PartsService,
   handleError: AppointmentService.handleError,
   // Backward compatibility aliases
   getWashJobs: CarWashService.getCarWashJobs,

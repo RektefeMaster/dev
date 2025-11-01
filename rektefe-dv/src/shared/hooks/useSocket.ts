@@ -70,7 +70,7 @@ export const useSocket = (options: UseSocketOptions = {}) => {
   
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
     onNotification,

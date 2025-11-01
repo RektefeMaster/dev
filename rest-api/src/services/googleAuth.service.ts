@@ -2,15 +2,16 @@ import { OAuth2Client } from 'google-auth-library';
 import { User } from '../models/User';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import { JWT_SECRET } from '../config';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-
-// Google OAuth client ID'leri
-const GOOGLE_CLIENT_IDS = [
-  '310108124458.apps.googleusercontent.com',      // iOS
-  '509841981751-ohittnea1ssau3e30gg5tltb1emh1g1c.apps.googleusercontent.com', // Android
-  '509841981751-k21fnh03fhdfr6kc9va2u7ftr7cpne7g.apps.googleusercontent.com'  // Web
-];
+// Google OAuth client ID'leri - Environment variable'dan al veya default kullan
+const GOOGLE_CLIENT_IDS: string[] = process.env.GOOGLE_CLIENT_IDS 
+  ? process.env.GOOGLE_CLIENT_IDS.split(',') 
+  : [
+      '310108124458.apps.googleusercontent.com',      // iOS
+      '509841981751-ohittnea1ssau3e30gg5tltb1emh1g1c.apps.googleusercontent.com', // Android
+      '509841981751-k21fnh03fhdfr6kc9va2u7ftr7cpne7g.apps.googleusercontent.com'  // Web
+    ];
 
 export class GoogleAuthService {
   // Google token'ını doğrula
@@ -155,7 +156,7 @@ export class GoogleAuthService {
       // Mechanic için ek bilgileri User modelinde sakla
       if (userType === 'mechanic') {
         user.username = `${googleUser.email.split('@')[0]}_${Date.now()}`;
-        user.serviceCategories = ['Genel Bakım'];
+        user.serviceCategories = ['repair'];
         user.experience = 0;
         user.rating = 0;
         user.ratingCount = 0;

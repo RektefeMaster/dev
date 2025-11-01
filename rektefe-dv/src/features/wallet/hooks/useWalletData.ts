@@ -45,19 +45,19 @@ export const useWalletData = () => {
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
       
-      const monthlyTransactions = transactions.filter(transaction => {
+      const monthlyTransactions = transactions.filter((transaction: any) => {
         const transactionDate = new Date(transaction.date);
         return transactionDate.getMonth() === currentMonth && 
                transactionDate.getFullYear() === currentYear;
       });
       
       const totalSpent = monthlyTransactions
-        .filter(t => t.type === 'debit')
-        .reduce((sum, t) => sum + t.amount, 0);
+        .filter((t: any) => t.type === 'debit')
+        .reduce((sum: number, t: any) => sum + t.amount, 0);
       
       const totalIncome = monthlyTransactions
-        .filter(t => t.type === 'credit')
-        .reduce((sum, t) => sum + t.amount, 0);
+        .filter((t: any) => t.type === 'credit')
+        .reduce((sum: number, t: any) => sum + t.amount, 0);
       
       const monthlySavings = totalIncome - totalSpent;
       

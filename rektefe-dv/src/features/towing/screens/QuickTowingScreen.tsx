@@ -48,7 +48,7 @@ const QuickTowingScreen = () => {
             </Text>
             <TouchableOpacity
               style={styles.emergencyButton}
-              onPress={() => navigation.navigate('EmergencyTowing')}
+              onPress={() => navigation.navigate('EmergencyTowing' as never)}
               activeOpacity={0.8}
             >
               <MaterialCommunityIcons 

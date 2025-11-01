@@ -476,58 +476,6 @@ export interface UpdateEntity<T> {
 
 // ===== NAVIGATION TYPES =====
 
-export type RootStackParamList = {
-  Onboarding: undefined;
-  Auth: undefined;
-  EmailVerification: undefined;
-  ForgotPassword: undefined;
-  ResetPassword: undefined;
-  Main: undefined;
-  ChatScreen: {
-    conversationId: string;
-    otherParticipant: {
-      _id: string;
-      name: string;
-      surname: string;
-      avatar?: string;
-      userType: string;
-    };
-  };
-  NewMessage: undefined;
-  AppointmentDetail: { appointmentId: string };
-  Appointments: undefined;
-  Notifications: undefined;
-  NotificationSettings: undefined;
-  Messages: undefined;
-  Wallet: undefined;
-  Support: undefined;
-  FinancialTracking: undefined;
-  Calendar: undefined;
-  Profile: undefined;
-  EditProfile: undefined;
-  WorkingHours: undefined;
-  Settings: undefined;
-  Security: undefined;
-  ServiceAreas: undefined;
-  HelpCenter: undefined;
-  About: undefined;
-  FaultReports: undefined;
-  FaultReportDetail: { faultReportId: string };
-  TowingService: undefined;
-  RepairService: undefined;
-  WashService: undefined;
-  TireService: undefined;
-  EmergencyNotification: undefined;
-  Reports: undefined;
-  EndOfDay: undefined;
-  Customer: undefined;
-  QuickQuote: undefined;
-  Suppliers: undefined;
-  VehicleHistory: undefined;
-  ServiceCatalog: undefined;
-  Reviews: undefined;
-};
-
 // ===== TAB NAVIGATION TYPES =====
 export type TabParamList = {
   Home: undefined;
@@ -538,6 +486,8 @@ export type TabParamList = {
   TireHotel: undefined;
   Bodywork: undefined;
   CarWash: undefined;
+  ElectricalService: undefined;
+  PartsService: undefined;
   Messages: undefined;
   Reports: undefined;
   Wallet: undefined;
@@ -591,6 +541,24 @@ export type RootStackParamList = {
   WashJobDetail: { jobId: string };
   WashProviderSetup: undefined;
   Inventory: undefined;
+  PartsInventory: undefined;
+  PartsReservations: undefined;
+};
+
+// ===== DRAWER NAVIGATION TYPES =====
+export type DrawerParamList = {
+  MainTabs: undefined;
+  Messages: undefined;
+  Calendar: undefined;
+  FaultReports: undefined;
+  Wallet: undefined;
+  FinancialTracking: undefined;
+  Profile: undefined;
+  WorkingHours: undefined;
+  Support: undefined;
+  Settings: undefined;
+  PartsInventory: undefined;
+  PartsReservations: undefined;
 };
 
 // ===== LEGACY TYPE ALIASES =====

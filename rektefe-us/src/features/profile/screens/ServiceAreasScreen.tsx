@@ -37,7 +37,10 @@ export default function ServiceAreasScreen() {
           'repair': 'tamir-bakim',
           'wash': 'arac-yikama',
           'tire': 'lastik',
-          'towing': 'cekici'
+          'towing': 'cekici',
+          'bodywork': 'kaporta-boya',
+          'electrical': 'elektrik-elektronik',
+          'parts': 'yedek-parca'
         };
         return reverseMapping[cat] || cat;
       });
@@ -55,8 +58,22 @@ export default function ServiceAreasScreen() {
     { 
       id: 'tamir-bakim', 
       name: 'Tamir Bakım', 
-      description: 'Genel bakım, ağır bakım, alt takım, üst takım, elektronik elektrik', 
+      description: 'Genel bakım, ağır bakım, alt takım, üst takım, egzoz', 
       icon: 'construct-outline', 
+      isSelected: false 
+    },
+    { 
+      id: 'elektrik-elektronik', 
+      name: 'Elektrik & Elektronik', 
+      description: 'Elektrik ve elektronik arızalar', 
+      icon: 'flask-outline', 
+      isSelected: false 
+    },
+    { 
+      id: 'yedek-parca', 
+      name: 'Yedek Parça', 
+      description: 'Yedek parça satış ve montaj', 
+      icon: 'settings-outline', 
       isSelected: false 
     },
     { 
@@ -78,6 +95,13 @@ export default function ServiceAreasScreen() {
       name: 'Çekici', 
       description: 'Arızalı araç çekme, yol yardımı, kaza çekici hizmetleri', 
       icon: 'car-outline', 
+      isSelected: false 
+    },
+    { 
+      id: 'kaporta-boya', 
+      name: 'Kaporta & Boya', 
+      description: 'Kaporta düzeltme, boya işleri, çizik giderme', 
+      icon: 'brush-outline', 
       isSelected: false 
     },
   ];

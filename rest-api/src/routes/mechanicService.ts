@@ -534,7 +534,7 @@ router.put('/mechanic/:id', auth, async (req: Request, res: Response) => {
       ...updateFields,
       serviceCategories: updateFields.serviceCategories && updateFields.serviceCategories.length > 0 
         ? updateFields.serviceCategories 
-        : ['Genel Bakım'],
+        : ['repair'],
       vehicleBrands: updateFields.vehicleBrands && updateFields.vehicleBrands.length > 0 
         ? updateFields.vehicleBrands 
         : ['Genel'],

@@ -93,12 +93,7 @@ const mechanicSchema = new Schema<IMechanic>({
   vehicleBrands: [{ type: String, default: ['Genel'] }], // Bakabileceği/tamir edebileceği araç markaları
   serviceCategories: [{ 
     type: String, 
-    enum: [
-      'repair', 'towing', 'wash', 'tire', 'bodywork',
-      'tamir', 'bakim', 'yikama', 'lastik', 'Genel Bakım',
-      'motor', 'fren', 'süspansiyon', 'klima', 'elektrik',
-      'carwash', 'tirehotel', 'maintenance'
-    ],
+    enum: ['repair', 'towing', 'wash', 'tire', 'bodywork', 'electrical', 'parts'],
     default: ['repair'] 
   }], // Ana hizmet kategorileri
   experience: { type: Number, default: 0 },

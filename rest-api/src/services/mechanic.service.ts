@@ -225,8 +225,8 @@ export class MechanicService {
           ratingCount: user.ratingCount || 0,
           totalServices: user.totalServices || 0,
           isAvailable: user.isAvailable || true,
-          serviceCategories: user.serviceCategories || ['Genel Bakım'],
-          specialties: user.serviceCategories || ['Genel Bakım'],
+          serviceCategories: user.serviceCategories || ['repair'],
+          specialties: user.serviceCategories || ['repair'],
           location: {
             city: fixedLocation.city || user.city || '',
             coordinates: fixedLocation.coordinates,
@@ -445,7 +445,7 @@ export class MechanicService {
             ratingCount: user.ratingCount || 0,
             totalServices: user.totalServices || 0,
             isAvailable: user.isAvailable || true,
-            serviceCategories: user.serviceCategories || ['Genel Bakım'],
+            serviceCategories: user.serviceCategories || ['repair'],
             location: user.location || {
               city: '',
               district: '',

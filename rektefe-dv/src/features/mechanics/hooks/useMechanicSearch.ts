@@ -123,7 +123,7 @@ export const useMechanicSearch = () => {
         mechanic.name.toLowerCase().includes(query) ||
         mechanic.surname.toLowerCase().includes(query) ||
         mechanic.city.toLowerCase().includes(query) ||
-        mechanic.serviceCategories?.some(cat => 
+        mechanic.serviceCategories?.some((cat: string) => 
           cat.toLowerCase().includes(query)
         ) ||
         mechanic.bio?.toLowerCase().includes(query) ||
@@ -134,7 +134,7 @@ export const useMechanicSearch = () => {
     // Hizmet türü filtresi
     if (selectedService) {
       filtered = filtered.filter(mechanic =>
-        mechanic.serviceCategories?.some(cat =>
+        mechanic.serviceCategories?.some((cat: string) =>
           cat.toLowerCase().includes(selectedService.toLowerCase())
         )
       );
