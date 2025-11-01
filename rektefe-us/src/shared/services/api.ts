@@ -226,9 +226,28 @@ export const AuthService = {
       return response.data;
     } catch (error: any) {
       console.error('Register error:', error);
+      
+      // Backend'den gelen hata mesajını yakala
+      if (error.response?.data?.message) {
+        return createErrorResponse(
+          error.response.data.error?.code || ErrorCode.INTERNAL_SERVER_ERROR,
+          error.response.data.message,
+          error.response?.data?.error?.details
+        );
+      }
+      
+      // Validation hatası varsa
+      if (error.response?.data?.error?.message) {
+        return createErrorResponse(
+          ErrorCode.VALIDATION_FAILED,
+          error.response.data.error.message,
+          error.response?.data?.error?.details
+        );
+      }
+      
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
-        'Kayıt işlemi sırasında bir hata oluştu',
+        error.message || 'Kayıt işlemi sırasında bir hata oluştu',
         error.response?.data?.error?.details
       );
     }

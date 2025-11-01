@@ -27,10 +27,32 @@ export const registerSchema = Joi.object({
   phone: Joi.string().optional(),
   experience: Joi.number().min(0).optional(),
   specialties: Joi.array().items(Joi.string()).optional(),
-  serviceCategories: Joi.array().items(Joi.string().valid('towing', 'repair', 'wash', 'tire', 'bodywork', 'electrical', 'parts')).optional(),
+  serviceCategories: Joi.array()
+    .items(Joi.string().valid('towing', 'repair', 'wash', 'tire', 'bodywork', 'electrical', 'parts'))
+    .when('userType', {
+      is: 'mechanic',
+      then: Joi.array().min(1).required().messages({
+        'any.required': 'En az bir hizmet kategorisi seçmelisiniz',
+        'array.min': 'En az bir hizmet kategorisi seçmelisiniz'
+      }),
+      otherwise: Joi.array().optional()
+    })
+    .messages({
+      'array.base': 'Hizmet kategorileri dizi formatında olmalıdır',
+      'any.only': 'Geçersiz hizmet kategorisi'
+    }),
   location: Joi.object({
-    address: Joi.string().optional(),
-    city: Joi.string().optional()
+    city: Joi.string().optional().allow(''),
+    district: Joi.string().optional().allow(''),
+    neighborhood: Joi.string().optional().allow(''),
+    street: Joi.string().optional().allow(''),
+    building: Joi.string().optional().allow(''),
+    floor: Joi.string().optional().allow(''),
+    apartment: Joi.string().optional().allow(''),
+    coordinates: Joi.object({
+      latitude: Joi.number().optional(),
+      longitude: Joi.number().optional()
+    }).optional()
   }).optional()
 });
 

@@ -167,9 +167,22 @@ export default function AuthScreen() {
       return false;
     }
 
+    // Email format kontrolü
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      Alert.alert('Hata', 'Geçerli bir e-posta adresi giriniz');
+      return false;
+    }
+
     if (!isLogin) {
       if (!formData.name || !formData.surname || !formData.phone) {
         Alert.alert('Hata', 'Tüm alanlar gereklidir');
+        return false;
+      }
+      
+      // Telefon numarası kontrolü (en az 10 karakter)
+      if (formData.phone.length < 10) {
+        Alert.alert('Hata', 'Geçerli bir telefon numarası giriniz');
         return false;
       }
       
@@ -209,6 +222,21 @@ export default function AuthScreen() {
         // Register işleminde otomatik konum al
         const locationData = await getCurrentLocation();
         
+        // Location verisini backend formatına çevir
+        const locationPayload = locationData ? {
+          city: locationData.city || '',
+          district: locationData.district || '',
+          neighborhood: '',
+          street: '',
+          building: '',
+          floor: '',
+          apartment: '',
+          coordinates: {
+            latitude: locationData.latitude,
+            longitude: locationData.longitude
+          }
+        } : undefined;
+        
         const response = await register({
           email: formData.email,
           password: formData.password,
@@ -217,6 +245,7 @@ export default function AuthScreen() {
           phone: formData.phone,
           userType: 'mechanic',
           serviceCategories: selectedCategories,
+          location: locationPayload,
         });
         
         if (response.success) {

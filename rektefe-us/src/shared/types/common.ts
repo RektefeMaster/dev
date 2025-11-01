@@ -346,6 +346,22 @@ export interface RegisterRequest {
   phone: string;
   name: string;
   surname: string;
+  serviceCategories?: string[];
+  location?: {
+    city?: string;
+    district?: string;
+    neighborhood?: string;
+    street?: string;
+    building?: string;
+    floor?: string;
+    apartment?: string;
+    coordinates?: {
+      latitude: number;
+      longitude: number;
+    };
+  };
+  experience?: number;
+  specialties?: string[];
   deviceInfo?: {
     platform: 'IOS' | 'ANDROID';
     version: string;

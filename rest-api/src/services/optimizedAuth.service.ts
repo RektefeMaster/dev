@@ -277,6 +277,13 @@ export class OptimizedAuthService {
   }) {
     const { name, surname, email, password, userType, phone, experience, specialties, serviceCategories, location } = userData;
     
+    // Mechanic için serviceCategories kontrolü
+    if (userType === UserType.MECHANIC) {
+      if (!serviceCategories || serviceCategories.length === 0) {
+        throw new CustomError('En az bir hizmet kategorisi seçmelisiniz.', 400, ErrorCode.MISSING_REQUIRED_FIELD);
+      }
+    }
+    
     // Email'i normalize et
     const normalizedEmail = email.trim().toLowerCase();
     
@@ -290,48 +297,117 @@ export class OptimizedAuthService {
     const saltRounds = 12; // Güvenlik ve performans dengesi
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Kullanıcı oluştur
-    const user = new User({
-      name,
-      surname,
-      email: normalizedEmail,
-      password: hashedPassword,
-      userType,
-      phone,
-      isActive: true
-    });
+    // Mechanic için username oluştur (User modelinde zorunlu olduğu için)
+    let username: string | undefined;
+    if (userType === UserType.MECHANIC) {
+      const emailPrefix = normalizedEmail.split('@')[0];
+      let attempts = 0;
+      const maxAttempts = 5;
+      
+      // Username unique olana kadar deneme yap
+      while (attempts < maxAttempts) {
+        const timestamp = Date.now();
+        username = `${emailPrefix}_${timestamp}${attempts > 0 ? `_${attempts}` : ''}`;
+        
+        // Username'in zaten kullanılıp kullanılmadığını kontrol et
+        const existingUsername = await User.findOne({ username });
+        if (!existingUsername) {
+          break; // Unique username bulundu
+        }
+        attempts++;
+      }
+      
+      if (!username) {
+        throw new CustomError('Kullanıcı adı oluşturulamadı. Lütfen tekrar deneyin.', 500, ErrorCode.INTERNAL_SERVER_ERROR);
+      }
+    }
 
-    await user.save();
+    // Kullanıcı oluştur
+    let user;
+    try {
+      user = new User({
+        name,
+        surname,
+        email: normalizedEmail,
+        password: hashedPassword,
+        userType,
+        phone,
+        username,
+        isActive: true
+      });
+
+      await user.save();
+    } catch (error: any) {
+      // Username duplicate hatası kontrolü
+      if (error.code === 11000 && error.keyPattern?.username) {
+        throw new CustomError('Bu kullanıcı adı zaten kullanılıyor. Lütfen tekrar deneyin.', 400, ErrorCode.ALREADY_EXISTS);
+      }
+      throw error;
+    }
 
     // Mechanic ise ek bilgileri kaydet
     let fullUserData = user.toObject();
     if (userType === UserType.MECHANIC) {
-      // Username oluştur (email'den otomatik)
-      const emailPrefix = normalizedEmail.split('@')[0];
-      const timestamp = Date.now();
-      const username = `${emailPrefix}_${timestamp}`;
+      // Location'ı formatla - backend formatına uygun hale getir
+      const formattedLocation = location ? {
+        city: location.city || '',
+        district: location.district || '',
+        neighborhood: location.neighborhood || '',
+        street: location.street || '',
+        building: location.building || '',
+        floor: location.floor || '',
+        apartment: location.apartment || '',
+        coordinates: location.coordinates ? {
+          latitude: location.coordinates.latitude || 0,
+          longitude: location.coordinates.longitude || 0
+        } : undefined
+      } : {
+        city: '',
+        district: '',
+        neighborhood: '',
+        street: '',
+        building: '',
+        floor: '',
+        apartment: '',
+        coordinates: undefined
+      };
       
-      const mechanic = new Mechanic({
-        _id: user._id,
-        email: normalizedEmail,
-        password: hashedPassword,
-        name,
-        surname,
-        username,
-        phone: phone || '',
-        experience: experience || 0,
-        specialties: specialties || [],
-        serviceCategories: serviceCategories || [],
-        location: location || null,
-        rating: 0,
-        ratingCount: 0,
-        totalServices: 0,
-        isAvailable: true
-      });
-      await mechanic.save();
-      
-      // Return için Mechanic verilerini merge et (login ile aynı pattern)
-      fullUserData = { ...fullUserData, ...(mechanic.toObject() as any) };
+      try {
+        const mechanic = new Mechanic({
+          _id: user._id,
+          email: normalizedEmail,
+          password: hashedPassword,
+          name,
+          surname,
+          username,
+          phone: phone || '',
+          experience: experience || 0,
+          specialties: specialties || [],
+          serviceCategories: serviceCategories || [],
+          location: formattedLocation,
+          rating: 0,
+          ratingCount: 0,
+          totalServices: 0,
+          isAvailable: true
+        });
+        await mechanic.save();
+        
+        // Return için Mechanic verilerini merge et (login ile aynı pattern)
+        fullUserData = { ...fullUserData, ...(mechanic.toObject() as any) };
+      } catch (error: any) {
+        // Mechanic kaydedilemezse User'ı sil (rollback)
+        await User.findByIdAndDelete(user._id);
+        
+        if (error.code === 11000) {
+          if (error.keyPattern?.username) {
+            throw new CustomError('Bu kullanıcı adı zaten kullanılıyor. Lütfen tekrar deneyin.', 400, ErrorCode.ALREADY_EXISTS);
+          }
+          if (error.keyPattern?.email) {
+            throw new CustomError('Bu e-posta zaten kayıtlı.', 400, ErrorCode.ALREADY_EXISTS);
+          }
+        }
+        throw new CustomError('Kayıt sırasında bir hata oluştu. Lütfen tekrar deneyin.', 500, ErrorCode.INTERNAL_SERVER_ERROR);
+      }
     }
 
     // Token çifti oluştur
