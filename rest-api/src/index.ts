@@ -333,7 +333,7 @@ app.use('/api/insurance', insuranceRoutes);
 app.use('/api/vehicle-status', vehicleStatusRoutes);
 app.use('/api/tire-status', tireStatusRoutes);
 // app.use('/api', rekaiRoutes); // Geçici olarak devre dışı
-app.use('/api', uploadRoutes);
+app.use('/api/upload', uploadRoutes); // Upload routes /api/upload prefix'i ile mount edilmeli
 
 app.use('/api/appointment-ratings', appointmentRatingRoutes);
 app.use('/api/ratings', appointmentRatingRoutes);
