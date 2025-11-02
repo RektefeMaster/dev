@@ -104,11 +104,11 @@ export const updateReservationSchema = Joi.object({
 
 export const negotiatePriceSchema = Joi.object({
   requestedPrice: Joi.number().min(0).required(),
-  message: Joi.string().max(500).optional()
+  message: Joi.string().max(500).allow('').optional()
 });
 
 export const counterOfferSchema = Joi.object({
   offeredPrice: Joi.number().min(0).required(),
-  message: Joi.string().max(500).optional()
+  message: Joi.string().max(500).allow('').optional()
 });
 

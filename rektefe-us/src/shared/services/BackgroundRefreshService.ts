@@ -23,14 +23,16 @@ export class BackgroundRefreshService {
     }
 
     this.isActive = true;
-    console.log('🔄 Background token refresh başlatıldı');
-
-    // Her 15 dakikada bir kontrol et (daha az sıklıkta)
+    if (__DEV__) {
+      console.log('Background token refresh başlatıldı');
+    }
     this.refreshInterval = setInterval(async () => {
       try {
         await this.checkAndRefreshToken(refreshTokenCallback);
       } catch (error) {
-        console.error('❌ Background refresh hatası:', error);
+        if (__DEV__) {
+          console.error('Background refresh hatası:', error);
+        }
       }
     }, this.REFRESH_CHECK_INTERVAL);
   }
@@ -44,7 +46,9 @@ export class BackgroundRefreshService {
       this.refreshInterval = null;
     }
     this.isActive = false;
-    console.log('⏹️ Background token refresh durduruldu');
+    if (__DEV__) {
+      console.log('Background token refresh durduruldu');
+    }
   }
 
   /**
@@ -61,7 +65,9 @@ export class BackgroundRefreshService {
     // Kullanıcı aktif mi kontrol et
     const timeSinceLastActivity = Date.now() - this.lastActivityTime;
     if (timeSinceLastActivity > this.ACTIVITY_TIMEOUT) {
-      console.log('😴 Kullanıcı aktif değil, token yenileme atlanıyor');
+      if (__DEV__) {
+        console.log('Kullanıcı aktif değil, token yenileme atlanıyor');
+      }
       return;
     }
 
@@ -71,20 +77,18 @@ export class BackgroundRefreshService {
         return;
       }
 
-      // Token'ın yenilenmesi gerekiyor mu?
+      // Token'ın yenilenmesi gerekiyor mu? (token expiry kontrolü)
       if (shouldRefreshToken(token)) {
-        const timeToExpiry = getTokenTimeToExpiry(token);
-        console.log(`🔄 Token ${timeToExpiry} dakika sonra dolacak, yenileme başlatılıyor...`);
-        
         const newToken = await refreshTokenCallback();
-        if (newToken) {
-          console.log('✅ Background token yenileme başarılı');
-        } else {
-          console.log('⚠️ Background token yenileme başarısız');
+        if (__DEV__ && newToken) {
+          const timeToExpiry = getTokenTimeToExpiry(token);
+          console.log(`Token yenilendi (${timeToExpiry} dakika sonra dolacaktı)`);
         }
       }
     } catch (error) {
-      console.error('❌ Background token kontrol hatası:', error);
+      if (__DEV__) {
+        console.error('Background token kontrol hatası:', error);
+      }
     }
   }
 

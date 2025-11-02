@@ -14,7 +14,8 @@ import {
   FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
+import { useOptimizedFocusEffect } from '@/shared/hooks/useOptimizedFocusEffect';
 import { useAuth } from '@/shared/context';
 import apiService from '@/shared/services';
 import { Ionicons } from '@expo/vector-icons';
@@ -192,11 +193,12 @@ export default function AppointmentsScreen() {
     }
   }, [fetchAppointments, fetchFaultReports]);
 
-  // Ekran açıldığında yükle
-  useFocusEffect(
+  // Ekran açıldığında yükle - optimize edilmiş (30 saniye throttle)
+  useOptimizedFocusEffect(
     useCallback(() => {
       fetchAllData();
-    }, [fetchAllData])
+    }, [fetchAllData]),
+    { throttleMs: 30000, fetchOnMount: true }
   );
 
   // Yenile

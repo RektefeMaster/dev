@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { apiService } from '@/shared/services/api';
 import { withErrorHandling } from '@/shared/utils/errorHandler';
@@ -9,56 +9,51 @@ export const useMechanicsData = (userLocation: any) => {
   const [nearestMechanic, setNearestMechanic] = useState<any>(null);
   const [mechanics, setMechanics] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const isFetchingRef = useRef(false); // Prevent duplicate calls
 
-  const fetchNearestMechanic = async () => {
-    if (!token) return;
+  const fetchNearestMechanic = useCallback(async () => {
+    if (!token || isFetchingRef.current) return;
 
+    isFetchingRef.current = true;
     setLoading(true);
-    const { data, error } = await withErrorHandling(
-      () => apiService.getMechanics(),
-      { showErrorAlert: false }
-    );
-
-    if (data && data.success && data.data && data.data.length > 0) {
-      const mechanicsList = data.data;
-      
-      // Her mekanik için detaylı bilgileri getir
-      const mechanicsWithDetails = await Promise.all(
-        mechanicsList.map(async (mech: any) => {
-          try {
-            const detailsResponse = await apiService.getMechanicById(mech._id);
-            if (detailsResponse.success) {
-              return {
-                ...mech,
-                ...detailsResponse.data,
-                location: mech.location || detailsResponse.data.location,
-              };
-            }
-            return mech;
-          } catch (error) {
-            return mech;
-          }
-        })
+    
+    try {
+      const { data, error } = await withErrorHandling(
+        () => apiService.getMechanics(),
+        { showErrorAlert: false }
       );
 
-      // Konuma göre sırala
-      const currentLocation = userLocation || getFallbackUserLocation();
-      const sortedMechanics = sortMechanicsByDistance(mechanicsWithDetails, currentLocation);
-      
-      setMechanics(sortedMechanics);
-      
-      // En yakın ustayı seç
-      const nearest = sortedMechanics.find(m => m.distance && m.distance !== Infinity);
-      if (nearest) {
-        setNearestMechanic(nearest);
+      if (data && data.success && data.data && data.data.length > 0) {
+        const mechanicsList = data.data;
+        
+        // ✅ OPTIMIZATION: Her mekanik için ayrı getMechanicById çağrısı YAPILMIYOR
+        // getMechanics zaten yeterli bilgi veriyor, detay için sadece ihtiyaç olduğunda çağır
+        // Sadece liste verilerini kullan, detay sayfasında getMechanicById çağırılacak
+
+        // Konuma göre sırala (mevcut verilerle)
+        const currentLocation = userLocation || getFallbackUserLocation();
+        const sortedMechanics = sortMechanicsByDistance(mechanicsList, currentLocation);
+        
+        setMechanics(sortedMechanics);
+        
+        // En yakın ustayı seç
+        const nearest = sortedMechanics.find(m => m.distance && m.distance !== Infinity);
+        if (nearest) {
+          setNearestMechanic(nearest);
+        }
       }
+    } finally {
+      setLoading(false);
+      isFetchingRef.current = false;
     }
-    setLoading(false);
-  };
+  }, [token, userLocation]); // userLocation dependency olarak kalmalı ama sadece token değiştiğinde çağrılacak
 
   useEffect(() => {
-    fetchNearestMechanic();
-  }, [token, userLocation]);
+    // Sadece token varsa çağır - userLocation değişimlerinde gereksiz çağrı yapma
+    if (token) {
+      fetchNearestMechanic();
+    }
+  }, [token, fetchNearestMechanic]); // fetchNearestMechanic useCallback ile optimize edildi
 
   return {
     nearestMechanic,

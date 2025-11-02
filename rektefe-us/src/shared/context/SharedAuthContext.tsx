@@ -261,8 +261,10 @@ export const SharedAuthProvider = ({
               }
           }
         } else {
-          // Token yok veya geçersiz, logout yap
-          console.log('❌ Token bulunamadı veya geçersiz, logout yapılıyor...');
+          // Token yok veya geçersiz, sadece state'i temizle
+          // Storage'ı temizlememe sebebi: Kullanıcı manuel logout yapmadığı sürece
+          // oturum açık kalmalı. Storage'daki veriler korunur
+          console.log('⚠️ Token bulunamadı veya geçersiz (ilk açılış veya manuel logout)');
           authState = {
             token: null,
             userId: null,

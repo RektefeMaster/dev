@@ -93,38 +93,46 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               setUserId(storedUserId);
               setIsAuthenticated(true);
             } else {
-              // Refresh token da yoksa temizle
-              console.log('❌ AuthContext: Token geçersiz ve refresh token yok, temizleniyor');
-              await AsyncStorage.multiRemove([
-                STORAGE_KEYS.AUTH_TOKEN,
-                STORAGE_KEYS.REFRESH_TOKEN,
-                STORAGE_KEYS.USER_ID,
-                STORAGE_KEYS.USER_DATA
-              ]);
+              // Refresh token da yoksa sadece state'i temizle
+              // Storage'ı temizlememe sebebi: Kullanıcı manuel logout yapmadığı sürece
+              // oturum açık kalmalı. Belki token'lar yeniden yüklenecek
+              console.log('⚠️ AuthContext: Token geçersiz ve refresh token yok');
+              console.log('⚠️ AuthContext: State temizleniyor ama storage korunuyor');
               setToken(null);
               setUserId(null);
               setIsAuthenticated(false);
             }
           }
         } else {
-          // Token veya userId yoksa temizle
-          console.log('⚠️ AuthContext: Token veya userId bulunamadı, temizleniyor');
-          await AsyncStorage.multiRemove([
-            STORAGE_KEYS.AUTH_TOKEN,
-            STORAGE_KEYS.REFRESH_TOKEN,
-            STORAGE_KEYS.USER_ID,
-            STORAGE_KEYS.USER_DATA
-          ]);
+          // Token veya userId yoksa sadece state'i temizle, storage'ı temizleme
+          // Storage'ı temizlememe sebebi: Kullanıcı manuel logout yapmadığı sürece
+          // oturum açık kalmalı. Storage'daki veriler korunur, sadece state güncellenir
+          console.log('⚠️ AuthContext: Token veya userId bulunamadı (ilk açılış veya manuel logout)');
           setToken(null);
           setUserId(null);
           setIsAuthenticated(false);
         }
       } catch (error) {
-        // Hata durumunda temizle
-        console.error('❌ AuthContext: Hata durumunda temizleme:', error);
-        setToken(null);
-        setUserId(null);
-        setIsAuthenticated(false);
+        // Hata durumunda otomatik logout yapma - storage'daki veriler korunur
+        // Kullanıcı manuel logout yapmadığı sürece oturum açık kalır
+        console.error('❌ AuthContext: Storage okuma hatası (oturum korunuyor):', error);
+        // State'i temizle ama storage'ı temizleme - token refresh mekanizması çalışabilir
+        // Eğer token varsa ama okunamadıysa, state'i null yap ama storage'dan tekrar okumayı dene
+        const fallbackToken = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN).catch(() => null);
+        const fallbackUserId = await AsyncStorage.getItem(STORAGE_KEYS.USER_ID).catch(() => null);
+        
+        if (fallbackToken && fallbackUserId) {
+          // Fallback okuma başarılı, state'i set et
+          setToken(fallbackToken);
+          setUserId(fallbackUserId);
+          setIsAuthenticated(true);
+          console.log('✅ AuthContext: Fallback okuma başarılı, oturum korundu');
+        } else {
+          // Gerçekten token yok, state'i temizle
+          setToken(null);
+          setUserId(null);
+          setIsAuthenticated(false);
+        }
       } finally {
         setIsLoading(false);
         }

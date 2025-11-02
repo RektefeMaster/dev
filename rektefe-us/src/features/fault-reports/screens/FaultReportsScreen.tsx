@@ -119,17 +119,17 @@ const FaultReportsScreen: React.FC = () => {
     }
   }, [isAuthenticated, user, filter]);
 
-  // Arıza bildirimleri için otomatik yenileme (polling) - daha az sıklıkta
+  // Arıza bildirimleri için otomatik yenileme (polling) - optimize edildi
   useEffect(() => {
     if (isAuthenticated && user) {
-      // Her 2 dakikada bir arıza bildirimlerini yenile
+      // Her 15 dakikada bir arıza bildirimlerini yenile (optimize edildi)
       const interval = setInterval(() => {
         fetchFaultReports(false, filter === 'all' ? undefined : filter);
-      }, 120000); // 2 dakika (120 saniye)
+      }, 900000); // 15 dakika (900 saniye)
 
       return () => clearInterval(interval);
     }
-  }, [isAuthenticated, user, filter]);
+  }, [isAuthenticated, user, filter, fetchFaultReports]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

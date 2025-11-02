@@ -10,11 +10,12 @@ import { Request, Response } from 'express';
 
 /**
  * Genel API rate limiter
- * 15 dakikada 100 request
+ * 15 dakikada 500 request (normal mobil uygulama kullanımı için yeterli)
+ * Önceki limit (100) çok düşüktü ve normal kullanımda aşılıyordu
  */
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 dakika
-  max: 100, // 100 request per window
+  max: 500, // 500 request per window (5x artırıldı)
   message: {
     success: false,
     error: {

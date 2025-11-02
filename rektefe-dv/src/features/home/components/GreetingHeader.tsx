@@ -18,35 +18,25 @@ interface GreetingHeaderProps {
     plateNumber: string;
   } | null;
   userId?: string;
+  unreadCount?: number; // NotificationList'ten prop olarak gelecek
 }
 
-export const GreetingHeader: React.FC<GreetingHeaderProps> = ({ userName, favoriteCar, userId: propUserId }) => {
+export const GreetingHeader: React.FC<GreetingHeaderProps> = ({ userName, favoriteCar, userId: propUserId, unreadCount: propUnreadCount = 0 }) => {
   const navigation = useNavigation<DrawerNavigationProp<any>>();
   const [userId, setUserId] = useState('');
-  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     if (propUserId) {
       setUserId(propUserId);
-      } else {
+    } else {
       getUserId();
     }
-    fetchUnreadCount();
   }, [propUserId]);
 
-  const fetchUnreadCount = async () => {
-    const { data, error } = await withErrorHandling(
-      () => apiService.getNotifications(),
-      { showErrorAlert: false } // Bildirim sayısı hatası için alert gösterme
-    );
-
-    if (data && data.success && data.data && Array.isArray(data.data)) {
-      const unread = data.data.filter((n: Notification) => !n.isRead).length;
-      setUnreadCount(unread);
-    } else {
-      setUnreadCount(0);
-    }
-  };
+  // ❌ REMOVED: getNotifications duplikasyonu kaldırıldı
+  // NotificationList component'i zaten getNotifications çağırıyor ve unreadCount'u
+  // onNotificationCountChange callback'i ile iletmeli
+  // GreetingHeader'a prop olarak unreadCount verilmeli
 
   const getUserId = async () => {
     try {
@@ -109,7 +99,7 @@ export const GreetingHeader: React.FC<GreetingHeaderProps> = ({ userName, favori
         onProfilePress={handleProfilePress}
         onCarPress={handleCarPress}
         onNotificationPress={() => navigation.navigate('Notifications')}
-        unreadCount={unreadCount}
+        unreadCount={propUnreadCount}
         navigation={navigation}
       />
 

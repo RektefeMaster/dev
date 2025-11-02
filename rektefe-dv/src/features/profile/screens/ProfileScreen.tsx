@@ -38,30 +38,36 @@ const ProfileScreen = () => {
     const fetchUser = async () => {
       try {
         if (!token || !userId) {
-          console.log('⚠️ ProfileScreen: Token veya userId yok');
           setLoading(false);
           return;
         }
         
-        console.log('🔍 ProfileScreen: getUserProfile çağrılıyor...');
         const data = await apiService.getUserProfile();
-        console.log('🔍 ProfileScreen: Raw API response:', data);
         
         // API response formatı kontrol et
         if (!data || !data.success) {
-          console.log('❌ ProfileScreen: API başarısız response:', data);
-          if (data?.error?.code === 'UNAUTHORIZED' || data?.error?.message?.includes('401')) {
-            Alert.alert('Oturum Süresi Doldu', 'Lütfen tekrar giriş yapın.');
-            logout();
+          // Rate limit hatası ise sessizce atla, logout yapma ve bilgilendirme yapma
+          if (data?.error?.code === 'RATE_LIMIT_EXCEEDED' || data?.error?.message?.includes('429')) {
+            // Sessizce return, hiçbir alert gösterilmez
             return;
           }
-          throw new Error(data?.error?.message || 'API hatası');
+          
+          // 401 hatası - API interceptor zaten logout'u handle ediyor
+          // Eğer gerçek auth hatası ise (INVALID_TOKEN, TOKEN_EXPIRED), interceptor logout yapmış olacak
+          // Burada sadece sessizce return et, AuthContext otomatik olarak state'i güncelleyecek
+          if (data?.error?.code === 'UNAUTHORIZED' || 
+              data?.error?.code === 'INVALID_TOKEN' || 
+              data?.error?.code === 'TOKEN_EXPIRED' ||
+              data?.error?.message?.includes('401')) {
+            // Sessizce return - API interceptor logout'u handle ediyor
+            return;
+          }
+          
+          // Diğer hatalar için sessizce atla (network, server vb.)
+          return;
         }
         
         const userData = data.data;
-        console.log('🔍 ProfileScreen: Processed userData:', userData);
-        console.log('🔍 ProfileScreen: Avatar URL:', userData?.avatar);
-        console.log('🔍 ProfileScreen: Cover URL:', userData?.cover);
         
         setUser(userData);
         setEditData({
@@ -78,11 +84,19 @@ const ProfileScreen = () => {
         setShowEmail(!(userData.emailHidden));
         setShowPhone(!(userData.phoneHidden));
       } catch (e: any) {
-        console.error('❌ ProfileScreen: Error fetching user:', e);
+        if (__DEV__) {
+          console.error('ProfileScreen: Error fetching user:', e.response?.status || e.message);
+        }
+        // Rate limit hatası ise sessizce atla, logout yapma ve bilgilendirme yapma
+        if (e.response?.status === 429) {
+          // Sessizce return, hiçbir alert gösterilmez
+          return;
+        }
         if (e.response?.status === 401) {
           Alert.alert('Oturum Süresi Doldu', 'Lütfen tekrar giriş yapın.');
           logout();
         } else {
+          // Rate limit olmayan diğer hatalar için normal hata mesajı
           Alert.alert('Hata', 'Kullanıcı bilgileri alınamadı.');
         }
       } finally {

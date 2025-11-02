@@ -37,12 +37,12 @@ export const useMessagePolling = (conversationId: string) => {
           setIsPolling(false);
           return response.data;
         } else {
-          // Yeni mesaj yoksa 15 saniye sonra tekrar dene (daha az sıklıkta)
+          // Yeni mesaj yoksa 30 saniye sonra tekrar dene (optimize edildi)
           pollTimeoutRef.current = setTimeout(() => {
             isPollingRef.current = false;
             setIsPolling(false);
             startPolling();
-          }, 15000);
+          }, 30000); // 30 saniye (optimize edildi)
         }
       }
     } catch (error) {

@@ -17,7 +17,7 @@ import {
 
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
-import { useFocusEffect } from '@react-navigation/native';
+import { useOptimizedFocusEffect } from '@/shared/hooks/useOptimizedFocusEffect';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors as themeColors, typography, spacing, borderRadius } from '@/theme/theme';
@@ -493,13 +493,14 @@ const ChatScreen = ({ route, navigation }: ChatScreenProps) => {
     ensureConversationId();
   }, [conversationId, otherParticipant?._id, token]);
 
-  // Focus olduğunda mesajları yenile (sadece bir kez)
-  useFocusEffect(
+  // Focus olduğunda mesajları yenile - optimize edilmiş (15 saniye throttle)
+  useOptimizedFocusEffect(
     useCallback(() => {
       if (resolvedConversationId && !resolvedConversationId.startsWith('temp_')) {
         fetchMessages();
       }
-    }, [resolvedConversationId, fetchMessages])
+    }, [resolvedConversationId, fetchMessages]),
+    { throttleMs: 15000, fetchOnMount: false } // useEffect zaten mount'ta çağırıyor
   );
 
   if (loading) {

@@ -44,6 +44,18 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   async (config) => {
     try {
+      // Rate limit durumunu sadece bilgi amaçlı logla - istekleri bloke ETME
+      // İstekler normal şekilde gönderilmeye devam edecek, backend 429 dönecek
+      // Önemli olan: Rate limit geldiğinde logout YAPILMAMASI (response interceptor'da handle ediliyor)
+      if (isRateLimited && config.url && !config.url.includes('/auth/') && __DEV__) {
+        const remainingTime = rateLimitResetTime ? rateLimitResetTime - Date.now() : 0;
+        const remainingMinutes = Math.ceil(remainingTime / 60000);
+        
+        if (__DEV__) {
+          console.warn(`Rate limit aktif (${remainingMinutes} dakika kaldı): ${config.url}`);
+        }
+      }
+      
       const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
@@ -54,12 +66,16 @@ apiClient.interceptors.request.use(
       
       return config;
     } catch (error) {
-      console.error('Request interceptor error:', error);
-      return config;
+      if (__DEV__) {
+        console.error('Request interceptor error:', error);
+      }
+      return Promise.reject(error);
     }
   },
   (error) => {
-    console.error('Request interceptor error:', error);
+    if (__DEV__) {
+      console.error('Request interceptor error:', error);
+    }
     return Promise.reject(error);
   }
 );
@@ -68,6 +84,9 @@ apiClient.interceptors.request.use(
 
 let isRefreshing = false;
 let failedQueue: any[] = [];
+let isRateLimited = false; // Rate limit durumunu takip et
+let rateLimitResetTime: number | null = null; // Rate limit reset zamanı
+let rateLimitTimer: NodeJS.Timeout | null = null; // Rate limit timer (memory leak önleme)
 
 const processQueue = (error: any, token: string | null = null) => {
   failedQueue.forEach(prom => {
@@ -80,24 +99,146 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
+/**
+ * Rate limit durumunu ayarla ve timer başlat/sıfırla
+ */
+const setRateLimitStatus = (resetTimeMs: number) => {
+  // Eğer zaten bir timer varsa, önce temizle (memory leak önleme)
+  if (rateLimitTimer) {
+    clearTimeout(rateLimitTimer);
+    rateLimitTimer = null;
+  }
+
+  // Rate limit durumunu aktif et
+  isRateLimited = true;
+  rateLimitResetTime = Date.now() + resetTimeMs;
+
+  // Timer başlat
+  rateLimitTimer = setTimeout(() => {
+    isRateLimited = false;
+    rateLimitResetTime = null;
+    rateLimitTimer = null;
+    if (__DEV__) {
+      console.log('Rate limit süresi doldu');
+    }
+  }, resetTimeMs);
+};
+
+/**
+ * Rate limit reset zamanını backend header'larından al
+ * Öncelik sırası: Retry-After > RateLimit-Reset > Default (15 dakika)
+ */
+const getRateLimitResetTime = (error: any): number => {
+  const headers = error.response?.headers || {};
+  
+  // Debug: Header'ları logla
+  if (__DEV__) {
+    console.log('🔍 Rate limit header kontrolü:');
+    console.log('  - retry-after:', headers['retry-after'] || headers['Retry-After']);
+    console.log('  - ratelimit-reset:', headers['ratelimit-reset'] || headers['RateLimit-Reset'] || headers['rate-limit-reset']);
+    console.log('  - Tüm header keys:', Object.keys(headers).filter(k => k.toLowerCase().includes('rate') || k.toLowerCase().includes('retry')));
+  }
+  
+  // Retry-After header'ı (saniye cinsinden) - case-insensitive
+  const retryAfter = headers['retry-after'] || headers['Retry-After'] || headers['retryafter'];
+  if (retryAfter) {
+    const retryAfterSeconds = parseInt(retryAfter, 10);
+    if (!isNaN(retryAfterSeconds) && retryAfterSeconds > 0) {
+      const ms = retryAfterSeconds * 1000;
+      if (__DEV__) {
+        console.log(`✅ Retry-After bulundu: ${retryAfterSeconds} saniye (${Math.ceil(ms / 60000)} dakika)`);
+      }
+      return ms;
+    }
+  }
+  
+  // RateLimit-Reset header'ı (Unix timestamp - saniye) - case-insensitive
+  const rateLimitReset = headers['ratelimit-reset'] || 
+                         headers['RateLimit-Reset'] || 
+                         headers['rate-limit-reset'] ||
+                         headers['x-ratelimit-reset'];
+  if (rateLimitReset) {
+    const resetTimestamp = parseInt(rateLimitReset, 10);
+    if (!isNaN(resetTimestamp) && resetTimestamp > 0) {
+      const resetTimeMs = resetTimestamp * 1000; // timestamp'i ms'ye çevir
+      const remainingMs = resetTimeMs - Date.now();
+      // Eğer geçmiş bir zaman değilse ve makul bir süre ise (1 saatten az)
+      if (remainingMs > 0 && remainingMs < 60 * 60 * 1000) {
+        if (__DEV__) {
+          console.log(`✅ RateLimit-Reset bulundu: ${Math.ceil(remainingMs / 60000)} dakika kaldı`);
+        }
+        return remainingMs;
+      } else if (remainingMs > 0) {
+        // Eğer 1 saatten fazla ise, backend window süresini kullan (15 dakika)
+        if (__DEV__) {
+          console.log(`⚠️ RateLimit-Reset çok uzun (${Math.ceil(remainingMs / 60000)} dakika), default 15 dakika kullanılıyor`);
+        }
+      }
+    }
+  }
+  
+  // Default: 15 dakika (backend'in default windowMs değeri)
+  if (__DEV__) {
+    console.log('⚠️ Header bulunamadı, default 15 dakika kullanılıyor');
+  }
+  return 15 * 60 * 1000;
+};
+
 apiClient.interceptors.response.use(
   (response) => {
-    // Success response'ları logla
-    console.log(`✅ API Success: ${response.config.method?.toUpperCase()} ${response.config.url} - ${response.status}`);
+    // Production'da success logları kapat - sadece development'ta kritik endpoint'ler için
+    if (__DEV__ && (response.config.url?.includes('/auth/') || response.config.url?.includes('/users/profile'))) {
+      console.log(`API Success: ${response.config.method?.toUpperCase()} ${response.config.url}`);
+    }
     return response;
   },
   async (error) => {
-    // Error response'ları logla
-    console.error(`❌ API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${error.response?.status}`);
-    console.error('❌ Error Details:', error.response?.data);
+    // Error response'ları sadece development'ta logla
+    if (__DEV__ && error.response) {
+      console.error(`API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${error.response?.status}`);
+      // Sadece 5xx hatalarında detaylı log
+      if (error.response?.status >= 500) {
+        console.error('Error Details:', error.response?.data);
+      }
+    }
     
     const originalRequest = error.config;
     
-    // 401 Unauthorized - token refresh dene
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Rate limit (429) hatası - SADECE logout yapma, token refresh yapma
+    // İstekler normal şekilde devam edecek, sadece 429 hatası dönecek
+    // Kullanıcı oturum açık kalacak, logout YAPILMAYACAK
+    if (error.response?.status === 429) {
+      if (__DEV__) {
+        const resetTimeMs = getRateLimitResetTime(error);
+        const resetMinutes = Math.ceil(resetTimeMs / 60000);
+        console.warn(`Rate limit (429) - ${resetMinutes} dakika sonra tekrar deneyin`);
+      }
+      
+      // Backend'den gelen rate limit reset zamanını al (bilgi amaçlı)
+      const resetTimeMs = getRateLimitResetTime(error);
+      
+      // Rate limit durumunu sadece bilgi amaçlı set et (istekleri bloke etmek için değil)
+      setRateLimitStatus(resetTimeMs);
+      
+      // Hata mesajını döndür - UI bu hatayı handle edecek, logout yapılmayacak
+      return Promise.reject(error);
+    }
+    
+    // Rate limit aktifse, 401 hatalarını da görmezden gel (token refresh yapma, logout yapma)
+    if (isRateLimited && error.response?.status === 401) {
+      if (__DEV__) {
+        console.warn('Rate limit aktif, 401 hatası görmezden geliniyor');
+      }
+      return Promise.reject(error);
+    }
+    
+    // 401 Unauthorized - token refresh dene (rate limit yoksa)
+    if (error.response?.status === 401 && !originalRequest._retry && !isRateLimited) {
       if (isRefreshing) {
         // Başka bir request zaten refresh yapıyorsa bekle
-        console.log('⏳ Token yenileme devam ediyor, kuyrukta bekleniyor...');
+        if (__DEV__) {
+          console.log('Token yenileme devam ediyor, kuyrukta bekleniyor...');
+        }
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         }).then(token => {
@@ -115,12 +256,15 @@ apiClient.interceptors.response.use(
         const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
         
         if (!refreshToken) {
-          console.error('❌ Refresh token bulunamadı');
+          if (__DEV__) {
+            console.error('Refresh token bulunamadı');
+          }
           throw new Error('No refresh token');
         }
 
-        console.log('🔄 Token yenileniyor...');
-        console.log('🔍 Refresh Token Preview:', refreshToken.substring(0, 20) + '...');
+        if (__DEV__) {
+          console.log('Token yenileniyor...');
+        }
         
         // Refresh token endpoint'ini çağır
         const response = await axios.post(
@@ -129,17 +273,14 @@ apiClient.interceptors.response.use(
           { timeout: 10000 } // 10 saniye timeout
         );
 
-        console.log('🔍 Refresh Response:', response.data);
-
         if (response.data.success && response.data.data?.token) {
           const newToken = response.data.data.token;
           const newRefreshToken = response.data.data.refreshToken;
           const userData = response.data.data.user;
 
-          console.log('✅ Yeni token alındı');
-          console.log('🔍 New Token Preview:', newToken.substring(0, 20) + '...');
-          console.log('🔍 New Refresh Token:', newRefreshToken ? 'Mevcut' : 'Yok');
-          console.log('🔍 User Data:', userData ? 'Mevcut' : 'Yok');
+          if (__DEV__) {
+            console.log('Yeni token alındı');
+          }
 
           // Yeni token'ları kaydet
           await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, newToken);
@@ -159,7 +300,9 @@ apiClient.interceptors.response.use(
           apiClient.defaults.headers.common['Authorization'] = 'Bearer ' + newToken;
           originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
 
-          console.log('✅ Token başarıyla yenilendi ve kaydedildi');
+          if (__DEV__) {
+            console.log('Token başarıyla yenilendi');
+          }
           
           processQueue(null, newToken);
           isRefreshing = false;
@@ -167,29 +310,98 @@ apiClient.interceptors.response.use(
           // Original request'i yeniden dene
           return apiClient(originalRequest);
         } else {
-          console.error('❌ Refresh response başarısız:', response.data);
+          if (__DEV__) {
+            console.error('Refresh response başarısız:', response.data);
+          }
           throw new Error('Token yenileme başarısız: Invalid response');
         }
       } catch (refreshError: any) {
-        console.error('❌ Token yenileme başarısız:', refreshError.message);
-        console.error('❌ Error Response:', refreshError.response?.data);
+        if (__DEV__) {
+          console.error('Token yenileme başarısız:', refreshError.message);
+          if (refreshError.response?.status >= 500) {
+            console.error('Error Response:', refreshError.response?.data);
+          }
+        }
         
         processQueue(refreshError, null);
         isRefreshing = false;
         
-        // Refresh başarısız olduğunda tüm auth data'yı temizle
-        console.log('🚪 Token yenilenemedi, oturum sonlandırılıyor...');
-        await AsyncStorage.multiRemove([
-          STORAGE_KEYS.AUTH_TOKEN,
-          STORAGE_KEYS.REFRESH_TOKEN,
-          STORAGE_KEYS.USER_DATA,
-          STORAGE_KEYS.USER_ID
-        ]);
+        // 1. Rate limit hatası - logout yapma
+        if (refreshError.response?.status === 429 || isRateLimited) {
+          if (__DEV__) {
+            console.warn('Token refresh rate limit hatası (429), logout yapılmıyor');
+          }
+          
+          // Eğer refresh sırasında rate limit hatası geldiyse, durumu ayarla
+          if (refreshError.response?.status === 429) {
+            const resetTimeMs = getRateLimitResetTime(refreshError);
+            setRateLimitStatus(resetTimeMs);
+          }
+          
+          return Promise.reject(refreshError);
+        }
         
-        // Hata döndür - kullanıcıya logout mesajı gösterilebilir
-        const customError = new Error('Oturumunuz sonlandırıldı. Lütfen tekrar giriş yapın.');
-        (customError as any).isAuthError = true;
-        return Promise.reject(customError);
+        // 2. Network hatası (timeout, connection error vb.) - logout yapma, token geçerli kalabilir
+        if (!refreshError.response) {
+          if (__DEV__) {
+            console.warn('Token refresh network hatası, logout yapılmıyor');
+          }
+          return Promise.reject(refreshError);
+        }
+        
+        // 3. 5xx Server hatası - logout yapma, sunucu sorunu geçici olabilir
+        if (refreshError.response?.status >= 500) {
+          if (__DEV__) {
+            console.warn('Token refresh sunucu hatası, logout yapılmıyor');
+          }
+          return Promise.reject(refreshError);
+        }
+        
+        // 4. 401 hatası - Backend'den gelen error code'a bakarak karar ver
+        if (refreshError.response?.status === 401) {
+          const errorCode = refreshError.response?.data?.error?.code;
+          const errorMessage = refreshError.response?.data?.error?.message || '';
+          
+          // Gerçek auth hataları: INVALID_TOKEN, TOKEN_EXPIRED, USER_NOT_FOUND
+          const isRealAuthError = 
+            errorCode === 'INVALID_TOKEN' || 
+            errorCode === 'TOKEN_EXPIRED' || 
+            errorCode === 'USER_NOT_FOUND' ||
+            errorMessage.includes('Geçersiz refresh token') ||
+            errorMessage.includes('refresh token süresi dolmuş') ||
+            errorMessage.includes('Kullanıcı bulunamadı');
+          
+          if (isRealAuthError) {
+            // Gerçek auth hatası - logout yap
+            if (__DEV__) {
+              console.warn('Refresh token geçersiz, oturum sonlandırılıyor. Error Code:', errorCode);
+            }
+            
+            await AsyncStorage.multiRemove([
+              STORAGE_KEYS.AUTH_TOKEN,
+              STORAGE_KEYS.REFRESH_TOKEN,
+              STORAGE_KEYS.USER_DATA,
+              STORAGE_KEYS.USER_ID
+            ]);
+            
+            // Hata döndür - kullanıcıya logout mesajı gösterilebilir
+            const customError = new Error('Oturumunuz sonlandırıldı. Lütfen tekrar giriş yapın.');
+            (customError as any).isAuthError = true;
+            return Promise.reject(customError);
+          } else {
+            // 401 ama gerçek auth hatası değil (belki rate limit veya başka bir durum)
+            if (__DEV__) {
+              console.warn('401 hatası ama gerçek auth hatası değil. Error Code:', errorCode);
+            }
+            return Promise.reject(refreshError);
+          }
+        }
+        
+        // 5. Diğer hatalar (400, 403, 404 vb.) - logout yapma, beklenmedik hata olabilir
+        if (__DEV__) {
+          console.warn('Token refresh beklenmedik hata');
+        }
+        return Promise.reject(refreshError);
       }
     }
     
@@ -205,13 +417,10 @@ export const AuthService = {
    */
   async register(data: RegisterData): Promise<ApiResponse<{ user: Driver; token: string }>> {
     try {
-      console.log('🔍 Register işlemi başlatılıyor...');
       const response = await apiClient.post('/auth/register', {
         ...data,
         userType: UserType.DRIVER
       });
-      
-      console.log('🔍 Register response:', response.data);
       
       // Token'ları storage'a kaydet
       if (response.data.success && response.data.data) {
@@ -220,38 +429,34 @@ export const AuthService = {
         const userData = response.data.data.user;
         const userId = userData?._id || userData?.id;
         
-        console.log('🔍 Register - Token bilgileri:');
-        console.log('  - token:', token ? `${token.substring(0, 20)}...` : 'YOK');
-        console.log('  - refreshToken:', refreshToken ? `${refreshToken.substring(0, 20)}...` : 'YOK');
-        console.log('  - userId:', userId);
-        
         if (token) {
           await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
-          console.log('✅ Auth token kaydedildi');
         }
         
         if (refreshToken) {
           await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
-          console.log('✅ Refresh token kaydedildi');
-        } else {
-          console.error('❌ KRİTİK: Refresh token register response\'unda yok!');
+        } else if (__DEV__) {
+          console.warn('Refresh token register response\'unda yok!');
         }
         
         if (userId) {
           await AsyncStorage.setItem(STORAGE_KEYS.USER_ID, userId);
-          console.log('✅ User ID kaydedildi');
         }
         
         if (userData) {
           await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
-          console.log('✅ User data kaydedildi');
+        }
+        
+        if (__DEV__) {
+          console.log('Register successful');
         }
       }
       
       return response.data;
     } catch (error: any) {
-      console.error('❌ Register error:', error);
-      console.error('❌ Register error response:', error.response?.data);
+      if (__DEV__) {
+        console.error('Register error:', error.response?.status || error.message);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Kayıt işlemi sırasında bir hata oluştu',
@@ -265,14 +470,15 @@ export const AuthService = {
    */
   async login(email: string, password: string): Promise<ApiResponse<{ user: Driver; token: string }>> {
     try {
-      console.log('🔍 AuthService.login çağrılıyor...');
+      if (__DEV__) {
+        console.log('Login attempt:', email);
+      }
+      
       const response = await apiClient.post('/auth/login', {
         email,
         password,
         userType: UserType.DRIVER
       });
-      
-      console.log('🔍 Login response:', response.data);
       
       // Token'ları storage'a kaydet
       if (response.data.success && response.data.data) {
@@ -281,38 +487,34 @@ export const AuthService = {
         const userData = response.data.data.user;
         const userId = response.data.data.userId || userData?._id || userData?.id;
         
-        console.log('🔍 Login - Token bilgileri:');
-        console.log('  - token:', token ? `${token.substring(0, 20)}...` : 'YOK');
-        console.log('  - refreshToken:', refreshToken ? `${refreshToken.substring(0, 20)}...` : 'YOK');
-        console.log('  - userId:', userId);
-        
         if (token) {
           await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
-          console.log('✅ Auth token kaydedildi');
         }
         
         if (refreshToken) {
           await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
-          console.log('✅ Refresh token kaydedildi');
-        } else {
-          console.error('❌ KRİTİK: Refresh token login response\'unda yok!');
+        } else if (__DEV__) {
+          console.warn('Refresh token login response\'unda yok!');
         }
         
         if (userId) {
           await AsyncStorage.setItem(STORAGE_KEYS.USER_ID, userId);
-          console.log('✅ User ID kaydedildi');
         }
         
         if (userData) {
           await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
-          console.log('✅ User data kaydedildi');
+        }
+        
+        if (__DEV__) {
+          console.log('Login successful');
         }
       }
       
       return response.data;
     } catch (error: any) {
-      console.error('❌ Login error:', error);
-      console.error('❌ Login error response:', error.response?.data);
+      if (__DEV__) {
+        console.error('Login error:', error.response?.status || error.message);
+      }
       return createErrorResponse(
         ErrorCode.INVALID_CREDENTIALS,
         error.response?.data?.message || 'Giriş bilgileri hatalı',
@@ -329,16 +531,19 @@ export const AuthService = {
     try {
       const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
       if (!refreshToken) {
-        console.error('❌ Refresh token bulunamadı');
+        if (__DEV__) {
+          console.error('Refresh token bulunamadı');
+        }
         throw new Error('Refresh token not found');
       }
       
-      console.log('🔄 Manual refresh token işlemi başlatılıyor...');
+      if (__DEV__) {
+        console.log('Manual refresh token işlemi başlatılıyor...');
+      }
+      
       const response = await apiClient.post('/auth/refresh-token', {
         refreshToken
       });
-      
-      console.log('🔍 Refresh response:', response.data);
       
       // Yeni token'ları storage'a kaydet
       if (response.data.success && response.data.data) {
@@ -349,12 +554,10 @@ export const AuthService = {
         
         if (token) {
           await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
-          console.log('✅ Yeni token kaydedildi');
         }
         
         if (newRefreshToken) {
           await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
-          console.log('✅ Yeni refresh token kaydedildi');
         }
         
         if (userId) {
@@ -364,12 +567,17 @@ export const AuthService = {
         if (userData) {
           await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
         }
+        
+        if (__DEV__) {
+          console.log('Manual refresh token successful');
+        }
       }
       
       return response.data;
     } catch (error: any) {
-      console.error('❌ Refresh token error:', error);
-      console.error('❌ Error response:', error.response?.data);
+      if (__DEV__) {
+        console.error('Refresh token error:', error.response?.status || error.message);
+      }
       return createErrorResponse(
         ErrorCode.REFRESH_TOKEN_EXPIRED,
         'Token yenileme başarısız',
@@ -383,22 +591,26 @@ export const AuthService = {
    */
   async logout(): Promise<void> {
     try {
-      console.log('🚪 Logout işlemi başlatılıyor...');
+      if (__DEV__) {
+        console.log('Logout işlemi başlatılıyor...');
+      }
       await apiClient.post('/auth/logout');
-      console.log('✅ Backend\'e logout bildirimi gönderildi');
     } catch (error) {
-      console.error('❌ Logout API hatası:', error);
+      if (__DEV__) {
+        console.error('Logout API hatası:', error);
+      }
       // API hatası olsa bile devam et, storage'ı temizle
     } finally {
       // Tüm auth verilerini temizle
-      console.log('🧹 Storage temizleniyor...');
       await AsyncStorage.multiRemove([
         STORAGE_KEYS.AUTH_TOKEN,
         STORAGE_KEYS.REFRESH_TOKEN,
         STORAGE_KEYS.USER_ID,
         STORAGE_KEYS.USER_DATA
       ]);
-      console.log('✅ Logout tamamlandı, tüm veriler temizlendi');
+      if (__DEV__) {
+        console.log('Logout tamamlandı');
+      }
     }
   }
 };
@@ -416,7 +628,9 @@ export const VehicleService = {
       // response.data zaten backend'den gelen wrapper'ı içeriyor
       return response.data;
     } catch (error: any) {
-      console.error('Get vehicles error:', error);
+      if (__DEV__) {
+        console.error('Get vehicles error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Araç listesi alınamadı',
@@ -433,7 +647,9 @@ export const VehicleService = {
       const response = await apiClient.post('/vehicles', data);
       return response.data;
     } catch (error: any) {
-      console.error('Add vehicle error:', error);
+      if (__DEV__) {
+        console.error('Add vehicle error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Araç eklenemedi',
@@ -450,7 +666,9 @@ export const VehicleService = {
       const response = await apiClient.put(`/vehicles/${id}`, data);
       return response.data;
     } catch (error: any) {
-      console.error('Update vehicle error:', error);
+      if (__DEV__) {
+        console.error('Update vehicle error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Araç güncellenemedi',
@@ -467,7 +685,9 @@ export const VehicleService = {
       const response = await apiClient.delete(`/vehicles/${id}`);
       return response.data;
     } catch (error: any) {
-      console.error('Delete vehicle error:', error);
+      if (__DEV__) {
+        console.error('Delete vehicle error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Araç silinemedi',
@@ -489,7 +709,9 @@ export const AppointmentService = {
       const response = await apiClient.get('/appointments/driver', { params });
       return response.data;
     } catch (error: any) {
-      console.error('Get appointments error:', error);
+      if (__DEV__) {
+        console.error('Get appointments error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Randevu listesi alınamadı',
@@ -506,7 +728,9 @@ export const AppointmentService = {
       const response = await apiClient.post('/appointments', data);
       return response.data;
     } catch (error: any) {
-      console.error('Create appointment error:', error);
+      if (__DEV__) {
+        console.error('Create appointment error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Randevu oluşturulamadı',
@@ -523,7 +747,9 @@ export const AppointmentService = {
       const response = await apiClient.put(`/appointments/${id}`, data);
       return response.data;
     } catch (error: any) {
-      console.error('Update appointment error:', error);
+      if (__DEV__) {
+        console.error('Update appointment error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Randevu güncellenemedi',
@@ -540,7 +766,9 @@ export const AppointmentService = {
       const response = await apiClient.put(`/appointments/${id}/cancel`, {});
       return response.data;
     } catch (error: any) {
-      console.error('Cancel appointment error:', error);
+      if (__DEV__) {
+        console.error('Cancel appointment error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Randevu iptal edilemedi',
@@ -561,7 +789,9 @@ export const MechanicService = {
       const response = await apiClient.get('/mechanics', { params: filters });
       return response.data;
     } catch (error: any) {
-      console.error('Get mechanics error:', error);
+      if (__DEV__) {
+        console.error('Get mechanics error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Usta listesi alınamadı',
@@ -584,7 +814,9 @@ export const MechanicService = {
       });
       return response.data;
     } catch (error: any) {
-      console.error('Get nearby mechanics error:', error);
+      if (__DEV__) {
+        console.error('Get nearby mechanics error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Yakındaki ustalar alınamadı',
@@ -601,7 +833,9 @@ export const MechanicService = {
       const response = await apiClient.get(`/mechanic/details/${id}`);
       return response.data;
     } catch (error: any) {
-      console.error('Get mechanic details error:', error);
+      if (__DEV__) {
+        console.error('Get mechanic details error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Usta detayları alınamadı',
@@ -619,13 +853,12 @@ export const MessageService = {
    */
   async getConversations(): Promise<ApiResponse<{ conversations: any[] }>> {
     try {
-      console.log('🔍 MessageService: getConversations çağrılıyor...');
       const response = await apiClient.get('/message/conversations');
-      console.log('🔍 MessageService: Raw API response:', response);
-      console.log('🔍 MessageService: Response data:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('❌ MessageService: Get conversations error:', error);
+      if (__DEV__) {
+        console.error('MessageService: Get conversations error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Konuşma listesi alınamadı',
@@ -642,7 +875,9 @@ export const MessageService = {
       const response = await apiClient.get(`/message/conversations/${conversationId}/messages`);
       return response.data;
     } catch (error: any) {
-      console.error('Get messages error:', error);
+      if (__DEV__) {
+        console.error('Get messages error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Mesaj listesi alınamadı',
@@ -659,7 +894,9 @@ export const MessageService = {
       const response = await apiClient.post('/message/send', data);
       return response.data;
     } catch (error: any) {
-      console.error('Send message error:', error);
+      if (__DEV__) {
+        console.error('Send message error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Mesaj gönderilemedi',
@@ -680,7 +917,21 @@ export const NotificationService = {
       const response = await apiClient.get('/notifications/driver');
       return response.data;
     } catch (error: any) {
-      console.error('Get notifications error:', error);
+      // Rate limit hatası (429) - sessizce işle, log etme
+      if (error.response?.status === 429) {
+        if (__DEV__) {
+          console.log('Notifications rate limit hatası (429), sessizce işleniyor');
+        }
+        return createErrorResponse(
+          ErrorCode.RATE_LIMIT_EXCEEDED,
+          'Rate limit aşıldı',
+          error.response?.data?.error?.details
+        );
+      }
+      
+      if (__DEV__) {
+        console.error('Get notifications error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Bildirim listesi alınamadı',
@@ -697,7 +948,9 @@ export const NotificationService = {
       const response = await apiClient.put(`/notifications/${id}/read`);
       return response.data;
     } catch (error: any) {
-      console.error('Mark notification as read error:', error);
+      if (__DEV__) {
+        console.error('Mark notification as read error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Bildirim okundu olarak işaretlenemedi',
@@ -714,7 +967,9 @@ export const NotificationService = {
       const response = await apiClient.put('/notifications/driver/mark-all-read');
       return response.data;
     } catch (error: any) {
-      console.error('Mark all notifications as read error:', error);
+      if (__DEV__) {
+        console.error('Mark all notifications as read error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Tüm bildirimler okundu olarak işaretlenemedi',
@@ -731,7 +986,9 @@ export const NotificationService = {
       const response = await apiClient.delete(`/notifications/${id}`);
       return response.data;
     } catch (error: any) {
-      console.error('Delete notification error:', error);
+      if (__DEV__) {
+        console.error('Delete notification error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Bildirim silinemedi',
@@ -763,7 +1020,21 @@ export const PartsService = {
       const response = await apiClient.get('/parts/market', { params: filters });
       return response.data;
     } catch (error: any) {
-      console.error('Search parts error:', error);
+      // Rate limit hatası (429) - sessizce işle, log etme
+      if (error.response?.status === 429) {
+        if (__DEV__) {
+          console.log('Search parts rate limit hatası (429), sessizce işleniyor');
+        }
+        return createErrorResponse(
+          ErrorCode.RATE_LIMIT_EXCEEDED,
+          'Rate limit aşıldı',
+          error.response?.data?.error?.details
+        );
+      }
+      
+      if (__DEV__) {
+        console.error('Search parts error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Arama yapılamadı',
@@ -780,7 +1051,9 @@ export const PartsService = {
       const response = await apiClient.get(`/parts/${partId}`);
       return response.data;
     } catch (error: any) {
-      console.error('Get part detail error:', error);
+      if (__DEV__) {
+        console.error('Get part detail error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Parça detayı yüklenemedi',
@@ -808,7 +1081,9 @@ export const PartsService = {
       const response = await apiClient.post('/parts/reserve', data);
       return response.data;
     } catch (error: any) {
-      console.error('Create reservation error:', error);
+      if (__DEV__) {
+        console.error('Create reservation error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Rezervasyon oluşturulamadı',
@@ -828,7 +1103,9 @@ export const PartsService = {
       });
       return response.data;
     } catch (error: any) {
-      console.error('Cancel reservation error:', error);
+      if (__DEV__) {
+        console.error('Cancel reservation error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Rezervasyon iptal edilemedi',
@@ -845,7 +1122,9 @@ export const PartsService = {
       const response = await apiClient.get('/parts/my-reservations', { params: filters });
       return response.data;
     } catch (error: any) {
-      console.error('Get my reservations error:', error);
+      if (__DEV__) {
+        console.error('Get my reservations error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Rezervasyonlar yüklenemedi',
@@ -869,7 +1148,9 @@ export const PartsService = {
       });
       return response.data;
     } catch (error: any) {
-      console.error('Negotiate reservation price error:', error);
+      if (__DEV__) {
+        console.error('Negotiate reservation price error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Pazarlık teklifi gönderilemedi',
@@ -894,7 +1175,9 @@ export const apiService = {
       const response = await apiClient.get('/users/profile');
       return response.data;
     } catch (error: any) {
-      console.error('Get user profile error:', error);
+      if (__DEV__) {
+        console.error('Get user profile error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Kullanıcı profili alınamadı',
@@ -916,7 +1199,9 @@ export const apiService = {
       const response = await apiClient.get('/appointments/driver', { params });
       return response.data;
     } catch (error: any) {
-      console.error('Get appointments error:', error);
+      if (__DEV__) {
+        console.error('Get appointments error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Randevu listesi alınamadı',
@@ -931,14 +1216,16 @@ export const apiService = {
   // Mechanics
   getMechanics: async (filters?: any) => {
     try {
-      console.log('🔍 getMechanics çağrıldı, filters:', filters);
       const response = await apiClient.get('/mechanic/list', { params: filters });
-      console.log('🔍 getMechanics yanıtı:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('❌ Get mechanics error:', error);
-      console.error('❌ Get mechanics error response:', error.response?.data);
-      console.error('❌ Get mechanics error status:', error.response?.status);
+      if (__DEV__) {
+        console.error('Get mechanics error:', error);
+        if (error.response) {
+          console.error('Error response:', error.response?.data);
+          console.error('Error status:', error.response?.status);
+        }
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Usta listesi alınamadı',
@@ -949,10 +1236,11 @@ export const apiService = {
   getMechanicDetails: async (mechanicId: string) => {
     try {
       const response = await apiClient.get(`/mechanic/details/${mechanicId}`);
-      console.log('🔍 getMechanicDetails API Response:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('Get mechanic details error:', error);
+      if (__DEV__) {
+        console.error('Get mechanic details error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Usta detayları alınamadı',
@@ -985,7 +1273,9 @@ export const apiService = {
         };
       }
     } catch (error: any) {
-      console.error('Get mechanic reviews error:', error);
+      if (__DEV__) {
+        console.error('Get mechanic reviews error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Usta yorumları alınamadı',
@@ -1002,7 +1292,9 @@ export const apiService = {
         message: 'Favori durumu kontrol edilemedi - endpoint henüz mevcut değil'
       };
     } catch (error: any) {
-      console.error('Check favorite mechanic error:', error);
+      if (__DEV__) {
+        console.error('Check favorite mechanic error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Favori usta kontrolü yapılamadı',
@@ -1019,7 +1311,9 @@ export const apiService = {
         message: 'Favori durumu değiştirilemedi - endpoint henüz mevcut değil'
       };
     } catch (error: any) {
-      console.error('Toggle favorite mechanic error:', error);
+      if (__DEV__) {
+        console.error('Toggle favorite mechanic error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Favori usta durumu değiştirilemedi',
@@ -1038,7 +1332,9 @@ export const apiService = {
       });
       return response.data;
     } catch (error: any) {
-      console.error('Get nearby mechanics error:', error);
+      if (__DEV__) {
+        console.error('Get nearby mechanics error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Yakındaki ustalar alınamadı',
@@ -1053,7 +1349,9 @@ export const apiService = {
       });
       return response.data;
     } catch (error: any) {
-      console.error('Get mechanics by service error:', error);
+      if (__DEV__) {
+        console.error('Get mechanics by service error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Servis ustaları alınamadı',
@@ -1071,7 +1369,9 @@ export const apiService = {
       const response = await apiClient.delete(`/message/${messageId}`);
       return response.data;
     } catch (error: any) {
-      console.error('Delete message error:', error);
+      if (__DEV__) {
+        console.error('Delete message error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Mesaj silinemedi',
@@ -1084,7 +1384,9 @@ export const apiService = {
       const response = await apiClient.delete(`/message/conversations/${conversationId}`);
       return response.data;
     } catch (error: any) {
-      console.error('Delete conversation error:', error);
+      if (__DEV__) {
+        console.error('Delete conversation error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Konuşma silinemedi',
@@ -1105,7 +1407,9 @@ export const apiService = {
       const response = await apiClient.post('/fault-reports', data);
       return response.data;
     } catch (error: any) {
-      console.error('Create fault report error:', error);
+      if (__DEV__) {
+        console.error('Create fault report error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Arıza bildirimi oluşturulamadı',
@@ -1120,7 +1424,9 @@ export const apiService = {
       const response = await apiClient.post('/emergency/towing-request', data);
       return response.data;
     } catch (error: any) {
-      console.error('Create emergency towing request error:', error);
+      if (__DEV__) {
+        console.error('Create emergency towing request error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Acil çekici talebi oluşturulamadı',
@@ -1135,7 +1441,9 @@ export const apiService = {
       const response = await apiClient.get('/wallet/balance');
       return response.data;
     } catch (error: any) {
-      console.error('Get wallet balance error:', error);
+      if (__DEV__) {
+        console.error('Get wallet balance error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Cüzdan bakiyesi alınamadı',
@@ -1148,7 +1456,9 @@ export const apiService = {
       const response = await apiClient.get('/wallet/transactions', { params });
       return response.data;
     } catch (error: any) {
-      console.error('Get wallet transactions error:', error);
+      if (__DEV__) {
+        console.error('Get wallet transactions error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Cüzdan işlemleri alınamadı',
@@ -1160,7 +1470,9 @@ export const apiService = {
     try {
       // Frontend'de amount validation
       if (!amount || typeof amount !== 'number' || amount <= 0 || amount > 999999999) {
-        console.error('Invalid amount for addBalance:', amount);
+        if (__DEV__) {
+          console.error('Invalid amount for addBalance:', amount);
+        }
         return createErrorResponse(
           ErrorCode.INVALID_INPUT_FORMAT,
           'Geçerli miktar giriniz (1-999,999,999 TL arası)',
@@ -1171,7 +1483,9 @@ export const apiService = {
       const response = await apiClient.post('/wallet/add-money', { amount });
       return response.data;
     } catch (error: any) {
-      console.error('Add balance error:', error);
+      if (__DEV__) {
+        console.error('Add balance error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         error.response?.data?.message || 'Bakiye yüklenirken hata oluştu',
@@ -1187,7 +1501,9 @@ export const apiService = {
       const response = await apiClient.post('/services/tire-request', data);
       return response.data;
     } catch (error: any) {
-      console.error('Create tire parts request error:', error);
+      if (__DEV__) {
+        console.error('Create tire parts request error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Lastik parça talebi oluşturulamadı',
@@ -1211,7 +1527,9 @@ export const apiService = {
       const response = await apiClient.post('/wash/quote', data);
       return response.data;
     } catch (error: any) {
-      console.error('Get wash quote error:', error);
+      if (__DEV__) {
+        console.error('Get wash quote error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Fiyat teklifi alınamadı',
@@ -1226,7 +1544,9 @@ export const apiService = {
       const response = await apiClient.post('/wash/order', data);
       return response.data;
     } catch (error: any) {
-      console.error('Create wash order error:', error);
+      if (__DEV__) {
+        console.error('Create wash order error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Sipariş oluşturulamadı',
@@ -1241,7 +1561,9 @@ export const apiService = {
       const response = await apiClient.get(`/wash/order/${orderId}`);
       return response.data;
     } catch (error: any) {
-      console.error('Get wash order error:', error);
+      if (__DEV__) {
+        console.error('Get wash order error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Sipariş detayı alınamadı',
@@ -1256,7 +1578,9 @@ export const apiService = {
       const response = await apiClient.post(`/wash/order/${orderId}/cancel`, { reason });
       return response.data;
     } catch (error: any) {
-      console.error('Cancel wash order error:', error);
+      if (__DEV__) {
+        console.error('Cancel wash order error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Sipariş iptal edilemedi',
@@ -1274,7 +1598,9 @@ export const apiService = {
       });
       return response.data;
     } catch (error: any) {
-      console.error('Approve wash QA error:', error);
+      if (__DEV__) {
+        console.error('Approve wash QA error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'QA onaylanamadı',
@@ -1291,7 +1617,9 @@ export const apiService = {
       });
       return response.data;
     } catch (error: any) {
-      console.error('Get my wash orders error:', error);
+      if (__DEV__) {
+        console.error('Get my wash orders error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Siparişler getirilemedi',
@@ -1311,7 +1639,9 @@ export const apiService = {
       const response = await apiClient.get('/wash/providers', { params });
       return response.data;
     } catch (error: any) {
-      console.error('Get wash providers error:', error);
+      if (__DEV__) {
+        console.error('Get wash providers error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'İşletmeler getirilemedi',
@@ -1330,7 +1660,9 @@ export const apiService = {
       const response = await apiClient.get('/wash/slots/available', { params });
       return response.data;
     } catch (error: any) {
-      console.error('Get available wash slots error:', error);
+      if (__DEV__) {
+        console.error('Get available wash slots error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Müsait slotlar getirilemedi',
@@ -1345,7 +1677,9 @@ export const apiService = {
       const response = await apiClient.get('/wash/packages', { params });
       return response.data;
     } catch (error: any) {
-      console.error('Get wash packages error:', error);
+      if (__DEV__) {
+        console.error('Get wash packages error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Paketler getirilemedi',
@@ -1360,7 +1694,9 @@ export const apiService = {
       const response = await apiClient.post('/wash/packages/create', data);
       return response.data;
     } catch (error: any) {
-      console.error('Create wash package error:', error);
+      if (__DEV__) {
+        console.error('Create wash package error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Paket oluşturulamadı',
@@ -1375,7 +1711,9 @@ export const apiService = {
       const response = await apiClient.get('/wash/my-packages');
       return response.data;
     } catch (error: any) {
-      console.error('Get my wash packages error:', error);
+      if (__DEV__) {
+        console.error('Get my wash packages error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Paketler getirilemedi',
@@ -1390,7 +1728,9 @@ export const apiService = {
       const response = await apiClient.put(`/wash/packages/${packageId}`, data);
       return response.data;
     } catch (error: any) {
-      console.error('Update wash package error:', error);
+      if (__DEV__) {
+        console.error('Update wash package error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Paket güncellenemedi',
@@ -1405,7 +1745,9 @@ export const apiService = {
       const response = await apiClient.delete(`/wash/packages/${packageId}`);
       return response.data;
     } catch (error: any) {
-      console.error('Delete wash package error:', error);
+      if (__DEV__) {
+        console.error('Delete wash package error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Paket silinemedi',
@@ -1420,7 +1762,9 @@ export const apiService = {
       const response = await apiClient.get(`/mechanic/${mechanicId}/wash-packages`);
       return response.data;
     } catch (error: any) {
-      console.error('Get mechanic wash packages error:', error);
+      if (__DEV__) {
+        console.error('Get mechanic wash packages error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Yıkama paketleri alınamadı',
@@ -1434,7 +1778,9 @@ export const apiService = {
       const response = await apiClient.post('/services/wash-booking', data);
       return response.data;
     } catch (error: any) {
-      console.error('Create wash booking error:', error);
+      if (__DEV__) {
+        console.error('Create wash booking error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Yıkama randevusu oluşturulamadı',
@@ -1449,7 +1795,9 @@ export const apiService = {
       const response = await apiClient.get(endpoint, { params });
       return response.data;
     } catch (error: any) {
-      console.error(`GET ${endpoint} error:`, error);
+      if (__DEV__) {
+        console.error(`GET ${endpoint} error:`, error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Veri alınamadı',
@@ -1464,7 +1812,9 @@ export const apiService = {
       const response = await apiClient.post(endpoint, data);
       return response.data;
     } catch (error: any) {
-      console.error(`POST ${endpoint} error:`, error);
+      if (__DEV__) {
+        console.error(`POST ${endpoint} error:`, error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Veri gönderilemedi',
@@ -1488,8 +1838,6 @@ export const apiService = {
       } as any);
 
       const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-      console.log('📸 Upload token:', token ? `${token.substring(0, 20)}...` : 'NO TOKEN');
-      console.log('📸 Upload URL:', `${API_CONFIG.BASE_URL}/users/profile-photo`);
       
       const response = await axios.post(
         `${API_CONFIG.BASE_URL}/users/profile-photo`,
@@ -1504,9 +1852,13 @@ export const apiService = {
       );
       return response.data;
     } catch (error: any) {
-      console.error('📸 Upload profile photo error:', error);
-      console.error('📸 Error response:', error.response?.data);
-      console.error('📸 Error status:', error.response?.status);
+      if (__DEV__) {
+        console.error('Upload profile photo error:', error);
+        if (error.response) {
+          console.error('Error response:', error.response?.data);
+          console.error('Error status:', error.response?.status);
+        }
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Profil fotoğrafı yüklenemedi',
@@ -1529,8 +1881,6 @@ export const apiService = {
       } as any);
 
       const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-      console.log('📸 Upload token:', token ? `${token.substring(0, 20)}...` : 'NO TOKEN');
-      console.log('📸 Upload URL:', `${API_CONFIG.BASE_URL}/users/cover-photo`);
       
       const response = await axios.post(
         `${API_CONFIG.BASE_URL}/users/cover-photo`,
@@ -1545,9 +1895,13 @@ export const apiService = {
       );
       return response.data;
     } catch (error: any) {
-      console.error('📸 Upload cover photo error:', error);
-      console.error('📸 Error response:', error.response?.data);
-      console.error('📸 Error status:', error.response?.status);
+      if (__DEV__) {
+        console.error('Upload cover photo error:', error);
+        if (error.response) {
+          console.error('Error response:', error.response?.data);
+          console.error('Error status:', error.response?.status);
+        }
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Kapak fotoğrafı yüklenemedi',
@@ -1564,7 +1918,9 @@ export const apiService = {
       const response = await apiClient.post('/tire-service/request', data);
       return response.data;
     } catch (error: any) {
-      console.error('Create tire service request error:', error);
+      if (__DEV__) {
+        console.error('Create tire service request error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Lastik hizmet talebi oluşturulamadı',
@@ -1579,7 +1935,9 @@ export const apiService = {
       const response = await apiClient.get('/tire-service/my-requests', { params });
       return response.data;
     } catch (error: any) {
-      console.error('Get my tire requests error:', error);
+      if (__DEV__) {
+        console.error('Get my tire requests error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Lastik talepleri getirilemedi',
@@ -1594,7 +1952,9 @@ export const apiService = {
       const response = await apiClient.get(`/tire-service/${jobId}/status`);
       return response.data;
     } catch (error: any) {
-      console.error('Get tire service by ID error:', error);
+      if (__DEV__) {
+        console.error('Get tire service by ID error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Lastik iş detayı getirilemedi',
@@ -1609,7 +1969,9 @@ export const apiService = {
       const response = await apiClient.get(`/tire-service/health-history/${vehicleId}`);
       return response.data;
     } catch (error: any) {
-      console.error('Get tire health history error:', error);
+      if (__DEV__) {
+        console.error('Get tire health history error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Lastik sağlık geçmişi getirilemedi',
@@ -1642,7 +2004,9 @@ export const apiService = {
       const response = await apiClient.get('/campaigns/ads');
       return response.data;
     } catch (error: any) {
-      console.error('Get ads error:', error);
+      if (__DEV__) {
+        console.error('Get ads error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Reklamlar alınamadı',
@@ -1657,7 +2021,9 @@ export const apiService = {
       const response = await apiClient.get(`/mechanic/${mechanicId}/rating-stats`);
       return response.data;
     } catch (error: any) {
-      console.error('Get mechanic rating stats error:', error);
+      if (__DEV__) {
+        console.error('Get mechanic rating stats error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Usta puan istatistikleri alınamadı',
@@ -1672,7 +2038,9 @@ export const apiService = {
       const response = await apiClient.post(`/mechanic/${mechanicId}/become-customer`);
       return response.data;
     } catch (error: any) {
-      console.error('Become customer error:', error);
+      if (__DEV__) {
+        console.error('Become customer error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Müşteri kaydı yapılamadı',
@@ -1687,7 +2055,9 @@ export const apiService = {
       const response = await apiClient.delete(`/mechanic/${mechanicId}/remove-customer`);
       return response.data;
     } catch (error: any) {
-      console.error('Remove customer error:', error);
+      if (__DEV__) {
+        console.error('Remove customer error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Müşteri kaydı kaldırılamadı',
@@ -1702,7 +2072,9 @@ export const apiService = {
       const response = await apiClient.get('/users/notification-settings');
       return response.data;
     } catch (error: any) {
-      console.error('Get notification settings error:', error);
+      if (__DEV__) {
+        console.error('Get notification settings error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Bildirim ayarları alınamadı',
@@ -1716,7 +2088,9 @@ export const apiService = {
       const response = await apiClient.put('/users/notification-settings', settings);
       return response.data;
     } catch (error: any) {
-      console.error('Update notification settings error:', error);
+      if (__DEV__) {
+        console.error('Update notification settings error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Bildirim ayarları güncellenemedi',
@@ -1730,7 +2104,9 @@ export const apiService = {
       const response = await apiClient.put('/users/push-token', { pushToken });
       return response.data;
     } catch (error: any) {
-      console.error('Update push token error:', error);
+      if (__DEV__) {
+        console.error('Update push token error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Push token güncellenemedi',
@@ -1744,7 +2120,9 @@ export const apiService = {
       const response = await apiClient.post('/notifications', notificationData);
       return response.data;
     } catch (error: any) {
-      console.error('Create notification error:', error);
+      if (__DEV__) {
+        console.error('Create notification error:', error);
+      }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Bildirim oluşturulamadı',

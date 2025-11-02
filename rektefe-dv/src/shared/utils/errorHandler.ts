@@ -6,6 +6,7 @@ export enum ErrorType {
   AUTH = 'AUTH',
   VALIDATION = 'VALIDATION',
   SERVER = 'SERVER',
+  RATE_LIMIT = 'RATE_LIMIT',
   UNKNOWN = 'UNKNOWN'
 }
 
@@ -20,6 +21,15 @@ export interface AppError {
  * API hatalarını kategorize eder ve kullanıcı dostu mesajlar üretir
  */
 export const handleApiError = (error: any): AppError => {
+  // Cancel edilen istekler (rate limit nedeniyle) - sessizce handle et
+  if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED' || (error.message && error.message.includes('Rate limit aktif'))) {
+    return {
+      type: ErrorType.RATE_LIMIT,
+      message: 'İstek iptal edildi',
+      originalError: error
+    };
+  }
+  
   // Network hataları
   if (error.code === 'NETWORK_ERROR' || error.message?.includes('Network Error')) {
     return {
@@ -34,6 +44,15 @@ export const handleApiError = (error: any): AppError => {
     const statusCode = error.response.status;
     
     switch (statusCode) {
+      case 429:
+        // Rate limit hatası - sessizce işlenir, kullanıcıya gösterilmez
+        return {
+          type: ErrorType.RATE_LIMIT,
+          message: 'Rate limit aşıldı',
+          originalError: error,
+          statusCode
+        };
+      
       case 401:
         return {
           type: ErrorType.AUTH,
@@ -89,9 +108,30 @@ export const handleApiError = (error: any): AppError => {
 };
 
 /**
+ * Rate limit veya cancel edilen istek kontrolü
+ */
+export const isRateLimitOrCanceledError = (error: any): boolean => {
+  return (
+    error.response?.status === 429 ||
+    error.name === 'CanceledError' ||
+    error.code === 'ERR_CANCELED' ||
+    error.message?.includes('Rate limit aktif') ||
+    (error.type && error.type === ErrorType.RATE_LIMIT)
+  );
+};
+
+/**
  * Hata mesajını kullanıcıya gösterir
  */
 export const showError = (error: AppError | string, title: string = 'Hata') => {
+  // Rate limit hatası ise kullanıcıya gösterilmez (sessizce işlenir)
+  if (typeof error !== 'string' && error.type === ErrorType.RATE_LIMIT) {
+    if (__DEV__) {
+      console.log('Rate limit hatası, kullanıcıya gösterilmiyor');
+    }
+    return;
+  }
+  
   const message = typeof error === 'string' ? error : error.message;
   
   Alert.alert(title, message, [
@@ -149,6 +189,14 @@ export const withErrorHandling = async <T>(
       options.onError(appError);
     }
     
+    // Rate limit hatası ise alert gösterilmez (sessizce işlenir)
+    if (appError.type === ErrorType.RATE_LIMIT) {
+      if (__DEV__) {
+        console.log('Rate limit hatası, alert gösterilmiyor');
+      }
+      return { data: null, error: appError };
+    }
+    
     // Hata alert'i göster
     if (options?.showErrorAlert !== false) {
       const errorMessage = options?.customErrorMessage || appError.message;
@@ -186,10 +234,21 @@ export const handleValidationError = (fields: Record<string, string[]>): string 
 export const handleAuthError = (error: any): void => {
   const appError = handleApiError(error);
   
+  // Rate limit hatası ise hiçbir şey yapma (sessizce işlenir)
+  if (appError.type === ErrorType.RATE_LIMIT) {
+    if (__DEV__) {
+      console.log('Rate limit hatası, auth error handler sessizce atlanıyor');
+    }
+    return;
+  }
+  
   if (appError.type === ErrorType.AUTH) {
-    // Auth context'e logout sinyali gönder
-    // Bu kısım AuthContext'te implement edilecek
-    console.log('Auth error detected, logging out user');
+    // Auth hatası tespit edildi ama otomatik logout yapılmıyor
+    // API interceptor zaten gerçek auth hatalarında logout'u handle ediyor
+    // Burada sadece kullanıcıya hata mesajı gösteriliyor
+    if (__DEV__) {
+      console.log('Auth hatası tespit edildi (API interceptor logout\'u handle edecek)');
+    }
   }
   
   showError(appError);
@@ -202,5 +261,6 @@ export default {
   showConfirmation,
   withErrorHandling,
   handleValidationError,
-  handleAuthError
+  handleAuthError,
+  isRateLimitOrCanceledError
 };

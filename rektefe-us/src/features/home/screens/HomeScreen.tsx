@@ -15,7 +15,8 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
+import { useOptimizedFocusEffect } from '@/shared/hooks/useOptimizedFocusEffect';
 import { useAuth } from '@/shared/context';
 import apiService from '@/shared/services';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -503,17 +504,20 @@ const mechanicCapabilities = [
     };
   }, [isAuthenticated, user?._id]); // Sadece user ID'si değiştiğinde tetikle
 
-  // Arıza bildirimleri için özel polling - daha az sıklıkta
+  // Arıza bildirimleri için özel polling - optimize edildi
   useEffect(() => {
-    if (isAuthenticated && user) {
-      // Her 10 dakikada bir arıza bildirimlerini kontrol et (daha az sıklıkta)
+    if (isAuthenticated && user && appState.current === 'active') {
+      // Her 15 dakikada bir arıza bildirimlerini kontrol et (optimize edildi)
       const faultReportInterval = setInterval(() => {
-        checkFaultReports();
-      }, 600000); // 10 dakika (600 saniye)
+        // App background'dayken polling yapma
+        if (appState.current === 'active') {
+          checkFaultReports();
+        }
+      }, 900000); // 15 dakika (900 saniye)
 
       return () => clearInterval(faultReportInterval);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, checkFaultReports]);
 
   // Loading animasyonu
   useEffect(() => {
@@ -531,13 +535,14 @@ const mechanicCapabilities = [
     }
   }, [loading, spinValue]);
 
-  // Sayfa odaklandığında veri yenile - ama sadece gerektiğinde
-  useFocusEffect(
+  // Sayfa odaklandığında veri yenile - optimize edilmiş (30 saniye throttle)
+  useOptimizedFocusEffect(
     useCallback(() => {
       if (isAuthenticated && user) {
         fetchDashboardData();
       }
-    }, [isAuthenticated, user?._id])
+    }, [isAuthenticated, user?._id, fetchDashboardData]),
+    { throttleMs: 30000, fetchOnMount: true }
   );
 
   const handleAppStateChange = useCallback((nextAppState: AppStateStatus) => {
@@ -551,19 +556,18 @@ const mechanicCapabilities = [
   }, [isAuthenticated, user]); // 🚀 OPTIMIZE: useCallback
 
   const startAutoRefresh = useCallback(() => {
-    // Her 5 dakikada bir veri yenile (daha az sıklıkta)
+    // Her 10 dakikada bir veri yenile (optimize edildi)
     intervalRef.current = setInterval(() => {
       if (isAuthenticated && user && appState.current === 'active') {
         fetchDashboardData(false); // Loading gösterme
       }
-    }, 300000); // 5 dakika (300 saniye)
-  }, [isAuthenticated, user]); // 🚀 OPTIMIZE: useCallback
+    }, 600000); // 10 dakika (600 saniye)
+  }, [isAuthenticated, user, fetchDashboardData]);
 
   const fetchDashboardData = async (showLoading = true) => {
     try {
       // Authentication kontrolü
       if (!isAuthenticated || !user) {
-        console.log('❌ Not authenticated, skipping dashboard data fetch');
         setLoading(false);
         return;
       }
@@ -642,12 +646,9 @@ const mechanicCapabilities = [
         return;
       }
       
-      console.log('❌ fetchDashboardData error:', error);
-      console.log('Error details:', {
-        message: error?.message,
-        stack: error?.stack,
-        name: error?.name
-      });
+      if (__DEV__) {
+        console.error('fetchDashboardData error:', error?.message || error);
+      }
       Alert.alert('Hata', 'Veriler yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
@@ -659,7 +660,9 @@ const mechanicCapabilities = [
       setRefreshing(true);
       await fetchDashboardData(false); // Loading gösterme
     } catch (error) {
-      console.log('❌ onRefresh error:', error);
+      if (__DEV__) {
+        console.error('onRefresh error:', error);
+      }
     } finally {
       setRefreshing(false);
     }

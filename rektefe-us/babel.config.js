@@ -2,6 +2,8 @@ const path = require('path');
 
 module.exports = function (api) {
   api.cache(true);
+  const isProduction = process.env.NODE_ENV === 'production';
+  
   return {
     presets: ['babel-preset-expo'],
     plugins: [
@@ -20,6 +22,10 @@ module.exports = function (api) {
           },
         },
       ],
+      // Production build'de console.log'ları kaldır (__DEV__ kontrolü ile optimize edilmiş loglar zaten çalışmayacak)
+      ...(isProduction ? [
+        ['transform-remove-console', { exclude: ['error', 'warn'] }]
+      ] : []),
       'react-native-reanimated/plugin',
     ],
   };

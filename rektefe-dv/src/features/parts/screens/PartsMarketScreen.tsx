@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,10 @@ import {
   TextInput,
   Modal,
   Image,
+  Animated,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
@@ -22,8 +26,8 @@ import { RootStackParamList } from '@/navigation/AppNavigator';
 import Background from '@/shared/components/Background';
 import { BackButton } from '@/shared/components';
 import Button from '@/shared/components/Button';
-import Card from '@/shared/components/Card';
 import { apiService } from '@/shared/services/api';
+import { isRateLimitOrCanceledError } from '@/shared/utils/errorHandler';
 
 type PartsMarketScreenNavigationProp = StackNavigationProp<RootStackParamList, 'PartsMarket'>;
 
@@ -60,10 +64,15 @@ interface Part {
   };
 }
 
+// Enable LayoutAnimation for Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 const PartsMarketScreen = () => {
   const { theme } = useTheme();
   const navigation = useNavigation<PartsMarketScreenNavigationProp>();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   // State
   const [loading, setLoading] = useState(true);
@@ -76,6 +85,9 @@ const PartsMarketScreen = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedCondition, setSelectedCondition] = useState<string>('');
   const [priceRange, setPriceRange] = useState({ min: '', max: '' });
+
+  // Animations
+  const filterAnimation = useRef(new Animated.Value(0)).current;
 
   // Categories
   const categories = [
@@ -103,11 +115,7 @@ const PartsMarketScreen = () => {
     { id: 'aftermarket', label: 'Yan Sanayi' },
   ];
 
-  useEffect(() => {
-    fetchParts();
-  }, []);
-
-  const fetchParts = async () => {
+  const fetchParts = useCallback(async () => {
     try {
       setLoading(true);
       const filters: any = {};
@@ -119,157 +127,258 @@ const PartsMarketScreen = () => {
       if (priceRange.max) filters.maxPrice = parseFloat(priceRange.max);
 
       const response = await apiService.searchParts(filters);
-      console.log('🔍 PartsMarket - API Response:', JSON.stringify(response, null, 2));
+      
+      // Rate limit hatası ise sessizce atla
+      if (!response.success && (response as any).error?.code === 'RATE_LIMIT_EXCEEDED') {
+        console.log('⚠️ PartsMarketScreen: Rate limit hatası, sessizce atlanıyor');
+        setParts([]);
+        setLoading(false);
+        return;
+      }
       
       if (response.success && response.data) {
         const partsArray = Array.isArray(response.data.parts) ? response.data.parts : [];
-        console.log('🔍 PartsMarket - Parts Array:', partsArray.length, 'items');
-        console.log('🔍 PartsMarket - First Item:', partsArray[0]);
         setParts(partsArray);
       } else {
-        console.log('⚠️ PartsMarket - No data in response:', response);
         setParts([]);
       }
-    } catch (error) {
+    } catch (error: any) {
+      // Rate limit hatası veya cancel edilen istek ise sessizce atla
+      if (isRateLimitOrCanceledError(error)) {
+        console.log('⚠️ PartsMarketScreen: Rate limit veya cancel edilen istek, sessizce atlanıyor');
+        // Mevcut verileri koru, sadece loading'i kapat
+        setLoading(false);
+        return;
+      }
+      
       console.error('Parçalar yüklenemedi:', error);
       Alert.alert('Hata', 'Parçalar yüklenemedi');
+      setParts([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchQuery, selectedCategory, selectedCondition, priceRange.min, priceRange.max]);
 
-  const onRefresh = async () => {
+  useEffect(() => {
+    fetchParts();
+  }, [fetchParts]); // fetchParts useCallback ile optimize edildi, dependency array'e eklendi
+
+  // Filter animation
+  useEffect(() => {
+    Animated.spring(filterAnimation, {
+      toValue: showFilters ? 1 : 0,
+      useNativeDriver: false,
+      tension: 80,
+      friction: 10,
+    }).start();
+  }, [showFilters]);
+
+  // Layout animation for filter container
+  const toggleFilters = useCallback(() => {
+    LayoutAnimation.configureNext({
+      duration: 300,
+      create: {
+        type: LayoutAnimation.Types.easeInEaseOut,
+        property: LayoutAnimation.Properties.opacity,
+      },
+      update: {
+        type: LayoutAnimation.Types.easeInEaseOut,
+      },
+    });
+    setShowFilters(!showFilters);
+  }, [showFilters]);
+
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchParts();
     setRefreshing(false);
-  };
+  }, [fetchParts]);
 
-  const handleSearch = () => {
+  const handleSearch = useCallback(() => {
     fetchParts();
-  };
+  }, [fetchParts]);
 
-  const handleClearFilters = () => {
+  const handleClearFilters = useCallback(() => {
     setSelectedCategory('');
     setSelectedCondition('');
     setPriceRange({ min: '', max: '' });
-    fetchParts();
-  };
+  }, []);
 
-  const handlePartPress = (part: Part) => {
+  const handlePartPress = useCallback((part: Part) => {
     navigation.navigate('PartDetail', { partId: part._id });
-  };
+  }, [navigation]);
 
-  const getCategoryLabel = (category: string) => {
+  const getCategoryLabel = useCallback((category: string) => {
     return categories.find(c => c.id === category)?.label || category;
-  };
+  }, []);
 
-  const getConditionLabel = (condition: string) => {
+  const getConditionLabel = useCallback((condition: string) => {
     return conditions.find(c => c.id === condition)?.label || condition;
-  };
+  }, []);
 
-  const renderPartCard = ({ item }: { item: Part }) => (
-    <TouchableOpacity onPress={() => handlePartPress(item)}>
-      <Card variant="elevated" style={styles.partCard}>
-        {/* Photo */}
-        {item.photos && item.photos.length > 0 ? (
-          <View style={styles.photoContainer}>
-            <Image
-              source={{ uri: item.photos[0] }}
-              style={styles.photoImage}
-              resizeMode="cover"
-              onError={() => {
-                console.error('Fotoğraf yüklenemedi:', item.photos[0]);
-              }}
-            />
-          </View>
-        ) : (
-          <View style={styles.photoPlaceholder}>
-            <Ionicons name="cube" size={40} color={theme.colors.text.secondary} />
-            <Text style={[styles.photoPlaceholderText, { color: theme.colors.text.secondary }]}>
-              Fotoğraf Yok
-            </Text>
-          </View>
-        )}
-
-        {/* Info */}
-        <View style={styles.partInfo}>
-          <Text style={[styles.partName, { color: theme.colors.text.primary }]} numberOfLines={2}>
-            {item.partName}
-          </Text>
-          <Text style={[styles.partBrand, { color: theme.colors.text.secondary }]}>
-            {item.brand}
-          </Text>
-          
-          {/* Category & Condition */}
-          <View style={styles.badgeContainer}>
-            <View style={[styles.badge, { backgroundColor: theme.colors.primary.light }]}>
-              <Text style={[styles.badgeText, { color: theme.colors.primary.main }]}>
-                {getCategoryLabel(item.category)}
-              </Text>
-            </View>
-            <View style={[styles.badge, { backgroundColor: theme.colors.success.light }]}>
-              <Text style={[styles.badgeText, { color: theme.colors.success.main }]}>
-                {getConditionLabel(item.condition)}
-              </Text>
-            </View>
-          </View>
-
-          {/* Stock */}
-          <View style={styles.stockContainer}>
-            <Ionicons 
-              name={item.stock.available > 0 ? "checkmark-circle" : "close-circle"} 
-              size={16} 
-              color={item.stock.available > 0 ? theme.colors.success.main : theme.colors.error.main} 
-            />
-            <Text style={[
-              styles.stockText,
-              { color: item.stock.available > 0 ? theme.colors.success.main : theme.colors.error.main }
-            ]}>
-              {item.stock.available > 0 ? `${item.stock.available} Adet` : 'Stokta Yok'}
-            </Text>
-          </View>
-
-          {/* Price */}
-          <View style={styles.priceContainer}>
-            <View style={styles.priceLeft}>
-              <Text style={[styles.price, { color: theme.colors.text.primary }]}>
-                {item.pricing.unitPrice.toLocaleString('tr-TR')} {item.pricing.currency}
-              </Text>
-              {item.pricing.oldPrice && (
-                <Text style={[styles.oldPrice, { color: theme.colors.text.secondary }]}>
-                  {item.pricing.oldPrice.toLocaleString('tr-TR')} {item.pricing.currency}
+  const renderPartCard = useCallback(({ item, index }: { item: Part; index: number }) => {
+    return (
+      <TouchableOpacity 
+        onPress={() => handlePartPress(item)}
+        activeOpacity={0.9}
+        style={styles.cardContainer}
+      >
+        <View style={styles.partCard}>
+          {/* Photo Section */}
+          <View style={styles.photoSection}>
+            {item.photos && Array.isArray(item.photos) && item.photos.length > 0 && item.photos[0] ? (
+              <Image
+                source={{ uri: String(item.photos[0]).trim() }}
+                style={styles.photoImage}
+                resizeMode="cover"
+                onError={() => {}}
+              />
+            ) : (
+              <View style={styles.photoPlaceholder}>
+                <Ionicons name="cube-outline" size={40} color={theme.colors.text.secondary} />
+              </View>
+            )}
+            
+            {/* Negotiable Badge on Photo */}
+            {item.pricing?.isNegotiable && (
+              <View style={styles.photoBadge}>
+                <Ionicons name="chatbubbles" size={12} color={theme.colors.warning.main} />
+                <Text style={[styles.photoBadgeText, { color: theme.colors.warning.main }]}>
+                  Pazarlık Var
                 </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Content Section */}
+          <View style={styles.contentSection}>
+            {/* Header - Brand */}
+            {item.brand && (
+              <Text 
+                style={[styles.brandText, { color: theme.colors.text.secondary }]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {item.brand}
+              </Text>
+            )}
+
+            {/* Title */}
+            <Text 
+              style={[styles.titleText, { color: theme.colors.text.primary }]} 
+              numberOfLines={2}
+              ellipsizeMode="tail"
+            >
+              {item.partName || 'İsimsiz Parça'}
+            </Text>
+
+            {/* Badges */}
+            <View style={styles.badgeRow}>
+              {item.category && (
+                <View style={[styles.categoryBadge, { backgroundColor: theme.colors.primary.light + '20' }]}>
+                  <Text 
+                    style={[styles.categoryBadgeText, { color: theme.colors.primary.main }]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {getCategoryLabel(item.category) || 'Bilinmeyen'}
+                  </Text>
+                </View>
+              )}
+              {item.condition && (
+                <View style={[styles.conditionBadge, { backgroundColor: theme.colors.success.light + '20' }]}>
+                  <Text 
+                    style={[styles.conditionBadgeText, { color: theme.colors.success.main }]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {getConditionLabel(item.condition) || 'Bilinmeyen'}
+                  </Text>
+                </View>
               )}
             </View>
-            {item.pricing.isNegotiable && (
-              <View style={[styles.negotiableBadge, { backgroundColor: theme.colors.warning.light }]}>
-                <Ionicons name="chatbubbles" size={12} color={theme.colors.warning.main} />
-                <Text style={[styles.negotiableText, { color: theme.colors.warning.main }]}>
-                  Pazarlık
-                </Text>
-              </View>
-            )}
-          </View>
 
-          {/* Seller */}
-          <View style={styles.sellerContainer}>
-            <Ionicons name="storefront" size={14} color={theme.colors.text.secondary} />
-            <Text style={[styles.sellerText, { color: theme.colors.text.secondary }]} numberOfLines={1}>
-              {item.mechanicId.shopName || `${item.mechanicId.name} ${item.mechanicId.surname}`}
-            </Text>
-            {item.mechanicId.rating && (
-              <View style={styles.ratingContainer}>
-                <Ionicons name="star" size={12} color="#FBBF24" />
-                <Text style={[styles.ratingText, { color: theme.colors.text.secondary }]}>
-                  {item.mechanicId.rating.toFixed(1)}
+            {/* Price Section */}
+            {item.pricing && typeof item.pricing.unitPrice === 'number' ? (
+              <View style={styles.priceSection}>
+                <View style={styles.priceRow}>
+                  <Text 
+                    style={[styles.priceText, { color: theme.colors.text.primary }]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit={true}
+                    minimumFontScale={0.75}
+                  >
+                    {item.pricing.unitPrice.toLocaleString('tr-TR')} {item.pricing.currency || 'TRY'}
+                  </Text>
+                  {item.pricing.oldPrice && typeof item.pricing.oldPrice === 'number' && (
+                    <Text 
+                      style={[styles.oldPriceText, { color: theme.colors.text.secondary }]}
+                      numberOfLines={1}
+                    >
+                      {item.pricing.oldPrice.toLocaleString('tr-TR')} {item.pricing.currency || 'TRY'}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            ) : null}
+
+            {/* Footer - Stock & Seller */}
+            <View style={styles.footerSection}>
+              {/* Stock Info */}
+              <View style={styles.stockInfo}>
+                <View 
+                  style={[
+                    styles.stockIndicator, 
+                    { backgroundColor: (item.stock?.available ?? 0) > 0 ? theme.colors.success.main + '20' : theme.colors.error.main + '20' }
+                  ]}
+                >
+                  <Ionicons 
+                    name={(item.stock?.available ?? 0) > 0 ? "checkmark-circle" : "close-circle"} 
+                    size={12} 
+                    color={(item.stock?.available ?? 0) > 0 ? theme.colors.success.main : theme.colors.error.main}
+                  />
+                </View>
+                <Text 
+                  style={[
+                    styles.stockText,
+                    { color: (item.stock?.available ?? 0) > 0 ? theme.colors.success.main : theme.colors.error.main }
+                  ]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit={true}
+                  minimumFontScale={0.8}
+                >
+                  {(item.stock?.available ?? 0) > 0 ? `${item.stock.available} Adet` : 'Yok'}
                 </Text>
               </View>
-            )}
+
+              {/* Seller Info */}
+              {item.mechanicId && (
+                <View style={styles.sellerInfo}>
+                  {item.mechanicId?.rating !== undefined && item.mechanicId.rating !== null && (
+                    <View style={styles.ratingBadge}>
+                      <Ionicons name="star" size={10} color="#FBBF24" />
+                      <Text style={styles.ratingText}>
+                        {typeof item.mechanicId.rating === 'number' ? item.mechanicId.rating.toFixed(1) : '0.0'}
+                      </Text>
+                    </View>
+                  )}
+                  <Text 
+                    style={[styles.sellerText, { color: theme.colors.text.secondary }]} 
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    adjustsFontSizeToFit={true}
+                    minimumFontScale={0.75}
+                  >
+                    {item.mechanicId?.shopName || `${item.mechanicId?.name || ''} ${item.mechanicId?.surname || ''}`.trim() || 'Satıcı'}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
         </View>
-      </Card>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  }, [handlePartPress, getCategoryLabel, getConditionLabel, theme, styles]);
 
   return (
     <Background>
@@ -288,21 +397,36 @@ const PartsMarketScreen = () => {
               <Ionicons name="list" size={24} color={theme.colors.primary.main} />
             </TouchableOpacity>
             <TouchableOpacity 
-              onPress={() => setShowFilters(!showFilters)}
+              onPress={toggleFilters}
               style={styles.filterButton}
+              activeOpacity={0.7}
             >
-              <Ionicons 
-                name="options-outline" 
-                size={24} 
-                color={showFilters ? theme.colors.primary.main : theme.colors.text.secondary} 
-              />
+              <Animated.View
+                style={{
+                  transform: [{
+                    rotate: filterAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0deg', '180deg'],
+                    }),
+                  }],
+                }}
+              >
+                <Ionicons 
+                  name="options-outline" 
+                  size={24} 
+                  color={showFilters ? theme.colors.primary.main : theme.colors.text.secondary} 
+                />
+              </Animated.View>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Search Bar */}
-        <View style={[styles.searchContainer, { backgroundColor: theme.colors.background.secondary }]}>
-          <Ionicons name="search" size={20} color={theme.colors.text.secondary} />
+        <View style={[styles.searchContainer, { 
+          backgroundColor: theme.colors.background.card,
+          borderColor: theme.colors.border.primary,
+        }]}>
+          <Ionicons name="search-outline" size={20} color={theme.colors.text.secondary} />
           <TextInput
             style={[styles.searchInput, { color: theme.colors.text.primary }]}
             placeholder="Parça ara..."
@@ -311,32 +435,58 @@ const PartsMarketScreen = () => {
             onChangeText={setSearchQuery}
             onSubmitEditing={handleSearch}
           />
-          <TouchableOpacity onPress={handleSearch}>
-            <Ionicons name="search" size={24} color={theme.colors.primary.main} />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
+              <Ionicons name="close-circle" size={20} color={theme.colors.text.secondary} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={handleSearch} style={styles.searchButton}>
+            <Ionicons name="arrow-forward" size={20} color={theme.colors.primary.main} />
           </TouchableOpacity>
         </View>
 
         {/* Filters */}
         {showFilters && (
-          <View style={[styles.filtersContainer, { backgroundColor: theme.colors.background.secondary }]}>
+          <Animated.View 
+            style={[
+              styles.filtersContainer, 
+              { 
+                backgroundColor: theme.colors.background.secondary,
+                opacity: filterAnimation,
+                transform: [{
+                  translateY: filterAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-20, 0],
+                  }),
+                }],
+              }
+            ]}
+          >
             {/* Category */}
             <View style={styles.filterSection}>
               <Text style={[styles.filterLabel, { color: theme.colors.text.primary }]}>
                 Kategori
               </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {categories.map((cat) => (
+                {categories.map((cat, index) => (
                   <TouchableOpacity
                     key={cat.id}
-                    onPress={() => setSelectedCategory(cat.id)}
+                    onPress={() => {
+                      setSelectedCategory(cat.id);
+                      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                    }}
                     style={[
                       styles.filterChip,
                       {
                         backgroundColor: selectedCategory === cat.id 
                           ? theme.colors.primary.main 
                           : theme.colors.background.card,
+                        borderColor: selectedCategory === cat.id 
+                          ? theme.colors.primary.main 
+                          : theme.colors.border.primary,
                       }
                     ]}
+                    activeOpacity={0.7}
                   >
                     <Text style={[
                       styles.filterChipText,
@@ -362,15 +512,22 @@ const PartsMarketScreen = () => {
                 {conditions.map((cond) => (
                   <TouchableOpacity
                     key={cond.id}
-                    onPress={() => setSelectedCondition(cond.id)}
+                    onPress={() => {
+                      setSelectedCondition(cond.id);
+                      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                    }}
                     style={[
                       styles.filterChip,
                       {
                         backgroundColor: selectedCondition === cond.id 
                           ? theme.colors.primary.main 
                           : theme.colors.background.card,
+                        borderColor: selectedCondition === cond.id 
+                          ? theme.colors.primary.main 
+                          : theme.colors.border.primary,
                       }
                     ]}
+                    activeOpacity={0.7}
                   >
                     <Text style={[
                       styles.filterChipText,
@@ -426,7 +583,10 @@ const PartsMarketScreen = () => {
               <Button
                 title="Temizle"
                 variant="outline"
-                onPress={handleClearFilters}
+                onPress={() => {
+                  handleClearFilters();
+                  setTimeout(() => fetchParts(), 100);
+                }}
                 style={styles.filterActionButton}
               />
               <Button
@@ -438,19 +598,36 @@ const PartsMarketScreen = () => {
                 style={styles.filterActionButton}
               />
             </View>
-          </View>
+          </Animated.View>
         )}
 
         {/* Content */}
         {loading && !refreshing ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.colors.primary.main} />
+            <Text style={[styles.loadingText, { color: theme.colors.text.secondary }]}>
+              Parçalar yükleniyor...
+            </Text>
           </View>
         ) : parts.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="cube-outline" size={64} color={theme.colors.text.secondary} />
+            <Animated.View
+              style={[
+                styles.emptyIconContainer,
+                {
+                  opacity: loading ? 0 : 1,
+                },
+              ]}
+            >
+              <Ionicons name="cube-outline" size={80} color={theme.colors.text.secondary} />
+            </Animated.View>
+            <Text style={[styles.emptyTitle, { color: theme.colors.text.primary }]}>
+              Parça Bulunamadı
+            </Text>
             <Text style={[styles.emptyText, { color: theme.colors.text.secondary }]}>
-              Parça bulunamadı
+              {searchQuery || selectedCategory || selectedCondition || priceRange.min || priceRange.max
+                ? 'Arama kriterlerinize uygun parça bulunamadı. Filtreleri değiştirerek tekrar deneyin.'
+                : 'Henüz parça eklenmemiş.'}
             </Text>
             <Button
               title="Yeniden Dene"
@@ -462,13 +639,22 @@ const PartsMarketScreen = () => {
         ) : (
           <FlatList
             data={parts}
-            renderItem={renderPartCard}
+            renderItem={({ item, index }) => renderPartCard({ item, index })}
             keyExtractor={(item) => item._id}
             numColumns={2}
             contentContainerStyle={styles.listContent}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              <RefreshControl 
+                refreshing={refreshing} 
+                onRefresh={onRefresh}
+                tintColor={theme.colors.primary.main}
+                colors={[theme.colors.primary.main]}
+              />
             }
+            showsVerticalScrollIndicator={false}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={10}
+            windowSize={10}
           />
         )}
       </SafeAreaView>
@@ -485,118 +671,183 @@ const createStyles = (theme: any) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border.primary,
+    backgroundColor: theme.colors.background.primary,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     flex: 1,
     textAlign: 'center',
+    letterSpacing: 0.3,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
   },
   reservationsButton: {
     padding: 8,
   },
   filterButton: {
-    padding: 4,
+    padding: 8,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    margin: 16,
+    marginHorizontal: 16,
+    marginVertical: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 12,
+    borderWidth: 1,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 8,
-    fontSize: 16,
+    marginLeft: 10,
+    fontSize: 15,
+    fontWeight: '500',
+    paddingVertical: 0,
+  },
+  clearButton: {
+    padding: 4,
+    marginRight: 4,
+  },
+  searchButton: {
+    padding: 4,
+    marginLeft: 4,
   },
   filtersContainer: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border.primary,
+    backgroundColor: theme.colors.background.secondary,
   },
   filterSection: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   filterLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 10,
+    letterSpacing: 0.2,
   },
   filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
     borderRadius: 20,
-    marginRight: 8,
+    marginRight: 10,
+    borderWidth: 1.5,
   },
   filterChipText: {
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '600',
   },
   priceRangeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
   },
   priceInput: {
     flex: 1,
-    height: 40,
+    height: 44,
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderRadius: 10,
+    paddingHorizontal: 14,
     fontSize: 14,
+    fontWeight: '500',
   },
   priceSeparator: {
-    marginHorizontal: 8,
     fontSize: 16,
+    fontWeight: '600',
   },
   filterActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: 12,
+    gap: 12,
   },
   filterActionButton: {
     flex: 1,
-    marginHorizontal: 4,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 12,
+    opacity: 0.7,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    paddingHorizontal: 32,
+    paddingVertical: 64,
+  },
+  emptyIconContainer: {
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+    letterSpacing: 0.3,
   },
   emptyText: {
-    fontSize: 16,
-    marginTop: 16,
+    fontSize: 15,
+    fontWeight: '400',
     marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 22,
+    opacity: 0.8,
+    paddingHorizontal: 16,
   },
   emptyButton: {
     minWidth: 150,
   },
   listContent: {
-    padding: 8,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 16,
+  },
+  // New Modern Card Styles
+  cardContainer: {
+    flex: 1,
+    margin: 6,
   },
   partCard: {
     flex: 1,
-    margin: 4,
+    backgroundColor: theme.colors.background.card,
+    borderRadius: 12,
     overflow: 'hidden',
+    height: 420,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
-  photoContainer: {
+  // Photo Section
+  photoSection: {
     width: '100%',
-    height: 120,
-    overflow: 'hidden',
+    height: 170,
+    backgroundColor: theme.colors.background.secondary,
+    position: 'relative',
   },
   photoImage: {
     width: '100%',
@@ -605,104 +856,166 @@ const createStyles = (theme: any) => StyleSheet.create({
   },
   photoPlaceholder: {
     width: '100%',
-    height: 120,
-    backgroundColor: theme.colors.background.secondary,
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: theme.colors.background.secondary,
   },
-  photoPlaceholderText: {
-    marginTop: 4,
-    fontSize: 10,
-  },
-  partInfo: {
-    padding: 12,
-  },
-  partName: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  partBrand: {
-    fontSize: 12,
-    marginBottom: 8,
-  },
-  badgeContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 8,
-  },
-  badge: {
+  photoBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: theme.colors.warning.main + '20',
+    borderRadius: 16,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
-    marginRight: 4,
-    marginBottom: 4,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '500',
-  },
-  stockContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    gap: 4,
+    borderWidth: 1.5,
+    borderColor: theme.colors.warning.main + '40',
   },
-  stockText: {
+  photoBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  // Content Section
+  contentSection: {
+    flex: 1,
+    padding: 12,
+    justifyContent: 'space-between',
+  },
+  brandText: {
+    fontSize: 10,
+    fontWeight: '500',
+    marginBottom: 4,
+    opacity: 0.6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  titleText: {
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 18,
+    marginBottom: 8,
+    minHeight: 36,
+    maxHeight: 36,
+  },
+  // Badges
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 10,
+    gap: 6,
+  },
+  categoryBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  categoryBadgeText: {
+    fontSize: 9,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  conditionBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  conditionBadgeText: {
+    fontSize: 9,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  // Price Section
+  priceSection: {
+    marginTop: 'auto',
+    marginBottom: 10,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  priceText: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    minWidth: 0,
+  },
+  oldPriceText: {
     fontSize: 12,
     fontWeight: '500',
-    marginLeft: 4,
-  },
-  priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  priceLeft: {
-    flex: 1,
-  },
-  price: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  oldPrice: {
-    fontSize: 11,
     textDecorationLine: 'line-through',
-    marginTop: 2,
+    opacity: 0.5,
   },
-  negotiableBadge: {
+  // Footer Section
+  footerSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border.primary + '40',
+  },
+  stockInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 4,
-  },
-  negotiableText: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  sellerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  sellerText: {
-    fontSize: 11,
-    marginLeft: 4,
+    gap: 6,
     flex: 1,
+    minWidth: 0,
   },
-  ratingContainer: {
+  stockIndicator: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  stockText: {
+    fontSize: 11,
+    fontWeight: '600',
+    minWidth: 0,
+    flexShrink: 1,
+  },
+  sellerInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 4,
+    gap: 4,
+    flex: 1,
+    justifyContent: 'flex-end',
+    minWidth: 0,
+  },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: theme.colors.background.tertiary,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 8,
+    flexShrink: 0,
   },
   ratingText: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginLeft: 2,
+    fontSize: 9,
+    fontWeight: '700',
+    color: theme.colors.text.primary,
+  },
+  sellerText: {
+    fontSize: 10,
+    fontWeight: '500',
+    opacity: 0.7,
+    flexShrink: 1,
+    minWidth: 0,
   },
 });
 
 export default PartsMarketScreen;
+
 

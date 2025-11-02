@@ -42,22 +42,32 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   async (config) => {
     try {
+      // Rate limit durumunu sadece bilgi amaçlı logla - istekleri bloke ETME
+      // İstekler normal şekilde gönderilmeye devam edecek, backend 429 dönecek
+      // Önemli olan: Rate limit geldiğinde logout YAPILMAMASI (response interceptor'da handle ediliyor)
+      if (isRateLimited && config.url && !config.url.includes('/auth/')) {
+        const remainingTime = rateLimitResetTime ? rateLimitResetTime - Date.now() : 0;
+        const remainingMinutes = Math.ceil(remainingTime / 60000);
+        
+        if (__DEV__) {
+          console.log(`⚠️ Rate limit aktif (${remainingMinutes} dakika kaldı), istek gönderiliyor ama 429 gelebilir: ${config.url}`);
+        }
+      }
+      
       const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
       
       // Token yoksa ve auth gerektiren endpoint ise isteği iptal et
       if (!token && config.url && !config.url.includes('/auth/')) {
-        console.log('⚠️ Token yok - istek iptal ediliyor:', config.url);
+        if (__DEV__) {
+          console.log('⚠️ Token yok - istek iptal ediliyor:', config.url);
+        }
         const cancelToken = axios.CancelToken.source();
         cancelToken.cancel('No authentication token');
         config.cancelToken = cancelToken.token;
         return config;
       }
       
-      // Sadece önemli endpoint'ler için debug log
-      if (config.url?.includes('/auth/') || config.url?.includes('/mechanic/me')) {
-        console.log('🔍 Request interceptor - URL:', config.url);
-        console.log('🔍 Request interceptor - Method:', config.method);
-      }
+      // Production'da request logları kapatıldı - sadece gerekirse __DEV__ kontrolü ile log
       
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
@@ -68,12 +78,16 @@ apiClient.interceptors.request.use(
       
       return config;
     } catch (error) {
-      console.error('❌ Request interceptor error:', error);
+      if (__DEV__) {
+        console.error('Request interceptor error:', error);
+      }
       return config;
     }
   },
   (error) => {
-    console.error('❌ Request interceptor error:', error);
+    if (__DEV__) {
+      console.error('Request interceptor error:', error);
+    }
     return Promise.reject(error);
   }
 );
@@ -82,6 +96,9 @@ apiClient.interceptors.request.use(
 
 let isRefreshing = false;
 let failedQueue: any[] = [];
+let isRateLimited = false; // Rate limit durumunu takip et
+let rateLimitResetTime: number | null = null; // Rate limit reset zamanı
+let rateLimitTimer: NodeJS.Timeout | null = null; // Rate limit timer (memory leak önleme)
 
 const processQueue = (error: any, token: string | null = null) => {
   failedQueue.forEach(prom => {
@@ -94,33 +111,141 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
+/**
+ * Rate limit durumunu ayarla ve timer başlat/sıfırla
+ */
+const setRateLimitStatus = (resetTimeMs: number) => {
+  // Eğer zaten bir timer varsa, önce temizle (memory leak önleme)
+  if (rateLimitTimer) {
+    clearTimeout(rateLimitTimer);
+    rateLimitTimer = null;
+  }
+
+  // Rate limit durumunu aktif et
+  isRateLimited = true;
+  rateLimitResetTime = Date.now() + resetTimeMs;
+
+  // Timer başlat
+  rateLimitTimer = setTimeout(() => {
+    isRateLimited = false;
+    rateLimitResetTime = null;
+    rateLimitTimer = null;
+    if (__DEV__) {
+      console.log('Rate limit süresi doldu');
+    }
+  }, resetTimeMs);
+};
+
+/**
+ * Rate limit reset zamanını backend header'larından al
+ * Öncelik sırası: Retry-After > RateLimit-Reset > Default (15 dakika)
+ */
+const getRateLimitResetTime = (error: any): number => {
+  const headers = error.response?.headers || {};
+  
+  // Debug: Header'ları logla
+  if (__DEV__) {
+    console.log('🔍 Rate limit header kontrolü:');
+    console.log('  - retry-after:', headers['retry-after'] || headers['Retry-After']);
+    console.log('  - ratelimit-reset:', headers['ratelimit-reset'] || headers['RateLimit-Reset'] || headers['rate-limit-reset']);
+    console.log('  - Tüm header keys:', Object.keys(headers).filter(k => k.toLowerCase().includes('rate') || k.toLowerCase().includes('retry')));
+  }
+  
+  // Retry-After header'ı (saniye cinsinden) - case-insensitive
+  const retryAfter = headers['retry-after'] || headers['Retry-After'] || headers['retryafter'];
+  if (retryAfter) {
+    const retryAfterSeconds = parseInt(retryAfter, 10);
+    if (!isNaN(retryAfterSeconds) && retryAfterSeconds > 0) {
+      const ms = retryAfterSeconds * 1000;
+      if (__DEV__) {
+        console.log(`✅ Retry-After bulundu: ${retryAfterSeconds} saniye (${Math.ceil(ms / 60000)} dakika)`);
+      }
+      return ms;
+    }
+  }
+  
+  // RateLimit-Reset header'ı (Unix timestamp - saniye) - case-insensitive
+  const rateLimitReset = headers['ratelimit-reset'] || 
+                         headers['RateLimit-Reset'] || 
+                         headers['rate-limit-reset'] ||
+                         headers['x-ratelimit-reset'];
+  if (rateLimitReset) {
+    const resetTimestamp = parseInt(rateLimitReset, 10);
+    if (!isNaN(resetTimestamp) && resetTimestamp > 0) {
+      const resetTimeMs = resetTimestamp * 1000; // timestamp'i ms'ye çevir
+      const remainingMs = resetTimeMs - Date.now();
+      // Eğer geçmiş bir zaman değilse ve makul bir süre ise (1 saatten az)
+      if (remainingMs > 0 && remainingMs < 60 * 60 * 1000) {
+        if (__DEV__) {
+          console.log(`✅ RateLimit-Reset bulundu: ${Math.ceil(remainingMs / 60000)} dakika kaldı`);
+        }
+        return remainingMs;
+      } else if (remainingMs > 0) {
+        // Eğer 1 saatten fazla ise, backend window süresini kullan (15 dakika)
+        if (__DEV__) {
+          console.log(`⚠️ RateLimit-Reset çok uzun (${Math.ceil(remainingMs / 60000)} dakika), default 15 dakika kullanılıyor`);
+        }
+      }
+    }
+  }
+  
+  // Default: 15 dakika (backend'in default windowMs değeri)
+  if (__DEV__) {
+    console.log('⚠️ Header bulunamadı, default 15 dakika kullanılıyor');
+  }
+  return 15 * 60 * 1000;
+};
+
 apiClient.interceptors.response.use(
   (response) => {
-    // Production'da log'ları kapat
+    // Production'da success logları kapat - sadece development'ta kritik endpoint'ler için
     if (__DEV__ && (response.config.url?.includes('/auth/') || response.config.url?.includes('/mechanic/me'))) {
-      console.log(`✅ API Success: ${response.config.method?.toUpperCase()} ${response.config.url} - ${response.status}`);
+      console.log(`API Success: ${response.config.method?.toUpperCase()} ${response.config.url}`);
     }
     return response;
   },
   async (error) => {
-    // Cancel edilen istekleri handle et (error logging yapma)
-    if (axios.isCancel(error)) {
-      // Silent cancellation - no logging
-      return Promise.reject(error);
-    }
-    
-    // Production'da error log'ları sadece development'ta göster
-    if (__DEV__) {
-      console.error(`❌ API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${error.response?.status}`);
-      console.error(`❌ API Error Response:`, error.response?.data);
-      console.error(`❌ API Error Message:`, error.message);
-      console.error(`❌ API Error Code:`, error.code);
+    // Error response'ları sadece development'ta logla
+    if (__DEV__ && error.response) {
+      console.error(`API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${error.response?.status}`);
+      // Sadece 5xx hatalarında detaylı log
+      if (error.response?.status >= 500) {
+        console.error('Error Details:', error.response?.data);
+      }
     }
     
     const originalRequest = error.config;
     
-    // 401 Unauthorized - token refresh dene
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Rate limit (429) hatası - SADECE logout yapma, token refresh yapma
+    // İstekler normal şekilde devam edecek, sadece 429 hatası dönecek
+    // Kullanıcı oturum açık kalacak, logout YAPILMAYACAK
+    if (error.response?.status === 429) {
+      if (__DEV__) {
+        const resetTimeMs = getRateLimitResetTime(error);
+        const resetMinutes = Math.ceil(resetTimeMs / 60000);
+        console.warn(`Rate limit (429) - ${resetMinutes} dakika sonra tekrar deneyin`);
+      }
+      
+      // Backend'den gelen rate limit reset zamanını al (bilgi amaçlı)
+      const resetTimeMs = getRateLimitResetTime(error);
+      
+      // Rate limit durumunu sadece bilgi amaçlı set et (istekleri bloke etmek için değil)
+      setRateLimitStatus(resetTimeMs);
+      
+      // Hata mesajını döndür - UI bu hatayı handle edecek, logout yapılmayacak
+      return Promise.reject(error);
+    }
+    
+    // Rate limit aktifse, 401 hatalarını da görmezden gel (token refresh yapma, logout yapma)
+    if (isRateLimited && error.response?.status === 401) {
+      if (__DEV__) {
+        console.warn('Rate limit aktif, 401 hatası görmezden geliniyor');
+      }
+      return Promise.reject(error);
+    }
+    
+    // 401 Unauthorized - token refresh dene (rate limit yoksa)
+    if (error.response?.status === 401 && !originalRequest._retry && !isRateLimited) {
       if (isRefreshing) {
         // Başka bir request zaten refresh yapıyorsa bekle
         return new Promise((resolve, reject) => {
@@ -140,10 +265,15 @@ apiClient.interceptors.response.use(
         const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
         
         if (!refreshToken) {
+          if (__DEV__) {
+            console.error('Refresh token bulunamadı');
+          }
           throw new Error('No refresh token');
         }
 
-        console.log('🔄 Token yenileniyor...');
+        if (__DEV__) {
+          console.log('Token yenileniyor...');
+        }
         
         // Refresh token endpoint'ini çağır
         const response = await axios.post(
@@ -151,26 +281,27 @@ apiClient.interceptors.response.use(
           { refreshToken }
         );
 
-        console.log('🔄 Refresh response:', response.data);
-        
         if (response.data.success && response.data.data?.token) {
           const newToken = response.data.data.token;
           const newRefreshToken = response.data.data.refreshToken;
 
-          console.log('✅ Yeni token alındı');
+          if (__DEV__) {
+            console.log('Yeni token alındı');
+          }
 
           // Yeni token'ları kaydet
           await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, newToken);
           if (newRefreshToken) {
             await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
-            console.log('✅ Refresh token da güncellendi');
           }
 
           // Header'ı güncelle
           apiClient.defaults.headers.common['Authorization'] = 'Bearer ' + newToken;
           originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
 
-          console.log('✅ Token yenilendi');
+          if (__DEV__) {
+            console.log('Token başarıyla yenilendi');
+          }
           
           processQueue(null, newToken);
           isRefreshing = false;
@@ -178,22 +309,97 @@ apiClient.interceptors.response.use(
           // Original request'i yeniden dene
           return apiClient(originalRequest);
         } else {
-          console.error('❌ Refresh response başarısız:', response.data);
+          if (__DEV__) {
+            console.error('Refresh response başarısız:', response.data);
+          }
           throw new Error('Token refresh response invalid');
         }
       } catch (refreshError: any) {
-        console.error('❌ Token yenileme başarısız, logout yapılıyor');
-        console.error('❌ Refresh Error:', refreshError);
-        console.error('❌ Refresh Error Response:', refreshError?.response?.data);
-        console.error('❌ Refresh Error Status:', refreshError?.response?.status);
+        if (__DEV__) {
+          console.error('Token yenileme başarısız:', refreshError.message);
+          if (refreshError.response?.status >= 500) {
+            console.error('Error Response:', refreshError.response?.data);
+          }
+        }
+        
         processQueue(refreshError, null);
         isRefreshing = false;
         
-        // Refresh başarısız, logout yap
-        await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-        await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-        await AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA);
+        // 1. Rate limit hatası - logout yapma
+        if (refreshError.response?.status === 429 || isRateLimited) {
+          if (__DEV__) {
+            console.warn('Token refresh rate limit hatası (429), logout yapılmıyor');
+          }
+          
+          // Eğer refresh sırasında rate limit hatası geldiyse, durumu ayarla
+          if (refreshError.response?.status === 429) {
+            const resetTimeMs = getRateLimitResetTime(refreshError);
+            setRateLimitStatus(resetTimeMs);
+          }
+          
+          return Promise.reject(refreshError);
+        }
         
+        // 2. Network hatası (timeout, connection error vb.) - logout yapma, token geçerli kalabilir
+        if (!refreshError.response) {
+          if (__DEV__) {
+            console.warn('Token refresh network hatası, logout yapılmıyor');
+          }
+          return Promise.reject(refreshError);
+        }
+        
+        // 3. 5xx Server hatası - logout yapma, sunucu sorunu geçici olabilir
+        if (refreshError.response?.status >= 500) {
+          if (__DEV__) {
+            console.warn('Token refresh sunucu hatası, logout yapılmıyor');
+          }
+          return Promise.reject(refreshError);
+        }
+        
+        // 4. 401 hatası - Backend'den gelen error code'a bakarak karar ver
+        if (refreshError.response?.status === 401) {
+          const errorCode = refreshError.response?.data?.error?.code;
+          const errorMessage = refreshError.response?.data?.error?.message || '';
+          
+          // Gerçek auth hataları: INVALID_TOKEN, TOKEN_EXPIRED, USER_NOT_FOUND
+          const isRealAuthError = 
+            errorCode === 'INVALID_TOKEN' || 
+            errorCode === 'TOKEN_EXPIRED' || 
+            errorCode === 'USER_NOT_FOUND' ||
+            errorMessage.includes('Geçersiz refresh token') ||
+            errorMessage.includes('refresh token süresi dolmuş') ||
+            errorMessage.includes('Kullanıcı bulunamadı');
+          
+          if (isRealAuthError) {
+            // Gerçek auth hatası - logout yap
+            if (__DEV__) {
+              console.warn('Refresh token geçersiz, oturum sonlandırılıyor. Error Code:', errorCode);
+            }
+            
+            await AsyncStorage.multiRemove([
+              STORAGE_KEYS.AUTH_TOKEN,
+              STORAGE_KEYS.REFRESH_TOKEN,
+              STORAGE_KEYS.USER_DATA,
+              STORAGE_KEYS.USER_ID
+            ]);
+            
+            // Hata döndür - kullanıcıya logout mesajı gösterilebilir
+            const customError = new Error('Oturumunuz sonlandırıldı. Lütfen tekrar giriş yapın.');
+            (customError as any).isAuthError = true;
+            return Promise.reject(customError);
+          } else {
+            // 401 ama gerçek auth hatası değil (belki rate limit veya başka bir durum)
+            if (__DEV__) {
+              console.warn('401 hatası ama gerçek auth hatası değil. Error Code:', errorCode);
+            }
+            return Promise.reject(refreshError);
+          }
+        }
+        
+        // 5. Diğer hatalar (400, 403, 404 vb.) - logout yapma, beklenmedik hata olabilir
+        if (__DEV__) {
+          console.warn('Token refresh beklenmedik hata');
+        }
         return Promise.reject(refreshError);
       }
     }
@@ -225,7 +431,9 @@ export const AuthService = {
       
       return response.data;
     } catch (error: any) {
-      console.error('Register error:', error);
+      if (__DEV__) {
+        console.error('Register error:', error.response?.status || error.message);
+      }
       
       // Backend'den gelen hata mesajını yakala
       if (error.response?.data?.message) {
@@ -258,7 +466,9 @@ export const AuthService = {
    */
   async login(email: string, password: string): Promise<ApiResponse<{ user: Mechanic; token: string }>> {
     try {
-      console.log('🔐 Login attempt:', { email, userType: UserType.MECHANIC });
+      if (__DEV__) {
+        console.log('Login attempt:', email);
+      }
       
       const response = await apiClient.post('/auth/login', {
         email,
@@ -266,24 +476,24 @@ export const AuthService = {
         userType: UserType.MECHANIC
       });
       
-      console.log('✅ Login response:', response.data);
-      
       // Token'ları storage'a kaydet
       if (response.data.success && response.data.data.token) {
         await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, response.data.data.token);
-        console.log('✅ Token saved');
         
         if (response.data.data.refreshToken) {
           await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, response.data.data.refreshToken);
-          console.log('✅ Refresh token saved');
+        }
+        
+        if (__DEV__) {
+          console.log('Login successful');
         }
       }
       
       return response.data;
     } catch (error: any) {
-      console.error('❌ Login error:', error);
-      console.error('❌ Login error response:', error.response?.data);
-      console.error('❌ Login error status:', error.response?.status);
+      if (__DEV__) {
+        console.error('Login error:', error.response?.status || error.message);
+      }
       return createErrorResponse(
         ErrorCode.INVALID_CREDENTIALS,
         error.response?.data?.message || 'Giriş bilgileri hatalı',
@@ -316,7 +526,9 @@ export const AuthService = {
       
       return response.data;
     } catch (error: any) {
-      console.error('Refresh token error:', error);
+      if (__DEV__) {
+        console.error('Refresh token error:', error.response?.status || error.message);
+      }
       return createErrorResponse(
         ErrorCode.REFRESH_TOKEN_EXPIRED,
         'Token yenileme başarısız',
@@ -332,11 +544,18 @@ export const AuthService = {
     try {
       await apiClient.post('/auth/logout');
     } catch (error) {
-      console.error('Logout error:', error);
+      if (__DEV__) {
+        console.error('Logout error:', error);
+      }
+      // API hatası olsa bile devam et, storage'ı temizle
     } finally {
-      // Token'ları temizle
-      await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-      await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+      // Tüm auth verilerini temizle (manuel logout)
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.AUTH_TOKEN,
+        STORAGE_KEYS.REFRESH_TOKEN,
+        STORAGE_KEYS.USER_DATA,
+        STORAGE_KEYS.USER_ID
+      ]);
     }
   },
 

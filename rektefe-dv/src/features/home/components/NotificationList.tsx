@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -90,21 +90,18 @@ export const NotificationList: React.FC<NotificationListProps> = ({
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [notificationToDelete, setNotificationToDelete] = useState<Notification | null>(null);
+  const isFetchingRef = useRef(false); // Prevent duplicate calls
 
-  useEffect(() => {
-    if (userId) {
-      fetchNotifications();
-    }
-  }, [userId]);
+  // Notification'ları sadece ilk yüklemede ve userId değiştiğinde çağır
+  // Sürekli polling yapma - gereksiz istekleri önle
+  const fetchNotifications = useCallback(async () => {
+    if (!userId || isFetchingRef.current) return;
 
-  const fetchNotifications = async () => {
+    isFetchingRef.current = true;
     try {
       setLoading(true);
-      console.log('🔍 NotificationList: Bildirimler getiriliyor...');
-      console.log('🔍 NotificationList: userId:', userId);
       
       const response = await apiService.getNotifications();
-      console.log('📱 NotificationList API Response:', JSON.stringify(response, null, 2));
       
       // API response formatını kontrol et
       let notificationsData: Notification[] = [];
@@ -115,22 +112,29 @@ export const NotificationList: React.FC<NotificationListProps> = ({
       } else if (Array.isArray(response)) {
         notificationsData = response;
       } else {
-        console.log('⚠️ NotificationList: Beklenmeyen API response formatı:', response);
         notificationsData = [];
       }
       
       setNotifications(notificationsData);
-      console.log('✅ NotificationList: Bildirimler yüklendi:', notificationsData.length);
       
       const unread = notificationsData.filter((n: Notification) => !n.isRead).length;
       setUnreadCount(unread);
       onNotificationCountChange(unread);
     } catch (error) {
-      console.error('❌ NotificationList: Bildirimler getirilemedi:', error);
+      if (__DEV__) {
+        console.error('NotificationList: Bildirimler getirilemedi:', error);
+      }
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
-  };
+  }, [userId, onNotificationCountChange]);
+
+  useEffect(() => {
+    if (userId) {
+      fetchNotifications();
+    }
+  }, [userId, fetchNotifications]); // fetchNotifications useCallback ile optimize edildi
 
   const markAsRead = async (notificationId: string) => {
     try {
@@ -151,7 +155,9 @@ export const NotificationList: React.FC<NotificationListProps> = ({
       setUnreadCount(newUnreadCount);
       onNotificationCountChange(newUnreadCount);
     } catch (error) {
-      console.error('Bildirim okundu olarak işaretlenemedi:', error);
+      if (__DEV__) {
+        console.error('Bildirim okundu olarak işaretlenemedi:', error);
+      }
     }
   };
 
@@ -168,7 +174,9 @@ export const NotificationList: React.FC<NotificationListProps> = ({
       setUnreadCount(0);
       onNotificationCountChange(0);
     } catch (error) {
-      console.error('Tüm bildirimler okundu olarak işaretlenemedi:', error);
+      if (__DEV__) {
+        console.error('Tüm bildirimler okundu olarak işaretlenemedi:', error);
+      }
     }
   };
 
@@ -192,17 +200,15 @@ export const NotificationList: React.FC<NotificationListProps> = ({
       setShowDeleteModal(false);
       setNotificationToDelete(null);
     } catch (error) {
-      console.error('Bildirim silinemedi:', error);
+      if (__DEV__) {
+        console.error('Bildirim silinemedi:', error);
+      }
     }
   };
 
   const handleNotificationPress = (notification: Notification) => {
-    console.log('Bildirime tıklandı:', notification);
-
     // Rating reminder bildirimi ise sadece okundu işaretle, buton ile Rating ekranına gidilecek
     if (notification.type === 'rating_reminder') {
-      console.log('⭐ Rating reminder bildirimi tıklandı - sadece okundu işaretleniyor');
-      
       if (!notification.isRead) {
         markAsRead(notification._id);
       }
@@ -222,8 +228,6 @@ export const NotificationList: React.FC<NotificationListProps> = ({
   };
 
   const handleRatingPress = (notification: Notification) => {
-    console.log('⭐ Puan Ver butonuna tıklandı:', notification);
-    
     // Modal'ı kapat
     setShowNotifications(false);
     
@@ -235,9 +239,10 @@ export const NotificationList: React.FC<NotificationListProps> = ({
           mechanicId: notification.data?.mechanicId || 'real-mechanic-123',
           mechanicName: notification.data?.mechanicName || 'Test Usta'
         });
-        console.log('✅ Puan Ver butonu: Rating ekranına yönlendirildi');
       } catch (navError) {
-        console.error('❌ Puan Ver butonu navigation hatası:', navError);
+        if (__DEV__) {
+          console.error('Rating navigation hatası:', navError);
+        }
       }
     } else {
       // Fallback: AsyncStorage'a kaydet
@@ -249,7 +254,6 @@ export const NotificationList: React.FC<NotificationListProps> = ({
           timestamp: new Date().toISOString()
         };
       AsyncStorage.setItem('pendingRating', JSON.stringify(ratingData));
-      console.log('💾 Puan Ver butonu fallback: Rating verisi kaydedildi');
     }
   };
 

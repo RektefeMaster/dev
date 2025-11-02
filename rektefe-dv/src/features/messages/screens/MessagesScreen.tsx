@@ -10,7 +10,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { useAuth } from '@/context/AuthContext';
-import { useFocusEffect } from '@react-navigation/native';
+import { useOptimizedFocusEffect } from '@/shared/hooks/useOptimizedFocusEffect';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors as themeColors, typography, spacing, borderRadius, shadows, dimensions as themeDimensions } from '@/theme/theme';
@@ -48,22 +48,19 @@ const MessagesScreen = ({ navigation }: any) => {
   const fetchConversations = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('🔍 MessagesScreen: fetchConversations başlatılıyor...');
       const response = await apiService.getConversations();
-      console.log('🔍 MessagesScreen: API response:', response);
 
       if (response.success) {
-        console.log('✅ MessagesScreen: Conversations başarıyla alındı:', response.data);
         // API'den dönen data format'ını kontrol et
         const conversationsData = response.data?.conversations || response.data || [];
-        console.log('🔍 MessagesScreen: Processed conversations:', conversationsData);
         setConversations(Array.isArray(conversationsData) ? conversationsData : []);
       } else {
-        console.log('❌ MessagesScreen: API success false:', response);
         setConversations([]);
       }
     } catch (error) {
-      console.log('❌ MessagesScreen: fetchConversations error:', error);
+      if (__DEV__) {
+        console.error('MessagesScreen: fetchConversations error:', error);
+      }
       setConversations([]);
     } finally {
       setLoading(false);
@@ -80,11 +77,12 @@ const MessagesScreen = ({ navigation }: any) => {
     fetchConversations();
   }, []); // Sadece component mount olduğunda çalışsın
 
-  useFocusEffect(
+  // Optimize edilmiş focus effect (30 saniye throttle)
+  useOptimizedFocusEffect(
     useCallback(() => {
-      // Sadece focus olduğunda bir kez çalışsın
       fetchConversations();
-    }, []) // fetchConversations dependency'sini kaldır
+    }, [fetchConversations]),
+    { throttleMs: 30000, fetchOnMount: false } // useEffect zaten mount'ta çağırıyor
   );
 
   const filteredConversations = (conversations || []).filter(conv => {

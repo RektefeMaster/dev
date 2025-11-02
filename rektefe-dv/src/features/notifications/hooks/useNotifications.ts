@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { apiService } from '@/shared/services/api';
-import { withErrorHandling } from '@/shared/utils/errorHandler';
+import { withErrorHandling, ErrorType } from '@/shared/utils/errorHandler';
 import { Notification } from '@/shared/types/common';
 
 export const useNotifications = () => {
@@ -24,6 +24,17 @@ export const useNotifications = () => {
       () => apiService.getNotifications(),
       { showErrorAlert: false }
     );
+
+    // Rate limit hatası ise sessizce atla
+    if (error && error.type === ErrorType.RATE_LIMIT) {
+      console.log('⚠️ useNotifications: Rate limit hatası, sessizce atlanıyor');
+      if (isRefresh) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+      }
+      return;
+    }
 
     console.log('📱 useNotifications API Response:', JSON.stringify(data, null, 2));
     console.log('📱 useNotifications Error:', error);

@@ -2,6 +2,7 @@ import { PartsInventory, IPartsInventory } from '../models/PartsInventory';
 import { PartsReservation, IPartsReservation } from '../models/PartsReservation';
 import { CustomError } from '../middleware/errorHandler';
 import mongoose from 'mongoose';
+import Logger from '../utils/logger';
 
 export class PartsService {
   /**
@@ -40,7 +41,7 @@ export class PartsService {
     isPublished?: boolean;
   }) {
     try {
-      console.log('🔍 [PARTS CREATE] Gelen data:', JSON.stringify({ ...data, photos: data.photos || [] }, null, 2));
+      Logger.devOnly('[PARTS CREATE] Creating part:', data.partName);
       
       const part = new PartsInventory({
         mechanicId: data.mechanicId,
@@ -228,26 +229,7 @@ export class PartsService {
         query.condition = filters.condition;
       }
 
-      // Debug: Tüm parts'ı say (filtre olmadan)
-      const totalInDb = await PartsInventory.countDocuments({});
-      console.log(`🔍 [PARTS SEARCH] Total parts in DB (no filter): ${totalInDb}`);
-      
-      // Query ile kaç tane bulunuyor?
       const totalWithQuery = await PartsInventory.countDocuments(query);
-      console.log(`🔍 [PARTS SEARCH] Query:`, JSON.stringify(query, null, 2));
-      console.log(`🔍 [PARTS SEARCH] Total found with query (before populate): ${totalWithQuery}`);
-
-      // Örnek parts göster (populate olmadan)
-      if (totalWithQuery > 0) {
-        const sampleParts = await PartsInventory.find(query).limit(3).lean();
-        console.log(`🔍 [PARTS SEARCH] Sample parts (IDs):`, sampleParts.map(p => ({ 
-          id: p._id.toString(), 
-          name: p.partName, 
-          mechanicId: p.mechanicId?.toString() || p.mechanicId,
-          mechanicIdType: typeof p.mechanicId,
-          mechanicIdIsObjectId: p.mechanicId?.constructor?.name
-        })));
-      }
 
       // Populate ile getir - hata olursa catch et
       let parts;
@@ -260,29 +242,15 @@ export class PartsService {
           .sort({ 'stats.views': -1, createdAt: -1 })
           .skip(skip)
           .limit(limit);
-        
-        console.log(`🔍 [PARTS SEARCH] Populate başarılı, Returned: ${parts.length} items`);
-        
-        // Populate edilmiş mechanicId kontrolü
-        if (parts.length > 0) {
-          console.log(`🔍 [PARTS SEARCH] First part mechanicId populated:`, {
-            mechanicId: parts[0]?.mechanicId,
-            isObject: typeof parts[0]?.mechanicId === 'object',
-            hasName: !!parts[0]?.mechanicId?.name
-          });
-        }
       } catch (populateError: any) {
-        console.error(`❌ [PARTS SEARCH] Populate hatası:`, populateError.message);
+        Logger.error('[PARTS SEARCH] Populate hatası:', populateError.message);
         // Populate hatası varsa, populate olmadan getir
         parts = await PartsInventory.find(query)
           .lean()
           .sort({ 'stats.views': -1, createdAt: -1 })
           .skip(skip)
           .limit(limit);
-        console.log(`⚠️ [PARTS SEARCH] Populate olmadan getirildi, Returned: ${parts.length} items`);
       }
-
-      console.log(`🔍 [PARTS SEARCH] Final: Total=${total}, Returned=${parts.length}`);
 
       return {
         success: true,
@@ -680,7 +648,7 @@ export class PartsService {
         stockRestored: false
       }).session(session);
 
-      console.log(`🕐 [PARTS EXPIRY] ${expiredReservations.length} süresi dolmuş rezervasyon bulundu`);
+      Logger.info(`[PARTS EXPIRY] ${expiredReservations.length} süresi dolmuş rezervasyon bulundu`);
 
       if (expiredReservations.length === 0) {
         await session.commitTransaction();
@@ -694,7 +662,7 @@ export class PartsService {
           const part = await PartsInventory.findById(reservation.partId).session(session);
           
           if (!part) {
-            console.error(`❌ [PARTS EXPIRY] Parça bulunamadı: ${reservation.partId}`);
+            Logger.error(`[PARTS EXPIRY] Parça bulunamadı: ${reservation.partId}`);
             continue;
           }
 
@@ -722,9 +690,9 @@ export class PartsService {
             { session }
           );
 
-          console.log(`✅ [PARTS EXPIRY] Rezervasyon expired: ${reservation._id}, Stok geri eklendi: ${reservation.quantity}`);
+          Logger.devOnly(`[PARTS EXPIRY] Rezervasyon expired: ${reservation._id}, Stok geri eklendi: ${reservation.quantity}`);
         } catch (error: any) {
-          console.error(`❌ [PARTS EXPIRY] Rezervasyon işlenirken hata: ${error.message}`);
+          Logger.error(`[PARTS EXPIRY] Rezervasyon işlenirken hata: ${error.message}`);
           // Tek bir rezervasyon hatası tüm işlemi durdurmasın
           continue;
         }
@@ -733,7 +701,7 @@ export class PartsService {
       await session.commitTransaction();
       session.endSession();
 
-      console.log(`✅ [PARTS EXPIRY] ${expiredReservations.length} rezervasyon başarıyla expire edildi`);
+      Logger.info(`[PARTS EXPIRY] ${expiredReservations.length} rezervasyon başarıyla expire edildi`);
 
       return {
         success: true,
@@ -743,7 +711,7 @@ export class PartsService {
     } catch (error: any) {
       await session.abortTransaction();
       session.endSession();
-      console.error('❌ [PARTS EXPIRY] Kron job hatası:', error);
+      Logger.error('[PARTS EXPIRY] Kron job hatası:', error);
       throw new CustomError(error.message || 'Rezervasyon süresi dolmuş temizlenemedi', 500);
     }
   }

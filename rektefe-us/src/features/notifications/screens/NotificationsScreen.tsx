@@ -16,7 +16,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useOptimizedFocusEffect } from '@/shared/hooks/useOptimizedFocusEffect';
 import { useAuth } from '@/shared/context';
 import { colors, spacing, borderRadius, shadows, typography } from '@/shared/theme';
 import apiService from '@/shared/services';
@@ -191,10 +191,12 @@ export default function NotificationsScreen({ navigation }: any) {
     setRefreshing(false);
   }, [fetchNotifications]);
 
-  useFocusEffect(
+  // Optimize edilmiş focus effect (30 saniye throttle)
+  useOptimizedFocusEffect(
     useCallback(() => {
       fetchNotifications();
-    }, [fetchNotifications])
+    }, [fetchNotifications]),
+    { throttleMs: 30000, fetchOnMount: true }
   );
 
   const markAsRead = async (notificationId: string) => {

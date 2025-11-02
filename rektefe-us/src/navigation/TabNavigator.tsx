@@ -447,32 +447,8 @@ const TabNavigator = () => {
   const userCapabilities = user?.serviceCategories || [];
   const [hamburgerVisible, setHamburgerVisible] = useState(false);
 
-  // Debug: Kullanıcının hizmet kategorilerini logla
-  useEffect(() => {
-    console.log('='.repeat(60));
-    console.log('🔍 TabNavigator Debug:');
-    console.log('User Email:', user?.email);
-    console.log('User Object:', JSON.stringify(user, null, 2));
-    console.log('ServiceCategories:', JSON.stringify(userCapabilities));
-    console.log('ServiceCategories Type:', typeof userCapabilities);
-    console.log('ServiceCategories Length:', userCapabilities.length);
-    console.log('Is Array:', Array.isArray(userCapabilities));
-    
-    // Test edilecek kontroller
-    console.log('\n🔎 Kontroller:');
-        console.log('includes("repair"):', userCapabilities.includes('repair'));
-        console.log('includes("towing"):', userCapabilities.includes('towing'));
-        console.log('includes("wash"):', userCapabilities.includes('wash'));
-        console.log('includes("tire"):', userCapabilities.includes('tire'));
-        console.log('includes("bodywork"):', userCapabilities.includes('bodywork'));
-        console.log('includes("electrical"):', userCapabilities.includes('electrical'));
-        console.log('includes("parts"):', userCapabilities.includes('parts'));
-    console.log('='.repeat(60));
-  }, [userCapabilities, user?.email, user]);
-
   // Ana hizmeti belirle (herkes için ana sayfa)
   const getPrimaryService = (): keyof TabParamList => {
-    console.log('🎯 getPrimaryService - Her zaman Home (Ana Sayfa)');
     return 'Home';
   };
 
