@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { auth } from '../middleware/optimizedAuth';
 import { PartsService } from '../services/parts.service';
 import { validate } from '../middleware/validate';
+import Logger from '../utils/logger';
 import {
   createPartSchema,
   updatePartSchema,
@@ -256,32 +257,26 @@ router.post('/reservations/:id/approve', auth, async (req: Request, res: Respons
       });
     }
 
-    if (__DEV__) {
-      console.log('🔍 [ROUTE] POST /parts/reservations/:id/approve', {
-        reservationId: req.params.id,
-        sellerId,
-      });
-    }
+    Logger.devOnly('[ROUTE] POST /parts/reservations/:id/approve', {
+      reservationId: req.params.id,
+      sellerId,
+    });
 
     const result = await PartsService.approveReservation(req.params.id, sellerId);
     
-    if (__DEV__) {
-      console.log('✅ [ROUTE] Rezervasyon onaylandı:', {
-        success: result.success,
-        reservationId: req.params.id,
-        newStatus: result.data?.status,
-      });
-    }
+    Logger.devOnly('[ROUTE] Rezervasyon onaylandı:', {
+      success: result.success,
+      reservationId: req.params.id,
+      newStatus: result.data?.status,
+    });
     
     res.json(result);
   } catch (error: any) {
-    if (__DEV__) {
-      console.error('❌ [ROUTE] Rezervasyon onaylama hatası:', {
-        reservationId: req.params.id,
-        error: error.message,
-        statusCode: error.statusCode,
-      });
-    }
+    Logger.devOnly('[ROUTE] Rezervasyon onaylama hatası:', {
+      reservationId: req.params.id,
+      error: error.message,
+      statusCode: error.statusCode,
+    });
     
     res.status(error.statusCode || 500).json({
       success: false,
