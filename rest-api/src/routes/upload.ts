@@ -122,6 +122,8 @@ router.post('/upload', auth, uploadDisk.single('image'), async (req, res) => {
  * Parça fotoğraflarını yükle (Cloudinary)
  */
 router.post('/parts', auth, uploadMemory.single('image'), async (req: Request, res: Response) => {
+  console.log('🔍 [UPLOAD ROUTE] POST /api/upload/parts çağrıldı');
+  console.log('🔍 [UPLOAD ROUTE] Has file:', !!req.file);
   try {
     if (!req.file) {
       return res.status(400).json({
