@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -123,9 +123,11 @@ export default function AddPartScreen() {
   const fetchPartData = async () => {
     try {
       setLoadingPart(true);
+      // Önce tüm parçaları çek (getPartDetail endpoint'i yoksa)
       const response = await apiService.PartsService.getMechanicParts();
       if (response.success && response.data) {
-        const part = response.data.find((p: any) => p._id === partId);
+        const partsArray = Array.isArray(response.data) ? response.data : [];
+        const part = partsArray.find((p: any) => p._id === partId);
         if (part) {
           // Form verilerini doldur
           setFormData({
@@ -179,7 +181,7 @@ export default function AddPartScreen() {
 
       // Görsel seçiciyi aç
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: [ImagePicker.MediaType.Images],
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
@@ -254,14 +256,36 @@ export default function AddPartScreen() {
       Alert.alert('Uyarı', 'Marka giriniz');
       return;
     }
-    if (!formData.unitPrice || parseFloat(formData.unitPrice) <= 0) {
+    
+    // Fiyat validasyonu - NaN kontrolü
+    const unitPrice = parseFloat(formData.unitPrice);
+    if (!formData.unitPrice || isNaN(unitPrice) || unitPrice <= 0) {
       Alert.alert('Uyarı', 'Geçerli bir fiyat giriniz');
       return;
     }
-    if (!formData.quantity || parseInt(formData.quantity) <= 0) {
+    
+    // Miktar validasyonu - NaN kontrolü
+    const quantity = parseInt(formData.quantity);
+    if (!formData.quantity || isNaN(quantity) || quantity <= 0) {
       Alert.alert('Uyarı', 'Geçerli bir miktar giriniz');
       return;
     }
+    
+    // Düşük stok eşiği validasyonu
+    const lowThreshold = parseInt(formData.lowThreshold);
+    if (isNaN(lowThreshold) || lowThreshold < 0) {
+      Alert.alert('Uyarı', 'Geçerli bir düşük stok eşiği giriniz');
+      return;
+    }
+    
+    // Yıl validasyonu
+    const yearStart = parseInt(formData.yearStart);
+    const yearEnd = parseInt(formData.yearEnd);
+    if (isNaN(yearStart) || isNaN(yearEnd) || yearStart > yearEnd) {
+      Alert.alert('Uyarı', 'Geçerli yıl aralığı giriniz');
+      return;
+    }
+    
     if (!formData.makeModel.trim()) {
       Alert.alert('Uyarı', 'En az bir araç marka/model giriniz (virgülle ayrılmış: Toyota,Corolla)');
       return;
@@ -280,25 +304,26 @@ export default function AddPartScreen() {
         brand: formData.brand.trim(),
         partNumber: formData.partNumber.trim() || undefined,
         description: formData.description.trim() || undefined,
-        photos: photos, // Fotoğrafları ekle
+        photos: photos.length > 0 ? photos : undefined, // Boş array gönderme
         category: formData.category,
         compatibility: {
           makeModel: makeModelArray,
           years: {
-            start: parseInt(formData.yearStart),
-            end: parseInt(formData.yearEnd),
+            start: yearStart,
+            end: yearEnd,
           },
           engine: engineArray.length > 0 ? engineArray : undefined,
           vinPrefix: vinPrefixArray.length > 0 ? vinPrefixArray : undefined,
           notes: formData.compatibilityNotes.trim() || undefined,
         },
         stock: {
-          quantity: parseInt(formData.quantity),
-          lowThreshold: parseInt(formData.lowThreshold),
+          quantity: quantity,
+          lowThreshold: lowThreshold,
+          // NOT: available ve reserved backend'de otomatik hesaplanacak
         },
         pricing: {
-          unitPrice: parseFloat(formData.unitPrice),
-          oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : undefined,
+          unitPrice: unitPrice,
+          oldPrice: formData.oldPrice ? (parseFloat(formData.oldPrice) || undefined) : undefined,
           currency: formData.currency,
           isNegotiable: formData.isNegotiable,
         },
@@ -307,11 +332,14 @@ export default function AddPartScreen() {
       };
 
       // Warranty bilgisi varsa ekle
-      if (formData.warrantyMonths && parseInt(formData.warrantyMonths) > 0) {
-        payload.warranty = {
-          months: parseInt(formData.warrantyMonths),
-          description: formData.warrantyDescription.trim() || undefined,
-        };
+      if (formData.warrantyMonths) {
+        const warrantyMonths = parseInt(formData.warrantyMonths);
+        if (!isNaN(warrantyMonths) && warrantyMonths > 0) {
+          payload.warranty = {
+            months: warrantyMonths,
+            description: formData.warrantyDescription.trim() || undefined,
+          };
+        }
       }
 
       let response;

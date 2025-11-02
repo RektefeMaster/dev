@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,8 @@ import { useAuth } from '@/shared/context';
 import { Card, Button } from '@/shared/components';
 import { spacing, borderRadius, typography } from '@/shared/theme';
 import apiService from '@/shared/services';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { STORAGE_KEYS } from '@/constants/config';
 
 interface Reservation {
   _id: string;
@@ -81,7 +83,7 @@ export default function PartsReservationsScreen() {
   const navigation = useNavigation();
   const { themeColors: colors } = useTheme();
   const { user } = useAuth();
-  const styles = createStyles(colors);
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -91,35 +93,105 @@ export default function PartsReservationsScreen() {
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [counterPrice, setCounterPrice] = useState('');
   const [responding, setResponding] = useState(false);
+  const [approving, setApproving] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchReservations();
-  }, [filter]);
-
-  const fetchReservations = async () => {
+  const fetchReservations = useCallback(async (showLoading: boolean = true) => {
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
+      
+      // Token kontrolü - debug için
+      if (__DEV__) {
+        const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+        console.log('🔍 [PartsReservations] Token kontrolü:', token ? `${token.substring(0, 20)}...` : 'Token yok');
+      }
+      
       const response = await apiService.PartsService.getMechanicReservations(
         filter !== 'all' ? { status: filter } : undefined
       );
-      if (response.success && response.data) {
-        setReservations(response.data);
+      
+      if (__DEV__) {
+        console.log('🔍 [PartsReservations] API Response:', {
+          success: response.success,
+          hasData: !!response.data,
+          dataIsArray: Array.isArray(response.data),
+          dataLength: Array.isArray(response.data) ? response.data.length : 0,
+          message: response.message,
+          filter: filter,
+        });
       }
-    } catch (error) {
-      console.error('Rezervasyonlar yüklenemedi:', error);
-      Alert.alert('Hata', 'Rezervasyonlar yüklenemedi');
+      
+      if (response.success && response.data) {
+        const reservationsArray = Array.isArray(response.data) ? response.data : [];
+        setReservations(reservationsArray);
+        
+        if (__DEV__ && reservationsArray.length === 0) {
+          console.log('⚠️ [PartsReservations] Rezervasyon array boş (filter:', filter, ')');
+        }
+      } else {
+        if (__DEV__) {
+          console.error('❌ [PartsReservations] API başarısız:', response.message || 'Bilinmeyen hata');
+        }
+        setReservations([]);
+        
+        // Kullanıcıya sadece önemli hataları göster (onaylama sırasında değil)
+        if (showLoading && response.message && !response.message.includes('bulunmuyor')) {
+          Alert.alert('Hata', response.message || 'Rezervasyonlar yüklenemedi');
+        }
+      }
+    } catch (error: any) {
+      console.error('❌ [PartsReservations] Rezervasyonlar yüklenemedi:', error);
+      
+      // 401 hatası için özel mesaj (sadece ilk yüklemede göster)
+      if (showLoading) {
+        if (error.response?.status === 401 || error.message?.includes('401')) {
+          console.error('❌ [PartsReservations] 401 Unauthorized - Token geçersiz veya süresi dolmuş');
+          Alert.alert(
+            'Oturum Hatası',
+            'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.',
+            [
+              {
+                text: 'Tamam',
+                onPress: () => {
+                  // Navigation'a geri dön veya login'e yönlendir
+                  if (navigation.canGoBack()) {
+                    navigation.goBack();
+                  }
+                },
+              },
+            ]
+          );
+        } else {
+          Alert.alert('Hata', error.message || 'Rezervasyonlar yüklenemedi');
+        }
+      }
+      
+      setReservations([]);
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
-  };
+  }, [filter, navigation]);
 
-  const onRefresh = async () => {
+  useEffect(() => {
+    fetchReservations();
+  }, [fetchReservations]);
+
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchReservations();
     setRefreshing(false);
-  };
+  }, [fetchReservations]);
 
-  const handleApprove = async (reservation: Reservation) => {
+  const pendingCount = useMemo(() => {
+    return Array.isArray(reservations)
+      ? reservations.filter(r => r && r.status === 'pending').length
+      : 0;
+  }, [reservations]);
+
+  const handleApprove = useCallback(async (reservation: Reservation) => {
     Alert.alert(
       'Rezervasyonu Onayla',
       'Bu rezervasyonu onaylamak istediğinize emin misiniz?',
@@ -129,23 +201,101 @@ export default function PartsReservationsScreen() {
           text: 'Onayla',
           onPress: async () => {
             try {
-              const response = await apiService.PartsService.approveReservation(reservation._id);
-              if (response.success) {
-                Alert.alert('Başarılı', 'Rezervasyon onaylandı');
-                await fetchReservations();
-              } else {
-                Alert.alert('Hata', response.message || 'Rezervasyon onaylanamadı');
+              setApproving(reservation._id);
+              
+              if (__DEV__) {
+                console.log('🔍 [PartsReservations] Onaylama başlatılıyor:', {
+                  reservationId: reservation._id,
+                  currentFilter: filter,
+                  currentStatus: reservation.status,
+                });
               }
-            } catch (error) {
-              Alert.alert('Hata', 'Rezervasyon onaylanamadı');
+              
+              const response = await apiService.PartsService.approveReservation(reservation._id);
+              
+              if (__DEV__) {
+                console.log('🔍 [PartsReservations] Onaylama response:', {
+                  success: response.success,
+                  message: response.message,
+                  dataStatus: response.data?.status,
+                  hasData: !!response.data,
+                  responseKeys: response.data ? Object.keys(response.data) : [],
+                });
+              }
+              
+              if (response.success) {
+                if (__DEV__) {
+                  console.log('✅ [PartsReservations] Rezervasyon onaylandı, güncellenmiş data:', {
+                    reservationId: reservation._id,
+                    newStatus: response.data?.status,
+                    hasData: !!response.data,
+                    filter: filter,
+                  });
+                }
+                
+                // Eğer filter 'pending' ise, rezervasyonu listeden kaldır (confirmed olmuştur)
+                // Eğer filter 'all' veya 'confirmed' ise, rezervasyonu güncelle
+                if (filter === 'pending') {
+                  // Pending filter'da - rezervasyonu listeden kaldır (confirmed olmuştur)
+                  setReservations(prev => {
+                    if (!Array.isArray(prev)) return prev;
+                    const filtered = prev.filter(r => r._id !== reservation._id);
+                    if (__DEV__) {
+                      console.log('🔍 [PartsReservations] Pending filter - rezervasyon kaldırıldı, yeni liste uzunluğu:', filtered.length);
+                    }
+                    return filtered;
+                  });
+                } else {
+                  // All veya confirmed filter'da - rezervasyonu güncelle
+                  setReservations(prev => {
+                    if (!Array.isArray(prev)) return prev;
+                    return prev.map(r => 
+                      r._id === reservation._id && response.data
+                        ? { ...r, ...response.data, status: 'confirmed' }
+                        : r
+                    );
+                  });
+                  if (__DEV__) {
+                    console.log('🔍 [PartsReservations] All/Confirmed filter - rezervasyon güncellendi');
+                  }
+                }
+                
+                // Liste yenile - loading gösterme (optimistic update zaten gösterildi)
+                // ÖNEMLI: fetchReservations çağrılmadan önce kısa bir delay ekle
+                // Böylece state güncellemesi tamamlanır
+                setTimeout(async () => {
+                  await fetchReservations(false);
+                }, 100);
+                
+                Alert.alert('Başarılı', 'Rezervasyon onaylandı');
+              } else {
+                if (__DEV__) {
+                  console.error('❌ [PartsReservations] Onaylama başarısız:', {
+                    reservationId: reservation._id,
+                    message: response.message,
+                    response: response,
+                  });
+                }
+                
+                Alert.alert('Hata', response.message || 'Rezervasyon onaylanamadı');
+                // Hata durumunda listeyi yeniden yükle (loading gösterme)
+                await fetchReservations(false);
+              }
+            } catch (error: any) {
+              console.error('❌ [PartsReservations] Onaylama hatası:', error);
+              Alert.alert('Hata', error.message || 'Rezervasyon onaylanamadı');
+              // Hata durumunda listeyi yeniden yükle (loading gösterme)
+              await fetchReservations(false);
+            } finally {
+              setApproving(null);
             }
           },
         },
       ]
     );
-  };
+  }, [fetchReservations, filter]);
 
-  const handleCancel = async (reservation: Reservation) => {
+  const handleCancel = useCallback(async (reservation: Reservation) => {
     Alert.alert(
       'Rezervasyonu İptal Et',
       'Bu rezervasyonu iptal etmek istediğinize emin misiniz?',
@@ -156,31 +306,63 @@ export default function PartsReservationsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const response = await apiService.PartsService.cancelReservation(reservation._id);
+              setApproving(reservation._id);
+              
+              if (__DEV__) {
+                console.log('🔍 [PartsReservations] İptal işlemi başlatılıyor:', reservation._id);
+              }
+              
+              const response = await apiService.PartsService.cancelReservation(
+                reservation._id,
+                undefined,
+                'seller'
+              );
+              
+              if (__DEV__) {
+                console.log('🔍 [PartsReservations] İptal response:', {
+                  success: response.success,
+                  message: response.message,
+                });
+              }
+              
               if (response.success) {
+                // Optimistic update - rezervasyonu listeden kaldır
+                setReservations(prev => {
+                  if (!Array.isArray(prev)) return prev;
+                  return prev.filter(r => r._id !== reservation._id);
+                });
+                
+                // Liste yenile - loading gösterme
+                await fetchReservations(false);
                 Alert.alert('Başarılı', 'Rezervasyon iptal edildi');
-                await fetchReservations();
               } else {
                 Alert.alert('Hata', response.message || 'Rezervasyon iptal edilemedi');
+                // Hata durumunda listeyi yenile
+                await fetchReservations(false);
               }
-            } catch (error) {
-              Alert.alert('Hata', 'Rezervasyon iptal edilemedi');
+            } catch (error: any) {
+              console.error('❌ [PartsReservations] İptal hatası:', error);
+              Alert.alert('Hata', error.message || 'Rezervasyon iptal edilemedi');
+              // Hata durumunda listeyi yenile
+              await fetchReservations(false);
+            } finally {
+              setApproving(null);
             }
           },
         },
       ]
     );
-  };
+  }, [fetchReservations]);
 
-  const handleNegotiationResponse = (reservation: Reservation, action: 'accept' | 'reject') => {
+  const handleNegotiationResponse = useCallback((reservation: Reservation, action: 'accept' | 'reject') => {
     setSelectedReservation(reservation);
     if (action === 'reject') {
       setCounterPrice('');
     }
     setShowNegotiationModal(true);
-  };
+  }, []);
 
-  const handleConfirmNegotiationResponse = async (action: 'accept' | 'reject') => {
+  const handleConfirmNegotiationResponse = useCallback(async (action: 'accept' | 'reject') => {
     if (!selectedReservation) return;
 
     try {
@@ -195,15 +377,33 @@ export default function PartsReservationsScreen() {
       } else {
         const counterPriceValue = parseFloat(counterPrice);
         if (counterPrice && (!isNaN(counterPriceValue) && counterPriceValue > 0)) {
-          // Karşı teklif var
+          // Karşı teklif validasyonları
+          if (counterPriceValue >= selectedReservation.totalPrice) {
+            Alert.alert('Uyarı', 'Karşı teklif toplam fiyattan düşük olmalıdır');
+            setResponding(false);
+            return;
+          }
+          
+          if (selectedReservation.negotiatedPrice && counterPriceValue <= selectedReservation.negotiatedPrice) {
+            Alert.alert('Uyarı', 'Karşı teklif, müşterinin pazarlık teklifinden yüksek olmalıdır');
+            setResponding(false);
+            return;
+          }
+          
           const unitPrice = counterPriceValue / selectedReservation.quantity;
+          
+          if (unitPrice >= selectedReservation.unitPrice) {
+            Alert.alert('Uyarı', 'Karşı teklif birim fiyatı orijinal birim fiyattan düşük olmalıdır');
+            setResponding(false);
+            return;
+          }
+          
           response = await apiService.PartsService.respondToNegotiation(
             selectedReservation._id,
             'reject',
             unitPrice
           );
         } else {
-          // Sadece reddet
           response = await apiService.PartsService.respondToNegotiation(
             selectedReservation._id,
             'reject'
@@ -212,23 +412,51 @@ export default function PartsReservationsScreen() {
       }
 
       if (response.success) {
-        Alert.alert('Başarılı', response.message || 'Pazarlık yanıtı verildi');
+        // Optimistic update - rezervasyonu güncelle
+        if (action === 'accept') {
+          // Pazarlık kabul edildi - rezervasyon hala pending ama negotiatedPrice onaylandı
+          // Liste yenileme ile güncel hali gelecek
+        } else if (action === 'reject') {
+          if (counterPrice && !isNaN(parseFloat(counterPrice)) && parseFloat(counterPrice) > 0) {
+            // Karşı teklif gönderildi - rezervasyon güncellenecek
+          } else {
+            // Pazarlık reddedildi - negotiatedPrice temizlendi, normal rezervasyona döndü
+            // Optimistic update: rezervasyonu güncelle
+            setReservations(prev => {
+              if (!Array.isArray(prev) || !selectedReservation) return prev;
+              return prev.map(r => 
+                r._id === selectedReservation._id 
+                  ? { ...r, negotiatedPrice: undefined }
+                  : r
+              );
+            });
+          }
+        }
+        
         setShowNegotiationModal(false);
         setSelectedReservation(null);
         setCounterPrice('');
-        await fetchReservations();
+        
+        // Liste yenile - loading gösterme
+        await fetchReservations(false);
+        
+        Alert.alert('Başarılı', response.message || 'Pazarlık yanıtı verildi');
       } else {
         Alert.alert('Hata', response.message || 'Pazarlık yanıtı verilemedi');
+        // Hata durumunda listeyi yenile
+        await fetchReservations(false);
       }
-    } catch (error) {
-      console.error('Pazarlık yanıt hatası:', error);
-      Alert.alert('Hata', 'Pazarlık yanıtı verilemedi');
+    } catch (error: any) {
+      console.error('❌ [PartsReservations] Pazarlık yanıt hatası:', error);
+      Alert.alert('Hata', error.message || 'Pazarlık yanıtı verilemedi');
+      // Hata durumunda listeyi yenile
+      await fetchReservations(false);
     } finally {
       setResponding(false);
     }
-  };
+  }, [selectedReservation, counterPrice, fetchReservations]);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = useCallback((status: string) => {
     switch (status) {
       case 'pending': return '#F59E0B';
       case 'confirmed': return '#3B82F6';
@@ -238,9 +466,9 @@ export default function PartsReservationsScreen() {
       case 'delivered': return '#8B5CF6';
       default: return colors.textSecondary;
     }
-  };
+  }, [colors.textSecondary]);
 
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = useCallback((status: string) => {
     switch (status) {
       case 'pending': return 'Beklemede';
       case 'confirmed': return 'Onaylandı';
@@ -250,16 +478,24 @@ export default function PartsReservationsScreen() {
       case 'delivered': return 'Teslim Edildi';
       default: return status;
     }
-  };
+  }, []);
 
-  const getDeliveryMethodLabel = (method: string) => {
+  const getDeliveryMethodLabel = useCallback((method: string) => {
     switch (method) {
       case 'pickup': return 'Mağazadan Al';
       case 'standard': return 'Standart Kargo';
       case 'express': return 'Hızlı Kargo';
       default: return method;
     }
-  };
+  }, []);
+
+  const filterItems = useMemo(() => [
+    { key: 'all', label: 'Tümü', icon: 'list' },
+    { key: 'pending', label: 'Beklemede', icon: 'time', badge: pendingCount },
+    { key: 'confirmed', label: 'Onaylandı', icon: 'checkmark-circle' },
+    { key: 'completed', label: 'Tamamlandı', icon: 'trophy' },
+    { key: 'cancelled', label: 'İptal', icon: 'close-circle' },
+  ], [pendingCount]);
 
   if (loading && !refreshing) {
     return (
@@ -273,8 +509,6 @@ export default function PartsReservationsScreen() {
       </SafeAreaView>
     );
   }
-
-  const pendingCount = reservations.filter(r => r.status === 'pending').length;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -291,13 +525,7 @@ export default function PartsReservationsScreen() {
 
       {/* Filters */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersContainer}>
-        {[
-          { key: 'all', label: 'Tümü', icon: 'list' },
-          { key: 'pending', label: 'Beklemede', icon: 'time', badge: pendingCount },
-          { key: 'confirmed', label: 'Onaylandı', icon: 'checkmark-circle' },
-          { key: 'completed', label: 'Tamamlandı', icon: 'trophy' },
-          { key: 'cancelled', label: 'İptal', icon: 'close-circle' },
-        ].map((filterItem) => (
+        {filterItems.map((filterItem) => (
           <TouchableOpacity
             key={filterItem.key}
             style={[
@@ -308,6 +536,7 @@ export default function PartsReservationsScreen() {
               }
             ]}
             onPress={() => setFilter(filterItem.key as any)}
+            activeOpacity={0.7}
           >
             <Ionicons
               name={filterItem.icon as any}
@@ -320,9 +549,9 @@ export default function PartsReservationsScreen() {
             ]}>
               {filterItem.label}
             </Text>
-            {filterItem.badge && filterItem.badge > 0 && (
+            {filterItem.badge !== undefined && filterItem.badge > 0 && (
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>{filterItem.badge}</Text>
+                <Text style={styles.badgeText}>{String(filterItem.badge)}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -371,28 +600,28 @@ export default function PartsReservationsScreen() {
                 <View style={styles.buyerInfo}>
                   <Ionicons name="person-outline" size={16} color={colors.textSecondary} />
                   <Text style={[styles.buyerName, { color: colors.text }]}>
-                    {reservation.buyerId.name} {reservation.buyerId.surname}
+                    {reservation.buyerId?.name || ''} {reservation.buyerId?.surname || ''}
                   </Text>
-                  {reservation.buyerId.phone && (
+                  {reservation.buyerId?.phone && (
                     <Text style={[styles.buyerPhone, { color: colors.textSecondary }]}>
-                      {reservation.buyerId.phone}
+                      {String(reservation.buyerId.phone)}
                     </Text>
                   )}
                 </View>
 
                 <View style={styles.partInfo}>
                   <Text style={[styles.partName, { color: colors.text }]}>
-                    {reservation.partInfo.partName}
+                    {reservation.partInfo?.partName || 'Bilinmeyen Parça'}
                   </Text>
                   <Text style={[styles.partBrand, { color: colors.textSecondary }]}>
-                    {reservation.partInfo.brand}
+                    {reservation.partInfo?.brand || ''}
                   </Text>
                   <View style={styles.partDetails}>
                     <Text style={[styles.detailText, { color: colors.textSecondary }]}>
-                      Adet: {reservation.quantity}
+                      Adet: {String(reservation.quantity || 0)}
                     </Text>
                     <Text style={[styles.detailText, { color: colors.textSecondary }]}>
-                      Durum: {reservation.partInfo.condition}
+                      Durum: {reservation.partInfo?.condition || 'Bilinmiyor'}
                     </Text>
                   </View>
                 </View>
@@ -402,18 +631,22 @@ export default function PartsReservationsScreen() {
                     Toplam Fiyat
                   </Text>
                   <Text style={[styles.priceValue, { color: colors.text }]}>
-                    {reservation.negotiatedPrice || reservation.totalPrice} TL
+                    {typeof (reservation.negotiatedPrice || reservation.totalPrice) === 'number'
+                      ? `${(reservation.negotiatedPrice || reservation.totalPrice).toLocaleString('tr-TR')} TL`
+                      : `${String(reservation.negotiatedPrice || reservation.totalPrice)} TL`}
                   </Text>
-                  {reservation.negotiatedPrice && (
-                    <Text style={[styles.oldPrice, { color: colors.textSecondary }]}>
-                      <Text style={styles.strikethrough}>{reservation.totalPrice.toLocaleString('tr-TR')} TL</Text>
+                  {reservation.negotiatedPrice && reservation.totalPrice && (
+                    <Text style={[styles.oldPrice, styles.strikethrough, { color: colors.textSecondary }]}>
+                      {typeof reservation.totalPrice === 'number'
+                        ? `${reservation.totalPrice.toLocaleString('tr-TR')} TL`
+                        : `${String(reservation.totalPrice)} TL`}
                     </Text>
                   )}
                 </View>
 
                 <View style={styles.deliveryInfo}>
                   <Text style={[styles.deliveryLabel, { color: colors.textSecondary }]}>
-                    Teslimat: {getDeliveryMethodLabel(reservation.delivery.method)}
+                    Teslimat: {getDeliveryMethodLabel(reservation.delivery?.method || 'pickup')}
                   </Text>
                 </View>
 
@@ -430,6 +663,8 @@ export default function PartsReservationsScreen() {
                           }}
                           style={[styles.actionButton, { flex: 1, backgroundColor: '#10B981' }]}
                           textStyle={{ color: '#FFFFFF' }}
+                          disabled={responding || approving === reservation._id}
+                          loading={responding}
                         />
                         <Button
                           title="Yanıtla"
@@ -444,6 +679,7 @@ export default function PartsReservationsScreen() {
                             }
                           ]}
                           textStyle={{ color: colors.primary }}
+                          disabled={responding || approving === reservation._id}
                         />
                       </>
                     ) : (
@@ -453,6 +689,8 @@ export default function PartsReservationsScreen() {
                           onPress={() => handleApprove(reservation)}
                           style={[styles.actionButton, { flex: 1 }]}
                           textStyle={{ color: '#FFFFFF' }}
+                          disabled={approving === reservation._id}
+                          loading={approving === reservation._id}
                         />
                         <Button
                           title="İptal Et"
@@ -467,6 +705,8 @@ export default function PartsReservationsScreen() {
                             }
                           ]}
                           textStyle={{ color: '#EF4444' }}
+                          disabled={approving === reservation._id || responding}
+                          loading={approving === reservation._id}
                         />
                       </>
                     )}
@@ -514,10 +754,14 @@ export default function PartsReservationsScreen() {
                       Müşteri Teklifi
                     </Text>
                     <Text style={[styles.currentPrice, { color: colors.textSecondary }]}>
-                      {selectedReservation.negotiatedPrice?.toLocaleString('tr-TR')} TL
+                      {typeof selectedReservation.negotiatedPrice === 'number'
+                        ? `${selectedReservation.negotiatedPrice.toLocaleString('tr-TR')} TL`
+                        : '0 TL'}
                     </Text>
                     <Text style={[styles.modalHint, { color: colors.textSecondary }]}>
-                      Orijinal: {selectedReservation.totalPrice.toLocaleString('tr-TR')} TL
+                      Orijinal: {typeof selectedReservation.totalPrice === 'number'
+                        ? `${selectedReservation.totalPrice.toLocaleString('tr-TR')} TL`
+                        : '0 TL'}
                     </Text>
                   </View>
 

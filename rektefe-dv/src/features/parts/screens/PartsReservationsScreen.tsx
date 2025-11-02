@@ -270,6 +270,12 @@ const PartsReservationsScreen = () => {
 
     // API birim fiyat bekliyor, toplam fiyattan birim fiyata çevir
     const unitPrice = totalPrice / selectedReservation.quantity;
+    
+    // Birim fiyat kontrolü - orijinal birim fiyattan düşük olmalı
+    if (unitPrice >= selectedReservation.unitPrice) {
+      Alert.alert('Uyarı', 'Pazarlık birim fiyatı orijinal birim fiyattan düşük olmalıdır');
+      return;
+    }
 
     try {
       setNegotiating(true);

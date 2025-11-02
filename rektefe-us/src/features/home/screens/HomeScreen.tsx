@@ -471,12 +471,12 @@ const mechanicCapabilities = [
         label: 'Yedek Parça Hizmetleri',
         links: [
           {
-            label: 'Aktif Parça İşleri',
-            onPress: () => navigation.navigate('PartsService'),
+            label: 'Parça Envanteri',
+            onPress: () => navigation.navigate('PartsInventory'),
           },
           {
-            label: 'Parça Geçmişi',
-            onPress: () => navigation.navigate('PartsService'),
+            label: 'Parça Rezervasyonları',
+            onPress: () => navigation.navigate('PartsReservations'),
           },
         ],
       });

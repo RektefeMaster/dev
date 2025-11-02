@@ -250,13 +250,42 @@ PartsInventorySchema.index({ brand: 'text', partName: 'text', partNumber: 'text'
 PartsInventorySchema.pre('save', function(next) {
   const part = this as IPartsInventory;
   
-  // quantity, available ve reserved tutarlılığını kontrol et
-  if (part.stock.quantity < part.stock.reserved) {
-    part.stock.reserved = part.stock.quantity;
+  // Stock objesi var mı ve geçerli mi kontrol et
+  if (!part.stock) {
+    return next(new Error('Stock bilgisi bulunamadı'));
   }
   
-  // Available hesapla
-  part.stock.available = part.stock.quantity - part.stock.reserved;
+  // NaN ve undefined kontrolleri
+  const quantity = Number(part.stock.quantity);
+  let reserved = Number(part.stock.reserved || 0);
+  
+  if (isNaN(quantity) || quantity < 0) {
+    return next(new Error('Geçersiz stok miktarı (NaN veya negatif)'));
+  }
+  
+  // Reserved NaN veya negatif ise 0 yap
+  if (isNaN(reserved) || reserved < 0) {
+    reserved = 0;
+    part.stock.reserved = 0;
+  }
+  
+  // Reserved değerini quantity'den fazla olamaz
+  if (reserved > quantity) {
+    reserved = quantity;
+    part.stock.reserved = quantity;
+  } else {
+    // Reserved geçerliyse, part.stock.reserved'i güncelle
+    part.stock.reserved = reserved;
+  }
+  
+  // Available hesapla (garanti et ki sayı)
+  part.stock.available = Math.max(0, quantity - reserved);
+  
+  // LowThreshold kontrolü
+  const lowThreshold = Number(part.stock.lowThreshold);
+  if (isNaN(lowThreshold) || lowThreshold < 0) {
+    part.stock.lowThreshold = 5; // Default değer
+  }
   
   next();
 });

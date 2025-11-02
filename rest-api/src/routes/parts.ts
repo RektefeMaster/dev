@@ -256,9 +256,33 @@ router.post('/reservations/:id/approve', auth, async (req: Request, res: Respons
       });
     }
 
+    if (__DEV__) {
+      console.log('🔍 [ROUTE] POST /parts/reservations/:id/approve', {
+        reservationId: req.params.id,
+        sellerId,
+      });
+    }
+
     const result = await PartsService.approveReservation(req.params.id, sellerId);
+    
+    if (__DEV__) {
+      console.log('✅ [ROUTE] Rezervasyon onaylandı:', {
+        success: result.success,
+        reservationId: req.params.id,
+        newStatus: result.data?.status,
+      });
+    }
+    
     res.json(result);
   } catch (error: any) {
+    if (__DEV__) {
+      console.error('❌ [ROUTE] Rezervasyon onaylama hatası:', {
+        reservationId: req.params.id,
+        error: error.message,
+        statusCode: error.statusCode,
+      });
+    }
+    
     res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || 'Rezervasyon onaylanamadı'

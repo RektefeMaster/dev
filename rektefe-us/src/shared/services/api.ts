@@ -2897,7 +2897,7 @@ export const PartsService = {
     brand: string;
     partNumber?: string;
     description?: string;
-    photos: string[];
+    photos?: string[];
     category: string;
     compatibility: {
       makeModel: string[];
@@ -2924,13 +2924,55 @@ export const PartsService = {
     isPublished?: boolean;
   }): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post('/parts', data);
+      if (__DEV__) {
+        console.log('🔍 [API] createPart çağrıldı:', {
+          partName: data.partName,
+          category: data.category,
+          stockQuantity: data.stock.quantity,
+          unitPrice: data.pricing.unitPrice,
+          photosCount: data.photos?.length || 0,
+        });
+      }
+      
+      // Photos array kontrolü - undefined veya boş array olabilir
+      const payload = {
+        ...data,
+        photos: data.photos && data.photos.length > 0 ? data.photos : [],
+      };
+      
+      const response = await apiClient.post('/parts', payload);
+      
+      if (__DEV__) {
+        console.log('✅ [API] createPart başarılı:', {
+          success: response.data?.success,
+          message: response.data?.message,
+          partId: response.data?.data?._id,
+        });
+      }
+      
       return response.data;
     } catch (error: any) {
-      console.error('Create part error:', error);
+      if (__DEV__) {
+        console.error('❌ [API] createPart error:', {
+          status: error.response?.status,
+          message: error.response?.data?.message || error.message,
+          url: error.config?.url,
+          errorDetails: error.response?.data,
+        });
+      }
+      
+      // 401 hatası için özel handling
+      if (error.response?.status === 401) {
+        return createErrorResponse(
+          ErrorCode.UNAUTHORIZED,
+          error.response?.data?.message || 'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.',
+          error.response?.data?.error?.details
+        );
+      }
+      
       return createErrorResponse(
-        ErrorCode.INTERNAL_SERVER_ERROR,
-        'Parça oluşturulamadı',
+        error.response?.status >= 500 ? ErrorCode.INTERNAL_SERVER_ERROR : ErrorCode.BAD_REQUEST,
+        error.response?.data?.message || 'Parça oluşturulamadı',
         error.response?.data?.error?.details
       );
     }
@@ -2941,13 +2983,47 @@ export const PartsService = {
    */
   async updatePart(partId: string, data: any): Promise<ApiResponse<any>> {
     try {
+      if (__DEV__) {
+        console.log('🔍 [API] updatePart çağrıldı:', {
+          partId,
+          dataKeys: Object.keys(data),
+          hasStock: !!data.stock,
+          stockData: data.stock,
+        });
+      }
+      
       const response = await apiClient.put(`/parts/${partId}`, data);
+      
+      if (__DEV__) {
+        console.log('✅ [API] updatePart başarılı:', {
+          success: response.data?.success,
+          message: response.data?.message,
+        });
+      }
+      
       return response.data;
     } catch (error: any) {
-      console.error('Update part error:', error);
+      if (__DEV__) {
+        console.error('❌ [API] updatePart error:', {
+          status: error.response?.status,
+          message: error.response?.data?.message || error.message,
+          url: error.config?.url,
+          errorDetails: error.response?.data,
+        });
+      }
+      
+      // 401 hatası için özel handling
+      if (error.response?.status === 401) {
+        return createErrorResponse(
+          ErrorCode.UNAUTHORIZED,
+          error.response?.data?.message || 'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.',
+          error.response?.data?.error?.details
+        );
+      }
+      
       return createErrorResponse(
-        ErrorCode.INTERNAL_SERVER_ERROR,
-        'Parça güncellenemedi',
+        error.response?.status >= 500 ? ErrorCode.INTERNAL_SERVER_ERROR : ErrorCode.BAD_REQUEST,
+        error.response?.data?.message || 'Parça güncellenemedi',
         error.response?.data?.error?.details
       );
     }
@@ -3057,13 +3133,42 @@ export const PartsService = {
    */
   async approveReservation(reservationId: string): Promise<ApiResponse<any>> {
     try {
+      if (__DEV__) {
+        console.log('🔍 [API] approveReservation çağrıldı:', reservationId);
+      }
+      
       const response = await apiClient.post(`/parts/reservations/${reservationId}/approve`);
+      
+      if (__DEV__) {
+        console.log('✅ [API] approveReservation başarılı:', {
+          success: response.data?.success,
+          message: response.data?.message,
+          dataStatus: response.data?.data?.status,
+        });
+      }
+      
       return response.data;
     } catch (error: any) {
-      console.error('Approve reservation error:', error);
+      if (__DEV__) {
+        console.error('❌ [API] approveReservation error:', {
+          status: error.response?.status,
+          message: error.response?.data?.message || error.message,
+          url: error.config?.url,
+        });
+      }
+      
+      // 401 hatası için özel handling
+      if (error.response?.status === 401) {
+        return createErrorResponse(
+          ErrorCode.UNAUTHORIZED,
+          error.response?.data?.message || 'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.',
+          error.response?.data?.error?.details
+        );
+      }
+      
       return createErrorResponse(
-        ErrorCode.INTERNAL_SERVER_ERROR,
-        'Rezervasyon onaylanamadı',
+        error.response?.status >= 500 ? ErrorCode.INTERNAL_SERVER_ERROR : ErrorCode.BAD_REQUEST,
+        error.response?.data?.message || 'Rezervasyon onaylanamadı',
         error.response?.data?.error?.details
       );
     }
@@ -3074,16 +3179,48 @@ export const PartsService = {
    */
   async cancelReservation(reservationId: string, reason?: string, cancelledBy?: string): Promise<ApiResponse<any>> {
     try {
+      if (__DEV__) {
+        console.log('🔍 [API] cancelReservation çağrıldı:', {
+          reservationId,
+          reason,
+          cancelledBy,
+        });
+      }
+      
       const response = await apiClient.post(`/parts/reservations/${reservationId}/cancel`, {
         reason,
         cancelledBy
       });
+      
+      if (__DEV__) {
+        console.log('✅ [API] cancelReservation başarılı:', {
+          success: response.data?.success,
+          message: response.data?.message,
+        });
+      }
+      
       return response.data;
     } catch (error: any) {
-      console.error('Cancel reservation error:', error);
+      if (__DEV__) {
+        console.error('❌ [API] cancelReservation error:', {
+          status: error.response?.status,
+          message: error.response?.data?.message || error.message,
+          url: error.config?.url,
+        });
+      }
+      
+      // 401 hatası için özel handling
+      if (error.response?.status === 401) {
+        return createErrorResponse(
+          ErrorCode.UNAUTHORIZED,
+          error.response?.data?.message || 'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.',
+          error.response?.data?.error?.details
+        );
+      }
+      
       return createErrorResponse(
-        ErrorCode.INTERNAL_SERVER_ERROR,
-        'Rezervasyon iptal edilemedi',
+        error.response?.status >= 500 ? ErrorCode.INTERNAL_SERVER_ERROR : ErrorCode.BAD_REQUEST,
+        error.response?.data?.message || 'Rezervasyon iptal edilemedi',
         error.response?.data?.error?.details
       );
     }
@@ -3094,13 +3231,43 @@ export const PartsService = {
    */
   async getMechanicReservations(filters?: { status?: string }): Promise<ApiResponse<any>> {
     try {
+      if (__DEV__) {
+        console.log('🔍 [API] getMechanicReservations çağrıldı, filters:', filters);
+      }
+      
       const response = await apiClient.get('/parts/mechanic/reservations', { params: filters });
+      
+      if (__DEV__) {
+        console.log('✅ [API] getMechanicReservations başarılı:', {
+          success: response.data?.success,
+          hasData: !!response.data?.data,
+          dataLength: Array.isArray(response.data?.data) ? response.data.data.length : 0,
+        });
+      }
+      
       return response.data;
     } catch (error: any) {
-      console.error('Get mechanic reservations error:', error);
+      if (__DEV__) {
+        console.error('❌ [API] getMechanicReservations error:', {
+          status: error.response?.status,
+          message: error.response?.data?.message || error.message,
+          url: error.config?.url,
+        });
+      }
+      
+      // 401 hatası için özel handling
+      if (error.response?.status === 401) {
+        return createErrorResponse(
+          ErrorCode.UNAUTHORIZED,
+          error.response?.data?.message || 'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.',
+          error.response?.data?.error?.details
+        );
+      }
+      
+      // Diğer hatalar için genel error response
       return createErrorResponse(
-        ErrorCode.INTERNAL_SERVER_ERROR,
-        'Rezervasyonlar yüklenemedi',
+        error.response?.status >= 500 ? ErrorCode.INTERNAL_SERVER_ERROR : ErrorCode.BAD_REQUEST,
+        error.response?.data?.message || 'Rezervasyonlar yüklenemedi',
         error.response?.data?.error?.details
       );
     }
@@ -3156,16 +3323,48 @@ export const PartsService = {
     counterPrice?: number
   ): Promise<ApiResponse<any>> {
     try {
+      if (__DEV__) {
+        console.log('🔍 [API] respondToNegotiation çağrıldı:', {
+          reservationId,
+          action,
+          counterPrice,
+        });
+      }
+      
       const response = await apiClient.post(`/parts/reservations/${reservationId}/negotiation-response`, {
         action,
         counterPrice
       });
+      
+      if (__DEV__) {
+        console.log('✅ [API] respondToNegotiation başarılı:', {
+          success: response.data?.success,
+          message: response.data?.message,
+        });
+      }
+      
       return response.data;
     } catch (error: any) {
-      console.error('Respond to negotiation error:', error);
+      if (__DEV__) {
+        console.error('❌ [API] respondToNegotiation error:', {
+          status: error.response?.status,
+          message: error.response?.data?.message || error.message,
+          url: error.config?.url,
+        });
+      }
+      
+      // 401 hatası için özel handling
+      if (error.response?.status === 401) {
+        return createErrorResponse(
+          ErrorCode.UNAUTHORIZED,
+          error.response?.data?.message || 'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.',
+          error.response?.data?.error?.details
+        );
+      }
+      
       return createErrorResponse(
-        ErrorCode.INTERNAL_SERVER_ERROR,
-        'Pazarlık yanıtı verilemedi',
+        error.response?.status >= 500 ? ErrorCode.INTERNAL_SERVER_ERROR : ErrorCode.BAD_REQUEST,
+        error.response?.data?.message || 'Pazarlık yanıtı verilemedi',
         error.response?.data?.error?.details
       );
     }

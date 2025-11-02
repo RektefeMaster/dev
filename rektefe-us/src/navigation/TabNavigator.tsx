@@ -303,10 +303,6 @@ const CustomTabBar = ({ state, descriptors, navigation }: TabBarProps) => {
         icon = 'flask';
         label = 'Elektrik';
         break;
-      case 'PartsService':
-        icon = 'settings';
-        label = 'Parça';
-        break;
       case 'Messages':
         icon = 'chatbubble';
         label = 'Mesajlar';
@@ -561,19 +557,6 @@ const TabNavigator = () => {
         />
       )}
 
-      {/* Yedek Parça Hizmeti */}
-      {(userCapabilities.includes('parts') || userCapabilities.includes('yedek-parca') || userCapabilities.includes('Parça')) && (
-        <Tab.Screen 
-          name="PartsService" 
-          component={require('../features/services/screens/RepairServiceScreen').default}
-          options={{
-            title: 'Parça',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="settings" size={size} color={color} />
-            ),
-          }}
-        />
-      )}
 
       {/* Mesajlar - herkes için */}
       <Tab.Screen 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Image,
+  Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -74,7 +75,7 @@ export default function PartsInventoryScreen() {
   const navigation = useNavigation();
   const { themeColors: colors } = useTheme();
   const { user } = useAuth();
-  const styles = createStyles(colors);
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -82,32 +83,35 @@ export default function PartsInventoryScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingPart, setEditingPart] = useState<Part | null>(null);
 
-  useEffect(() => {
-    fetchParts();
-  }, []);
-
-  const fetchParts = async () => {
+  const fetchParts = useCallback(async () => {
     try {
       setLoading(true);
       const response = await apiService.PartsService.getMechanicParts();
       if (response.success && response.data) {
-        setParts(response.data);
+        setParts(Array.isArray(response.data) ? response.data : []);
+      } else {
+        setParts([]);
       }
     } catch (error) {
       console.error('Parçalar yüklenemedi:', error);
       Alert.alert('Hata', 'Parçalar yüklenemedi');
+      setParts([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const onRefresh = async () => {
+  useEffect(() => {
+    fetchParts();
+  }, [fetchParts]);
+
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchParts();
     setRefreshing(false);
-  };
+  }, [fetchParts]);
 
-  const handleDelete = (part: Part) => {
+  const handleDelete = useCallback((part: Part) => {
     Alert.alert(
       'Parçayı Pasifleştir',
       `"${part.partName}" parçasını pasifleştirmek istediğinize emin misiniz?`,
@@ -118,38 +122,81 @@ export default function PartsInventoryScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              if (__DEV__) {
+                console.log('🔍 [PartsInventory] Pasifleştirme başlatılıyor:', part._id);
+              }
+              
               const response = await apiService.PartsService.updatePart(part._id, { isActive: false });
+              
               if (response.success) {
-                Alert.alert('Başarılı', 'Parça pasifleştirildi');
+                if (__DEV__) {
+                  console.log('✅ [PartsInventory] Parça pasifleştirildi');
+                }
+                
+                // Optimistic update
+                setParts(prev => {
+                  if (!Array.isArray(prev)) return prev;
+                  return prev.map(p => 
+                    p._id === part._id ? { ...p, isActive: false } : p
+                  );
+                });
+                
                 await fetchParts();
+                Alert.alert('Başarılı', 'Parça pasifleştirildi');
               } else {
                 Alert.alert('Hata', response.message || 'Parça pasifleştirilemedi');
+                await fetchParts();
               }
-            } catch (error) {
-              Alert.alert('Hata', 'Parça pasifleştirilemedi');
+            } catch (error: any) {
+              console.error('❌ [PartsInventory] Pasifleştirme hatası:', error);
+              Alert.alert('Hata', error.message || 'Parça pasifleştirilemedi');
+              await fetchParts();
             }
           },
         },
       ]
     );
-  };
+  }, [fetchParts]);
 
-  const togglePublish = async (part: Part) => {
+  const togglePublish = useCallback(async (part: Part) => {
     try {
-      const response = await apiService.PartsService.updatePart(part._id, {
-        isPublished: !part.isPublished,
+      if (__DEV__) {
+        console.log('🔍 [PartsInventory] Yayın durumu değiştiriliyor:', part._id, 'Yeni durum:', !part.isPublished);
+      }
+      
+      const newPublishedStatus = !part.isPublished;
+      
+      // Optimistic update
+      setParts(prev => {
+        if (!Array.isArray(prev)) return prev;
+        return prev.map(p => 
+          p._id === part._id ? { ...p, isPublished: newPublishedStatus } : p
+        );
       });
+      
+      const response = await apiService.PartsService.updatePart(part._id, {
+        isPublished: newPublishedStatus,
+      });
+      
       if (response.success) {
+        if (__DEV__) {
+          console.log('✅ [PartsInventory] Yayın durumu güncellendi');
+        }
         await fetchParts();
       } else {
         Alert.alert('Hata', response.message || 'Yayın durumu güncellenemedi');
+        // Hata durumunda listeyi yenile
+        await fetchParts();
       }
-    } catch (error) {
-      Alert.alert('Hata', 'Yayın durumu güncellenemedi');
+    } catch (error: any) {
+      console.error('❌ [PartsInventory] Yayın durumu güncelleme hatası:', error);
+      Alert.alert('Hata', error.message || 'Yayın durumu güncellenemedi');
+      // Hata durumunda listeyi yenile
+      await fetchParts();
     }
-  };
+  }, [fetchParts]);
 
-  const getCategoryLabel = (category: string) => {
+  const getCategoryLabel = useCallback((category: string) => {
     const labels: Record<string, string> = {
       engine: 'Motor',
       electrical: 'Elektrik',
@@ -165,9 +212,9 @@ export default function PartsInventoryScreen() {
       other: 'Diğer',
     };
     return labels[category] || category;
-  };
+  }, []);
 
-  const getConditionLabel = (condition: string) => {
+  const getConditionLabel = useCallback((condition: string) => {
     const labels: Record<string, string> = {
       new: 'Sıfır',
       used: 'İkinci El',
@@ -176,7 +223,13 @@ export default function PartsInventoryScreen() {
       aftermarket: 'Yan Sanayi',
     };
     return labels[condition] || condition;
-  };
+  }, []);
+
+  const lowStockParts = useMemo(() => {
+    return Array.isArray(parts) 
+      ? parts.filter(part => part && part.stock?.available <= part.stock?.lowThreshold && part.isActive)
+      : [];
+  }, [parts]);
 
   if (loading && !refreshing) {
     return (
@@ -191,8 +244,6 @@ export default function PartsInventoryScreen() {
     );
   }
 
-  const lowStockParts = parts.filter(part => part.stock.available <= part.stock.lowThreshold && part.isActive);
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
@@ -206,8 +257,9 @@ export default function PartsInventoryScreen() {
         <TouchableOpacity 
           onPress={() => navigation.navigate('AddPart' as never)} 
           style={styles.addButton}
+          activeOpacity={0.7}
         >
-          <Ionicons name="add" size={28} color={colors.primary} />
+          <Ionicons name="add-circle" size={32} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -244,154 +296,205 @@ export default function PartsInventoryScreen() {
         ) : (
           <View style={styles.partsContainer}>
             {parts.map((part) => (
-              <Card key={part._id} style={styles.partCard}>
-                <View style={styles.partHeader}>
-                  <View style={styles.partHeaderLeft}>
-                    {part.photos && part.photos.length > 0 ? (
-                      <Image
-                        source={{ uri: part.photos[0] }}
-                        style={styles.partImage}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View style={[styles.categoryIcon, { backgroundColor: colors.primary + '20' }]}>
-                        <Ionicons name="settings" size={24} color={colors.primary} />
+              <View key={part._id} style={styles.partCard}>
+                {/* Photo Section */}
+                <View style={styles.photoSection}>
+                  {part.photos && Array.isArray(part.photos) && part.photos.length > 0 && part.photos[0] ? (
+                    <Image
+                      source={{ uri: String(part.photos[0]).trim() }}
+                      style={styles.photoImage}
+                      resizeMode="cover"
+                      onError={() => {}}
+                    />
+                  ) : (
+                    <View style={styles.photoPlaceholder}>
+                      <Ionicons name="cube-outline" size={40} color={colors.textSecondary} />
+                    </View>
+                  )}
+                  
+                  {/* Status Badges on Photo */}
+                  <View style={styles.photoBadges}>
+                    {part.isPublished && (
+                      <View style={[styles.photoBadge, { backgroundColor: '#10B98120', borderColor: '#10B981' }]}>
+                        <Ionicons name="eye" size={12} color="#10B981" />
+                        <Text style={[styles.photoBadgeText, { color: '#10B981' }]}>
+                          Yayında
+                        </Text>
                       </View>
                     )}
-                    <View style={styles.partInfo}>
-                      <Text style={[styles.partName, { color: colors.text }]}>
-                        {part.partName}
-                      </Text>
-                      <Text style={[styles.partCategory, { color: colors.textSecondary }]}>
-                        {getCategoryLabel(part.category)}
-                      </Text>
-                      <Text style={[styles.partBrand, { color: colors.textSecondary }]}>
-                        {part.brand}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.partActions}>
-                    <TouchableOpacity
-                      onPress={() => navigation.navigate('AddPart', { partId: part._id } as never)}
-                      style={styles.actionButton}
-                    >
-                      <Ionicons name="pencil" size={20} color={colors.primary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => togglePublish(part)}
-                      style={styles.actionButton}
-                    >
-                      <Ionicons 
-                        name={part.isPublished ? 'eye' : 'eye-off'} 
-                        size={20} 
-                        color={part.isPublished ? colors.primary : colors.textSecondary} 
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => handleDelete(part)}
-                      style={styles.actionButton}
-                    >
-                      <Ionicons name="trash-outline" size={20} color="#EF4444" />
-                    </TouchableOpacity>
+                    {part.pricing?.isNegotiable && (
+                      <View style={[styles.photoBadge, { backgroundColor: '#F59E0B20', borderColor: '#F59E0B' }]}>
+                        <Ionicons name="chatbubbles" size={12} color="#F59E0B" />
+                        <Text style={[styles.photoBadgeText, { color: '#F59E0B' }]}>
+                          Pazarlık
+                        </Text>
+                      </View>
+                    )}
+                    {part.moderation?.status === 'pending' && (
+                      <View style={[styles.photoBadge, { backgroundColor: '#F59E0B20', borderColor: '#F59E0B' }]}>
+                        <Ionicons name="time" size={12} color="#F59E0B" />
+                        <Text style={[styles.photoBadgeText, { color: '#F59E0B' }]}>
+                          Beklemede
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </View>
 
-                <View style={styles.partDetails}>
-                  <View style={styles.detailRow}>
-                    <View style={styles.detailItem}>
-                      <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
-                        Stok
-                      </Text>
-                      <Text style={[
-                        styles.detailValue,
-                        { 
-                          color: part.stock.available <= part.stock.lowThreshold ? '#EF4444' : colors.text 
-                        }
-                      ]}>
-                        {part.stock.available} / {part.stock.quantity}
-                      </Text>
-                    </View>
-                    <View style={styles.detailItem}>
-                      <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
-                        Rezerve
-                      </Text>
-                      <Text style={[styles.detailValue, { color: colors.text }]}>
-                        {part.stock.reserved}
-                      </Text>
-                    </View>
-                    <View style={styles.detailItem}>
-                      <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
-                        Fiyat
-                      </Text>
-                      <View>
-                        <Text style={[styles.detailValue, { color: colors.text }]}>
-                          {part.pricing.unitPrice.toLocaleString('tr-TR')} {part.pricing.currency}
+                {/* Content Section */}
+                <View style={styles.contentSection}>
+                  {/* Header with Actions */}
+                  <View style={styles.cardHeader}>
+                    <View style={styles.titleSection}>
+                      {part.brand && (
+                        <Text 
+                          style={[styles.brandText, { color: colors.textSecondary }]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {part.brand}
                         </Text>
-                        {part.pricing.oldPrice && (
-                          <Text style={[styles.oldPrice, { color: colors.textSecondary }]}>
-                            {part.pricing.oldPrice.toLocaleString('tr-TR')} {part.pricing.currency}
-                          </Text>
-                        )}
+                      )}
+                      <Text 
+                        style={[styles.partName, { color: colors.text }]}
+                        numberOfLines={2}
+                        ellipsizeMode="tail"
+                      >
+                        {part.partName || 'İsimsiz Parça'}
+                      </Text>
+                    </View>
+                    <View style={styles.actionButtons}>
+                      <TouchableOpacity
+                        onPress={() => navigation.navigate('AddPart', { partId: part._id } as never)}
+                        style={styles.actionButton}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="pencil" size={18} color={colors.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => togglePublish(part)}
+                        style={styles.actionButton}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons 
+                          name={part.isPublished ? 'eye' : 'eye-off'} 
+                          size={18} 
+                          color={part.isPublished ? colors.primary : colors.textSecondary} 
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleDelete(part)}
+                        style={styles.actionButton}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Badges */}
+                  <View style={styles.badgeRow}>
+                    {part.category && (
+                      <View style={[styles.categoryBadge, { backgroundColor: colors.primary + '20' }]}>
+                        <Text 
+                          style={[styles.categoryBadgeText, { color: colors.primary }]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {getCategoryLabel(part.category)}
+                        </Text>
+                      </View>
+                    )}
+                    {part.condition && (
+                      <View style={[styles.conditionBadge, { backgroundColor: '#10B98120' }]}>
+                        <Text 
+                          style={[styles.conditionBadgeText, { color: '#10B981' }]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {getConditionLabel(part.condition)}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Price Section */}
+                  {part.pricing && typeof part.pricing.unitPrice === 'number' ? (
+                    <View style={styles.priceSection}>
+                      <Text 
+                        style={[styles.priceText, { color: colors.text }]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit={true}
+                        minimumFontScale={0.75}
+                      >
+                        {part.pricing.unitPrice.toLocaleString('tr-TR')} {part.pricing.currency || 'TRY'}
+                      </Text>
+                      {part.pricing.oldPrice && typeof part.pricing.oldPrice === 'number' && (
+                        <Text 
+                          style={[styles.oldPrice, { color: colors.textSecondary }]}
+                          numberOfLines={1}
+                        >
+                          {part.pricing.oldPrice.toLocaleString('tr-TR')} {part.pricing.currency || 'TRY'}
+                        </Text>
+                      )}
+                    </View>
+                  ) : null}
+
+                  {/* Stats & Stock Footer */}
+                  <View style={styles.footerSection}>
+                    <View style={styles.stockInfo}>
+                      <View 
+                        style={[
+                          styles.stockIndicator, 
+                          { 
+                            backgroundColor: (part.stock?.available ?? 0) <= (part.stock?.lowThreshold ?? 0) 
+                              ? '#EF444420' 
+                              : '#10B98120' 
+                          }
+                        ]}
+                      >
+                        <Ionicons 
+                          name={(part.stock?.available ?? 0) > (part.stock?.lowThreshold ?? 0) ? "checkmark-circle" : "alert-circle"} 
+                          size={14} 
+                          color={(part.stock?.available ?? 0) > (part.stock?.lowThreshold ?? 0) ? '#10B981' : '#EF4444'} 
+                        />
+                      </View>
+                      <Text 
+                        style={[
+                          styles.stockText,
+                          { 
+                            color: (part.stock?.available ?? 0) <= (part.stock?.lowThreshold ?? 0) 
+                              ? '#EF4444' 
+                              : colors.text 
+                          }
+                        ]}
+                        numberOfLines={1}
+                      >
+                        Stok: {part.stock?.available ?? 0} / {part.stock?.quantity ?? 0}
+                      </Text>
+                      {part.stock?.reserved ? (
+                        <Text style={[styles.reservedText, { color: colors.textSecondary }]} numberOfLines={1}>
+                          • Rezerve: {part.stock.reserved}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <View style={styles.statsInfo}>
+                      <View style={styles.statItem}>
+                        <Ionicons name="eye-outline" size={12} color={colors.textSecondary} />
+                        <Text style={[styles.statText, { color: colors.textSecondary }]} numberOfLines={1}>
+                          {part.stats?.views ?? 0}
+                        </Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Ionicons name="list-outline" size={12} color={colors.textSecondary} />
+                        <Text style={[styles.statText, { color: colors.textSecondary }]} numberOfLines={1}>
+                          {part.stats?.reservations ?? 0}
+                        </Text>
                       </View>
                     </View>
                   </View>
-
-                  <View style={styles.detailRow}>
-                    <View style={styles.detailItem}>
-                      <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
-                        Durum
-                      </Text>
-                      <Text style={[styles.detailValue, { color: colors.text }]}>
-                        {getConditionLabel(part.condition)}
-                      </Text>
-                    </View>
-                    <View style={styles.detailItem}>
-                      <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
-                        Görüntüleme
-                      </Text>
-                      <Text style={[styles.detailValue, { color: colors.text }]}>
-                        {part.stats.views}
-                      </Text>
-                    </View>
-                    <View style={styles.detailItem}>
-                      <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
-                        Rezervasyon
-                      </Text>
-                      <Text style={[styles.detailValue, { color: colors.text }]}>
-                        {part.stats.reservations}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Moderation Status */}
-                  {part.moderation.status === 'pending' && (
-                    <View style={[styles.moderationBadge, { backgroundColor: '#F59E0B20' }]}>
-                      <Ionicons name="time" size={16} color="#F59E0B" />
-                      <Text style={[styles.moderationText, { color: '#F59E0B' }]}>
-                        Moderasyonda
-                      </Text>
-                    </View>
-                  )}
-                  {part.moderation.status === 'rejected' && (
-                    <View style={[styles.moderationBadge, { backgroundColor: '#EF444420' }]}>
-                      <Ionicons name="close-circle" size={16} color="#EF4444" />
-                      <Text style={[styles.moderationText, { color: '#EF4444' }]}>
-                        Reddedildi
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* Low Stock Warning */}
-                  {part.stock.available <= part.stock.lowThreshold && (
-                    <View style={[styles.warningBadge, { backgroundColor: '#EF444420' }]}>
-                      <Ionicons name="alert-circle" size={16} color="#EF4444" />
-                      <Text style={[styles.warningText, { color: '#EF4444' }]}>
-                        Düşük Stok!
-                      </Text>
-                    </View>
-                  )}
                 </View>
-              </Card>
+              </View>
             ))}
           </View>
         )}
@@ -471,103 +574,198 @@ const createStyles = (colors: any) => StyleSheet.create({
     padding: spacing.md,
   },
   partCard: {
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.lg,
     marginBottom: spacing.md,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  partHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
+  photoSection: {
+    width: '100%',
+    height: 180,
+    backgroundColor: colors.background,
+    position: 'relative',
   },
-  partHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    flex: 1,
+  photoImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.background,
   },
-  categoryIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
+  photoPlaceholder: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
   },
-  partImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
+  photoBadges: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    alignItems: 'flex-start',
   },
-  partInfo: {
+  photoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    gap: 4,
+  },
+  photoBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  contentSection: {
+    padding: spacing.md,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.sm,
+  },
+  titleSection: {
     flex: 1,
+    marginRight: spacing.sm,
+  },
+  brandText: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginBottom: 4,
+    opacity: 0.6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   partName: {
-    ...typography.body,
-    fontWeight: '600',
-    marginBottom: 2,
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 20,
+    marginBottom: 8,
   },
-  partCategory: {
-    ...typography.caption,
-  },
-  partBrand: {
-    ...typography.caption,
-  },
-  partActions: {
+  actionButtons: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.xs,
+    flexShrink: 0,
   },
   actionButton: {
     padding: spacing.xs,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.background,
   },
-  partDetails: {
-    gap: spacing.sm,
-  },
-  detailRow: {
+  badgeRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    marginBottom: spacing.md,
+    gap: 6,
   },
-  detailItem: {
-    flex: 1,
+  categoryBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    alignSelf: 'flex-start',
   },
-  detailLabel: {
-    ...typography.caption,
+  categoryBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  conditionBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    alignSelf: 'flex-start',
+  },
+  conditionBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  priceSection: {
+    marginBottom: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border + '40',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border + '40',
+  },
+  priceText: {
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: 0.3,
     marginBottom: 2,
   },
-  detailValue: {
-    ...typography.body,
-    fontWeight: '600',
-  },
   oldPrice: {
-    ...typography.caption,
+    fontSize: 13,
+    fontWeight: '500',
     textDecorationLine: 'line-through',
-    marginTop: 2,
+    marginTop: 4,
+    opacity: 0.5,
   },
-  moderationBadge: {
+  footerSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border + '40',
+  },
+  stockInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
-    gap: spacing.xs,
-    alignSelf: 'flex-start',
-    marginTop: spacing.xs,
+    gap: 6,
+    flex: 1,
+    minWidth: 0,
   },
-  moderationText: {
-    ...typography.caption,
+  stockIndicator: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  stockText: {
+    fontSize: 12,
     fontWeight: '600',
+    minWidth: 0,
+    flexShrink: 1,
   },
-  warningBadge: {
+  reservedText: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  statsInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
-    gap: spacing.xs,
-    alignSelf: 'flex-start',
-    marginTop: spacing.xs,
+    gap: spacing.md,
+    flexShrink: 0,
   },
-  warningText: {
-    ...typography.caption,
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statText: {
+    fontSize: 11,
     fontWeight: '600',
   },
 });
