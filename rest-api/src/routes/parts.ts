@@ -19,7 +19,7 @@ const router = Router();
  * POST /api/parts
  * Usta yeni parça ekler
  */
-router.post('/', auth, async (req: Request, res: Response) => {
+router.post('/', auth, validate(createPartSchema), async (req: Request, res: Response) => {
   try {
     console.log('🔍 [PARTS ROUTE] POST /api/parts çağrıldı');
     console.log('🔍 [PARTS ROUTE] Request body:', JSON.stringify(req.body, null, 2));
