@@ -21,7 +21,12 @@ const router = Router();
  */
 router.post('/', auth, async (req: Request, res: Response) => {
   try {
+    console.log('🔍 [PARTS ROUTE] POST /api/parts çağrıldı');
+    console.log('🔍 [PARTS ROUTE] Request body:', JSON.stringify(req.body, null, 2));
+    
     const mechanicId = req.user?.userId;
+    console.log('🔍 [PARTS ROUTE] MechanicId:', mechanicId);
+    
     if (!mechanicId) {
       return res.status(401).json({
         success: false,
@@ -29,13 +34,17 @@ router.post('/', auth, async (req: Request, res: Response) => {
       });
     }
 
+    console.log('🔍 [PARTS ROUTE] PartsService.createPart çağrılıyor...');
     const result = await PartsService.createPart({
       ...req.body,
       mechanicId
     });
+    console.log('✅ [PARTS ROUTE] PartsService.createPart başarılı');
 
     res.status(201).json(result);
   } catch (error: any) {
+    console.error('❌ [PARTS ROUTE] Hata:', error.message);
+    console.error('❌ [PARTS ROUTE] Error stack:', error.stack);
     res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || 'Parça oluşturulamadı'
