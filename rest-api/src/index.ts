@@ -333,7 +333,6 @@ app.use('/api/insurance', insuranceRoutes);
 app.use('/api/vehicle-status', vehicleStatusRoutes);
 app.use('/api/tire-status', tireStatusRoutes);
 // app.use('/api', rekaiRoutes); // Geçici olarak devre dışı
-app.use('/api/upload', uploadRoutes); // Upload routes /api/upload prefix'i ile mount edilmeli
 
 app.use('/api/appointment-ratings', appointmentRatingRoutes);
 app.use('/api/ratings', appointmentRatingRoutes);
@@ -364,6 +363,7 @@ app.use('/api/bodywork', bodyworkRoutes);
 app.use('/api/carwash', carWashRoutes);
 app.use('/api/wash', washRoutes); // Yeni araç yıkama modülü
 app.use('/api/parts', partsRoutes); // Yedek parça marketplace modülü
+app.use('/api/upload', uploadRoutes); // Upload routes /api/upload prefix'i ile mount edilmeli (parts'tan SONRA)
 app.use('/api/customers', customersRoutes);
 app.use('/api/suppliers', suppliersRoutes);
 app.use('/api/status-notifications', statusNotificationsRoutes);
