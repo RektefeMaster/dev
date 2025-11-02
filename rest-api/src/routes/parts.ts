@@ -19,7 +19,7 @@ const router = Router();
  * POST /api/parts
  * Usta yeni parça ekler
  */
-router.post('/', auth, validate(createPartSchema), async (req: Request, res: Response) => {
+router.post('/', auth, async (req: Request, res: Response) => {
   try {
     const mechanicId = req.user?.userId;
     if (!mechanicId) {
