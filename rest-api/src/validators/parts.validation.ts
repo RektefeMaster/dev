@@ -14,7 +14,7 @@ export const createPartSchema = Joi.object({
   }),
   partNumber: Joi.string().max(100).allow('').optional(),
   description: Joi.string().max(2000).allow('').optional(),
-  photos: Joi.array().items(Joi.string().uri().allow('')).max(10).allow([]).optional().default([]),
+  photos: Joi.array().items(Joi.string().uri()).max(10).optional().default([]),
   category: Joi.string().valid(
     'engine', 'electrical', 'suspension', 'brake', 'body', 
     'interior', 'exterior', 'fuel', 'cooling', 'transmission', 
