@@ -237,12 +237,13 @@ export class PartsService {
 
       // Örnek parts göster (populate olmadan)
       if (totalWithQuery > 0) {
-        const sampleParts = await PartsInventory.find(query).limit(3).select('partName mechanicId');
+        const sampleParts = await PartsInventory.find(query).limit(3).lean();
         console.log(`🔍 [PARTS SEARCH] Sample parts (IDs):`, sampleParts.map(p => ({ 
           id: p._id.toString(), 
           name: p.partName, 
-          mechanicId: p.mechanicId.toString(),
-          mechanicIdType: typeof p.mechanicId
+          mechanicId: p.mechanicId?.toString() || p.mechanicId,
+          mechanicIdType: typeof p.mechanicId,
+          mechanicIdIsObjectId: p.mechanicId?.constructor?.name
         })));
       }
 
