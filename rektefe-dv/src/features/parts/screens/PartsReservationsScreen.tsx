@@ -299,9 +299,9 @@ const PartsReservationsScreen = () => {
               ]}>
                 {filterItem.label}
               </Text>
-              {filterItem.badge && filterItem.badge > 0 && (
+              {typeof filterItem.badge === 'number' && filterItem.badge > 0 && (
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{filterItem.badge}</Text>
+                  <Text style={styles.badgeText}>{String(filterItem.badge)}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -463,7 +463,7 @@ const PartsReservationsScreen = () => {
                     )}
                   </Card>
                 </TouchableOpacity>
-                );
+              );
               })}
             </View>
           )}

@@ -235,6 +235,10 @@ export class PartsService {
         PartsInventory.countDocuments(query)
       ]);
 
+      // Debug log for troubleshooting
+      console.log(`🔍 [PARTS SEARCH] Query:`, JSON.stringify(query, null, 2));
+      console.log(`🔍 [PARTS SEARCH] Total found: ${total}, Returned: ${parts.length}`);
+
       return {
         success: true,
         data: {
