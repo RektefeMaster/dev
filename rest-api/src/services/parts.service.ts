@@ -229,27 +229,57 @@ export class PartsService {
       // Debug: Tüm parts'ı say (filtre olmadan)
       const totalInDb = await PartsInventory.countDocuments({});
       console.log(`🔍 [PARTS SEARCH] Total parts in DB (no filter): ${totalInDb}`);
+      
+      // Query ile kaç tane bulunuyor?
+      const totalWithQuery = await PartsInventory.countDocuments(query);
+      console.log(`🔍 [PARTS SEARCH] Query:`, JSON.stringify(query, null, 2));
+      console.log(`🔍 [PARTS SEARCH] Total found with query (before populate): ${totalWithQuery}`);
 
-      // Önce populate olmadan say, sonra populate ile getir
-      const [parts, total] = await Promise.all([
-        PartsInventory.find(query)
+      // Örnek parts göster (populate olmadan)
+      if (totalWithQuery > 0) {
+        const sampleParts = await PartsInventory.find(query).limit(3).select('partName mechanicId');
+        console.log(`🔍 [PARTS SEARCH] Sample parts (IDs):`, sampleParts.map(p => ({ 
+          id: p._id.toString(), 
+          name: p.partName, 
+          mechanicId: p.mechanicId.toString(),
+          mechanicIdType: typeof p.mechanicId
+        })));
+      }
+
+      // Populate ile getir - hata olursa catch et
+      let parts;
+      let total = totalWithQuery;
+      
+      try {
+        parts = await PartsInventory.find(query)
           .populate('mechanicId', 'name surname shopName rating ratingCount')
-          .lean() // Mongoose object yerine plain object (daha hızlı)
+          .lean()
           .sort({ 'stats.views': -1, createdAt: -1 })
           .skip(skip)
-          .limit(limit),
-        PartsInventory.countDocuments(query)
-      ]);
-
-      // Debug log for troubleshooting
-      console.log(`🔍 [PARTS SEARCH] Query:`, JSON.stringify(query, null, 2));
-      console.log(`🔍 [PARTS SEARCH] Total found with query: ${total}, Returned: ${parts.length}`);
-      
-      // Eğer parts varsa ama populate edilemediyse, populate olmadan da dene
-      if (totalInDb > 0 && total === 0) {
-        const partsWithoutPopulate = await PartsInventory.find(query).limit(5);
-        console.log(`🔍 [PARTS SEARCH] Sample parts (no populate):`, partsWithoutPopulate.map(p => ({ id: p._id, name: p.partName, mechanicId: p.mechanicId })));
+          .limit(limit);
+        
+        console.log(`🔍 [PARTS SEARCH] Populate başarılı, Returned: ${parts.length} items`);
+        
+        // Populate edilmiş mechanicId kontrolü
+        if (parts.length > 0) {
+          console.log(`🔍 [PARTS SEARCH] First part mechanicId populated:`, {
+            mechanicId: parts[0]?.mechanicId,
+            isObject: typeof parts[0]?.mechanicId === 'object',
+            hasName: !!parts[0]?.mechanicId?.name
+          });
+        }
+      } catch (populateError: any) {
+        console.error(`❌ [PARTS SEARCH] Populate hatası:`, populateError.message);
+        // Populate hatası varsa, populate olmadan getir
+        parts = await PartsInventory.find(query)
+          .lean()
+          .sort({ 'stats.views': -1, createdAt: -1 })
+          .skip(skip)
+          .limit(limit);
+        console.log(`⚠️ [PARTS SEARCH] Populate olmadan getirildi, Returned: ${parts.length} items`);
       }
+
+      console.log(`🔍 [PARTS SEARCH] Final: Total=${total}, Returned=${parts.length}`);
 
       return {
         success: true,
