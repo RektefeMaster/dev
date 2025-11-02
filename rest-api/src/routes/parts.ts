@@ -13,6 +13,12 @@ import {
 
 const router = Router();
 
+// Debug: Tüm parts route'larına log ekle
+router.use((req, res, next) => {
+  console.log('🔍 [PARTS ROUTER] İstek alındı:', req.method, req.path);
+  next();
+});
+
 // ==================== US (Mechanic) Endpoints ====================
 
 /**
@@ -21,7 +27,7 @@ const router = Router();
  */
 router.post('/', auth, validate(createPartSchema), async (req: Request, res: Response) => {
   try {
-    console.log('🔍 [PARTS ROUTE] POST /api/parts çağrıldı');
+    console.log('🔍 [PARTS ROUTE] POST /api/parts çağrıldı - İSTEK ALINDI');
     console.log('🔍 [PARTS ROUTE] Request body:', JSON.stringify(req.body, null, 2));
     
     const mechanicId = req.user?.userId;
