@@ -15,7 +15,8 @@ const router = Router();
 
 // Debug: Tüm parts route'larına log ekle
 router.use((req, res, next) => {
-  console.log('🔍 [PARTS ROUTER] İstek alındı:', req.method, req.path);
+  console.log('🔍 [PARTS ROUTER] İstek alındı:', req.method, req.path, 'URL:', req.url, 'OriginalUrl:', req.originalUrl);
+  console.log('🔍 [PARTS ROUTER] Headers:', JSON.stringify(req.headers, null, 2));
   next();
 });
 
