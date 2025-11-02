@@ -233,12 +233,7 @@ export class PartsService {
       // Önce populate olmadan say, sonra populate ile getir
       const [parts, total] = await Promise.all([
         PartsInventory.find(query)
-          .populate({
-            path: 'mechanicId',
-            select: 'name surname shopName rating ratingCount',
-            // populate hata verirse bile parts gelsin
-            options: { lean: true }
-          })
+          .populate('mechanicId', 'name surname shopName rating ratingCount')
           .lean() // Mongoose object yerine plain object (daha hızlı)
           .sort({ 'stats.views': -1, createdAt: -1 })
           .skip(skip)
