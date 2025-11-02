@@ -226,9 +226,20 @@ export class PartsService {
         query.condition = filters.condition;
       }
 
+      // Debug: Tüm parts'ı say (filtre olmadan)
+      const totalInDb = await PartsInventory.countDocuments({});
+      console.log(`🔍 [PARTS SEARCH] Total parts in DB (no filter): ${totalInDb}`);
+
+      // Önce populate olmadan say, sonra populate ile getir
       const [parts, total] = await Promise.all([
         PartsInventory.find(query)
-          .populate('mechanicId', 'name surname shopName rating ratingCount')
+          .populate({
+            path: 'mechanicId',
+            select: 'name surname shopName rating ratingCount',
+            // populate hata verirse bile parts gelsin
+            options: { lean: true }
+          })
+          .lean() // Mongoose object yerine plain object (daha hızlı)
           .sort({ 'stats.views': -1, createdAt: -1 })
           .skip(skip)
           .limit(limit),
@@ -237,7 +248,13 @@ export class PartsService {
 
       // Debug log for troubleshooting
       console.log(`🔍 [PARTS SEARCH] Query:`, JSON.stringify(query, null, 2));
-      console.log(`🔍 [PARTS SEARCH] Total found: ${total}, Returned: ${parts.length}`);
+      console.log(`🔍 [PARTS SEARCH] Total found with query: ${total}, Returned: ${parts.length}`);
+      
+      // Eğer parts varsa ama populate edilemediyse, populate olmadan da dene
+      if (totalInDb > 0 && total === 0) {
+        const partsWithoutPopulate = await PartsInventory.find(query).limit(5);
+        console.log(`🔍 [PARTS SEARCH] Sample parts (no populate):`, partsWithoutPopulate.map(p => ({ id: p._id, name: p.partName, mechanicId: p.mechanicId })));
+      }
 
       return {
         success: true,
