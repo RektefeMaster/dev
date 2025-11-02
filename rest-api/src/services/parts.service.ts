@@ -13,7 +13,7 @@ export class PartsService {
     brand: string;
     partNumber?: string;
     description?: string;
-    photos: string[];
+    photos?: string[];
     category: string;
     compatibility: {
       makeModel: string[];
@@ -40,6 +40,8 @@ export class PartsService {
     isPublished?: boolean;
   }) {
     try {
+      console.log('🔍 [PARTS CREATE] Gelen data:', JSON.stringify({ ...data, photos: data.photos || [] }, null, 2));
+      
       const part = new PartsInventory({
         mechanicId: data.mechanicId,
         partName: data.partName,
