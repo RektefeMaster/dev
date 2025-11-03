@@ -12,6 +12,23 @@ const router = express.Router();
 // Memory storage (Cloudinary için)
 const memoryStorage = multer.memoryStorage();
 
+// Video için daha büyük dosya boyutu
+const uploadMemoryWithVideo = multer({ 
+  storage: memoryStorage,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB (video için)
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
+      'video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm'
+    ];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Desteklenmeyen dosya formatı. Sadece resim ve video dosyaları yüklenebilir'));
+    }
+  }
+});
+
 // Local dosya sistemi için storage (fallback)
 const diskStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -69,16 +86,16 @@ const uploadDisk = multer({
 });
 
 // Cloudinary'ye yükleme fonksiyonu
-const uploadToCloudinary = (buffer: Buffer, folder: string): Promise<any> => {
+const uploadToCloudinary = (buffer: Buffer, folder: string, resourceType: 'image' | 'video' = 'image'): Promise<any> => {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder: `rektefe/${folder}`,
-        resource_type: 'image',
-        transformation: [
+        resource_type: resourceType,
+        transformation: resourceType === 'image' ? [
           { width: 1000, height: 1000, crop: 'limit' },
           { quality: 'auto' }
-        ]
+        ] : undefined
       },
       (error, result) => {
         if (error) reject(error);
@@ -162,6 +179,59 @@ router.post('/parts', auth, uploadMemory.single('image'), async (req: Request, r
     return res.status(500).json({
       success: false,
       message: error.message || 'Fotoğraf yüklenemedi'
+    });
+  }
+});
+
+// ===== BODYWORK MEDIA UPLOAD =====
+
+/**
+ * POST /api/upload/bodywork
+ * Bodywork fotoğraf/video yükleme (Cloudinary)
+ */
+router.post('/bodywork', auth, uploadMemoryWithVideo.single('media'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Dosya yüklenmedi'
+      });
+    }
+
+    // Cloudinary konfigürasyon kontrolü
+    if (!isCloudinaryConfigured()) {
+      return res.status(500).json({
+        success: false,
+        message: 'Fotoğraf yükleme servisi yapılandırılmamış'
+      });
+    }
+
+    // Dosya tipi kontrolü (video veya image)
+    const isVideo = req.file.mimetype.startsWith('video/');
+    const resourceType = isVideo ? 'video' : 'image';
+    const folder = isVideo ? 'bodywork/videos' : 'bodywork/photos';
+
+    // Cloudinary'ye yükle
+    const result = await uploadToCloudinary(req.file.buffer, folder, resourceType);
+
+    return res.json({
+      success: true,
+      data: {
+        url: result.secure_url,
+        publicId: result.public_id,
+        resourceType: resourceType,
+        width: result.width,
+        height: result.height,
+        duration: result.duration // Video için
+      },
+      message: 'Dosya başarıyla yüklendi'
+    });
+
+  } catch (error: any) {
+    console.error('❌ Bodywork media yükleme hatası:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Dosya yüklenemedi'
     });
   }
 });

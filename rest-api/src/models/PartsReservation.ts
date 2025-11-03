@@ -19,6 +19,7 @@ export interface IPartsReservation extends Document {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  originalPrice?: number; // Pazarlık öncesi orijinal fiyat (ödeme işlemleri için)
   negotiatedPrice?: number; // Pazarlık sonucu fiyat
   
   // Teslimat
@@ -30,7 +31,7 @@ export interface IPartsReservation extends Document {
   
   // Ödeme
   payment: {
-    method: 'cash' | 'card' | 'transfer';
+    method: 'cash' | 'card' | 'transfer' | 'wallet';
     status: 'pending' | 'paid' | 'completed' | 'refunded';
     transactionId?: string;
     paidAt?: Date;
@@ -115,6 +116,10 @@ const PartsReservationSchema = new Schema<IPartsReservation>(
       required: true,
       min: 0,
     },
+    originalPrice: {
+      type: Number,
+      min: 0,
+    },
     negotiatedPrice: {
       type: Number,
       min: 0,
@@ -135,7 +140,7 @@ const PartsReservationSchema = new Schema<IPartsReservation>(
     payment: {
       method: {
         type: String,
-        enum: ['cash', 'card', 'transfer'],
+        enum: ['cash', 'card', 'transfer', 'wallet'],
         required: true,
       },
       status: {

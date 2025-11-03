@@ -47,6 +47,13 @@ import TireServiceTrackingScreen from '@/features/services/screens/TireServiceTr
 import TireHealthScreen from '@/features/services/screens/TireHealthScreen';
 import CampaignDetailScreen from '@/features/campaigns/screens/CampaignDetailScreen';
 import { PartsMarketScreen, PartDetailScreen, PartsReservationsScreen } from '@/features/parts/screens';
+import {
+  CreateBodyworkJobScreen,
+  BodyworkJobsScreen,
+  BodyworkJobDetailScreen,
+  BodyworkQuoteScreen,
+  BodyworkWorkflowScreen,
+} from '@/features/bodywork/screens';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -148,6 +155,13 @@ export type RootStackParamList = {
   PartsMarket: undefined;
   PartDetail: { partId: string };
   PartsReservations: undefined;
+  // Bodywork
+  BodyworkJobs: undefined;
+  CreateBodyworkJob: undefined;
+  BodyworkJobDetail: { jobId: string };
+  BodyworkQuote: { jobId: string };
+  BodyworkWorkflow: { jobId: string };
+  BodyworkPayment: { jobId: string };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -380,6 +394,42 @@ const AppNavigator = () => {
         <Stack.Screen 
           name="PartsReservations" 
           component={PartsReservationsScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        {/* Bodywork Screens */}
+        <Stack.Screen 
+          name="BodyworkJobs" 
+          component={BodyworkJobsScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="CreateBodyworkJob" 
+          component={CreateBodyworkJobScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="BodyworkJobDetail" 
+          component={BodyworkJobDetailScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="BodyworkQuote" 
+          component={BodyworkQuoteScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="BodyworkWorkflow" 
+          component={BodyworkWorkflowScreen}
           options={{
             headerShown: false,
           }}

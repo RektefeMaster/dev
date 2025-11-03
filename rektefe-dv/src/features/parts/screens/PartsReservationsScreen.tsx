@@ -92,6 +92,7 @@ const PartsReservationsScreen = () => {
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [negotiatedPrice, setNegotiatedPrice] = useState('');
   const [negotiating, setNegotiating] = useState(false);
+  const [confirmingDelivery, setConfirmingDelivery] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const scrollPositionRef = useRef<number>(0);
   const previousFilterRef = useRef<string>(filter);
@@ -101,7 +102,7 @@ const PartsReservationsScreen = () => {
     try {
       // İlk yüklemede loading göster, filter değişiminde gösterme
       if (isInitialLoad) {
-        setLoading(true);
+      setLoading(true);
       }
       const response = await apiService.getMyPartsReservations(
         filter !== 'all' ? { status: filter } : undefined
@@ -254,6 +255,104 @@ const PartsReservationsScreen = () => {
     setShowNegotiateModal(true);
   };
 
+  const handleDeliveryPress = (reservation: Reservation) => {
+    setSelectedReservation(reservation);
+    
+    // Eğer cash ödeme ise direkt onayla
+    if (reservation.payment.method === 'cash') {
+      setPaymentMethod('cash');
+      Alert.alert(
+        'Teslim Onayı',
+        'Parçayı teslim aldığınızı onaylıyor musunuz?',
+        [
+          { text: 'İptal', style: 'cancel' },
+          {
+            text: 'Onayla',
+            onPress: async () => {
+              try {
+                setConfirmingDelivery(true);
+                const response = await apiService.confirmPartsDelivery(reservation._id, {
+                  paymentMethod: 'cash',
+                });
+                if (response.success) {
+                  Alert.alert('Başarılı', 'Teslim onaylandı ve ödeme tamamlandı');
+                  await fetchReservations();
+                } else {
+                  Alert.alert('Hata', response.message || 'Teslim onaylanamadı');
+                }
+              } catch (error: any) {
+                Alert.alert('Hata', 'Teslim onaylanamadı');
+              } finally {
+                setConfirmingDelivery(false);
+              }
+            },
+          },
+        ]
+      );
+    } else if (reservation.payment.method === 'wallet') {
+      // Wallet - rezervasyon oluşturulurken zaten bloke edilmiş, direkt onayla
+      Alert.alert(
+        'Teslim Onayı',
+        'Parçayı teslim aldığınızı onaylıyor musunuz? Ödeme cüzdanınızdan otomatik olarak yapılacak.',
+        [
+          { text: 'İptal', style: 'cancel' },
+          {
+            text: 'Onayla',
+            onPress: async () => {
+              try {
+                setConfirmingDelivery(true);
+                const response = await apiService.confirmPartsDelivery(reservation._id, {
+                  paymentMethod: 'wallet',
+                });
+                if (response.success) {
+                  Alert.alert('Başarılı', 'Teslim onaylandı ve ödeme tamamlandı');
+                  await fetchReservations();
+                } else {
+                  Alert.alert('Hata', response.message || 'Teslim onaylanamadı');
+                }
+              } catch (error: any) {
+                Alert.alert('Hata', 'Teslim onaylanamadı');
+              } finally {
+                setConfirmingDelivery(false);
+              }
+            },
+          },
+        ]
+      );
+    } else {
+      // Card/Transfer - rezervasyon oluşturulurken escrow hold yapılmış, direkt capture
+      // cardInfo gerekmez, direkt onayla
+      Alert.alert(
+        'Teslim Onayı',
+        'Parçayı teslim aldığınızı onaylıyor musunuz? Ödeme kartınızdan otomatik olarak yapılacak.',
+        [
+          { text: 'İptal', style: 'cancel' },
+          {
+            text: 'Onayla',
+            onPress: async () => {
+              try {
+                setConfirmingDelivery(true);
+                const response = await apiService.confirmPartsDelivery(reservation._id, {
+                  paymentMethod: reservation.payment.method === 'card' ? 'card' : 'transfer',
+                });
+                if (response.success) {
+                  Alert.alert('Başarılı', 'Teslim onaylandı ve ödeme tamamlandı');
+                  await fetchReservations();
+                } else {
+                  Alert.alert('Hata', response.message || 'Teslim onaylanamadı');
+                }
+              } catch (error: any) {
+                Alert.alert('Hata', 'Teslim onaylanamadı');
+              } finally {
+                setConfirmingDelivery(false);
+              }
+            },
+          },
+        ]
+      );
+    }
+  };
+
   const handleConfirmNegotiation = async () => {
     if (!selectedReservation || !negotiatedPrice) return;
 
@@ -354,36 +453,36 @@ const PartsReservationsScreen = () => {
               const badgeCount = typeof filterItem.badge === 'number' && filterItem.badge > 0 ? filterItem.badge : null;
               
               return (
-                <TouchableOpacity
-                  key={filterItem.key}
-                  style={[
-                    styles.filterChip,
-                    {
+            <TouchableOpacity
+              key={filterItem.key}
+              style={[
+                styles.filterChip,
+                {
                       backgroundColor: isSelected ? theme.colors.primary.main : theme.colors.background.card,
                       borderColor: isSelected ? theme.colors.primary.main : theme.colors.border.primary + '60',
-                    }
-                  ]}
+                }
+              ]}
                   onPress={() => {
                     setFilter(filterItem.key as any);
                   }}
                   activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={filterItem.icon as any}
+            >
+              <Ionicons
+                name={filterItem.icon as any}
                     size={14}
                     color={isSelected ? '#FFFFFF' : theme.colors.text.secondary}
                     style={styles.filterIcon}
-                  />
+              />
                   <Text 
                     style={[
-                      styles.filterChipText,
+                styles.filterChipText,
                       { color: isSelected ? '#FFFFFF' : theme.colors.text.primary }
                     ]}
                     numberOfLines={1}
                     ellipsizeMode="tail"
                   >
-                    {filterItem.label}
-                  </Text>
+                {filterItem.label}
+              </Text>
                   {badgeCount !== null ? (
                     <View style={[
                       styles.badge, 
@@ -399,14 +498,14 @@ const PartsReservationsScreen = () => {
                       ]}>
                         {String(badgeCount)}
                       </Text>
-                    </View>
+                </View>
                   ) : (
                     <View style={styles.badgePlaceholder} />
-                  )}
-                </TouchableOpacity>
+              )}
+            </TouchableOpacity>
               );
             })}
-          </ScrollView>
+        </ScrollView>
         </View>
 
         {/* Reservations List */}
@@ -445,8 +544,8 @@ const PartsReservationsScreen = () => {
             if (!reservation || !reservation._id) return null;
             
             return (
-              <TouchableOpacity 
-                key={reservation._id}
+                <TouchableOpacity 
+                  key={reservation._id}
                 onPress={() => reservation.partId?._id && handlePartPress(reservation.partId._id)}
                 activeOpacity={0.95}
                 style={styles.reservationItem}
@@ -581,6 +680,30 @@ const PartsReservationsScreen = () => {
                             }}
                           >
                             <Ionicons name="close" size={14} color="#fff" />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+
+                      {reservation.status === 'delivered' && (
+                        <View style={styles.actionButtons}>
+                          <TouchableOpacity
+                            style={[styles.actionBtn, { backgroundColor: theme.colors.success.main, flex: 1 }]}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handleDeliveryPress(reservation);
+                            }}
+                            disabled={confirmingDelivery}
+                          >
+                            {confirmingDelivery ? (
+                              <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                              <>
+                                <Ionicons name="checkmark-circle" size={14} color="#fff" />
+                                <Text style={[styles.actionBtnText, { color: '#fff', marginLeft: 4 }]}>
+                                  Teslim Aldım
+                                </Text>
+                              </>
+                            )}
                           </TouchableOpacity>
                         </View>
                       )}
@@ -1024,6 +1147,30 @@ const createStyles = (theme: any) => StyleSheet.create({
   cancelBtn: {
     // backgroundColor from inline style
   },
+  actionBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  paymentMethodContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  paymentMethodOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    gap: 8,
+  },
+  paymentMethodText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
   deliveryRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1084,6 +1231,11 @@ const createStyles = (theme: any) => StyleSheet.create({
     backgroundColor: theme.colors.background.secondary,
     borderRadius: 12,
     padding: 16,
+  },
+  modalPriceValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginTop: 8,
   },
   currentPrice: {
     fontSize: 32,

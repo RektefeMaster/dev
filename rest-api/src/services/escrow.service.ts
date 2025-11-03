@@ -211,8 +211,21 @@ export class EscrowService {
 
       const refundedAmount = params.amount || transaction.amount;
 
-      // Transaction durumunu güncelle
-      transaction.status = 'refunded';
+      // Partial refund ise (amount < transaction.amount) status'ü 'held' tut
+      // Full refund ise status'ü 'refunded' yap
+      if (params.amount && params.amount < transaction.amount) {
+        // Partial refund - transaction hala held durumunda kalır, amount azalır
+        transaction.amount = transaction.amount - refundedAmount;
+        transaction.status = 'held'; // Status'ü held tut
+        console.log('🟡 [ESCROW] Partial refund yapıldı, transaction hala held:', {
+          transactionId: params.transactionId,
+          refundedAmount,
+          remainingAmount: transaction.amount,
+        });
+      } else {
+        // Full refund
+        transaction.status = 'refunded';
+      }
       transaction.updatedAt = new Date();
 
       console.log('✅ [ESCROW] REFUND başarılı:', {

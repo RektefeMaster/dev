@@ -73,7 +73,7 @@ export interface SharedAuthContextType {
   setTokenAndUserId: (token: string, userId: string) => Promise<void>;
   validateToken: (token: string) => Promise<boolean>;
   login: (email: string, password: string) => Promise<{ success: boolean; message?: string; data?: any }>;
-  register: (userData: any) => Promise<{ success: boolean; message?: string }>;
+  register: (userData: any) => Promise<{ success: boolean; message?: string; data?: any }>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -376,18 +376,48 @@ export const SharedAuthProvider = ({
     }
   };
 
-  const register = async (userData: any): Promise<{ success: boolean; message?: string }> => {
+  const register = async (userData: any): Promise<{ success: boolean; message?: string; data?: any }> => {
     try {
       const response = await config.apiService.register({
         ...userData,
         userType: config.userType
       });
       
-      if (response.success) {
-        if (config.storageKeys.ONBOARDING_COMPLETED) {
-          await AsyncStorage.setItem(config.storageKeys.ONBOARDING_COMPLETED, 'true');
+      if (response.success && response.data) {
+        const { token, refreshToken, user } = response.data;
+        
+        // UserType kontrolü
+        if (user?.userType && user.userType !== config.userType) {
+          const appName = config.userType === 'driver' ? 'şöför' : 'usta';
+          const otherAppName = config.userType === 'driver' ? 'usta' : 'şöför';
+          return { 
+            success: false, 
+            message: `Bu uygulama sadece ${appName}lar için. Lütfen ${otherAppName} uygulamasını kullanın.` 
+          };
         }
-        return { success: true, message: 'Hesap başarıyla oluşturuldu' };
+        
+        if (user?._id && token) {
+          await setTokenAndUserId(token, user._id);
+          
+          // Refresh token'ı kaydet
+          if (refreshToken) {
+            await AsyncStorage.setItem(config.storageKeys.REFRESH_TOKEN, refreshToken);
+          }
+          
+          // User data'yı kaydet
+          if (user) {
+            const userData: SharedUser = {
+              ...user,
+              userType: config.userType
+            };
+            setUser(userData);
+            await AsyncStorage.setItem(config.storageKeys.USER_DATA, JSON.stringify(userData));
+          }
+          
+          return { success: true, message: 'Hesap başarıyla oluşturuldu', data: response.data };
+        } else {
+          return { success: false, message: 'Token bilgileri alınamadı' };
+        }
       } else {
         return { success: false, message: response.message || 'Kayıt başarısız' };
       }

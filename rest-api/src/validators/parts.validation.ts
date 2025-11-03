@@ -92,8 +92,21 @@ export const createReservationSchema = Joi.object({
     address: Joi.string().optional()
   }).required(),
   payment: Joi.object({
-    method: Joi.string().valid('cash', 'card', 'transfer').required()
-  }).required()
+    method: Joi.string().valid('cash', 'card', 'transfer', 'wallet').required(),
+    cardInfo: Joi.object({
+      cardNumber: Joi.string().required(),
+      cardHolderName: Joi.string().required(),
+      expiryMonth: Joi.string().length(2).required(),
+      expiryYear: Joi.string().length(4).required(),
+      cvv: Joi.string().length(3).required()
+    }).optional()
+  }).required().custom((value, helpers) => {
+    // Card veya transfer seçildiyse cardInfo zorunlu
+    if ((value.method === 'card' || value.method === 'transfer') && !value.cardInfo) {
+      return helpers.error('any.custom', { message: 'Kart bilgileri zorunludur' });
+    }
+    return value;
+  })
 });
 
 export const updateReservationSchema = Joi.object({

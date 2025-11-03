@@ -70,7 +70,7 @@ export interface IBodyworkJob extends Document {
   };
   
   // Durum
-  status: 'quote_preparation' | 'quote_sent' | 'quote_accepted' | 'work_started' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'quote_preparation' | 'quote_sent' | 'quote_accepted' | 'work_started' | 'in_progress' | 'completed' | 'cancelled' | 'pending_mechanic';
   
   // Ödeme bilgileri
   payment: {
@@ -119,7 +119,7 @@ const bodyworkJobSchema = new Schema<IBodyworkJob>({
   mechanicId: {
     type: Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false // Müşteri işi oluştururken opsiyonel olabilir
   },
   
   damageInfo: {
@@ -227,7 +227,7 @@ const bodyworkJobSchema = new Schema<IBodyworkJob>({
   
   status: {
     type: String,
-    enum: ['quote_preparation', 'quote_sent', 'quote_accepted', 'work_started', 'in_progress', 'completed', 'cancelled'],
+    enum: ['quote_preparation', 'quote_sent', 'quote_accepted', 'work_started', 'in_progress', 'completed', 'cancelled', 'pending_mechanic'],
     default: 'quote_preparation'
   },
   
@@ -303,10 +303,22 @@ bodyworkJobSchema.pre('save', function(next) {
   }
   
   // Ödeme durumunu güncelle
-  if (this.payment.paidAmount >= this.payment.totalAmount) {
+  // Hassas karşılaştırma için tolerance ekle (float precision sorunları için)
+  const tolerance = 0.01; // 1 kuruş tolerans
+  const remaining = this.payment.totalAmount - this.payment.paidAmount;
+  
+  if (remaining <= tolerance) {
     this.payment.paymentStatus = 'paid';
   } else if (this.payment.paidAmount > 0) {
     this.payment.paymentStatus = 'partial';
+  } else {
+    this.payment.paymentStatus = 'pending';
+  }
+  
+  // Fazla ödeme kontrolü
+  if (this.payment.paidAmount > this.payment.totalAmount + tolerance) {
+    // Fazla ödeme uyarısı (ama engelleme - bazı durumlarda kabul edilebilir)
+    console.warn(`Warning: Job ${this._id} has overpayment. Paid: ${this.payment.paidAmount}, Total: ${this.payment.totalAmount}`);
   }
   
   next();

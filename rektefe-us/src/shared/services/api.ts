@@ -59,7 +59,7 @@ apiClient.interceptors.request.use(
       // Token yoksa ve auth gerektiren endpoint ise isteği iptal et
       if (!token && config.url && !config.url.includes('/auth/')) {
         if (__DEV__) {
-          console.log('⚠️ Token yok - istek iptal ediliyor:', config.url);
+        console.log('⚠️ Token yok - istek iptal ediliyor:', config.url);
         }
         const cancelToken = axios.CancelToken.source();
         cancelToken.cancel('No authentication token');
@@ -220,7 +220,7 @@ apiClient.interceptors.response.use(
     // İstekler normal şekilde devam edecek, sadece 429 hatası dönecek
     // Kullanıcı oturum açık kalacak, logout YAPILMAYACAK
     if (error.response?.status === 429) {
-      if (__DEV__) {
+    if (__DEV__) {
         const resetTimeMs = getRateLimitResetTime(error);
         const resetMinutes = Math.ceil(resetTimeMs / 60000);
         console.warn(`Rate limit (429) - ${resetMinutes} dakika sonra tekrar deneyin`);
@@ -240,7 +240,7 @@ apiClient.interceptors.response.use(
     if (isRateLimited && error.response?.status === 401) {
       if (__DEV__) {
         console.warn('Rate limit aktif, 401 hatası görmezden geliniyor');
-      }
+    }
       return Promise.reject(error);
     }
     
@@ -251,7 +251,10 @@ apiClient.interceptors.response.use(
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         }).then(token => {
+          // Token'ı hem headers'a hem de config'e ekle
           originalRequest.headers['Authorization'] = 'Bearer ' + token;
+          originalRequest.headers.common = originalRequest.headers.common || {};
+          originalRequest.headers.common['Authorization'] = 'Bearer ' + token;
           return apiClient(originalRequest);
         }).catch(err => {
           return Promise.reject(err);
@@ -280,7 +283,7 @@ apiClient.interceptors.response.use(
           `${API_CONFIG.BASE_URL}/auth/refresh-token`,
           { refreshToken }
         );
-
+        
         if (response.data.success && response.data.data?.token) {
           const newToken = response.data.data.token;
           const newRefreshToken = response.data.data.refreshToken;
@@ -295,9 +298,24 @@ apiClient.interceptors.response.use(
             await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
           }
 
-          // Header'ı güncelle
+          // Header'ı güncelle - tüm olası yerlerde
           apiClient.defaults.headers.common['Authorization'] = 'Bearer ' + newToken;
           originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
+          originalRequest.headers.common = originalRequest.headers.common || {};
+          originalRequest.headers.common['Authorization'] = 'Bearer ' + newToken;
+          
+          // Request config'i yeniden oluştur (axios immutable config sorunu için)
+          const updatedConfig = {
+            ...originalRequest,
+            headers: {
+              ...originalRequest.headers,
+              'Authorization': 'Bearer ' + newToken,
+              common: {
+                ...originalRequest.headers.common,
+                'Authorization': 'Bearer ' + newToken
+              }
+            }
+          };
 
           if (__DEV__) {
             console.log('Token başarıyla yenilendi');
@@ -306,8 +324,8 @@ apiClient.interceptors.response.use(
           processQueue(null, newToken);
           isRefreshing = false;
 
-          // Original request'i yeniden dene
-          return apiClient(originalRequest);
+          // Original request'i yeniden dene - güncellenmiş config ile
+          return apiClient(updatedConfig);
         } else {
           if (__DEV__) {
             console.error('Refresh response başarısız:', response.data);
@@ -545,7 +563,7 @@ export const AuthService = {
       await apiClient.post('/auth/logout');
     } catch (error) {
       if (__DEV__) {
-        console.error('Logout error:', error);
+      console.error('Logout error:', error);
       }
       // API hatası olsa bile devam et, storage'ı temizle
     } finally {
@@ -2146,6 +2164,45 @@ const BodyworkService = {
   },
 
   /**
+   * Bodywork media (foto/video) yükle
+   */
+  async uploadBodyworkMedia(uri: string, mediaType: 'image' | 'video' = 'image'): Promise<ApiResponse<{ url: string }>> {
+    try {
+      const formData = new FormData();
+      const filename = uri.split('/').pop() || 'media';
+      const match = /\.(\w+)$/.exec(filename);
+      const ext = match ? match[1] : 'jpg';
+      
+      const isVideo = mediaType === 'video' || uri.includes('video') || uri.includes('.mp4') || uri.includes('.mov');
+      const fileType = isVideo 
+        ? `video/${ext === 'mov' ? 'quicktime' : 'mp4'}` 
+        : `image/${ext === 'jpg' || ext === 'jpeg' ? 'jpeg' : ext}`;
+
+      formData.append('media', {
+        uri,
+        type: fileType,
+        name: filename,
+      } as any);
+
+      const response = await apiClient.post('/upload/bodywork', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 30000, // 30 saniye (video için daha uzun)
+      });
+
+      return response.data;
+    } catch (error: any) {
+      console.error('Upload bodywork media error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Dosya yüklenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
    * Müşteri onayı iste
    */
   async requestCustomerApproval(jobId: string, stage: string, photos?: string[]): Promise<ApiResponse<any>> {
@@ -2191,11 +2248,14 @@ const BodyworkService = {
   /**
    * Ustanın kaporta işlerini getir
    */
-  async getBodyworkJobs(status?: string): Promise<ApiResponse<any>> {
+  async getBodyworkJobs(status?: string, page?: number, limit?: number): Promise<ApiResponse<any>> {
     try {
-      const params = status ? { status } : {};
+      const params: any = {};
+      if (status) params.status = status;
+      if (page) params.page = page;
+      if (limit) params.limit = limit;
       const response = await apiClient.get('/bodywork/mechanic-jobs', { params });
-      return createSuccessResponse(response.data.data);
+      return createSuccessResponse(response.data.data, response.data.pagination);
     } catch (error: any) {
       console.error('Get bodywork jobs error:', error);
       return createErrorResponse(
@@ -2260,12 +2320,18 @@ const BodyworkService = {
   }): Promise<ApiResponse<any>> {
     try {
       const response = await apiClient.post('/bodywork/templates', data);
-      return createSuccessResponse(response.data.data);
+      
+      // Backend response format: { success: true, data: {...}, message: '...' }
+      if (response.data && response.data.success) {
+        return createSuccessResponse(response.data.data || response.data);
+      }
+      
+      return createSuccessResponse(response.data.data || response.data);
     } catch (error: any) {
       console.error('Create template error:', error);
       return createErrorResponse(
-        ErrorCode.INTERNAL_SERVER_ERROR,
-        'Şablon oluşturulamadı',
+        error.response?.status >= 500 ? ErrorCode.INTERNAL_SERVER_ERROR : ErrorCode.BAD_REQUEST,
+        error.response?.data?.message || 'Şablon oluşturulamadı',
         error.response?.data?.error?.details
       );
     }
@@ -2280,13 +2346,82 @@ const BodyworkService = {
       if (damageType) params.damageType = damageType;
       if (severity) params.severity = severity;
       
+      console.log('🔍 [API] getTemplates çağrılıyor:', { damageType, severity });
       const response = await apiClient.get('/bodywork/templates', { params });
+      console.log('✅ [API] getTemplates response:', { 
+        success: response.data?.success, 
+        dataLength: response.data?.data?.length,
+        message: response.data?.message 
+      });
+      
+      // Backend response format: { success: true, data: [...], message: '...' }
+      if (response.data && response.data.success && response.data.data) {
+        return createSuccessResponse(response.data.data);
+      }
+      
+      // Fallback: direkt data dönerse
+      return createSuccessResponse(response.data.data || response.data || []);
+    } catch (error: any) {
+      console.error('❌ [API] Get templates error:', {
+        status: error.response?.status,
+        message: error.response?.data?.message,
+        url: error.config?.url,
+        method: error.config?.method
+      });
+      return createErrorResponse(
+        error.response?.status >= 500 ? ErrorCode.INTERNAL_SERVER_ERROR : ErrorCode.BAD_REQUEST,
+        error.response?.data?.message || 'Şablonlar getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Şablon detayını getir
+   */
+  async getTemplateById(templateId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get(`/bodywork/templates/${templateId}`);
       return createSuccessResponse(response.data.data);
     } catch (error: any) {
-      console.error('Get templates error:', error);
+      console.error('Get template error:', error);
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
-        'Şablonlar getirilemedi',
+        'Şablon detayı getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Şablon güncelle
+   */
+  async updateTemplate(templateId: string, data: any): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.put(`/bodywork/templates/${templateId}`, data);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Update template error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Şablon güncellenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Şablon sil
+   */
+  async deleteTemplate(templateId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.delete(`/bodywork/templates/${templateId}`);
+      return createSuccessResponse(response.data);
+    } catch (error: any) {
+      console.error('Delete template error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Şablon silinemedi',
         error.response?.data?.error?.details
       );
     }
@@ -2963,7 +3098,7 @@ export const PartsService = {
       
       // 401 hatası için özel handling
       if (error.response?.status === 401) {
-        return createErrorResponse(
+      return createErrorResponse(
           ErrorCode.UNAUTHORIZED,
           error.response?.data?.message || 'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.',
           error.response?.data?.error?.details
@@ -3014,7 +3149,7 @@ export const PartsService = {
       
       // 401 hatası için özel handling
       if (error.response?.status === 401) {
-        return createErrorResponse(
+      return createErrorResponse(
           ErrorCode.UNAUTHORIZED,
           error.response?.data?.message || 'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.',
           error.response?.data?.error?.details
@@ -3131,6 +3266,43 @@ export const PartsService = {
   /**
    * Rezervasyonu onayla
    */
+  async deliverReservation(reservationId: string): Promise<ApiResponse<any>> {
+    try {
+      if (__DEV__) {
+        console.log('🔍 [API] deliverReservation çağrıldı:', reservationId);
+      }
+
+      const response = await apiClient.post(
+        `/parts/reservations/${reservationId}/deliver`
+      );
+
+      return response.data;
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('❌ [API] deliverReservation error:', {
+          status: error.response?.status,
+          message: error.response?.data?.message || error.message,
+          url: error.config?.url,
+        });
+      }
+
+      // 401 hatası için özel handling
+      if (error.response?.status === 401) {
+        return createErrorResponse(
+          ErrorCode.UNAUTHORIZED,
+          error.response?.data?.message || 'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.',
+          error.response?.data?.error?.details
+        );
+      }
+
+      return createErrorResponse(
+        error.response?.status >= 500 ? ErrorCode.INTERNAL_SERVER_ERROR : ErrorCode.BAD_REQUEST,
+        error.response?.data?.message || 'Teslim işareti verilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
   async approveReservation(reservationId: string): Promise<ApiResponse<any>> {
     try {
       if (__DEV__) {
@@ -3162,6 +3334,15 @@ export const PartsService = {
         return createErrorResponse(
           ErrorCode.UNAUTHORIZED,
           error.response?.data?.message || 'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.',
+          error.response?.data?.error?.details
+        );
+      }
+      
+      // 409 Conflict hatası için özel handling (stok yetersizliği vb.)
+      if (error.response?.status === 409) {
+        return createErrorResponse(
+          ErrorCode.BAD_REQUEST,
+          error.response?.data?.message || 'Rezervasyon onaylanamadı. Stok yetersiz olabilir.',
           error.response?.data?.error?.details
         );
       }
@@ -3211,7 +3392,7 @@ export const PartsService = {
       
       // 401 hatası için özel handling
       if (error.response?.status === 401) {
-        return createErrorResponse(
+      return createErrorResponse(
           ErrorCode.UNAUTHORIZED,
           error.response?.data?.message || 'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.',
           error.response?.data?.error?.details
@@ -3257,7 +3438,7 @@ export const PartsService = {
       
       // 401 hatası için özel handling
       if (error.response?.status === 401) {
-        return createErrorResponse(
+      return createErrorResponse(
           ErrorCode.UNAUTHORIZED,
           error.response?.data?.message || 'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.',
           error.response?.data?.error?.details

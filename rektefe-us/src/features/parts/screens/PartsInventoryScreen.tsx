@@ -233,10 +233,10 @@ export default function PartsInventoryScreen() {
 
   if (loading && !refreshing) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+          <ActivityIndicator size="large" color={colors.primary.main} />
+          <Text style={[styles.loadingText, { color: colors.text.secondary }]}>
             Parçalar yükleniyor...
           </Text>
         </View>
@@ -245,30 +245,36 @@ export default function PartsInventoryScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]} edges={['top']}>
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+      <View style={[
+        styles.header, 
+        { 
+          backgroundColor: colors.background.primary, 
+          borderBottomColor: colors.border.primary,
+        }
+      ]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} activeOpacity={0.7}>
+          <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>
+        <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
           Parça Envanteri
         </Text>
         <TouchableOpacity 
           onPress={() => navigation.navigate('AddPart' as never)} 
-          style={styles.addButton}
+          style={[styles.addButton, { backgroundColor: colors.primary.main + '15' }]}
           activeOpacity={0.7}
         >
-          <Ionicons name="add-circle" size={32} color={colors.primary} />
+          <Ionicons name="add" size={24} color={colors.primary.main} />
         </TouchableOpacity>
       </View>
 
       {/* Alerts */}
       {lowStockParts.length > 0 && (
         <View style={styles.alertsContainer}>
-          <View style={[styles.alertBadge, { backgroundColor: '#EF444410', borderColor: '#EF4444' }]}>
-            <Ionicons name="alert-circle" size={20} color="#EF4444" />
-            <Text style={[styles.alertText, { color: '#EF4444' }]}>
+          <View style={[styles.alertBadge, { backgroundColor: colors.error.main + '15', borderColor: colors.error.main }]}>
+            <Ionicons name="alert-circle" size={20} color={colors.error.main} />
+            <Text style={[styles.alertText, { color: colors.error.main }]}>
               {lowStockParts.length} parça düşük stokta
             </Text>
           </View>
@@ -278,25 +284,45 @@ export default function PartsInventoryScreen() {
       <ScrollView
         style={styles.scrollView}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary.main} />
         }
+        showsVerticalScrollIndicator={false}
       >
         {parts.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="cube-outline" size={64} color={colors.textSecondary} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              Henüz parça eklemediniz
+            <View style={[styles.emptyIconContainer, { backgroundColor: colors.background.secondary }]}>
+              <Ionicons name="cube-outline" size={48} color={colors.text.tertiary} />
+            </View>
+            <Text style={[styles.emptyTitle, { color: colors.text.primary }]}>
+              Henüz Parça Eklenmedi
+            </Text>
+            <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
+              İlk parçanızı ekleyerek başlayın
             </Text>
             <Button
               title="İlk Parçanızı Ekleyin"
               onPress={() => navigation.navigate('AddPart' as never)}
+              variant="primary"
+              size="medium"
               style={styles.emptyButton}
+              icon="add-circle"
             />
           </View>
         ) : (
           <View style={styles.partsContainer}>
             {parts.map((part) => (
-              <View key={part._id} style={styles.partCard}>
+              <TouchableOpacity
+                key={part._id}
+                style={[
+                  styles.partCard, 
+                  { 
+                    backgroundColor: colors.background.card, 
+                    borderColor: colors.border.primary,
+                  }
+                ]}
+                activeOpacity={0.8}
+                onPress={() => navigation.navigate('AddPart', { partId: part._id } as never)}
+              >
                 {/* Photo Section */}
                 <View style={styles.photoSection}>
                   {part.photos && Array.isArray(part.photos) && part.photos.length > 0 && part.photos[0] ? (
@@ -307,33 +333,33 @@ export default function PartsInventoryScreen() {
                       onError={() => {}}
                     />
                   ) : (
-                    <View style={styles.photoPlaceholder}>
-                      <Ionicons name="cube-outline" size={40} color={colors.textSecondary} />
+                    <View style={[styles.photoPlaceholder, { backgroundColor: colors.background.secondary }]}>
+                      <Ionicons name="cube-outline" size={40} color={colors.text.tertiary} />
                     </View>
                   )}
                   
                   {/* Status Badges on Photo */}
                   <View style={styles.photoBadges}>
                     {part.isPublished && (
-                      <View style={[styles.photoBadge, { backgroundColor: '#10B98120', borderColor: '#10B981' }]}>
-                        <Ionicons name="eye" size={12} color="#10B981" />
-                        <Text style={[styles.photoBadgeText, { color: '#10B981' }]}>
+                      <View style={[styles.photoBadge, { backgroundColor: colors.success.main + '20', borderColor: colors.success.main }]}>
+                        <Ionicons name="eye" size={12} color={colors.success.main} />
+                        <Text style={[styles.photoBadgeText, { color: colors.success.main }]}>
                           Yayında
                         </Text>
                       </View>
                     )}
                     {part.pricing?.isNegotiable && (
-                      <View style={[styles.photoBadge, { backgroundColor: '#F59E0B20', borderColor: '#F59E0B' }]}>
-                        <Ionicons name="chatbubbles" size={12} color="#F59E0B" />
-                        <Text style={[styles.photoBadgeText, { color: '#F59E0B' }]}>
+                      <View style={[styles.photoBadge, { backgroundColor: colors.accent.main + '20', borderColor: colors.accent.main }]}>
+                        <Ionicons name="swap-horizontal" size={12} color={colors.accent.main} />
+                        <Text style={[styles.photoBadgeText, { color: colors.accent.main }]}>
                           Pazarlık
                         </Text>
                       </View>
                     )}
                     {part.moderation?.status === 'pending' && (
-                      <View style={[styles.photoBadge, { backgroundColor: '#F59E0B20', borderColor: '#F59E0B' }]}>
-                        <Ionicons name="time" size={12} color="#F59E0B" />
-                        <Text style={[styles.photoBadgeText, { color: '#F59E0B' }]}>
+                      <View style={[styles.photoBadge, { backgroundColor: colors.warning.main + '20', borderColor: colors.warning.main }]}>
+                        <Ionicons name="time" size={12} color={colors.warning.main} />
+                        <Text style={[styles.photoBadgeText, { color: colors.warning.main }]}>
                           Beklemede
                         </Text>
                       </View>
@@ -348,7 +374,7 @@ export default function PartsInventoryScreen() {
                     <View style={styles.titleSection}>
                       {part.brand && (
                         <Text 
-                          style={[styles.brandText, { color: colors.textSecondary }]}
+                          style={[styles.brandText, { color: colors.text.secondary }]}
                           numberOfLines={1}
                           ellipsizeMode="tail"
                         >
@@ -356,7 +382,7 @@ export default function PartsInventoryScreen() {
                         </Text>
                       )}
                       <Text 
-                        style={[styles.partName, { color: colors.text }]}
+                        style={[styles.partName, { color: colors.text.primary }]}
                         numberOfLines={2}
                         ellipsizeMode="tail"
                       >
@@ -365,29 +391,28 @@ export default function PartsInventoryScreen() {
                     </View>
                     <View style={styles.actionButtons}>
                       <TouchableOpacity
-                        onPress={() => navigation.navigate('AddPart', { partId: part._id } as never)}
-                        style={styles.actionButton}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name="pencil" size={18} color={colors.primary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => togglePublish(part)}
-                        style={styles.actionButton}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          togglePublish(part);
+                        }}
+                        style={[styles.actionButton, { backgroundColor: colors.background.secondary }]}
                         activeOpacity={0.7}
                       >
                         <Ionicons 
                           name={part.isPublished ? 'eye' : 'eye-off'} 
                           size={18} 
-                          color={part.isPublished ? colors.primary : colors.textSecondary} 
+                          color={part.isPublished ? colors.primary.main : colors.text.secondary} 
                         />
                       </TouchableOpacity>
                       <TouchableOpacity
-                        onPress={() => handleDelete(part)}
-                        style={styles.actionButton}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleDelete(part);
+                        }}
+                        style={[styles.actionButton, { backgroundColor: colors.error.main + '15' }]}
                         activeOpacity={0.7}
                       >
-                        <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                        <Ionicons name="trash-outline" size={18} color={colors.error.main} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -395,9 +420,9 @@ export default function PartsInventoryScreen() {
                   {/* Badges */}
                   <View style={styles.badgeRow}>
                     {part.category && (
-                      <View style={[styles.categoryBadge, { backgroundColor: colors.primary + '20' }]}>
+                      <View style={[styles.categoryBadge, { backgroundColor: colors.primary.main + '15' }]}>
                         <Text 
-                          style={[styles.categoryBadgeText, { color: colors.primary }]}
+                          style={[styles.categoryBadgeText, { color: colors.primary.main }]}
                           numberOfLines={1}
                           ellipsizeMode="tail"
                         >
@@ -406,9 +431,9 @@ export default function PartsInventoryScreen() {
                       </View>
                     )}
                     {part.condition && (
-                      <View style={[styles.conditionBadge, { backgroundColor: '#10B98120' }]}>
+                      <View style={[styles.conditionBadge, { backgroundColor: colors.success.main + '15' }]}>
                         <Text 
-                          style={[styles.conditionBadgeText, { color: '#10B981' }]}
+                          style={[styles.conditionBadgeText, { color: colors.success.main }]}
                           numberOfLines={1}
                           ellipsizeMode="tail"
                         >
@@ -420,9 +445,9 @@ export default function PartsInventoryScreen() {
 
                   {/* Price Section */}
                   {part.pricing && typeof part.pricing.unitPrice === 'number' ? (
-                    <View style={styles.priceSection}>
+                    <View style={[styles.priceSection, { borderTopColor: colors.border.primary, borderBottomColor: colors.border.primary }]}>
                       <Text 
-                        style={[styles.priceText, { color: colors.text }]}
+                        style={[styles.priceText, { color: colors.text.primary }]}
                         numberOfLines={1}
                         adjustsFontSizeToFit={true}
                         minimumFontScale={0.75}
@@ -431,7 +456,7 @@ export default function PartsInventoryScreen() {
                       </Text>
                       {part.pricing.oldPrice && typeof part.pricing.oldPrice === 'number' && (
                         <Text 
-                          style={[styles.oldPrice, { color: colors.textSecondary }]}
+                          style={[styles.oldPrice, { color: colors.text.tertiary }]}
                           numberOfLines={1}
                         >
                           {part.pricing.oldPrice.toLocaleString('tr-TR')} {part.pricing.currency || 'TRY'}
@@ -441,22 +466,22 @@ export default function PartsInventoryScreen() {
                   ) : null}
 
                   {/* Stats & Stock Footer */}
-                  <View style={styles.footerSection}>
+                  <View style={[styles.footerSection, { borderTopColor: colors.border.primary }]}>
                     <View style={styles.stockInfo}>
                       <View 
                         style={[
                           styles.stockIndicator, 
                           { 
                             backgroundColor: (part.stock?.available ?? 0) <= (part.stock?.lowThreshold ?? 0) 
-                              ? '#EF444420' 
-                              : '#10B98120' 
+                              ? colors.error.main + '20' 
+                              : colors.success.main + '20' 
                           }
                         ]}
                       >
                         <Ionicons 
                           name={(part.stock?.available ?? 0) > (part.stock?.lowThreshold ?? 0) ? "checkmark-circle" : "alert-circle"} 
                           size={14} 
-                          color={(part.stock?.available ?? 0) > (part.stock?.lowThreshold ?? 0) ? '#10B981' : '#EF4444'} 
+                          color={(part.stock?.available ?? 0) > (part.stock?.lowThreshold ?? 0) ? colors.success.main : colors.error.main} 
                         />
                       </View>
                       <Text 
@@ -464,8 +489,8 @@ export default function PartsInventoryScreen() {
                           styles.stockText,
                           { 
                             color: (part.stock?.available ?? 0) <= (part.stock?.lowThreshold ?? 0) 
-                              ? '#EF4444' 
-                              : colors.text 
+                              ? colors.error.main 
+                              : colors.text.primary 
                           }
                         ]}
                         numberOfLines={1}
@@ -473,28 +498,28 @@ export default function PartsInventoryScreen() {
                         Stok: {part.stock?.available ?? 0} / {part.stock?.quantity ?? 0}
                       </Text>
                       {part.stock?.reserved ? (
-                        <Text style={[styles.reservedText, { color: colors.textSecondary }]} numberOfLines={1}>
+                        <Text style={[styles.reservedText, { color: colors.text.secondary }]} numberOfLines={1}>
                           • Rezerve: {part.stock.reserved}
                         </Text>
                       ) : null}
                     </View>
                     <View style={styles.statsInfo}>
                       <View style={styles.statItem}>
-                        <Ionicons name="eye-outline" size={12} color={colors.textSecondary} />
-                        <Text style={[styles.statText, { color: colors.textSecondary }]} numberOfLines={1}>
+                        <Ionicons name="eye-outline" size={14} color={colors.text.secondary} />
+                        <Text style={[styles.statText, { color: colors.text.secondary }]} numberOfLines={1}>
                           {part.stats?.views ?? 0}
                         </Text>
                       </View>
                       <View style={styles.statItem}>
-                        <Ionicons name="list-outline" size={12} color={colors.textSecondary} />
-                        <Text style={[styles.statText, { color: colors.textSecondary }]} numberOfLines={1}>
+                        <Ionicons name="list-outline" size={14} color={colors.text.secondary} />
+                        <Text style={[styles.statText, { color: colors.text.secondary }]} numberOfLines={1}>
                           {part.stats?.reservations ?? 0}
                         </Text>
                       </View>
                     </View>
                   </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
@@ -518,15 +543,24 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderBottomWidth: 1,
   },
   backButton: {
-    padding: spacing.xs,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: borderRadius.full,
   },
   headerTitle: {
     ...typography.h2,
     flex: 1,
     textAlign: 'center',
+    fontWeight: '700',
   },
   addButton: {
-    padding: spacing.xs,
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   alertsContainer: {
     paddingHorizontal: spacing.md,
@@ -537,12 +571,12 @@ const createStyles = (colors: any) => StyleSheet.create({
     alignItems: 'center',
     padding: spacing.md,
     borderRadius: borderRadius.md,
-    borderWidth: 1,
+    borderWidth: 1.5,
     gap: spacing.sm,
   },
   alertText: {
     ...typography.body,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   scrollView: {
     flex: 1,
@@ -551,9 +585,10 @@ const createStyles = (colors: any) => StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: spacing.md,
   },
   loadingText: {
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
     ...typography.body,
   },
   emptyContainer: {
@@ -561,54 +596,54 @@ const createStyles = (colors: any) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: spacing.xxl * 2,
+    paddingHorizontal: spacing.xl,
+    gap: spacing.md,
+  },
+  emptyIconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTitle: {
+    ...typography.h3,
+    fontWeight: '700',
+    marginTop: spacing.md,
   },
   emptyText: {
     ...typography.body,
-    marginTop: spacing.md,
-    marginBottom: spacing.lg,
+    textAlign: 'center',
+    opacity: 0.8,
+    marginBottom: spacing.md,
   },
   emptyButton: {
     marginHorizontal: spacing.xl,
+    marginTop: spacing.sm,
   },
   partsContainer: {
     padding: spacing.md,
   },
   partCard: {
-    backgroundColor: colors.background,
     borderRadius: borderRadius.lg,
     marginBottom: spacing.md,
     overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
     borderWidth: 1,
-    borderColor: colors.border,
   },
   photoSection: {
     width: '100%',
     height: 180,
-    backgroundColor: colors.background,
     position: 'relative',
   },
   photoImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: colors.background,
   },
   photoPlaceholder: {
     width: '100%',
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
   },
   photoBadges: {
     position: 'absolute',
@@ -648,9 +683,9 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   brandText: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: '600',
     marginBottom: 4,
-    opacity: 0.6,
+    opacity: 0.7,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -666,9 +701,11 @@ const createStyles = (colors: any) => StyleSheet.create({
     flexShrink: 0,
   },
   actionButton: {
-    padding: spacing.xs,
-    borderRadius: borderRadius.sm,
-    backgroundColor: colors.background,
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   badgeRow: {
     flexDirection: 'row',
@@ -700,32 +737,28 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   priceSection: {
     marginBottom: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: colors.border + '40',
     borderBottomWidth: 1,
-    borderBottomColor: colors.border + '40',
   },
   priceText: {
     fontSize: 20,
     fontWeight: '800',
     letterSpacing: 0.3,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   oldPrice: {
     fontSize: 13,
     fontWeight: '500',
     textDecorationLine: 'line-through',
-    marginTop: 4,
-    opacity: 0.5,
+    opacity: 0.6,
   },
   footerSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: colors.border + '40',
   },
   stockInfo: {
     flexDirection: 'row',

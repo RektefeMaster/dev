@@ -3,7 +3,7 @@
 # Yedek Parça E2E Test Script
 # Tüm parts fonksiyonlarını test eder
 
-set -e  # Hata durumunda dur
+set +e  # Hatalarda durma, tüm testleri çalıştır
 
 BASE_URL="${BASE_URL:-http://localhost:3000/api}"
 COLOR_GREEN='\033[0;32m'
@@ -44,8 +44,9 @@ print_info() {
 # 0. BACKEND BAĞLANTI KONTROLÜ
 # ============================================
 print_test "0. Backend bağlantı kontrolü"
-HEALTH_CHECK=$(curl -s -w "\n%{http_code}" "$BASE_URL/parts/market?limit=1" 2>/dev/null || echo "")
-HTTP_CODE=$(echo "$HEALTH_CHECK" | tail -n1)
+HEALTH_CHECK=$(curl -s -w "\nHTTP_CODE:%{http_code}" "$BASE_URL/parts/market?limit=1" 2>/dev/null || echo "")
+HTTP_CODE=$(echo "$HEALTH_CHECK" | grep "HTTP_CODE:" | cut -d: -f2 || echo "000")
+RESPONSE_BODY=$(echo "$HEALTH_CHECK" | grep -v "HTTP_CODE:" || echo "")
 
 if [ -z "$HEALTH_CHECK" ] || [ "$HTTP_CODE" = "000" ]; then
     echo -e "${COLOR_RED}Backend bağlantısı başarısız!${COLOR_RESET}"
@@ -59,10 +60,12 @@ if [ -z "$HEALTH_CHECK" ] || [ "$HTTP_CODE" = "000" ]; then
     echo "  export BASE_URL='https://your-api-url.com/api'"
     echo "  bash test-parts-e2e.sh"
     exit 1
-elif echo "$HEALTH_CHECK" | head -n-1 | grep -q '"success"'; then
+elif echo "$RESPONSE_BODY" | grep -q '"success"'; then
     print_success "Backend bağlantısı başarılı"
+elif [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "404" ]; then
+    print_info "Backend yanıt veriyor (HTTP: $HTTP_CODE)"
 else
-    echo -e "${COLOR_YELLOW}Backend yanıt veriyor ancak beklenmeyen format${COLOR_RESET}"
+    echo -e "${COLOR_YELLOW}Backend yanıt veriyor ancak beklenmeyen format (HTTP: $HTTP_CODE)${COLOR_RESET}"
     print_info "Devam ediliyor..."
 fi
 
@@ -88,7 +91,7 @@ USTA_TOKEN=$(echo $USTA_LOGIN_RESPONSE | grep -o '"token":"[^"]*' | cut -d'"' -f
 
 if [ -z "$USTA_TOKEN" ]; then
     echo "Usta login başarısız. Yeni usta oluşturuluyor..."
-    # Register yap
+    # Register yap - serviceCategories zorunlu
     USTA_REGISTER=$(curl -s -X POST "$BASE_URL/auth/register" \
       -H "Content-Type: application/json" \
       -d '{
@@ -97,16 +100,24 @@ if [ -z "$USTA_TOKEN" ]; then
         "name": "Test",
         "surname": "Usta",
         "phone": "5551234567",
-        "userType": "mechanic"
+        "userType": "mechanic",
+        "serviceCategories": ["parts", "repair"]
       }')
     
     USTA_TOKEN=$(echo $USTA_REGISTER | grep -o '"token":"[^"]*' | cut -d'"' -f4)
+    
+    if [ -z "$USTA_TOKEN" ]; then
+        echo "Register response: $USTA_REGISTER"
+    fi
 fi
 
 if [ -z "$USTA_TOKEN" ]; then
     print_error "Usta login/register başarısız"
-    echo "Response: $USTA_LOGIN_RESPONSE"
-    exit 1
+    echo "Login Response: $USTA_LOGIN_RESPONSE"
+    if [ ! -z "$USTA_REGISTER" ]; then
+        echo "Register Response: $USTA_REGISTER"
+    fi
+    # Exit etme, devam et
 else
     print_success "Usta login başarılı"
     echo "Token: ${USTA_TOKEN:0:20}..."
@@ -140,6 +151,10 @@ if [ -z "$SOFOR_TOKEN" ]; then
       }')
     
     SOFOR_TOKEN=$(echo $SOFOR_REGISTER | grep -o '"token":"[^"]*' | cut -d'"' -f4)
+    
+    if [ -z "$SOFOR_TOKEN" ]; then
+        echo "Register response: $SOFOR_REGISTER"
+    fi
 fi
 
 if [ -z "$SOFOR_TOKEN" ]; then
@@ -184,8 +199,8 @@ PART_CREATE_RESPONSE=$(curl -s -X POST "$BASE_URL/parts" \
       "lowThreshold": 10
     },
     "pricing": {
-      "unitPrice": 500,
-      "oldPrice": 600,
+      "unitPrice": 1000,
+      "oldPrice": 1200,
       "currency": "TRY",
       "isNegotiable": true
     },
@@ -354,7 +369,7 @@ if [ "$RESERVATION_ID" != "unknown" ]; then
       -H "Content-Type: application/json" \
       -H "Authorization: Bearer $SOFOR_TOKEN" \
       -d '{
-        "requestedPrice": 700,
+        "requestedPrice": 800,
         "message": "E2E test pazarlık teklifi"
       }')
 

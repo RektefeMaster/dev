@@ -431,8 +431,8 @@ async function startServer() {
       schedule.scheduleJob('*/5 * * * *', async () => {
         try {
           const result = await PartsService.expireReservations();
-          if (result.expired > 0) {
-            Logger.info(`✅ [CRON] ${result.expired} rezervasyon süresi doldu`);
+          if (result.expiredCount > 0) {
+            Logger.info(`✅ [CRON] ${result.expiredCount} rezervasyon süresi doldu`);
           }
         } catch (error: any) {
           Logger.error('❌ [CRON] Parts expiry job hatası:', error.message);

@@ -543,6 +543,8 @@ export type RootStackParamList = {
   RepairService: undefined;
   WashService: undefined;
   TireService: undefined;
+  Bodywork: undefined;
+  ElectricalService: undefined;
   EmergencyNotification: undefined;
   Reports: undefined;
   EndOfDay: undefined;

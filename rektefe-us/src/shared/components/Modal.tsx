@@ -11,7 +11,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, borderRadius, spacing, shadows } from '@/shared/theme';
+import { colors, typography, borderRadius, spacing } from '@/shared/theme';
 
 const { height: screenHeight } = Dimensions.get('window');
 
@@ -132,7 +132,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: borderRadius.modal,
     minHeight: 200,
     maxHeight: screenHeight * 0.9,
-    ...shadows.modal,
   },
   header: {
     flexDirection: 'row',

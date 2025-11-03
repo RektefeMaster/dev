@@ -118,7 +118,7 @@ const RepairAppointmentCard: React.FC<{
         </View>
       </View>
 
-      <View style={styles.vehicleInfo}>
+      <View style={styles.vehicleInfoRow}>
         <Ionicons name="car" size={16} color="#64748B" />
         <Text style={styles.vehicleText}>
           {typeof appointment.vehicleId === 'object' && appointment.vehicleId 
@@ -128,7 +128,7 @@ const RepairAppointmentCard: React.FC<{
         </Text>
       </View>
 
-      <View style={styles.serviceInfo}>
+      <View style={styles.serviceInfoRow}>
         <Ionicons name="construct" size={16} color="#64748B" />
         <Text style={styles.serviceText}>
           {translateServiceName(appointment.serviceType)}
@@ -137,7 +137,7 @@ const RepairAppointmentCard: React.FC<{
 
       <View style={styles.repairCardFooter}>
         <View style={styles.timeInfo}>
-          <Text style={styles.timeText}>{appointment.timeSlot || '09:00'}</Text>
+          <Text style={styles.repairTimeText}>{appointment.timeSlot || '09:00'}</Text>
         </View>
         {getActionButton(appointment.status)}
       </View>
@@ -486,85 +486,20 @@ const mechanicCapabilities = [
     return [...capabilityItems, ...workManagementItems, ...financialItems, ...accountItems];
   }, [user?.serviceCategories, navigation]); // Sadece user capabilities değiştiğinde yeniden hesapla
 
-  // İlk mount'ta auto refresh başlat, ama veri çekme!
-  // Veri çekmeyi useFocusEffect'e bırak (tekrar çağrılmasın)
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      startAutoRefresh();
-    }
-
-    // App state değişikliklerini dinle
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-      subscription?.remove();
-    };
-  }, [isAuthenticated, user?._id]); // Sadece user ID'si değiştiğinde tetikle
-
-  // Arıza bildirimleri için özel polling - optimize edildi
-  useEffect(() => {
-    if (isAuthenticated && user && appState.current === 'active') {
-      // Her 15 dakikada bir arıza bildirimlerini kontrol et (optimize edildi)
-      const faultReportInterval = setInterval(() => {
-        // App background'dayken polling yapma
-        if (appState.current === 'active') {
-          checkFaultReports();
+  // Arıza bildirimlerini kontrol et (polling için)
+  const checkFaultReports = useCallback(async () => {
+    try {
+      const response = await apiService.getMechanicFaultReports('pending');
+      if (response.success && response.data) {
+        const faultReports = Array.isArray(response.data) ? response.data : [];
+        setFaultReportsCount(faultReports.length);
         }
-      }, 900000); // 15 dakika (900 saniye)
-
-      return () => clearInterval(faultReportInterval);
-    }
-  }, [isAuthenticated, user, checkFaultReports]);
-
-  // Loading animasyonu
-  useEffect(() => {
-    if (loading) {
-      const spinAnimation = Animated.loop(
-        Animated.timing(spinValue, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        })
-      );
-      spinAnimation.start();
-      
-      return () => spinAnimation.stop();
-    }
-  }, [loading, spinValue]);
-
-  // Sayfa odaklandığında veri yenile - optimize edilmiş (30 saniye throttle)
-  useOptimizedFocusEffect(
-    useCallback(() => {
-      if (isAuthenticated && user) {
-        fetchDashboardData();
+    } catch (error) {
       }
-    }, [isAuthenticated, user?._id, fetchDashboardData]),
-    { throttleMs: 30000, fetchOnMount: true }
-  );
+  }, []);
 
-  const handleAppStateChange = useCallback((nextAppState: AppStateStatus) => {
-    if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-      // App aktif olduğunda veri yenile
-      if (isAuthenticated && user) {
-        fetchDashboardData();
-      }
-    }
-    appState.current = nextAppState;
-  }, [isAuthenticated, user]); // 🚀 OPTIMIZE: useCallback
-
-  const startAutoRefresh = useCallback(() => {
-    // Her 10 dakikada bir veri yenile (optimize edildi)
-    intervalRef.current = setInterval(() => {
-      if (isAuthenticated && user && appState.current === 'active') {
-        fetchDashboardData(false); // Loading gösterme
-      }
-    }, 600000); // 10 dakika (600 saniye)
-  }, [isAuthenticated, user, fetchDashboardData]);
-
-  const fetchDashboardData = async (showLoading = true) => {
+  // Dashboard verilerini çek
+  const fetchDashboardData = useCallback(async (showLoading = true) => {
     try {
       // Authentication kontrolü
       if (!isAuthenticated || !user) {
@@ -653,7 +588,87 @@ const mechanicCapabilities = [
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated, user]);
+
+  // Arıza bildirimlerini kontrol et fonksiyonu kaldırıldı - yukarıda tanımlandı
+
+  const handleAppStateChange = useCallback((nextAppState: AppStateStatus) => {
+    if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+      // App aktif olduğunda veri yenile
+      if (isAuthenticated && user) {
+        fetchDashboardData();
+      }
+    }
+    appState.current = nextAppState;
+  }, [isAuthenticated, user, fetchDashboardData]);
+
+  const startAutoRefresh = useCallback(() => {
+    // Her 10 dakikada bir veri yenile (optimize edildi)
+    intervalRef.current = setInterval(() => {
+      if (isAuthenticated && user && appState.current === 'active') {
+        fetchDashboardData(false); // Loading gösterme
+      }
+    }, 600000); // 10 dakika (600 saniye)
+  }, [isAuthenticated, user, fetchDashboardData]);
+
+  // İlk mount'ta auto refresh başlat, ama veri çekme!
+  // Veri çekmeyi useFocusEffect'e bırak (tekrar çağrılmasın)
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      startAutoRefresh();
+    }
+
+    // App state değişikliklerini dinle
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      subscription?.remove();
+    };
+  }, [isAuthenticated, user?._id, startAutoRefresh, handleAppStateChange]); // Sadece user ID'si değiştiğinde tetikle
+
+  // Arıza bildirimleri için özel polling - optimize edildi
+  useEffect(() => {
+    if (isAuthenticated && user && appState.current === 'active') {
+      // Her 15 dakikada bir arıza bildirimlerini kontrol et (optimize edildi)
+      const faultReportInterval = setInterval(() => {
+        // App background'dayken polling yapma
+        if (appState.current === 'active') {
+          checkFaultReports();
+        }
+      }, 900000); // 15 dakika (900 saniye)
+
+      return () => clearInterval(faultReportInterval);
+    }
+  }, [isAuthenticated, user, checkFaultReports]);
+
+  // Loading animasyonu
+  useEffect(() => {
+    if (loading) {
+      const spinAnimation = Animated.loop(
+        Animated.timing(spinValue, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        })
+      );
+      spinAnimation.start();
+      
+      return () => spinAnimation.stop();
+    }
+  }, [loading, spinValue]);
+
+  // Sayfa odaklandığında veri yenile - optimize edilmiş (30 saniye throttle)
+  useOptimizedFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated && user) {
+        fetchDashboardData();
+      }
+    }, [isAuthenticated, user?._id, fetchDashboardData]),
+    { throttleMs: 30000, fetchOnMount: true }
+  );
 
   const onRefresh = async () => {
     try {
@@ -668,17 +683,6 @@ const mechanicCapabilities = [
     }
   };
 
-  // Arıza bildirimlerini kontrol et (polling için)
-  const checkFaultReports = async () => {
-    try {
-      const response = await apiService.getMechanicFaultReports('pending');
-      if (response.success && response.data) {
-        const faultReports = Array.isArray(response.data) ? response.data : [];
-        setFaultReportsCount(faultReports.length);
-        }
-    } catch (error) {
-      }
-  };
 
   const openDrawer = () => {
     navigation.dispatch(DrawerActions.openDrawer());
@@ -740,6 +744,39 @@ const mechanicCapabilities = [
       navigation.navigate('Bodywork');
     } else {
       navigation.navigate('Appointments');
+    }
+  };
+
+  // Aktif iş card'ına tıklayınca hizmet kategorisine göre yönlendirme yapar
+  const handleActiveJobsPress = () => {
+    const serviceCategory = getServiceCategory(user?.serviceCategories);
+    
+    switch (serviceCategory) {
+      case 'repair':
+        navigation.navigate('RepairService');
+        break;
+      case 'towing':
+        navigation.navigate('TowingService');
+        break;
+      case 'wash':
+        navigation.navigate('WashService');
+        break;
+      case 'tire':
+        navigation.navigate('TireService');
+        break;
+      case 'bodywork':
+        navigation.navigate('Bodywork');
+        break;
+      case 'electrical':
+        navigation.navigate('ElectricalService');
+        break;
+      case 'parts':
+        navigation.navigate('PartsReservations');
+        break;
+      default:
+        // Kategori belirlenemezse Appointments ekranına yönlendir
+        navigation.navigate('Appointments');
+        break;
     }
   };
 
@@ -918,7 +955,7 @@ const mechanicCapabilities = [
             <View style={styles.statsRow}>
               <TouchableOpacity 
                 style={styles.statCard}
-                onPress={() => navigation.navigate('Appointments')}
+                onPress={handleActiveJobsPress}
                 activeOpacity={0.7}
               >
                 <View style={styles.statIconContainer}>
@@ -2262,5 +2299,111 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  
+  // RepairAppointmentCard stilleri
+  repairAppointmentCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  repairCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  repairCardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  statusButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  statusButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  paymentPendingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  paymentText: {
+    fontSize: 14,
+    color: '#EF4444',
+    fontWeight: '600',
+  },
+  priceText: {
+    fontSize: 16,
+    color: '#EF4444',
+    fontWeight: '700',
+  },
+  completedContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  completedText: {
+    fontSize: 14,
+    color: '#059669',
+    fontWeight: '600',
+  },
+  customerPhone: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  vehicleInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  vehicleText: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
+    flex: 1,
+  },
+  serviceInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  serviceText: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  timeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  repairTimeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
   },
 });

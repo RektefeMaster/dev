@@ -103,7 +103,7 @@ router.get('/mechanic', auth, async (req: Request, res: Response) => {
       });
     }
 
-    const result = await PartsService.getMechanicParts(mechanicId, req.query as any);
+    const result = await PartsService.getMechanicParts(mechanicId);
     res.json(result);
   } catch (error: any) {
     res.status(error.statusCode || 500).json({
@@ -376,6 +376,59 @@ router.post('/reservations/:id/negotiation-response', auth, async (req: Request,
     res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || 'Pazarlık yanıtı verilemedi'
+    });
+  }
+});
+
+/**
+ * POST /api/parts/reservations/:id/deliver
+ * Usta teslim edildi olarak işaretle
+ */
+router.post('/reservations/:id/deliver', auth, async (req: Request, res: Response) => {
+  try {
+    const sellerId = req.user?.userId;
+    if (!sellerId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Kullanıcı doğrulanamadı'
+      });
+    }
+
+    const result = await PartsService.markAsDelivered(req.params.id, sellerId);
+    res.json(result);
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Teslim işareti verilemedi'
+    });
+  }
+});
+
+/**
+ * POST /api/parts/reservations/:id/confirm-delivery
+ * Şoför teslim aldığını onayla ve ödemeyi tamamla
+ */
+router.post('/reservations/:id/confirm-delivery', auth, async (req: Request, res: Response) => {
+  try {
+    const buyerId = req.user?.userId;
+    if (!buyerId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Kullanıcı doğrulanamadı'
+      });
+    }
+
+    const { paymentMethod, cardInfo } = req.body;
+
+    const result = await PartsService.confirmDelivery(req.params.id, buyerId, {
+      paymentMethod,
+      cardInfo
+    });
+    res.json(result);
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Teslim onaylanamadı'
     });
   }
 });

@@ -400,10 +400,29 @@ export class BaseApiService {
 
   async register(userData: any): Promise<ApiResponse> {
     try {
-      return await this.post('/auth/register', {
+      const response = await this.post('/auth/register', {
         ...userData,
         userType: this.config.userType
       });
+      
+      if (response.success && response.data) {
+        const { token, refreshToken, user } = response.data as any;
+        
+        if (token) {
+          await this.setToken(token);
+        }
+        
+        if (refreshToken) {
+          await this.setRefreshToken(refreshToken);
+        }
+        
+        if (user?._id) {
+          await this.setUserId(user._id);
+          await this.setUserData(user);
+        }
+      }
+      
+      return response;
     } catch (error) {
       await this.logError(error, 'register');
       return this.handleError(error);

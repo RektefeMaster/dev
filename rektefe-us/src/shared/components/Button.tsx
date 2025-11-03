@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, borderRadius, spacing, shadows } from '@/shared/theme';
+import { colors, typography, borderRadius, spacing } from '@/shared/theme';
 
 export interface ButtonProps {
   title: string;
@@ -46,7 +46,6 @@ const Button: React.FC<ButtonProps> = ({
       alignItems: 'center',
       justifyContent: 'center',
       flexDirection: 'row',
-      ...shadows.button,
     };
 
     if (fullWidth) {

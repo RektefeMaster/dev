@@ -38,6 +38,16 @@ export const getServiceCategory = (serviceCategories?: string[]): ServiceCategor
     return 'bodywork';
   }
 
+  // Elektrik & Elektronik
+  if (serviceCategories.some(s => ['electrical', 'elektrik', 'Elektrik-Elektronik', 'elektrik-elektronik'].includes(s))) {
+    return 'electrical';
+  }
+
+  // Yedek Parça
+  if (serviceCategories.some(s => ['parts', 'yedek-parca', 'Parça', 'Yedek Parça'].includes(s))) {
+    return 'parts';
+  }
+
   return null;
 };
 
@@ -80,6 +90,18 @@ export const getNotificationTypeText = (
       if (notificationType === 'fault_report') return 'Hasar Bildirimi';
       if (notificationType === 'message') return 'Kaporta Mesajı';
       return 'Kaporta İşi';
+
+    case 'electrical':
+      if (notificationType === 'appointment') return 'Elektrik Randevusu';
+      if (notificationType === 'fault_report') return 'Elektrik Arıza Bildirimi';
+      if (notificationType === 'message') return 'Elektrik Mesajı';
+      return 'Elektrik Bildirimi';
+
+    case 'parts':
+      if (notificationType === 'appointment') return 'Parça Siparişi';
+      if (notificationType === 'fault_report') return 'Parça Talebi';
+      if (notificationType === 'message') return 'Parça Mesajı';
+      return 'Parça Bildirimi';
 
     default:
       return 'Bildirim';
@@ -124,6 +146,18 @@ export const getJobTypeText = (category: ServiceCategory | null): {
         singular: 'Kaporta İşi',
         plural: 'Kaporta İşleri',
         action: 'Kaporta İşini Başlat',
+      };
+    case 'electrical':
+      return {
+        singular: 'Elektrik İşi',
+        plural: 'Elektrik İşleri',
+        action: 'Elektrik İşini Başlat',
+      };
+    case 'parts':
+      return {
+        singular: 'Parça İşi',
+        plural: 'Parça İşleri',
+        action: 'Parça İşini Başlat',
       };
     default:
       return {

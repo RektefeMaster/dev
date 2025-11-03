@@ -3,6 +3,7 @@ import { auth } from '../middleware/optimizedAuth';
 import { User } from '../models/User';
 import { Appointment } from '../models/Appointment';
 import { Types } from 'mongoose';
+import { Vehicle } from '../models/Vehicle';
 
 const router = Router();
 
@@ -238,6 +239,11 @@ router.get('/:customerId', auth, async (req: Request, res: Response) => {
       note.customerId === customerId
     ) || [];
 
+    // Müşterinin araçlarını getir
+    const vehicles = await Vehicle.find({ userId: new Types.ObjectId(customerId) })
+      .select('brand modelName plateNumber year')
+      .lean();
+
     const customerData = {
       customer: {
         _id: customer._id,
@@ -255,7 +261,8 @@ router.get('/:customerId', auth, async (req: Request, res: Response) => {
         firstVisit: null
       },
       jobs: jobs,
-      notes: customerNotes
+      notes: customerNotes,
+      vehicles: vehicles || []
     };
 
     res.json({

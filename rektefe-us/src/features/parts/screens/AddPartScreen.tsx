@@ -335,11 +335,11 @@ export default function AddPartScreen() {
       if (formData.warrantyMonths) {
         const warrantyMonths = parseInt(formData.warrantyMonths);
         if (!isNaN(warrantyMonths) && warrantyMonths > 0) {
-          payload.warranty = {
+        payload.warranty = {
             months: warrantyMonths,
-            description: formData.warrantyDescription.trim() || undefined,
-          };
-        }
+          description: formData.warrantyDescription.trim() || undefined,
+        };
+      }
       }
 
       let response;
@@ -833,7 +833,12 @@ export default function AddPartScreen() {
       {/* Category Modal */}
       {showCategoryModal && (
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+          <View style={[
+            styles.modalContent, 
+            { 
+              backgroundColor: colors.background.primary,
+            }
+          ]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Kategori Seçin</Text>
               <TouchableOpacity onPress={() => setShowCategoryModal(false)}>
@@ -869,7 +874,12 @@ export default function AddPartScreen() {
       {/* Condition Modal */}
       {showConditionModal && (
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+          <View style={[
+            styles.modalContent, 
+            { 
+              backgroundColor: colors.background.primary,
+            }
+          ]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Durum Seçin</Text>
               <TouchableOpacity onPress={() => setShowConditionModal(false)}>
@@ -905,7 +915,12 @@ export default function AddPartScreen() {
       {/* Currency Modal */}
       {showCurrencyModal && (
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+          <View style={[
+            styles.modalContent, 
+            { 
+              backgroundColor: colors.background.primary,
+            }
+          ]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Para Birimi Seçin</Text>
               <TouchableOpacity onPress={() => setShowCurrencyModal(false)}>
@@ -1071,11 +1086,6 @@ const createStyles = (colors: any) => StyleSheet.create({
     width: '80%',
     maxHeight: '70%',
     borderRadius: borderRadius.lg,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
   },
   modalHeader: {
     flexDirection: 'row',

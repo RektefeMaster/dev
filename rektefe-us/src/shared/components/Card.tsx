@@ -5,7 +5,7 @@ import {
   ViewStyle,
   TouchableOpacity,
 } from 'react-native';
-import { colors, borderRadius, spacing, shadows } from '@/shared/theme';
+import { colors, borderRadius, spacing } from '@/shared/theme';
 
 export interface CardProps {
   children: React.ReactNode;
@@ -36,9 +36,9 @@ const Card: React.FC<CardProps> = ({
     // Variant styles
     switch (variant) {
       case 'elevated':
+        // Note: Shadow should be applied via inline styles with backgroundColor for better performance
         return {
           ...baseStyle,
-          ...shadows.card,
         };
       case 'outlined':
         return {

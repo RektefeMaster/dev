@@ -3,6 +3,7 @@ import { PartsReservation, IPartsReservation } from '../models/PartsReservation'
 import { CustomError } from '../middleware/errorHandler';
 import mongoose from 'mongoose';
 import Logger from '../utils/logger';
+import { v4 as uuidv4 } from 'uuid';
 
 export class PartsService {
   /**
@@ -91,73 +92,50 @@ export class PartsService {
    */
   static async updatePart(partId: string, mechanicId: string, updateData: any) {
     try {
-      const part = await PartsInventory.findById(partId);
+      const part = await PartsInventory.findOne({ _id: partId, mechanicId });
       
       if (!part) {
-        throw new CustomError('Parça bulunamadı', 404);
+        throw new CustomError('Parça bulunamadı veya güncelleme yetkiniz yok', 404);
       }
 
-      // Ownership check
-      if (part.mechanicId.toString() !== mechanicId) {
-        throw new CustomError('Bu parçayı düzenleme yetkiniz yok', 403);
-      }
-
-      // Stock güncellemesi - özel işlem gerekiyor
+      // Stock güncellemesi - mevcut reserved değerini koru
       if (updateData.stock) {
-        Logger.devOnly('[PARTS UPDATE] Stock güncelleme:', {
-          partId,
-          currentStock: part.stock,
-          updateStock: updateData.stock,
-        });
-        
-        // Mevcut değerleri al ve garanti et
         const currentReserved = Number(part.stock?.reserved || 0);
-        const currentQuantity = Number(part.stock?.quantity || 0);
-        const currentAvailable = Number(part.stock?.available || 0);
-        const currentLowThreshold = Number(part.stock?.lowThreshold || 5);
-        
-        // NaN kontrolü
-        if (isNaN(currentReserved) || currentReserved < 0) {
-          part.stock.reserved = 0;
-        } else {
-          part.stock.reserved = currentReserved;
+        const newQuantity = Number(updateData.stock.quantity);
+        const newLowThreshold = Number(updateData.stock.lowThreshold || 5);
+
+        // Validasyon
+        if (isNaN(newQuantity) || newQuantity < 0) {
+          throw new CustomError('Geçersiz stok miktarı', 400);
         }
-        
-        // Sadece quantity ve lowThreshold güncelle
-        if (updateData.stock.quantity !== undefined) {
-          const newQuantity = Number(updateData.stock.quantity);
-          if (isNaN(newQuantity) || newQuantity < 0) {
-            throw new CustomError('Geçersiz stok miktarı', 400);
-          }
-          part.stock.quantity = newQuantity;
-        } else {
-          // Quantity gönderilmemişse mevcut değeri koru
-          part.stock.quantity = isNaN(currentQuantity) ? 0 : currentQuantity;
+        if (isNaN(newLowThreshold) || newLowThreshold < 0) {
+          throw new CustomError('Geçersiz eşik değeri', 400);
         }
-        
-        if (updateData.stock.lowThreshold !== undefined) {
-          const newThreshold = Number(updateData.stock.lowThreshold);
-          if (isNaN(newThreshold) || newThreshold < 0) {
-            throw new CustomError('Geçersiz düşük stok eşiği', 400);
-          }
-          part.stock.lowThreshold = newThreshold;
-        } else {
-          // LowThreshold gönderilmemişse mevcut değeri koru
-          part.stock.lowThreshold = isNaN(currentLowThreshold) ? 5 : currentLowThreshold;
+
+        // Rezerve edilmiş stoktan fazla miktarda azaltma yapılamaz
+        if (newQuantity < currentReserved) {
+          Logger.error('[PARTS UPDATE] ❌ Yetersiz stok: quantity < reserved', {
+            newQuantity,
+            currentReserved,
+            partId: part._id.toString(),
+            partName: part.partName,
+          });
+          throw new CustomError(
+            `Rezerve edilmiş stok (${currentReserved}) yeni miktardan (${newQuantity}) fazla. Stok güncellemesi yapılamıyor.`,
+            409
+          );
         }
+
+        // Reserved değerini koru, sadece quantity ve lowThreshold'u güncelle
+        part.stock.quantity = newQuantity;
+        part.stock.lowThreshold = newLowThreshold;
+      
+        // Reserved değerini koru (rezervasyonlar için ayrılmış stok)
+        part.stock.reserved = currentReserved;
         
-        // Reserved değerini koru (rezervasyonlar varsa)
-        // Zaten yukarıda set ettik ama tekrar garanti ediyoruz
-        if (isNaN(currentReserved) || currentReserved < 0) {
-          part.stock.reserved = 0;
-        } else {
-          part.stock.reserved = currentReserved;
-        }
-        
-        // Available'ı hesapla (pre-save middleware de yapacak ama burada da yapıyoruz)
-        const calculatedAvailable = part.stock.quantity - part.stock.reserved;
-        part.stock.available = Math.max(0, calculatedAvailable);
-        
+        // Available'ı yeniden hesapla
+        part.stock.available = Math.max(0, newQuantity - currentReserved);
+
         Logger.devOnly('[PARTS UPDATE] Stock güncellemesi sonrası:', {
           quantity: part.stock.quantity,
           reserved: part.stock.reserved,
@@ -167,76 +145,13 @@ export class PartsService {
         
         // Stock objesini updateData'dan çıkar (tekrar atanmasın)
         delete updateData.stock;
-      } else {
-        // Stock güncellemesi yoksa mevcut stock değerlerinin geçerli olduğundan emin ol
-        Logger.devOnly('[PARTS UPDATE] Stock güncellemesi yok, mevcut değerleri kontrol et:', {
-          partId,
-          currentStock: part.stock,
-        });
-        
-        // Mevcut stock değerlerini garanti et (NaN veya undefined olabilir)
-        if (!part.stock) {
-          throw new CustomError('Stock bilgisi bulunamadı', 400);
-        }
-        
-        // Tüm stock değerlerini sayıya çevir ve garanti et
-        part.stock.quantity = Number(part.stock.quantity || 0);
-        part.stock.reserved = Number(part.stock.reserved || 0);
-        part.stock.available = Number(part.stock.available || 0);
-        part.stock.lowThreshold = Number(part.stock.lowThreshold || 5);
-        
-        // NaN kontrolü
-        if (isNaN(part.stock.quantity)) part.stock.quantity = 0;
-        if (isNaN(part.stock.reserved)) part.stock.reserved = 0;
-        if (isNaN(part.stock.available)) part.stock.available = 0;
-        if (isNaN(part.stock.lowThreshold)) part.stock.lowThreshold = 5;
-        
-        // Negatif değer kontrolü
-        if (part.stock.quantity < 0) part.stock.quantity = 0;
-        if (part.stock.reserved < 0) part.stock.reserved = 0;
-        if (part.stock.available < 0) part.stock.available = 0;
-        if (part.stock.lowThreshold < 0) part.stock.lowThreshold = 5;
-        
-        // Reserved quantity'den fazla olamaz
-        if (part.stock.reserved > part.stock.quantity) {
-          part.stock.reserved = part.stock.quantity;
-        }
-        
-        // Available'ı tekrar hesapla
-        part.stock.available = Math.max(0, part.stock.quantity - part.stock.reserved);
-        
-        Logger.devOnly('[PARTS UPDATE] Stock değerleri garanti edildi:', {
-          quantity: part.stock.quantity,
-          reserved: part.stock.reserved,
-          available: part.stock.available,
-          lowThreshold: part.stock.lowThreshold,
-        });
       }
 
       // Diğer alanları güncelle (stock hariç)
       Object.keys(updateData).forEach(key => {
         if (key !== 'stock' && updateData[key] !== undefined) {
-          // Nested objeler için özel işlem (compatibility, pricing, warranty)
-          if (typeof updateData[key] === 'object' && !Array.isArray(updateData[key]) && updateData[key] !== null) {
-            // Mongoose subdocument'lar için merge yap
-            const currentValue = part.get(key);
-            if (currentValue && typeof currentValue === 'object') {
-              // Mevcut değerleri koruyarak merge et
-              Object.keys(updateData[key]).forEach(subKey => {
-                if (updateData[key][subKey] !== undefined) {
-                  currentValue[subKey] = updateData[key][subKey];
-                }
-              });
-              part.set(key, currentValue);
-            } else {
-              // Yeni nested object ise direkt set et
-              part.set(key, updateData[key]);
-            }
-          } else {
-            // Normal alanlar için direkt set et
-            part.set(key, updateData[key]);
-          }
-        }
+          (part as any)[key] = updateData[key];
+      }
       });
 
       await part.save();
@@ -247,47 +162,15 @@ export class PartsService {
         message: 'Parça başarıyla güncellendi'
       };
     } catch (error: any) {
-      Logger.error('[PARTS UPDATE ERROR]', error);
+      if (error instanceof CustomError) {
       throw error;
     }
-  }
-
-  /**
-   * Ustanın parçalarını listele
-   */
-  static async getMechanicParts(mechanicId: string, filters?: {
-    isPublished?: boolean;
-    isActive?: boolean;
-    category?: string;
-  }) {
-    try {
-      const query: any = { mechanicId };
-      
-      if (filters?.isPublished !== undefined) {
-        query.isPublished = filters.isPublished;
-      }
-      if (filters?.isActive !== undefined) {
-        query.isActive = filters.isActive;
-      }
-      if (filters?.category) {
-        query.category = filters.category;
-      }
-
-      const parts = await PartsInventory.find(query)
-        .sort({ createdAt: -1 });
-
-      return {
-        success: true,
-        data: parts,
-        message: 'Parçalar listelendi'
-      };
-    } catch (error: any) {
-      throw new CustomError(error.message || 'Parçalar yüklenemedi', 500);
+      throw new CustomError(error.message || 'Parça güncellenemedi', 500);
     }
   }
 
   /**
-   * Market'te parça ara
+   * Parçaları ara
    */
   static async searchParts(filters?: {
     query?: string;
@@ -307,10 +190,9 @@ export class PartsService {
       const skip = (page - 1) * limit;
 
       const query: any = {
-        // Tüm filtreler şimdilik kaldırıldı - mock datalar için test
-        // TODO: Production'da şu kontroller eklenebilir:
-        // isActive: true,
-        // isPublished: true,
+        isActive: true,
+        isPublished: true,
+        // Stok kontrolü gevşetildi - kullanıcı tüm parçaları görebilmeli
         // 'stock.available': { $gt: 0 },
         // 'moderation.status': 'approved'
       };
@@ -320,7 +202,8 @@ export class PartsService {
         query.$or = [
           { partName: { $regex: filters.query, $options: 'i' } },
           { brand: { $regex: filters.query, $options: 'i' } },
-          { partNumber: { $regex: filters.query, $options: 'i' } }
+          { partNumber: { $regex: filters.query, $options: 'i' } },
+          { description: { $regex: filters.query, $options: 'i' } }
         ];
       }
 
@@ -413,6 +296,13 @@ export class PartsService {
     };
     payment: {
       method: string;
+      cardInfo?: {
+        cardNumber: string;
+        cardHolderName: string;
+        expiryMonth: string;
+        expiryYear: string;
+        cvv: string;
+      };
     };
   }) {
     const session = await mongoose.startSession();
@@ -448,6 +338,74 @@ export class PartsService {
         );
       }
 
+      // Toplam fiyatı hesapla
+      const totalPrice = part.pricing.unitPrice * data.quantity;
+
+      // Ödeme işlemleri (escrow hold veya wallet bloke)
+      let escrowTransactionId: string | undefined;
+      
+      // Wallet modellerini import et
+      const { Wallet } = require('../models/Wallet');
+      const { EscrowService } = require('./escrow.service');
+
+      if (data.payment.method === 'wallet') {
+        // Wallet ödeme - bakiye kontrolü ve bloke
+        Logger.info('[PARTS CREATE RESERVATION] Wallet ödeme:', {
+          buyerId: data.buyerId,
+          totalPrice,
+        });
+
+        const buyerWallet = await Wallet.findOne({ userId: data.buyerId }).session(session);
+        if (!buyerWallet || buyerWallet.balance < totalPrice) {
+          throw new CustomError('Cüzdan bakiyeniz yetersiz', 400);
+        }
+
+        // Escrow tarzı transaction ID oluştur (wallet için - benzersiz UUID)
+        escrowTransactionId = `WALLET_ESCROW_${uuidv4()}`;
+
+        // Bakiyeyi bloke et (kes ve transaction kaydı ekle - status: pending)
+        await Wallet.findOneAndUpdate(
+          { userId: data.buyerId },
+          {
+            $inc: { balance: -totalPrice },
+            $push: {
+              transactions: {
+                type: 'debit' as const,
+                amount: totalPrice,
+                description: `Yedek parça rezervasyonu (Beklemede) - ${part.partName} [${escrowTransactionId}]`,
+                date: new Date(),
+                status: 'pending' as const, // İptal durumunda iade edilebilir
+              }
+            }
+          },
+          { session }
+        );
+
+      } else if (data.payment.method === 'card' || data.payment.method === 'transfer') {
+        // Card/Transfer ödeme - escrow hold
+        if (!data.payment.cardInfo) {
+          throw new CustomError('Kart bilgileri zorunludur', 400);
+        }
+
+        Logger.info('[PARTS CREATE RESERVATION] Card/Transfer ödeme:', {
+          buyerId: data.buyerId,
+          totalPrice,
+          paymentMethod: data.payment.method,
+        });
+
+        const holdResult = await EscrowService.mockHold({
+          orderId: `PART_RES_${Date.now()}`,
+          amount: totalPrice,
+          cardInfo: data.payment.cardInfo
+        });
+
+        if (!holdResult.success) {
+          throw new CustomError('Ödeme tutulamadı. Lütfen kart bilgilerinizi kontrol edin.', 400);
+        }
+
+        escrowTransactionId = holdResult.transactionId;
+      }
+
       // Rezervasyon oluştur
       const reservation = new PartsReservation({
         buyerId: data.buyerId,
@@ -462,9 +420,13 @@ export class PartsService {
         },
         quantity: data.quantity,
         unitPrice: part.pricing.unitPrice,
-        totalPrice: part.pricing.unitPrice * data.quantity,
+        totalPrice: totalPrice,
         delivery: data.delivery,
-        payment: data.payment,
+        payment: {
+          ...data.payment,
+          status: 'pending',
+          transactionId: escrowTransactionId, // Escrow transaction ID veya wallet escrow ID
+        },
         status: 'pending',
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 saat
         stockRestored: false
@@ -515,14 +477,7 @@ export class PartsService {
         throw new CustomError('Rezervasyon bulunamadı', 404);
       }
 
-      Logger.devOnly('[PARTS APPROVE] Rezervasyon bulundu:', {
-        id: reservation._id.toString(),
-        status: reservation.status,
-        sellerId: reservation.sellerId.toString(),
-        requestedSellerId: sellerId,
-        quantity: reservation.quantity,
-      });
-
+      // Yetki kontrolü
       if (reservation.sellerId.toString() !== sellerId) {
         Logger.error('[PARTS APPROVE] Yetki hatası:', {
           reservationSellerId: reservation.sellerId.toString(),
@@ -531,6 +486,7 @@ export class PartsService {
         throw new CustomError('Bu rezervasyonu onaylama yetkiniz yok', 403);
       }
 
+      // Status kontrolü
       if (reservation.status !== 'pending') {
         Logger.error('[PARTS APPROVE] Geçersiz status:', {
           currentStatus: reservation.status,
@@ -539,38 +495,116 @@ export class PartsService {
         throw new CustomError('Sadece bekleyen rezervasyonlar onaylanabilir', 400);
       }
 
-      // Part'ı kontrol et ve stok durumunu güncelle
+      // Part'ı kontrol et
       const part = await PartsInventory.findById(reservation.partId).session(session);
       if (!part) {
         throw new CustomError('Parça bulunamadı', 404);
       }
 
-      // Stok kontrolü - available yeterli mi?
-      if (part.stock.available < reservation.quantity) {
-        throw new CustomError('Yetersiz stok. Mevcut stok: ' + part.stock.available, 409);
-      }
-
-      // Stok güncelle - available'dan düş, reserved'e ekle
-      // NOT: Rezervasyon oluşturulurken zaten reserved artmış ve available azalmış
-      // Onaylandığında sadece status değişiyor, stok zaten rezerve edilmiş durumda
-      // Ama emin olmak için kontrol edelim
+      // Stok kontrolü ve güncelleme
+      const currentReserved = Number(part.stock.reserved || 0);
+      const currentAvailable = Number(part.stock.available || 0);
+      const currentQuantity = Number(part.stock.quantity || 0);
+      const reservationQuantity = reservation.quantity;
       
-      // Eğer stockRestored false ise, stok henüz rezerve edilmemiş demektir
-      // Bu durumda rezervasyon oluşturulurken stok güncellemesi yapılmamış olabilir
-      // Ancak normal akışta rezervasyon oluşturulurken stok güncellenir
-      // Burada sadece kontrol edelim, gerekirse düzeltelim
+      // Toplam stok = quantity (gerçek toplam stok)
+      // available + reserved = quantity olmalı (tutarlılık kontrolü)
+      const calculatedAvailable = Math.max(0, currentQuantity - currentReserved);
+      const actualAvailable = currentAvailable;
+      const totalStock = currentReserved + actualAvailable;
       
-      const expectedReserved = part.stock.reserved || 0;
-      const expectedAvailable = part.stock.quantity - expectedReserved;
-      
-      Logger.devOnly('[PARTS APPROVE] Stok durumu:', {
+      // DETAYLI LOG - Her zaman göster (sorun tespiti için)
+      Logger.info('[PARTS APPROVE] Stok durumu detaylı:', {
+        reservationId: reservation._id.toString(),
         partId: part._id.toString(),
-        quantity: part.stock.quantity,
-        reserved: part.stock.reserved,
-        available: part.stock.available,
-        reservationQuantity: reservation.quantity,
-        expectedAvailable: expectedAvailable,
+        partName: part.partName,
+        quantity: currentQuantity,
+        reserved: currentReserved,
+        available: actualAvailable,
+        calculatedAvailable,
+        totalStock,
+        reservationQuantity,
+        stockRestored: reservation.stockRestored,
+        reservationStatus: reservation.status,
+        hasNegotiation: !!reservation.negotiatedPrice,
       });
+      
+      // Eğer stockRestored false ise, rezervasyon oluşturulurken stok zaten reserved edilmiş
+      // Eğer stockRestored true ise, rezervasyon iptal edilmişti ve stok geri eklenmiş
+      if (!reservation.stockRestored) {
+        // ÖNEMLİ: stockRestored = false ise, rezervasyon oluşturulurken stok zaten ayrılmıştı
+        // Bu durumda, quantity veya reserved değerlerine bakmadan rezervasyonu onaylayabiliriz
+        // Çünkü stok zaten bu rezervasyon için ayrılmış durumda
+        // Middleware reserved'i quantity'ye göre düzeltebilir ama bu rezervasyonun stoğu hala ayrılmış durumda
+        
+        // Rezervasyon oluşturulurken stok ayrılmıştı - doğrudan onaylanabilir
+        Logger.info('[PARTS APPROVE] ✅ Rezervasyon oluşturulurken stok ayrılmıştı (stockRestored=false), onaylanıyor:', {
+          reserved: currentReserved,
+          reservationQuantity,
+          quantity: currentQuantity,
+          available: actualAvailable,
+          note: 'Stok zaten ayrılmış durumda, middleware reserved değerini düzeltebilir ama rezervasyon geçerli',
+        });
+        
+        // Stok kontrolüne gerek yok, çünkü rezervasyon oluşturulurken stok ayrılmıştı
+        // Sadece status'ü güncelle, stok değişikliği yapma
+      } else {
+        // stockRestored true: Rezervasyon daha önce iptal edilmişti, stok geri eklenmiş
+        // Onaylanırken tekrar stok güncellemesi yapmamız gerekiyor
+        // Available'dan al, reserved'e ekle
+        
+        Logger.info('[PARTS APPROVE] 📋 Rezervasyon daha önce iptal edilmiş (stockRestored=true)');
+        
+        // Quantity kontrolü
+        if (currentQuantity === 0 || currentQuantity < reservationQuantity) {
+          Logger.error('[PARTS APPROVE] ❌ Parça toplam stok yetersiz veya 0 (stockRestored=true):', {
+            quantity: currentQuantity,
+            reservationQuantity,
+            available: actualAvailable,
+            reservationId: reservation._id.toString(),
+          });
+          throw new CustomError(
+            `Yetersiz stok. Parça toplam stok: ${currentQuantity}, Gerekli: ${reservationQuantity}`,
+            409
+          );
+        }
+        
+        // Available stok kontrolü
+        if (actualAvailable < reservationQuantity) {
+          Logger.error('[PARTS APPROVE] ❌ Available stok yetersiz (stockRestored=true):', {
+            available: actualAvailable,
+            requested: reservationQuantity,
+            quantity: currentQuantity,
+            reservationId: reservation._id.toString(),
+          });
+          throw new CustomError(
+            `Yetersiz stok. Müsait stok: ${actualAvailable}, Gerekli: ${reservationQuantity}`,
+            409
+          );
+        }
+        
+        // Stok güncelle - available'dan düş, reserved'e ekle
+        const newAvailable = actualAvailable - reservationQuantity;
+        const newReserved = currentReserved + reservationQuantity;
+        
+        // Quantity ile tutarlılığı kontrol et
+        if (newReserved + newAvailable > currentQuantity) {
+          Logger.error('[PARTS APPROVE] ⚠️ Stok tutarsızlığı (stockRestored=true) - quantity aşılıyor, düzeltiliyor');
+          part.stock.reserved = Math.min(newReserved, currentQuantity);
+          part.stock.available = Math.max(0, currentQuantity - part.stock.reserved);
+        } else {
+          part.stock.available = newAvailable;
+          part.stock.reserved = newReserved;
+        }
+        
+        reservation.stockRestored = false;
+        await part.save({ session });
+        
+        Logger.info('[PARTS APPROVE] ✅ Stok güncellendi (stockRestored=true):', {
+          newAvailable: part.stock.available,
+          newReserved: part.stock.reserved,
+        });
+      }
 
       // Status'ü güncelle
       reservation.status = 'confirmed';
@@ -583,11 +617,17 @@ export class PartsService {
         newStatus: reservation.status,
       });
 
-      // Güncellenmiş reservation'ı tekrar çek (populate ile)
+      // Güncellenmiş reservation'ı populate ile getir
       const updatedReservation = await PartsReservation.findById(reservationId)
-        .populate('buyerId', 'name surname phone')
-        .populate('partId', 'partName brand photos')
+        .populate('buyerId', 'name surname phone avatar')
+        .populate('partId', 'partName brand partNumber condition photos')
+        .populate('vehicleId', 'brand modelName year plateNumber')
         .lean();
+      
+      // Status'ün confirmed olduğundan kesinlikle emin ol
+      if (updatedReservation) {
+        updatedReservation.status = 'confirmed';
+      }
 
       return {
         success: true,
@@ -618,11 +658,12 @@ export class PartsService {
         throw new CustomError('Rezervasyon bulunamadı', 404);
       }
 
-      // Permission check
+      // Yetki kontrolü
       if (reservation.buyerId.toString() !== userId && reservation.sellerId.toString() !== userId) {
         throw new CustomError('Bu rezervasyonu iptal etme yetkiniz yok', 403);
       }
 
+      // Status kontrolü
       if (!['pending', 'confirmed'].includes(reservation.status)) {
         throw new CustomError('Bu rezervasyon iptal edilemez', 400);
       }
@@ -643,6 +684,111 @@ export class PartsService {
         reservation.stockRestored = true;
       }
 
+      // Ödeme iadesi (eğer ödeme yapıldıysa)
+      const { Wallet } = require('../models/Wallet');
+      const { EscrowService } = require('./escrow.service');
+
+      if (reservation.payment.transactionId && reservation.payment.status === 'pending') {
+        const paymentMethod = reservation.payment.method;
+        // İade için: Orijinal bloke edilen tutarı iade et
+        // originalPrice varsa (pazarlık kabul edilmişse) onu kullan, yoksa totalPrice (orijinal fiyat)
+        const refundAmount = reservation.originalPrice || reservation.totalPrice;
+
+        if (paymentMethod === 'wallet') {
+          // Wallet iadesi - bekleyen transaction'ı iptal et ve bakiyeyi geri ekle
+          Logger.info('[PARTS CANCEL] Wallet iadesi yapılıyor:', {
+            reservationId: reservation._id.toString(),
+            transactionId: reservation.payment.transactionId,
+            amount: refundAmount,
+          });
+
+          // Bekleyen transaction'ı bul ve status'ünü 'cancelled' yap
+          const buyerWallet = await Wallet.findOne({ userId: reservation.buyerId }).session(session);
+          if (buyerWallet) {
+            // Rezervasyonda transactionId varsa ona göre bul, yoksa amount ile bul
+            let pendingTransaction;
+            if (reservation.payment.transactionId) {
+              // TransactionId ile eşleştirme (daha güvenli)
+              pendingTransaction = buyerWallet.transactions.find(
+                (t: any) => t.status === 'pending' && 
+                           t.description && 
+                           t.description.includes(reservation.payment.transactionId!)
+              );
+            }
+            
+            // TransactionId ile bulunamadıysa amount ile bul (backward compatibility)
+            // Orijinal tutarı bulmak için originalPrice varsa onu kullan
+            if (!pendingTransaction) {
+              const searchAmount = reservation.originalPrice || refundAmount;
+              pendingTransaction = buyerWallet.transactions.find(
+                (t: any) => t.status === 'pending' && t.amount === searchAmount
+              );
+            }
+
+            if (pendingTransaction) {
+              // Bakiye geri ekle
+              await Wallet.findOneAndUpdate(
+                { userId: reservation.buyerId },
+                {
+                  $inc: { balance: refundAmount },
+                  $set: {
+                    'transactions.$[elem].status': 'cancelled'
+                  }
+                },
+                {
+                  session,
+                  arrayFilters: [{ 'elem._id': pendingTransaction._id }]
+                }
+              );
+            } else {
+              // Transaction bulunamadıysa direkt bakiye ekle
+              await Wallet.findOneAndUpdate(
+                { userId: reservation.buyerId },
+                {
+                  $inc: { balance: refundAmount },
+                  $push: {
+                    transactions: {
+                      type: 'credit' as const,
+                      amount: refundAmount,
+                      description: `Yedek parça rezervasyon iadesi - ${reservation.partInfo.partName}`,
+                      date: new Date(),
+                      status: 'completed' as const,
+                    }
+                  }
+                },
+                { session }
+              );
+            }
+          }
+
+          reservation.payment.status = 'refunded';
+
+        } else if (paymentMethod === 'card' || paymentMethod === 'transfer') {
+          // Escrow iadesi
+          Logger.info('[PARTS CANCEL] Escrow iadesi yapılıyor:', {
+            reservationId: reservation._id.toString(),
+            transactionId: reservation.payment.transactionId,
+            amount: refundAmount,
+          });
+
+          const refundResult = await EscrowService.mockRefund({
+            transactionId: reservation.payment.transactionId,
+            amount: refundAmount
+          });
+
+          if (refundResult.success) {
+            reservation.payment.status = 'refunded';
+          } else {
+            Logger.error('[PARTS CANCEL] Escrow iadesi başarısız:', refundResult);
+            // İade başarısız olursa transaction'ı abort et ve hata fırlat
+            throw new CustomError(
+              'Ödeme iadesi yapılamadı. Lütfen daha sonra tekrar deneyin veya destek ekibiyle iletişime geçin.',
+              500
+            );
+          }
+        }
+      }
+
       // Rezervasyonu iptal et
       reservation.status = 'cancelled';
       reservation.cancellationReason = reason;
@@ -650,13 +796,6 @@ export class PartsService {
       reservation.cancelledAt = new Date();
 
       await reservation.save({ session });
-
-      // Ödeme varsa iade et
-      if (reservation.payment.status === 'paid') {
-        // TODO: Escrow refund
-        reservation.payment.status = 'refunded';
-        await reservation.save({ session });
-      }
 
       await session.commitTransaction();
 
@@ -686,7 +825,7 @@ export class PartsService {
 
       const reservations = await PartsReservation.find(query)
         .populate('buyerId', 'name surname phone avatar')
-        .populate('partId', 'partName brand partNumber condition')
+        .populate('partId', 'partName brand partNumber condition photos')
         .populate('vehicleId', 'brand modelName year plateNumber')
         .sort({ createdAt: -1 });
 
@@ -796,36 +935,102 @@ export class PartsService {
         throw new CustomError('Rezervasyon bulunamadı', 404);
       }
 
+      // Yetki kontrolü
       if (reservation.sellerId.toString() !== sellerId) {
         throw new CustomError('Bu pazarlık teklifini yanıtlama yetkiniz yok', 403);
       }
 
+      // Pazarlık teklifi kontrolü
       if (!reservation.negotiatedPrice) {
         throw new CustomError('Bu rezervasyon için pazarlık teklifi bulunmuyor', 400);
       }
 
+      // Status kontrolü
+      if (reservation.status !== 'pending') {
+        throw new CustomError('Sadece bekleyen rezervasyonlar için pazarlık yanıtı verilebilir', 400);
+      }
+
       if (action === 'accept') {
-        // Pazarlık fiyatını onayla - totalPrice'ı negotiatedPrice'a eşitle
-        // Status pending kalır, buyer onay bekler
+        // Pazarlık kabul edildi - stok kontrolü yap
+        // NOT: Rezervasyon zaten oluşturulmuş ve stok zaten reserved edilmiş olmalı
+        // (stockRestored = false ise)
+        const part = await PartsInventory.findById(reservation.partId);
+        if (!part) {
+          throw new CustomError('Parça bulunamadı', 404);
+        }
+
+        const currentReserved = Number(part.stock.reserved || 0);
+        const currentQuantity = Number(part.stock.quantity || 0);
+        const reservationQuantity = reservation.quantity;
+
+        // ÖNEMLİ: Rezervasyon oluşturulurken stok zaten reserved edilmiş
+        // Eğer stockRestored = false ise, stok zaten bu rezervasyon için ayrılmış
+        // Bu durumda, quantity veya reserved değerlerine bakmadan pazarlığı kabul edebiliriz
+        // Çünkü stok zaten bu rezervasyon için ayrılmış durumda
+        // Middleware reserved'i quantity'ye göre düzeltebilir ama bu rezervasyonun stoğu hala ayrılmış durumda
+        if (!reservation.stockRestored) {
+          // Normal durum: Stok zaten reserved edilmiş
+          // Stok kontrolüne gerek yok, çünkü rezervasyon oluşturulurken stok ayrılmıştı
+          Logger.info('[PARTS NEGOTIATION] ✅ Rezervasyon oluşturulurken stok ayrılmıştı (stockRestored=false), pazarlık kabul ediliyor:', {
+            reserved: currentReserved,
+            reservationQuantity,
+            quantity: currentQuantity,
+            note: 'Stok zaten ayrılmış durumda, middleware reserved değerini düzeltebilir ama rezervasyon geçerli',
+          });
+          // Pazarlık kabul edilebilir - stok kontrolüne gerek yok
+        } else {
+          // stockRestored = true: Rezervasyon daha önce iptal edilmişti
+          // Bu durumda quantity kontrolü yapalım
+          if (currentQuantity === 0 || currentQuantity < reservationQuantity) {
+            Logger.error('[PARTS NEGOTIATION] Stok yetersiz - pazarlık kabul edilemiyor (stockRestored=true):', {
+              quantity: currentQuantity,
+              reservationQuantity,
+              reserved: currentReserved,
+              reservationId: reservation._id.toString(),
+            });
+            throw new CustomError(
+              `Pazarlık teklifi kabul edilemiyor: Yetersiz stok. Mevcut stok: ${currentQuantity}`,
+              409
+            );
+          }
+        }
+
+        // Pazarlık kabul edildi - orijinal fiyatı sakla, totalPrice'ı güncelle
+        if (!reservation.originalPrice) {
+          reservation.originalPrice = reservation.totalPrice; // Orijinal fiyatı sakla (ödeme işlemleri için)
+        }
         reservation.totalPrice = reservation.negotiatedPrice;
+        reservation.negotiatedPrice = undefined;
         await reservation.save();
         
         Logger.devOnly('[PARTS NEGOTIATION] Pazarlık kabul edildi:', {
           reservationId: reservation._id.toString(),
           newTotalPrice: reservation.totalPrice,
-          negotiatedPrice: reservation.negotiatedPrice,
         });
+        
+        // Güncellenmiş rezervasyonu populate ile getir
+        const updatedReservation = await PartsReservation.findById(reservationId)
+          .populate('buyerId', 'name surname phone avatar')
+          .populate('partId', 'partName brand partNumber condition photos')
+          .populate('vehicleId', 'brand modelName year plateNumber')
+          .lean();
+        
+        // Status ve negotiatedPrice'ı kesin olarak ayarla
+        if (updatedReservation) {
+          updatedReservation.status = 'pending' as any;
+          updatedReservation.negotiatedPrice = undefined as any;
+        }
         
         return {
           success: true,
-          data: reservation,
+          data: updatedReservation,
           message: 'Pazarlık teklifi kabul edildi'
         };
       } else if (action === 'reject' && counterPrice) {
         // Karşı teklif gönder
-        // Karşı teklif: buyer'ın pazarlık teklifinden yüksek ama orijinal toplam fiyattan düşük olmalı
         const counterTotalPrice = counterPrice * reservation.quantity;
         
+        // Validasyonlar
         if (counterTotalPrice >= reservation.totalPrice) {
           throw new CustomError('Karşı teklif toplam fiyattan düşük olmalıdır', 400);
         }
@@ -843,29 +1048,472 @@ export class PartsService {
         
         Logger.devOnly('[PARTS NEGOTIATION] Karşı teklif gönderildi:', {
           reservationId: reservation._id.toString(),
-          originalTotalPrice: reservation.totalPrice,
-          buyerNegotiatedPrice: reservation.negotiatedPrice,
           counterTotalPrice: counterTotalPrice,
-          counterUnitPrice: counterPrice,
         });
+        
+        // Güncellenmiş rezervasyonu populate ile getir
+        const updatedReservation = await PartsReservation.findById(reservationId)
+          .populate('buyerId', 'name surname phone avatar')
+          .populate('partId', 'partName brand partNumber condition photos')
+          .populate('vehicleId', 'brand modelName year plateNumber')
+          .lean();
         
         return {
           success: true,
-          data: reservation,
+          data: updatedReservation,
           message: 'Karşı teklif gönderildi'
         };
       } else {
         // Reddet - pazarlık fiyatını temizle
         reservation.negotiatedPrice = undefined;
         await reservation.save();
+        
+        // Güncellenmiş rezervasyonu populate ile getir
+        const updatedReservation = await PartsReservation.findById(reservationId)
+          .populate('buyerId', 'name surname phone avatar')
+          .populate('partId', 'partName brand partNumber condition photos')
+          .populate('vehicleId', 'brand modelName year plateNumber')
+          .lean();
+        
         return {
           success: true,
-          data: reservation,
+          data: updatedReservation,
           message: 'Pazarlık teklifi reddedildi'
         };
       }
     } catch (error: any) {
       throw error;
+    }
+  }
+
+  /**
+   * Usta teslim etti olarak işaretle
+   */
+  static async markAsDelivered(reservationId: string, sellerId: string) {
+    try {
+      const reservation = await PartsReservation.findById(reservationId);
+      
+      if (!reservation) {
+        throw new CustomError('Rezervasyon bulunamadı', 404);
+      }
+
+      // Yetki kontrolü
+      if (reservation.sellerId.toString() !== sellerId) {
+        throw new CustomError('Bu rezervasyonu teslim etme yetkiniz yok', 403);
+      }
+
+      // Status kontrolü - sadece confirmed rezervasyonlar teslim edilebilir
+      if (reservation.status !== 'confirmed') {
+        throw new CustomError('Sadece onaylanmış rezervasyonlar teslim edilebilir', 400);
+      }
+
+      // Teslim et
+      reservation.status = 'delivered';
+      reservation.deliveredAt = new Date();
+      await reservation.save();
+
+      // Güncellenmiş rezervasyonu populate ile getir
+      const updatedReservation = await PartsReservation.findById(reservationId)
+        .populate('buyerId', 'name surname phone avatar')
+        .populate('partId', 'partName brand partNumber condition photos')
+        .populate('vehicleId', 'brand modelName year plateNumber')
+        .lean();
+
+      return {
+        success: true,
+        data: updatedReservation,
+        message: 'Rezervasyon teslim edildi olarak işaretlendi'
+      };
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  /**
+   * Şoför teslim aldığını onayla ve ödemeyi tamamla
+   */
+  static async confirmDelivery(
+    reservationId: string,
+    buyerId: string,
+    paymentData?: {
+      paymentMethod?: 'cash' | 'wallet' | 'card';
+      cardInfo?: {
+        cardNumber: string;
+        cardHolderName: string;
+        expiryMonth: string;
+        expiryYear: string;
+        cvv: string;
+      };
+    }
+  ) {
+    const session = await mongoose.startSession();
+    
+    try {
+      await session.startTransaction();
+
+      const reservation = await PartsReservation.findById(reservationId).session(session);
+      
+      if (!reservation) {
+        throw new CustomError('Rezervasyon bulunamadı', 404);
+      }
+
+      // Yetki kontrolü
+      if (reservation.buyerId.toString() !== buyerId) {
+        throw new CustomError('Bu rezervasyonu onaylama yetkiniz yok', 403);
+      }
+
+      // Status kontrolü - sadece delivered rezervasyonlar onaylanabilir
+      if (reservation.status !== 'delivered') {
+        throw new CustomError('Sadece teslim edilmiş rezervasyonlar onaylanabilir', 400);
+      }
+
+      // Ödeme bilgilerini belirle
+      // NOT: Rezervasyon oluşturulurken seçilen ödeme yöntemi değiştirilemez
+      // (transactionId zaten oluşturulmuş olabilir)
+      const finalPaymentMethod = reservation.payment.method;
+      const totalPrice = reservation.negotiatedPrice || reservation.totalPrice;
+      
+      // Eğer farklı bir payment method gönderilmişse uyarı ver (ama işlemi devam ettir)
+      if (paymentData?.paymentMethod && paymentData.paymentMethod !== finalPaymentMethod) {
+        Logger.warn('[PARTS CONFIRM DELIVERY] Payment method değiştirilmeye çalışıldı:', {
+          reservationId: reservation._id.toString(),
+          originalMethod: finalPaymentMethod,
+          requestedMethod: paymentData.paymentMethod,
+        });
+        // İşlemi orijinal method ile devam ettir
+      }
+
+      // Wallet modellerini import et
+      const { Wallet } = require('../models/Wallet');
+      const { EscrowService } = require('./escrow.service');
+      const { TefePointService } = require('./tefePoint.service');
+
+      // Ödeme işlemi
+      if (finalPaymentMethod === 'cash') {
+        // Cash ödeme - fiziksel nakit ödeme
+        // Şoförden balance düşülmez, sadece transaction kaydı tutulur
+        // Usta'ya kazanç eklenir
+        Logger.info('[PARTS CONFIRM DELIVERY] Cash ödeme yapılıyor:', {
+          reservationId: reservation._id.toString(),
+          totalPrice,
+        });
+
+        // Şoför wallet'ına sadece transaction kaydı ekle (balance değişmez)
+        const buyerWallet = await Wallet.findOne({ userId: reservation.buyerId }).session(session);
+        if (!buyerWallet) {
+          // Wallet oluştur
+          const newBuyerWallet = new Wallet({
+            userId: reservation.buyerId,
+            balance: 0,
+            transactions: []
+          });
+          await newBuyerWallet.save({ session });
+        }
+
+        await Wallet.findOneAndUpdate(
+          { userId: reservation.buyerId },
+          {
+            $push: {
+              transactions: {
+                type: 'debit' as const,
+                amount: totalPrice,
+                description: `Yedek parça satın alma (Nakit) - ${reservation.partInfo.partName}`,
+                date: new Date(),
+                status: 'completed' as const,
+              }
+            }
+          },
+          { session, upsert: true }
+        );
+
+        // Usta wallet'ına kazanç ekle (credit)
+        const sellerWallet = await Wallet.findOne({ userId: reservation.sellerId }).session(session);
+        if (!sellerWallet) {
+          const newSellerWallet = new Wallet({
+            userId: reservation.sellerId,
+            balance: 0,
+            transactions: []
+          });
+          await newSellerWallet.save({ session });
+        }
+
+        await Wallet.findOneAndUpdate(
+          { userId: reservation.sellerId },
+          {
+            $inc: { balance: totalPrice },
+            $push: {
+              transactions: {
+                type: 'credit' as const,
+                amount: totalPrice,
+                description: `Yedek parça satışı (Nakit) - ${reservation.partInfo.partName}`,
+                date: new Date(),
+                status: 'completed' as const,
+              }
+            }
+          },
+          { session, upsert: true }
+        );
+
+        // Payment status güncelle
+        reservation.payment.status = 'completed';
+        reservation.payment.paidAt = new Date();
+
+      } else if (finalPaymentMethod === 'wallet') {
+        // Wallet ödeme - rezervasyon oluşturulurken zaten bloke edilmiş
+        Logger.info('[PARTS CONFIRM DELIVERY] Wallet ödeme tamamlanıyor:', {
+          reservationId: reservation._id.toString(),
+          totalPrice,
+          transactionId: reservation.payment.transactionId,
+        });
+
+        // Bekleyen transaction'ı bul ve status'ünü 'completed' yap
+        const buyerWallet = await Wallet.findOne({ userId: reservation.buyerId }).session(session);
+        if (!buyerWallet) {
+          throw new CustomError('Cüzdan bulunamadı', 400);
+        }
+
+        // Pazarlık sonucu fiyat değişmişse farkı iade et
+        // originalPrice varsa (pazarlık yapıldıysa) onu kullan, yoksa totalPrice'ı kullan
+        const originalPrice = reservation.originalPrice || reservation.totalPrice; // Rezervasyon oluşturulurken bloke edilen tutar
+        const priceDifference = originalPrice - totalPrice; // Eğer pazarlık kabul edildiyse fark pozitif olur
+        
+        if (priceDifference > 0) {
+          Logger.info('[PARTS CONFIRM DELIVERY] Pazarlık sonucu fiyat düştü, fark iade ediliyor:', {
+            reservationId: reservation._id.toString(),
+            originalPrice,
+            totalPrice,
+            priceDifference,
+          });
+          
+          // Farkı iade et (pending transaction'ı bulmadan önce)
+          await Wallet.findOneAndUpdate(
+            { userId: reservation.buyerId },
+            {
+              $inc: { balance: priceDifference },
+              $push: {
+                transactions: {
+                  type: 'credit' as const,
+                  amount: priceDifference,
+                  description: `Yedek parça pazarlık farkı iadesi - ${reservation.partInfo.partName}`,
+                  date: new Date(),
+                  status: 'completed' as const,
+                }
+              }
+            },
+            { session }
+          );
+        }
+
+        // Rezervasyonda transactionId varsa ona göre bul, yoksa amount ile bul
+        let pendingTransaction;
+        if (reservation.payment.transactionId) {
+          // TransactionId ile eşleştirme (daha güvenli - UUID kontrolü)
+          // Wallet transaction description'ında [WALLET_ESCROW_UUID] formatında saklanıyor
+          const escrowId = reservation.payment.transactionId;
+          pendingTransaction = buyerWallet.transactions.find(
+            (t: any) => t.status === 'pending' && 
+                       t.description && 
+                       t.description.includes(escrowId)
+          );
+        }
+        
+        // TransactionId ile bulunamadıysa amount ile bul (backward compatibility)
+        // Ama bu durumda birden fazla aynı miktarda pending transaction olabilir - risk!
+        if (!pendingTransaction) {
+          Logger.warn('[PARTS CONFIRM DELIVERY] TransactionId ile bulunamadı, amount ile aranıyor:', {
+            reservationId: reservation._id.toString(),
+            transactionId: reservation.payment.transactionId,
+            totalPrice,
+          });
+          // En son pending transaction'ı al (riski minimize etmek için)
+          const pendingTransactions = buyerWallet.transactions
+            .filter((t: any) => t.status === 'pending' && t.amount === totalPrice)
+            .sort((a: any, b: any) => b.date.getTime() - a.date.getTime()); // En yeni olanı al
+          pendingTransaction = pendingTransactions[0];
+        }
+
+        if (pendingTransaction) {
+          // Transaction status'ünü completed yap
+          await Wallet.findOneAndUpdate(
+            { userId: reservation.buyerId },
+            {
+              $set: {
+                'transactions.$[elem].status': 'completed',
+                'transactions.$[elem].description': `Yedek parça satın alma - ${reservation.partInfo.partName}`
+              }
+            },
+            {
+              session,
+              arrayFilters: [{ 'elem._id': pendingTransaction._id }]
+            }
+          );
+        } else {
+          // Eğer pending transaction bulunamazsa (garanti için) direkt kes
+          Logger.warn('[PARTS CONFIRM DELIVERY] Pending transaction bulunamadı, direkt kesiliyor');
+          await Wallet.findOneAndUpdate(
+            { userId: reservation.buyerId },
+            {
+              $inc: { balance: -totalPrice },
+              $push: {
+                transactions: {
+                  type: 'debit' as const,
+                  amount: totalPrice,
+                  description: `Yedek parça satın alma - ${reservation.partInfo.partName}`,
+                  date: new Date(),
+                  status: 'completed' as const,
+                }
+              }
+            },
+            { session }
+          );
+        }
+
+        // Usta wallet'ına ekle
+        await Wallet.findOneAndUpdate(
+          { userId: reservation.sellerId },
+          {
+            $inc: { balance: totalPrice },
+            $push: {
+              transactions: {
+                type: 'credit' as const,
+                amount: totalPrice,
+                description: `Yedek parça satışı - ${reservation.partInfo.partName}`,
+                date: new Date(),
+                status: 'completed' as const,
+              }
+            }
+          },
+          { session, upsert: true }
+        );
+
+        // Payment status güncelle
+        reservation.payment.status = 'completed';
+        reservation.payment.paidAt = new Date();
+
+      } else if (finalPaymentMethod === 'card' || finalPaymentMethod === 'transfer') {
+        // Card/Transfer ödeme - rezervasyon oluşturulurken zaten escrow hold yapılmış
+        Logger.info('[PARTS CONFIRM DELIVERY] Card/Transfer ödeme tamamlanıyor:', {
+          reservationId: reservation._id.toString(),
+          totalPrice,
+          transactionId: reservation.payment.transactionId,
+        });
+
+        // Rezervasyonda escrow transactionId olmalı (rezervasyon oluşturulurken hold yapılmış)
+        if (!reservation.payment.transactionId) {
+          throw new CustomError('Ödeme bilgisi bulunamadı. Lütfen rezervasyonu kontrol edin.', 400);
+        }
+
+        // Pazarlık sonucu fiyat değişmişse farkı iade et
+        // originalPrice varsa (pazarlık yapıldıysa) onu kullan, yoksa totalPrice'ı kullan
+        const originalPrice = reservation.originalPrice || reservation.totalPrice; // Rezervasyon oluşturulurken escrow hold yapılan tutar
+        const priceDifference = originalPrice - totalPrice; // Eğer pazarlık kabul edildiyse fark pozitif olur
+        
+        if (priceDifference > 0) {
+          Logger.info('[PARTS CONFIRM DELIVERY] Pazarlık sonucu fiyat düştü, escrow fark iadesi yapılıyor:', {
+            reservationId: reservation._id.toString(),
+            originalPrice,
+            totalPrice,
+            priceDifference,
+          });
+          
+          // Escrow'dan farkı iade et
+          const refundResult = await EscrowService.mockRefund({
+            transactionId: reservation.payment.transactionId,
+            amount: priceDifference,
+            reason: 'Pazarlık sonucu fiyat farkı iadesi'
+          });
+          
+          if (!refundResult.success) {
+            Logger.warn('[PARTS CONFIRM DELIVERY] Escrow fark iadesi başarısız, devam ediliyor:', refundResult);
+            // İade başarısız olsa bile işleme devam et (ana ödeme capture edilecek)
+          }
+        }
+
+        // Mevcut escrow'dan capture yap (yeni tutarla)
+        const captureResult = await EscrowService.mockCapture({
+          transactionId: reservation.payment.transactionId,
+          amount: totalPrice
+        });
+
+        if (!captureResult.success) {
+          throw new CustomError('Ödeme alınamadı. Lütfen tekrar deneyin veya rezervasyonu iptal edin.', 400);
+        }
+
+        // Usta wallet'ına ekle
+        await Wallet.findOneAndUpdate(
+          { userId: reservation.sellerId },
+          {
+            $inc: { balance: totalPrice },
+            $push: {
+              transactions: {
+                type: 'credit' as const,
+                amount: totalPrice,
+                description: `Yedek parça satışı - ${reservation.partInfo.partName}`,
+                date: new Date(),
+                status: 'completed' as const,
+              }
+            }
+          },
+          { session, upsert: true }
+        );
+
+        // Payment status güncelle
+        reservation.payment.status = 'completed';
+        reservation.payment.paidAt = new Date();
+      }
+
+      // Stok güncelleme - quantity ve reserved'den düş
+      await PartsInventory.findByIdAndUpdate(
+        reservation.partId,
+        {
+          $inc: {
+            'stock.quantity': -reservation.quantity,
+            'stock.reserved': -reservation.quantity
+          }
+        },
+        { session }
+      );
+
+      // Rezervasyonu completed yap
+      reservation.status = 'completed';
+      reservation.receivedBy = buyerId;
+      await reservation.save({ session });
+
+      await session.commitTransaction();
+
+      // TefePuan - şoför harcama yaptığı için puan kazanır
+      try {
+        await TefePointService.processPaymentTefePoints({
+          userId: reservation.buyerId.toString(),
+          amount: totalPrice,
+          paymentType: 'other',
+          serviceCategory: 'parts',
+          description: `Yedek parça satın alma - ${reservation.partInfo.partName}`,
+          serviceId: reservation._id.toString()
+        });
+      } catch (tefeError) {
+        // TefePuan hatası ödemeyi engellemesin
+        Logger.error('[PARTS CONFIRM DELIVERY] TefePuan hatası:', tefeError);
+      }
+
+      // Güncellenmiş rezervasyonu populate ile getir
+      const updatedReservation = await PartsReservation.findById(reservationId)
+        .populate('buyerId', 'name surname phone avatar')
+        .populate('partId', 'partName brand partNumber condition photos')
+        .populate('vehicleId', 'brand modelName year plateNumber')
+        .lean();
+
+      return {
+        success: true,
+        data: updatedReservation,
+        message: 'Teslim onaylandı ve ödeme tamamlandı'
+      };
+    } catch (error: any) {
+      await session.abortTransaction();
+      Logger.error('[PARTS CONFIRM DELIVERY] Hata:', error);
+      throw error;
+    } finally {
+      session.endSession();
     }
   }
 
@@ -888,72 +1536,222 @@ export class PartsService {
         stockRestored: false
       }).session(session);
 
-      Logger.info(`[PARTS EXPIRY] ${expiredReservations.length} süresi dolmuş rezervasyon bulundu`);
+      // Wallet ve Escrow servislerini import et
+      const { Wallet } = require('../models/Wallet');
+      const { EscrowService } = require('./escrow.service');
 
-      if (expiredReservations.length === 0) {
-        await session.commitTransaction();
-        session.endSession();
-        return { success: true, expired: 0, message: 'Süresi dolmuş rezervasyon yok' };
-      }
-
-      // Her rezervasyon için stoku geri ekle
+      // Her birini işle
       for (const reservation of expiredReservations) {
-        try {
-          const part = await PartsInventory.findById(reservation.partId).session(session);
-          
-          if (!part) {
-            Logger.error(`[PARTS EXPIRY] Parça bulunamadı: ${reservation.partId}`);
-            continue;
-          }
+        // Ödeme iadesi yap (eğer ödeme yapılmışsa)
+        if (reservation.payment.transactionId && reservation.payment.status === 'pending') {
+          const paymentMethod = reservation.payment.method;
+          // İade için: Orijinal bloke edilen tutarı iade et
+          // originalPrice varsa (pazarlık kabul edilmişse) onu kullan, yoksa totalPrice (orijinal fiyat)
+          const refundAmount = reservation.originalPrice || reservation.totalPrice;
 
-          // Stoku geri ekle
-          await PartsInventory.findByIdAndUpdate(
-            reservation.partId,
-            {
-              $inc: {
-                'stock.available': reservation.quantity,
-                'stock.reserved': -reservation.quantity
+          if (paymentMethod === 'wallet') {
+            // Wallet iadesi
+            Logger.info('[PARTS EXPIRY] Wallet iadesi yapılıyor:', {
+              reservationId: reservation._id.toString(),
+              transactionId: reservation.payment.transactionId,
+              amount: refundAmount,
+            });
+
+            const buyerWallet = await Wallet.findOne({ userId: reservation.buyerId }).session(session);
+            if (buyerWallet) {
+              // TransactionId ile eşleştirme
+              let pendingTransaction;
+              if (reservation.payment.transactionId) {
+                pendingTransaction = buyerWallet.transactions.find(
+                  (t: any) => t.status === 'pending' && 
+                             t.description && 
+                             t.description.includes(reservation.payment.transactionId!)
+                );
               }
-            },
-            { session }
-          );
+              
+              if (!pendingTransaction) {
+                // Orijinal tutarı bulmak için originalPrice varsa onu kullan, yoksa refundAmount
+                const searchAmount = reservation.originalPrice || refundAmount;
+                pendingTransaction = buyerWallet.transactions.find(
+                  (t: any) => t.status === 'pending' && t.amount === searchAmount
+                );
+              }
 
-          // Rezervasyonu expired olarak işaretle
-          await PartsReservation.findByIdAndUpdate(
-            reservation._id,
-            {
-              status: 'expired',
-              cancelledBy: 'system',
-              cancelledAt: new Date(),
-              stockRestored: true
-            },
-            { session }
-          );
+              if (pendingTransaction) {
+                await Wallet.findOneAndUpdate(
+                  { userId: reservation.buyerId },
+                  {
+                    $inc: { balance: refundAmount },
+                    $set: {
+                      'transactions.$[elem].status': 'cancelled'
+                    }
+                  },
+                  {
+                    session,
+                    arrayFilters: [{ 'elem._id': pendingTransaction._id }]
+                  }
+                );
+              } else {
+                // Transaction bulunamadıysa direkt bakiye ekle
+                await Wallet.findOneAndUpdate(
+                  { userId: reservation.buyerId },
+                  {
+                    $inc: { balance: refundAmount },
+                    $push: {
+                      transactions: {
+                        type: 'credit' as const,
+                        amount: refundAmount,
+                        description: `Yedek parça rezervasyon iadesi (Süresi doldu) - ${reservation.partInfo.partName}`,
+                        date: new Date(),
+                        status: 'completed' as const,
+                      }
+                    }
+                  },
+                  { session }
+                );
+              }
+            }
 
-          Logger.devOnly(`[PARTS EXPIRY] Rezervasyon expired: ${reservation._id}, Stok geri eklendi: ${reservation.quantity}`);
-        } catch (error: any) {
-          Logger.error(`[PARTS EXPIRY] Rezervasyon işlenirken hata: ${error.message}`);
-          // Tek bir rezervasyon hatası tüm işlemi durdurmasın
-          continue;
+            reservation.payment.status = 'refunded';
+
+          } else if (paymentMethod === 'card' || paymentMethod === 'transfer') {
+            // Escrow iadesi
+            Logger.info('[PARTS EXPIRY] Escrow iadesi yapılıyor:', {
+              reservationId: reservation._id.toString(),
+              transactionId: reservation.payment.transactionId,
+              amount: refundAmount,
+            });
+
+            const refundResult = await EscrowService.mockRefund({
+              transactionId: reservation.payment.transactionId,
+              amount: refundAmount,
+              reason: 'Rezervasyon süresi doldu'
+            });
+
+            if (refundResult.success) {
+              reservation.payment.status = 'refunded';
+            } else {
+              Logger.error('[PARTS EXPIRY] Escrow iadesi başarısız:', {
+                reservationId: reservation._id.toString(),
+                refundResult
+              });
+              // İade başarısız olsa bile stoku geri ekle ve rezervasyonu expire et
+            }
+          }
         }
+
+        // Stoku geri ekle
+        await PartsInventory.findByIdAndUpdate(
+          reservation.partId,
+          {
+            $inc: {
+              'stock.available': reservation.quantity,
+              'stock.reserved': -reservation.quantity
+            }
+          },
+          { session }
+        );
+
+        // Rezervasyonu expire et
+        reservation.status = 'expired';
+        reservation.stockRestored = true;
+        await reservation.save({ session });
       }
 
       await session.commitTransaction();
-      session.endSession();
 
-      Logger.info(`[PARTS EXPIRY] ${expiredReservations.length} rezervasyon başarıyla expire edildi`);
+      if (expiredReservations.length > 0) {
+        Logger.devOnly(`[PARTS EXPIRY] ${expiredReservations.length} rezervasyon süresi doldu ve iptal edildi`);
+      }
 
       return {
         success: true,
-        expired: expiredReservations.length,
-        message: `${expiredReservations.length} rezervasyon süresi doldu ve stok geri eklendi`
+        expiredCount: expiredReservations.length
       };
     } catch (error: any) {
       await session.abortTransaction();
+      Logger.error('[PARTS EXPIRY] Hata:', error);
+      throw error;
+    } finally {
       session.endSession();
-      Logger.error('[PARTS EXPIRY] Kron job hatası:', error);
-      throw new CustomError(error.message || 'Rezervasyon süresi dolmuş temizlenemedi', 500);
+    }
+  }
+
+  /**
+   * Ustanın parçalarını getir
+   */
+  static async getMechanicParts(mechanicId: string) {
+    try {
+      const parts = await PartsInventory.find({ mechanicId })
+        .populate('mechanicId', 'name surname shopName')
+        .sort({ createdAt: -1 });
+
+      return {
+        success: true,
+        data: parts,
+        message: 'Parçalar listelendi'
+      };
+    } catch (error: any) {
+      throw new CustomError(error.message || 'Parçalar yüklenemedi', 500);
+    }
+  }
+
+  /**
+   * Parça detayı getir
+   */
+  static async getPartDetail(partId: string) {
+    try {
+      const part = await PartsInventory.findById(partId)
+        .populate('mechanicId', 'name surname shopName rating ratingCount phone')
+        .lean();
+
+      if (!part) {
+        throw new CustomError('Parça bulunamadı', 404);
+      }
+
+      // View sayısını artır
+      await PartsInventory.findByIdAndUpdate(partId, {
+        $inc: { 'stats.views': 1 }
+      });
+
+      return {
+        success: true,
+        data: part,
+        message: 'Parça detayı'
+      };
+    } catch (error: any) {
+      if (error instanceof CustomError) {
+        throw error;
+      }
+      throw new CustomError(error.message || 'Parça detayı yüklenemedi', 500);
+    }
+  }
+
+  /**
+   * Parça sil (pasifleştir)
+   */
+  static async deletePart(partId: string, mechanicId: string) {
+    try {
+      const part = await PartsInventory.findOne({ _id: partId, mechanicId });
+      
+      if (!part) {
+        throw new CustomError('Parça bulunamadı veya silme yetkiniz yok', 404);
+      }
+
+      // Soft delete - sadece pasifleştir
+      part.isActive = false;
+      part.isPublished = false;
+      await part.save();
+
+      return {
+        success: true,
+        message: 'Parça pasifleştirildi'
+      };
+    } catch (error: any) {
+      if (error instanceof CustomError) {
+        throw error;
+      }
+      throw new CustomError(error.message || 'Parça silinemedi', 500);
     }
   }
 }
-

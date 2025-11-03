@@ -67,14 +67,14 @@ apiClient.interceptors.request.use(
       return config;
     } catch (error) {
       if (__DEV__) {
-        console.error('Request interceptor error:', error);
+      console.error('Request interceptor error:', error);
       }
       return Promise.reject(error);
     }
   },
   (error) => {
     if (__DEV__) {
-      console.error('Request interceptor error:', error);
+    console.error('Request interceptor error:', error);
     }
     return Promise.reject(error);
   }
@@ -242,7 +242,10 @@ apiClient.interceptors.response.use(
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         }).then(token => {
+          // Token'ı hem headers'a hem de config'e ekle
           originalRequest.headers['Authorization'] = 'Bearer ' + token;
+          originalRequest.headers.common = originalRequest.headers.common || {};
+          originalRequest.headers.common['Authorization'] = 'Bearer ' + token;
           return apiClient(originalRequest);
         }).catch(err => {
           return Promise.reject(err);
@@ -296,9 +299,24 @@ apiClient.interceptors.response.use(
             }
           }
 
-          // Header'ı güncelle
+          // Header'ı güncelle - tüm olası yerlerde
           apiClient.defaults.headers.common['Authorization'] = 'Bearer ' + newToken;
           originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
+          originalRequest.headers.common = originalRequest.headers.common || {};
+          originalRequest.headers.common['Authorization'] = 'Bearer ' + newToken;
+          
+          // Request config'i yeniden oluştur (axios immutable config sorunu için)
+          const updatedConfig = {
+            ...originalRequest,
+            headers: {
+              ...originalRequest.headers,
+              'Authorization': 'Bearer ' + newToken,
+              common: {
+                ...originalRequest.headers.common,
+                'Authorization': 'Bearer ' + newToken
+              }
+            }
+          };
 
           if (__DEV__) {
             console.log('Token başarıyla yenilendi');
@@ -307,8 +325,8 @@ apiClient.interceptors.response.use(
           processQueue(null, newToken);
           isRefreshing = false;
 
-          // Original request'i yeniden dene
-          return apiClient(originalRequest);
+          // Original request'i yeniden dene - güncellenmiş config ile
+          return apiClient(updatedConfig);
         } else {
           if (__DEV__) {
             console.error('Refresh response başarısız:', response.data);
@@ -377,17 +395,17 @@ apiClient.interceptors.response.use(
               console.warn('Refresh token geçersiz, oturum sonlandırılıyor. Error Code:', errorCode);
             }
             
-            await AsyncStorage.multiRemove([
-              STORAGE_KEYS.AUTH_TOKEN,
-              STORAGE_KEYS.REFRESH_TOKEN,
-              STORAGE_KEYS.USER_DATA,
-              STORAGE_KEYS.USER_ID
-            ]);
-            
-            // Hata döndür - kullanıcıya logout mesajı gösterilebilir
-            const customError = new Error('Oturumunuz sonlandırıldı. Lütfen tekrar giriş yapın.');
-            (customError as any).isAuthError = true;
-            return Promise.reject(customError);
+        await AsyncStorage.multiRemove([
+          STORAGE_KEYS.AUTH_TOKEN,
+          STORAGE_KEYS.REFRESH_TOKEN,
+          STORAGE_KEYS.USER_DATA,
+          STORAGE_KEYS.USER_ID
+        ]);
+        
+        // Hata döndür - kullanıcıya logout mesajı gösterilebilir
+        const customError = new Error('Oturumunuz sonlandırıldı. Lütfen tekrar giriş yapın.');
+        (customError as any).isAuthError = true;
+        return Promise.reject(customError);
           } else {
             // 401 ama gerçek auth hatası değil (belki rate limit veya başka bir durum)
             if (__DEV__) {
@@ -629,7 +647,7 @@ export const VehicleService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get vehicles error:', error);
+      console.error('Get vehicles error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -648,7 +666,7 @@ export const VehicleService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Add vehicle error:', error);
+      console.error('Add vehicle error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -667,7 +685,7 @@ export const VehicleService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Update vehicle error:', error);
+      console.error('Update vehicle error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -686,7 +704,7 @@ export const VehicleService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Delete vehicle error:', error);
+      console.error('Delete vehicle error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -710,7 +728,7 @@ export const AppointmentService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get appointments error:', error);
+      console.error('Get appointments error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -729,7 +747,7 @@ export const AppointmentService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Create appointment error:', error);
+      console.error('Create appointment error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -748,7 +766,7 @@ export const AppointmentService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Update appointment error:', error);
+      console.error('Update appointment error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -767,7 +785,7 @@ export const AppointmentService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Cancel appointment error:', error);
+      console.error('Cancel appointment error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -790,7 +808,7 @@ export const MechanicService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get mechanics error:', error);
+      console.error('Get mechanics error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -815,7 +833,7 @@ export const MechanicService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get nearby mechanics error:', error);
+      console.error('Get nearby mechanics error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -834,7 +852,7 @@ export const MechanicService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get mechanic details error:', error);
+      console.error('Get mechanic details error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -876,7 +894,7 @@ export const MessageService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get messages error:', error);
+      console.error('Get messages error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -895,7 +913,7 @@ export const MessageService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Send message error:', error);
+      console.error('Send message error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -930,7 +948,7 @@ export const NotificationService = {
       }
       
       if (__DEV__) {
-        console.error('Get notifications error:', error);
+      console.error('Get notifications error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -949,7 +967,7 @@ export const NotificationService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Mark notification as read error:', error);
+      console.error('Mark notification as read error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -968,7 +986,7 @@ export const NotificationService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Mark all notifications as read error:', error);
+      console.error('Mark all notifications as read error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -987,7 +1005,7 @@ export const NotificationService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Delete notification error:', error);
+      console.error('Delete notification error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1033,7 +1051,7 @@ export const PartsService = {
       }
       
       if (__DEV__) {
-        console.error('Search parts error:', error);
+      console.error('Search parts error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1052,7 +1070,7 @@ export const PartsService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get part detail error:', error);
+      console.error('Get part detail error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1082,7 +1100,7 @@ export const PartsService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Create reservation error:', error);
+      console.error('Create reservation error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1104,7 +1122,7 @@ export const PartsService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Cancel reservation error:', error);
+      console.error('Cancel reservation error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1123,7 +1141,7 @@ export const PartsService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get my reservations error:', error);
+      console.error('Get my reservations error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1157,6 +1175,184 @@ export const PartsService = {
         error.response?.data?.error?.details
       );
     }
+  },
+
+  /**
+   * Teslim aldığını onayla ve ödemeyi tamamla
+   */
+  async confirmDelivery(
+    reservationId: string,
+    paymentData?: {
+      paymentMethod?: 'cash' | 'wallet' | 'card';
+      cardInfo?: {
+        cardNumber: string;
+        cardHolderName: string;
+        expiryMonth: string;
+        expiryYear: string;
+        cvv: string;
+      };
+    }
+  ): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/parts/reservations/${reservationId}/confirm-delivery`, paymentData);
+      return response.data;
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Confirm delivery error:', error);
+      }
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Teslim onaylanamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  }
+};
+
+// ===== BODYWORK SERVICES =====
+
+export const BodyworkService = {
+  /**
+   * Müşteri bodywork işi oluştur
+   */
+  async createBodyworkJob(data: {
+    vehicleId: string;
+    mechanicId?: string;
+    damageInfo: {
+      description: string;
+      photos: string[];
+      videos?: string[];
+      damageType: 'collision' | 'scratch' | 'dent' | 'rust' | 'paint_damage' | 'other';
+      severity: 'minor' | 'moderate' | 'major' | 'severe';
+      affectedAreas: string[];
+      estimatedRepairTime: number;
+    };
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post('/bodywork/customer/create', data);
+      return response.data;
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Create bodywork job error:', error);
+      }
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Kaporta işi oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Müşteri bodywork işlerini getir
+   */
+  async getBodyworkJobs(status?: string, page?: number, limit?: number): Promise<ApiResponse<any>> {
+    try {
+      const params: any = {};
+      if (status) params.status = status;
+      if (page) params.page = page;
+      if (limit) params.limit = limit;
+      const response = await apiClient.get('/bodywork/customer/jobs', { params });
+      return {
+        ...response.data,
+        pagination: response.data.pagination
+      };
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Get bodywork jobs error:', error);
+      }
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Kaporta işleri getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Bodywork iş detayını getir
+   */
+  async getBodyworkJobById(jobId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get(`/bodywork/customer/${jobId}`);
+      return response.data;
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Get bodywork job error:', error);
+      }
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'İş detayı getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Teklif onaylama/reddetme
+   */
+  async respondToQuote(jobId: string, action: 'accept' | 'reject', rejectionReason?: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/bodywork/${jobId}/customer/quote-response`, {
+        action,
+        rejectionReason
+      });
+      return response.data;
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Respond to quote error:', error);
+      }
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Teklif yanıtı verilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Aşama onayı
+   */
+  async approveStage(jobId: string, stage: string, approved: boolean, notes?: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/bodywork/${jobId}/customer/approve-stage`, {
+        stage,
+        approved,
+        notes
+      });
+      return response.data;
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Approve stage error:', error);
+      }
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Aşama onayı verilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Bodywork job ödeme işlemi
+   */
+  async processBodyworkPayment(jobId: string, amount: number, paymentMethod: 'cash' | 'card' | 'bank_transfer' = 'card'): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/bodywork/${jobId}/customer/payment`, {
+        amount,
+        paymentMethod
+      });
+      return response.data;
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Bodywork payment error:', error);
+      }
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Ödeme işlemi başarısız oldu',
+        error.response?.data?.error?.details
+      );
+    }
   }
 };
 
@@ -1176,7 +1372,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get user profile error:', error);
+      console.error('Get user profile error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1200,7 +1396,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get appointments error:', error);
+      console.error('Get appointments error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1239,7 +1435,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get mechanic details error:', error);
+      console.error('Get mechanic details error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1274,7 +1470,7 @@ export const apiService = {
       }
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get mechanic reviews error:', error);
+      console.error('Get mechanic reviews error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1293,7 +1489,7 @@ export const apiService = {
       };
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Check favorite mechanic error:', error);
+      console.error('Check favorite mechanic error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1312,7 +1508,7 @@ export const apiService = {
       };
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Toggle favorite mechanic error:', error);
+      console.error('Toggle favorite mechanic error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1333,7 +1529,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get nearby mechanics error:', error);
+      console.error('Get nearby mechanics error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1350,7 +1546,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get mechanics by service error:', error);
+      console.error('Get mechanics by service error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1370,7 +1566,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Delete message error:', error);
+      console.error('Delete message error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1385,7 +1581,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Delete conversation error:', error);
+      console.error('Delete conversation error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1408,7 +1604,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Create fault report error:', error);
+      console.error('Create fault report error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1425,7 +1621,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Create emergency towing request error:', error);
+      console.error('Create emergency towing request error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1442,7 +1638,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get wallet balance error:', error);
+      console.error('Get wallet balance error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1457,7 +1653,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get wallet transactions error:', error);
+      console.error('Get wallet transactions error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1471,7 +1667,7 @@ export const apiService = {
       // Frontend'de amount validation
       if (!amount || typeof amount !== 'number' || amount <= 0 || amount > 999999999) {
         if (__DEV__) {
-          console.error('Invalid amount for addBalance:', amount);
+        console.error('Invalid amount for addBalance:', amount);
         }
         return createErrorResponse(
           ErrorCode.INVALID_INPUT_FORMAT,
@@ -1484,7 +1680,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Add balance error:', error);
+      console.error('Add balance error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1502,7 +1698,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Create tire parts request error:', error);
+      console.error('Create tire parts request error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1528,7 +1724,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get wash quote error:', error);
+      console.error('Get wash quote error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1545,7 +1741,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Create wash order error:', error);
+      console.error('Create wash order error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1562,7 +1758,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get wash order error:', error);
+      console.error('Get wash order error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1579,7 +1775,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Cancel wash order error:', error);
+      console.error('Cancel wash order error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1599,7 +1795,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Approve wash QA error:', error);
+      console.error('Approve wash QA error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1618,7 +1814,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get my wash orders error:', error);
+      console.error('Get my wash orders error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1640,7 +1836,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get wash providers error:', error);
+      console.error('Get wash providers error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1661,7 +1857,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get available wash slots error:', error);
+      console.error('Get available wash slots error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1678,7 +1874,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get wash packages error:', error);
+      console.error('Get wash packages error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1695,7 +1891,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Create wash package error:', error);
+      console.error('Create wash package error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1712,7 +1908,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get my wash packages error:', error);
+      console.error('Get my wash packages error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1729,7 +1925,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Update wash package error:', error);
+      console.error('Update wash package error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1746,7 +1942,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Delete wash package error:', error);
+      console.error('Delete wash package error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1763,7 +1959,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get mechanic wash packages error:', error);
+      console.error('Get mechanic wash packages error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1779,7 +1975,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Create wash booking error:', error);
+      console.error('Create wash booking error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1788,7 +1984,52 @@ export const apiService = {
       );
     }
   },
-  
+
+  uploadBodyworkMedia: async (uri: string, mediaType: 'image' | 'video' = 'image'): Promise<ApiResponse<{ url: string }>> => {
+    try {
+      const formData = new FormData();
+      const filename = uri.split('/').pop() || 'media';
+      const match = /\.(\w+)$/.exec(filename);
+      const ext = match ? match[1] : 'jpg';
+      
+      const isVideo = mediaType === 'video' || uri.includes('video') || uri.includes('.mp4') || uri.includes('.mov');
+      const fileType = isVideo 
+        ? `video/${ext === 'mov' ? 'quicktime' : 'mp4'}` 
+        : `image/${ext === 'jpg' || ext === 'jpeg' ? 'jpeg' : ext}`;
+
+      formData.append('media', {
+        uri,
+        type: fileType,
+        name: filename,
+      } as any);
+
+      const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      
+      const response = await axios.post(
+        `${API_CONFIG.BASE_URL}/upload/bodywork`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'Authorization': `Bearer ${token}`,
+          },
+          timeout: 30000, // 30 saniye (video için daha uzun)
+        }
+      );
+
+      return response.data;
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Upload bodywork media error:', error);
+      }
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Dosya yüklenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
   // Generic GET method for TefePuan and other services
   get: async (endpoint: string, params?: any) => {
     try {
@@ -1796,7 +2037,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error(`GET ${endpoint} error:`, error);
+      console.error(`GET ${endpoint} error:`, error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1813,7 +2054,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error(`POST ${endpoint} error:`, error);
+      console.error(`POST ${endpoint} error:`, error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1822,6 +2063,14 @@ export const apiService = {
       );
     }
   },
+
+  // Bodywork Services
+  createBodyworkJob: BodyworkService.createBodyworkJob,
+  getBodyworkJobs: BodyworkService.getBodyworkJobs,
+  getBodyworkJobById: BodyworkService.getBodyworkJobById,
+  respondToQuote: BodyworkService.respondToQuote,
+  approveStage: BodyworkService.approveStage,
+  processBodyworkPayment: BodyworkService.processBodyworkPayment,
 
   // Photo Upload
   uploadProfilePhoto: async (uri: string) => {
@@ -1919,7 +2168,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Create tire service request error:', error);
+      console.error('Create tire service request error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1936,7 +2185,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get my tire requests error:', error);
+      console.error('Get my tire requests error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1953,7 +2202,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get tire service by ID error:', error);
+      console.error('Get tire service by ID error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1970,7 +2219,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get tire health history error:', error);
+      console.error('Get tire health history error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -1997,6 +2246,7 @@ export const apiService = {
   // Kullanıcı rezervasyonlarını getir
   getMyPartsReservations: PartsService.getMyReservations,
   negotiateReservationPrice: PartsService.negotiateReservationPrice,
+  confirmPartsDelivery: PartsService.confirmDelivery,
 
   // Campaigns/Ads
   getAds: async () => {
@@ -2005,7 +2255,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get ads error:', error);
+      console.error('Get ads error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -2022,7 +2272,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get mechanic rating stats error:', error);
+      console.error('Get mechanic rating stats error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -2039,7 +2289,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Become customer error:', error);
+      console.error('Become customer error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -2056,7 +2306,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Remove customer error:', error);
+      console.error('Remove customer error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -2073,7 +2323,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Get notification settings error:', error);
+      console.error('Get notification settings error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -2089,7 +2339,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Update notification settings error:', error);
+      console.error('Update notification settings error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -2105,7 +2355,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Update push token error:', error);
+      console.error('Update push token error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -2121,7 +2371,7 @@ export const apiService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Create notification error:', error);
+      console.error('Create notification error:', error);
       }
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,

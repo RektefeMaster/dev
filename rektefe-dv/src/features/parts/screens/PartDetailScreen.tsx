@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '@/navigation/AppNavigator';
@@ -89,16 +89,62 @@ const PartDetailScreen = () => {
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
   const [deliveryMethod, setDeliveryMethod] = useState<'pickup' | 'standard' | 'express'>('pickup');
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'transfer'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'transfer' | 'wallet'>('cash');
   const [reserving, setReserving] = useState(false);
   const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [cardInfo, setCardInfo] = useState({
+    cardNumber: '',
+    cardHolderName: '',
+    expiryMonth: '',
+    expiryYear: '',
+    cvv: '',
+  });
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [loadingVehicles, setLoadingVehicles] = useState(false);
+  const [userReservation, setUserReservation] = useState<any>(null);
+  const [loadingReservation, setLoadingReservation] = useState(false);
 
   useEffect(() => {
     fetchPartDetail();
     fetchVehicles();
   }, [partId]);
+
+  const fetchUserReservation = useCallback(async () => {
+    if (!partId) return;
+    
+    try {
+      setLoadingReservation(true);
+      const response = await apiService.getMyPartsReservations();
+      
+      if (response.success && response.data) {
+        const reservations = Array.isArray(response.data) ? response.data : [];
+        // Bu parça için aktif (pending veya confirmed) rezervasyonu bul
+        const activeReservation = reservations.find(
+          (res: any) => {
+            const resPartId = res.partId?._id || res.partId;
+            return resPartId === partId && (res.status === 'pending' || res.status === 'confirmed');
+          }
+        );
+        setUserReservation(activeReservation || null);
+      }
+    } catch (error) {
+      console.error('Rezervasyon kontrolü hatası:', error);
+      // Hata durumunda sessizce devam et
+    } finally {
+      setLoadingReservation(false);
+    }
+  }, [partId]);
+
+  useEffect(() => {
+    fetchUserReservation();
+  }, [fetchUserReservation]);
+
+  // Ekran odaklandığında rezervasyonu güncelle
+  useFocusEffect(
+    useCallback(() => {
+      fetchUserReservation();
+    }, [fetchUserReservation])
+  );
 
   const fetchVehicles = async () => {
     try {
@@ -160,6 +206,21 @@ const PartDetailScreen = () => {
       return;
     }
 
+    // Card/Transfer için cardInfo validasyonu
+    if ((paymentMethod === 'card' || paymentMethod === 'transfer') && !cardInfo.cardNumber.trim()) {
+      Alert.alert('Uyarı', 'Kart bilgilerini giriniz');
+      return;
+    }
+
+    // Card info validasyonu
+    if ((paymentMethod === 'card' || paymentMethod === 'transfer')) {
+      if (!cardInfo.cardNumber.trim() || !cardInfo.cardHolderName.trim() || 
+          !cardInfo.expiryMonth || !cardInfo.expiryYear || !cardInfo.cvv) {
+        Alert.alert('Uyarı', 'Tüm kart bilgilerini eksiksiz giriniz');
+        return;
+      }
+    }
+
     try {
       setReserving(true);
       const response = await apiService.createPartsReservation({
@@ -172,10 +233,13 @@ const PartDetailScreen = () => {
         },
         payment: {
           method: paymentMethod,
+          ...(paymentMethod === 'card' || paymentMethod === 'transfer' ? { cardInfo } : {}),
         },
       });
 
       if (response.success) {
+        // Rezervasyonu güncelle
+        await fetchUserReservation();
         Alert.alert(
           'Başarılı',
           'Rezervasyonunuz oluşturuldu. Usta onayı bekleniyor.',
@@ -185,7 +249,13 @@ const PartDetailScreen = () => {
               onPress: () => {
                 setShowReserveModal(false);
                 setDeliveryAddress('');
-                navigation.navigate('PartsReservations' as never);
+                setCardInfo({
+                  cardNumber: '',
+                  cardHolderName: '',
+                  expiryMonth: '',
+                  expiryYear: '',
+                  cvv: '',
+                });
               },
             },
           ]
@@ -198,6 +268,23 @@ const PartDetailScreen = () => {
       Alert.alert('Hata', 'Rezervasyon oluşturulamadı');
     } finally {
       setReserving(false);
+    }
+  };
+
+  const handleViewReservation = () => {
+    navigation.navigate('PartsReservations' as never);
+  };
+
+  const getReservationStatusText = () => {
+    if (!userReservation) return null;
+    
+    switch (userReservation.status) {
+      case 'pending':
+        return 'Rezervasyon Bekliyor';
+      case 'confirmed':
+        return 'Rezervasyon Onaylandı';
+      default:
+        return null;
     }
   };
 
@@ -639,20 +726,49 @@ const PartDetailScreen = () => {
         {/* Fixed Bottom Button */}
         {part.stock && (part.stock.available ?? 0) > 0 && part.pricing && typeof part.pricing.unitPrice === 'number' && (
           <View style={[styles.bottomContainer, { backgroundColor: theme.colors.background.primary }]}>
-            <View style={styles.priceTotal}>
-              <Text style={[styles.priceTotalLabel, { color: theme.colors.text.secondary }]}>
-                Toplam
-              </Text>
-              <Text style={[styles.priceTotalValue, { color: theme.colors.text.primary }]}>
-                {(part.pricing.unitPrice * quantity).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {part.pricing.currency || 'TRY'}
-              </Text>
-            </View>
-            <Button
-              title="Rezerve Et"
-              onPress={handleReserve}
-              style={styles.reserveButton}
-              disabled={(part.stock.available ?? 0) <= 0}
-            />
+            {userReservation ? (
+              // Aktif rezervasyon varsa durumu göster
+              <>
+                <View style={styles.priceTotal}>
+                  <Text style={[styles.priceTotalLabel, { color: theme.colors.text.secondary }]}>
+                    {getReservationStatusText()}
+                  </Text>
+                  <Text style={[styles.priceTotalValue, { 
+                    color: userReservation.status === 'confirmed' 
+                      ? theme.colors.success.main 
+                      : theme.colors.warning.main 
+                  }]}>
+                    {userReservation.status === 'confirmed' 
+                      ? 'Onaylandı' 
+                      : 'Bekliyor'}
+                  </Text>
+                </View>
+                <Button
+                  title="Rezervasyonu Görüntüle"
+                  onPress={handleViewReservation}
+                  style={styles.reserveButton}
+                  variant={userReservation.status === 'confirmed' ? 'primary' : 'outline'}
+                />
+              </>
+            ) : (
+              // Rezervasyon yoksa normal buton
+              <>
+                <View style={styles.priceTotal}>
+                  <Text style={[styles.priceTotalLabel, { color: theme.colors.text.secondary }]}>
+                    Toplam
+                  </Text>
+                  <Text style={[styles.priceTotalValue, { color: theme.colors.text.primary }]}>
+                    {(part.pricing.unitPrice * quantity).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {part.pricing.currency || 'TRY'}
+                  </Text>
+                </View>
+                <Button
+                  title="Rezerve Et"
+                  onPress={handleReserve}
+                  style={styles.reserveButton}
+                  disabled={(part.stock.available ?? 0) <= 0}
+                />
+              </>
+            )}
           </View>
         )}
 
@@ -825,7 +941,7 @@ const PartDetailScreen = () => {
                   <Text style={[styles.modalSectionTitle, { color: theme.colors.text.primary }]}>
                     Ödeme Yöntemi
                   </Text>
-                  {['cash', 'card', 'transfer'].map((method) => (
+                  {['cash', 'wallet', 'card', 'transfer'].map((method) => (
                     <TouchableOpacity
                       key={method}
                       style={[
@@ -840,7 +956,8 @@ const PartDetailScreen = () => {
                       <Ionicons
                         name={
                           method === 'cash' ? 'cash-outline' :
-                          method === 'card' ? 'card-outline' : 'wallet-outline'
+                          method === 'wallet' ? 'wallet-outline' :
+                          method === 'card' ? 'card-outline' : 'card-outline'
                         }
                         size={24}
                         color={paymentMethod === method ? theme.colors.primary.main : theme.colors.text.secondary}
@@ -850,10 +967,124 @@ const PartDetailScreen = () => {
                         { color: paymentMethod === method ? theme.colors.primary.main : theme.colors.text.primary }
                       ]}>
                         {method === 'cash' ? 'Kapıda Nakit' :
-                         method === 'card' ? 'Kapıda Kredi Kartı' : 'Havale/EFT'}
+                         method === 'wallet' ? 'Cüzdan' :
+                         method === 'card' ? 'Kredi Kartı' : 'Havale/EFT'}
                       </Text>
                     </TouchableOpacity>
                   ))}
+                  
+                  {/* Card Info Form (Card/Transfer için) */}
+                  {(paymentMethod === 'card' || paymentMethod === 'transfer') && (
+                    <View style={styles.cardInfoContainer}>
+                      <Text style={[styles.inputLabel, { color: theme.colors.text.primary, marginTop: 16 }]}>
+                        Kart Bilgileri
+                      </Text>
+                      
+                      <TextInput
+                        style={[
+                          styles.cardInput,
+                          {
+                            borderColor: theme.colors.border.primary,
+                            color: theme.colors.text.primary,
+                            backgroundColor: theme.colors.background.secondary,
+                          }
+                        ]}
+                        placeholder="Kart Numarası"
+                        placeholderTextColor={theme.colors.text.secondary}
+                        value={cardInfo.cardNumber}
+                        onChangeText={(text) => {
+                          // Sadece sayıları al ve 16 haneye sınırla
+                          const numbers = text.replace(/\D/g, '').slice(0, 16);
+                          setCardInfo({ ...cardInfo, cardNumber: numbers });
+                        }}
+                        keyboardType="numeric"
+                        maxLength={16}
+                      />
+                      
+                      <TextInput
+                        style={[
+                          styles.cardInput,
+                          {
+                            borderColor: theme.colors.border.primary,
+                            color: theme.colors.text.primary,
+                            backgroundColor: theme.colors.background.secondary,
+                          }
+                        ]}
+                        placeholder="Kart Üzerindeki İsim"
+                        placeholderTextColor={theme.colors.text.secondary}
+                        value={cardInfo.cardHolderName}
+                        onChangeText={(text) => setCardInfo({ ...cardInfo, cardHolderName: text })}
+                        autoCapitalize="words"
+                      />
+                      
+                      <View style={styles.cardRow}>
+                        <View style={styles.cardInputHalf}>
+                          <TextInput
+                            style={[
+                              styles.cardInput,
+                              {
+                                borderColor: theme.colors.border.primary,
+                                color: theme.colors.text.primary,
+                                backgroundColor: theme.colors.background.secondary,
+                              }
+                            ]}
+                            placeholder="Ay (MM)"
+                            placeholderTextColor={theme.colors.text.secondary}
+                            value={cardInfo.expiryMonth}
+                            onChangeText={(text) => {
+                              const numbers = text.replace(/\D/g, '').slice(0, 2);
+                              setCardInfo({ ...cardInfo, expiryMonth: numbers });
+                            }}
+                            keyboardType="numeric"
+                            maxLength={2}
+                          />
+                        </View>
+                        <View style={styles.cardInputHalf}>
+                          <TextInput
+                            style={[
+                              styles.cardInput,
+                              {
+                                borderColor: theme.colors.border.primary,
+                                color: theme.colors.text.primary,
+                                backgroundColor: theme.colors.background.secondary,
+                              }
+                            ]}
+                            placeholder="Yıl (YYYY)"
+                            placeholderTextColor={theme.colors.text.secondary}
+                            value={cardInfo.expiryYear}
+                            onChangeText={(text) => {
+                              const numbers = text.replace(/\D/g, '').slice(0, 4);
+                              setCardInfo({ ...cardInfo, expiryYear: numbers });
+                            }}
+                            keyboardType="numeric"
+                            maxLength={4}
+                          />
+                        </View>
+                        <View style={styles.cardInputHalf}>
+                          <TextInput
+                            style={[
+                              styles.cardInput,
+                              {
+                                borderColor: theme.colors.border.primary,
+                                color: theme.colors.text.primary,
+                                backgroundColor: theme.colors.background.secondary,
+                              }
+                            ]}
+                            placeholder="CVV"
+                            placeholderTextColor={theme.colors.text.secondary}
+                            value={cardInfo.cvv}
+                            onChangeText={(text) => {
+                              const numbers = text.replace(/\D/g, '').slice(0, 3);
+                              setCardInfo({ ...cardInfo, cvv: numbers });
+                            }}
+                            keyboardType="numeric"
+                            maxLength={3}
+                            secureTextEntry
+                          />
+                        </View>
+                      </View>
+                    </View>
+                  )}
                 </View>
 
                 {/* Total */}
@@ -1344,6 +1575,23 @@ const createStyles = (theme: any) => StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 8,
+  },
+  cardInfoContainer: {
+    marginTop: 12,
+  },
+  cardInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    marginBottom: 12,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  cardInputHalf: {
+    flex: 1,
   },
   addressInput: {
     borderWidth: 1,
