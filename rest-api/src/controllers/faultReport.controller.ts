@@ -1340,10 +1340,22 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
                                 faultReport.serviceCategory === 'Kaporta & Boya' ||
                                 faultReport.serviceCategory === 'kaporta-boya';
     
+    console.log('🔍 BodyworkJob kontrolü:', {
+      serviceCategory: faultReport.serviceCategory,
+      isBodyworkCategory,
+      finalMechanicId: finalMechanicId?.toString(),
+      finalMechanicIdType: typeof finalMechanicId
+    });
+    
     let bodyworkJob = null;
     if (isBodyworkCategory && finalMechanicId) {
       try {
         console.log('🔍 Kaporta/Boya kategorisi tespit edildi, BodyworkJob oluşturuluyor...');
+        console.log('🔍 BodyworkJob parametreleri:', {
+          customerId: userId,
+          vehicleId: faultReport.vehicleId.toString(),
+          mechanicId: finalMechanicId.toString()
+        });
         
         // Hasar tipini ve şiddetini varsayılan değerlerle belirle
         // İleride faultReport'tan çıkarılabilir veya kullanıcıdan sorulabilir
@@ -1367,6 +1379,12 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
           }
         });
         
+        console.log('🔍 BodyworkJob response:', {
+          success: bodyworkJobResponse.success,
+          hasData: !!bodyworkJobResponse.data,
+          message: bodyworkJobResponse.message
+        });
+        
         if (bodyworkJobResponse.success && bodyworkJobResponse.data) {
           bodyworkJob = bodyworkJobResponse.data;
           console.log('✅ BodyworkJob oluşturuldu:', bodyworkJob._id);
@@ -1374,12 +1392,26 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
           // FaultReport'a bodyworkJobId ekle (ileride referans için)
           (faultReport as any).bodyworkJobId = bodyworkJob._id;
           await faultReport.save();
+          console.log('✅ FaultReport bodyworkJobId güncellendi');
+        } else {
+          console.warn('⚠️ BodyworkJob oluşturulamadı:', bodyworkJobResponse);
         }
         
       } catch (bodyworkError: any) {
         console.error('❌ BodyworkJob oluşturulurken hata:', bodyworkError);
+        console.error('❌ Error details:', {
+          message: bodyworkError.message,
+          stack: bodyworkError.stack,
+          name: bodyworkError.name
+        });
         // BodyworkJob hatası randevu oluşturmayı durdurmamalı
       }
+    } else {
+      console.warn('⚠️ BodyworkJob oluşturulmadı:', {
+        isBodyworkCategory,
+        hasFinalMechanicId: !!finalMechanicId
+      });
+    }
     }
 
     res.json({
