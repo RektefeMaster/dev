@@ -1378,9 +1378,21 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
                         faultReport.priority === 'high' ? 'major' :
                         faultReport.priority === 'medium' ? 'moderate' : 'minor';
         
+        // vehicleId'yi doğru şekilde al (populate edilmişse _id'yi al)
+        let vehicleIdString: string;
+        if (faultReport.vehicleId && typeof faultReport.vehicleId === 'object' && '_id' in faultReport.vehicleId) {
+          vehicleIdString = (faultReport.vehicleId as any)._id.toString();
+        } else if (faultReport.vehicleId instanceof mongoose.Types.ObjectId) {
+          vehicleIdString = faultReport.vehicleId.toString();
+        } else {
+          vehicleIdString = String(faultReport.vehicleId);
+        }
+        
+        console.log('🔍 [DEBUG] vehicleId extracted:', vehicleIdString);
+        
         const bodyworkJobResponse = await BodyworkService.createBodyworkJob({
           customerId: userId,
-          vehicleId: faultReport.vehicleId.toString(),
+          vehicleId: vehicleIdString,
           mechanicId: finalMechanicId.toString(),
           damageInfo: {
             description: faultReport.faultDescription,
