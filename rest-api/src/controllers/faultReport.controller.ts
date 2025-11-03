@@ -1218,17 +1218,31 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
     // selectedQuote'dan mechanicId'yi al, null ise quotes array'inden bul
     let mechanicId: mongoose.Types.ObjectId | string | undefined | any = faultReport.selectedQuote?.mechanicId;
     
+    console.log('🔍 [DEBUG] selectedQuote.mechanicId:', {
+      raw: mechanicId,
+      type: typeof mechanicId,
+      isObject: typeof mechanicId === 'object',
+      hasId: mechanicId && typeof mechanicId === 'object' && '_id' in mechanicId,
+      isObjectId: mechanicId instanceof mongoose.Types.ObjectId
+    });
+    
     // mechanicId bir object ise (populate edilmiş), _id'yi al ve ObjectId'e çevir
     if (mechanicId) {
       if (typeof mechanicId === 'object' && '_id' in mechanicId) {
         mechanicId = new mongoose.Types.ObjectId(mechanicId._id);
+        console.log('🔍 [DEBUG] mechanicId extracted from _id:', mechanicId.toString());
       } else if (typeof mechanicId === 'object' && mechanicId.toString) {
         mechanicId = new mongoose.Types.ObjectId(String(mechanicId));
+        console.log('🔍 [DEBUG] mechanicId converted from object:', mechanicId.toString());
       } else if (typeof mechanicId === 'string') {
         mechanicId = new mongoose.Types.ObjectId(mechanicId);
+        console.log('🔍 [DEBUG] mechanicId converted from string:', mechanicId.toString());
       } else if (mechanicId instanceof mongoose.Types.ObjectId) {
+        console.log('🔍 [DEBUG] mechanicId already ObjectId:', mechanicId.toString());
         // Zaten ObjectId, değiştirme
       }
+    } else {
+      console.warn('⚠️ [DEBUG] selectedQuote.mechanicId is null/undefined');
     }
     
     if (!mechanicId) {
