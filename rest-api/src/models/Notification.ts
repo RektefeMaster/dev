@@ -5,7 +5,7 @@ export interface INotification extends Document {
   recipientType: 'mechanic' | 'driver';
   title: string;
   message: string;
-  type: 'appointment_request' | 'appointment_confirmed' | 'appointment_rejected' | 'appointment_cancelled' | 'payment_received' | 'payment_pending' | 'rating_received' | 'rating_reminder' | 'quote_received' | 'quote_accepted' | 'quote_rejected' | 'payment_confirmation' | 'new_message' | 'job_completed' | 'job_assigned' | 'reminder' | 'system' | 'promotion' | 'update' | 'fault_report' | 'towing_request' | 'wash_request' | 'tire_service' | 'garage_service' | 'wallet' | 'points' | 'general' | 'bodywork_quote_sent' | 'bodywork_quote_accepted' | 'bodywork_quote_rejected' | 'bodywork_stage_update' | 'bodywork_approval_request' | 'bodywork_job_completed';
+  type: 'appointment_request' | 'appointment_confirmed' | 'appointment_rejected' | 'appointment_cancelled' | 'payment_received' | 'payment_pending' | 'rating_received' | 'rating_reminder' | 'quote_received' | 'quote_accepted' | 'quote_rejected' | 'payment_confirmation' | 'new_message' | 'job_completed' | 'job_assigned' | 'reminder' | 'system' | 'promotion' | 'update' | 'fault_report' | 'towing_request' | 'wash_request' | 'tire_service' | 'garage_service' | 'wallet' | 'points' | 'general' | 'bodywork_quote_sent' | 'bodywork_quote_accepted' | 'bodywork_quote_rejected' | 'bodywork_stage_update' | 'bodywork_approval_request' | 'bodywork_job_completed' | 'electrical_quote_sent' | 'electrical_quote_accepted' | 'electrical_quote_rejected' | 'electrical_stage_approval' | 'electrical_stage_updated' | 'electrical_approval_requested' | 'electrical_job_completed';
   isRead: boolean;
   appointmentId?: mongoose.Types.ObjectId;
   userId?: mongoose.Types.ObjectId;
@@ -37,7 +37,7 @@ const notificationSchema = new Schema<INotification>({
   type: {
     type: String,
     required: true,
-    enum: ['appointment_request', 'appointment_confirmed', 'appointment_rejected', 'appointment_cancelled', 'payment_received', 'payment_pending', 'rating_received', 'rating_reminder', 'quote_received', 'quote_accepted', 'quote_rejected', 'payment_confirmation', 'new_message', 'job_completed', 'job_assigned', 'reminder', 'system', 'promotion', 'update', 'fault_report', 'towing_request', 'wash_request', 'tire_service', 'garage_service', 'wallet', 'points', 'general', 'bodywork_quote_sent', 'bodywork_quote_accepted', 'bodywork_quote_rejected', 'bodywork_stage_update', 'bodywork_approval_request', 'bodywork_job_completed']
+    enum: ['appointment_request', 'appointment_confirmed', 'appointment_rejected', 'appointment_cancelled', 'payment_received', 'payment_pending', 'rating_received', 'rating_reminder', 'quote_received', 'quote_accepted', 'quote_rejected', 'payment_confirmation', 'new_message', 'job_completed', 'job_assigned', 'reminder', 'system', 'promotion', 'update', 'fault_report', 'towing_request', 'wash_request', 'tire_service', 'garage_service', 'wallet', 'points', 'general', 'bodywork_quote_sent', 'bodywork_quote_accepted', 'bodywork_quote_rejected', 'bodywork_stage_update', 'bodywork_approval_request', 'bodywork_job_completed', 'electrical_quote_sent', 'electrical_quote_accepted', 'electrical_quote_rejected', 'electrical_stage_approval', 'electrical_stage_updated', 'electrical_approval_requested', 'electrical_job_completed']
   },
   isRead: {
     type: Boolean,
