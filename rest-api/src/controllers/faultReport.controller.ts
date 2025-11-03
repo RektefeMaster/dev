@@ -13,6 +13,7 @@ import {
   getCategoryQueryValues,
   getServiceTypeFromServiceCategory
 } from '../utils/serviceCategoryHelper';
+import { BodyworkService } from '../services/bodywork.service';
 import { FAULT_CATEGORY_TO_SERVICE_CATEGORY } from '../../../shared/types/enums';
 
 // Arıza bildirimi oluştur
@@ -294,6 +295,7 @@ export const getFaultReportById = async (req: Request, res: Response) => {
       .populate('quotes.mechanicId', 'name surname shopName phone rating experience')
       .populate('selectedQuote.mechanicId', 'name surname shopName phone rating experience')
       .populate('appointmentId')
+      .populate('bodyworkJobId', '_id status')
       .lean(); // 🚀 OPTIMIZE: Memory optimization
 
     if (!faultReport) {
@@ -327,7 +329,8 @@ export const getMechanicFaultReportById = async (req: Request, res: Response) =>
       .populate('vehicleId', 'brand modelName plateNumber year color engineType transmissionType fuelType engineSize mileage vehicleCondition')
       .populate('quotes.mechanicId', 'name surname shopName phone rating experience')
       .populate('selectedQuote.mechanicId', 'name surname shopName phone rating experience')
-      .populate('appointmentId');
+      .populate('appointmentId')
+      .populate('bodyworkJobId');
 
     if (!faultReport) {
       return res.status(404).json({
@@ -1215,6 +1218,13 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
     // selectedQuote'dan mechanicId'yi al, null ise quotes array'inden bul
     let mechanicId = faultReport.selectedQuote?.mechanicId;
     
+    // mechanicId bir object ise (populate edilmiş), _id'yi al
+    if (mechanicId && typeof mechanicId === 'object' && mechanicId._id) {
+      mechanicId = mechanicId._id;
+    } else if (mechanicId && typeof mechanicId === 'object') {
+      mechanicId = mechanicId.toString();
+    }
+    
     if (!mechanicId) {
       // Aynı fiyata sahip accepted quote'u bul
       const matchingQuote = faultReport.quotes.find(quote => 
@@ -1224,6 +1234,12 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
       
       if (matchingQuote) {
         mechanicId = matchingQuote.mechanicId;
+        // mechanicId bir object ise, _id'yi al
+        if (mechanicId && typeof mechanicId === 'object' && mechanicId._id) {
+          mechanicId = mechanicId._id;
+        } else if (mechanicId && typeof mechanicId === 'object') {
+          mechanicId = mechanicId.toString();
+        }
       }
     }
 
@@ -1234,12 +1250,21 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
       );
       if (anyQuote) {
         mechanicId = anyQuote.mechanicId;
+        // mechanicId bir object ise, _id'yi al
+        if (mechanicId && typeof mechanicId === 'object' && mechanicId._id) {
+          mechanicId = mechanicId._id;
+        } else if (mechanicId && typeof mechanicId === 'object') {
+          mechanicId = mechanicId.toString();
+        }
       }
     }
 
     // Eğer hala mechanicId yoksa, geçici bir ID oluştur
     if (!mechanicId) {
+      console.warn('⚠️ mechanicId bulunamadı, geçici ID oluşturuluyor');
       mechanicId = new mongoose.Types.ObjectId();
+    } else {
+      console.log('✅ mechanicId bulundu:', mechanicId);
     }
 
     // ServiceCategory'yi ServiceType'a çevir
@@ -1286,15 +1311,68 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
     await faultReport.save();
     console.log('✅ FaultReport güncellendi');
 
+    // Eğer Kaporta/Boya ise BodyworkJob oluştur
+    const isBodyworkCategory = faultReport.serviceCategory === 'Kaporta/Boya' || 
+                                faultReport.serviceCategory === 'Kaporta & Boya' ||
+                                faultReport.serviceCategory === 'kaporta-boya';
+    
+    let bodyworkJob = null;
+    if (isBodyworkCategory && mechanicId) {
+      try {
+        console.log('🔍 Kaporta/Boya kategorisi tespit edildi, BodyworkJob oluşturuluyor...');
+        
+        // Hasar tipini ve şiddetini varsayılan değerlerle belirle
+        // İleride faultReport'tan çıkarılabilir veya kullanıcıdan sorulabilir
+        const damageType = 'other'; // Varsayılan
+        const severity = faultReport.priority === 'urgent' ? 'severe' :
+                        faultReport.priority === 'high' ? 'major' :
+                        faultReport.priority === 'medium' ? 'moderate' : 'minor';
+        
+        const bodyworkJobResponse = await BodyworkService.createBodyworkJob({
+          customerId: userId,
+          vehicleId: faultReport.vehicleId.toString(),
+          mechanicId: mechanicId.toString(),
+          damageInfo: {
+            description: faultReport.faultDescription,
+            photos: faultReport.photos || [],
+            videos: faultReport.videos || [],
+            damageType: damageType as any,
+            severity: severity as any,
+            affectedAreas: [],
+            estimatedRepairTime: 7 // Varsayılan, usta güncelleyebilir
+          }
+        });
+        
+        if (bodyworkJobResponse.success && bodyworkJobResponse.data) {
+          bodyworkJob = bodyworkJobResponse.data;
+          console.log('✅ BodyworkJob oluşturuldu:', bodyworkJob._id);
+          
+          // FaultReport'a bodyworkJobId ekle (ileride referans için)
+          faultReport.bodyworkJobId = bodyworkJob._id;
+          await faultReport.save();
+        }
+        
+      } catch (bodyworkError: any) {
+        console.error('❌ BodyworkJob oluşturulurken hata:', bodyworkError);
+        // BodyworkJob hatası randevu oluşturmayı durdurmamalı
+      }
+    }
+
     res.json({
       success: true,
-      message: 'Randevu başarıyla oluşturuldu',
+      message: 'Randevu başarıyla oluşturuldu' + (bodyworkJob ? ' ve kaporta işi oluşturuldu' : ''),
       data: {
         appointment: {
           _id: appointment._id,
           price: appointment.price,
           status: appointment.status
-        }
+        },
+        ...(bodyworkJob && {
+          bodyworkJob: {
+            _id: bodyworkJob._id,
+            status: bodyworkJob.status
+          }
+        })
       }
     });
 
@@ -1312,6 +1390,119 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
     });
   }
 };
+
+// Kaporta/Boya kategorisindeki fault report'u bodywork job'a dönüştür
+export const convertToBodyworkJob = async (req: Request, res: Response) => {
+  try {
+    const { faultReportId } = req.params;
+    const { mechanicId } = req.body;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Kullanıcı kimliği bulunamadı'
+      });
+    }
+
+    if (!mechanicId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Usta ID gereklidir'
+      });
+    }
+
+    // FaultReport'u bul
+    const faultReport = await FaultReport.findById(faultReportId)
+      .populate('userId', 'name surname phone')
+      .populate('vehicleId', 'brand modelName plateNumber year');
+
+    if (!faultReport) {
+      return res.status(404).json({
+        success: false,
+        message: 'Arıza bildirimi bulunamadı'
+      });
+    }
+
+    // Kaporta/Boya kategorisi kontrolü
+    const isBodyworkCategory = faultReport.serviceCategory === 'Kaporta/Boya' || 
+                                faultReport.serviceCategory === 'Kaporta & Boya' ||
+                                faultReport.serviceCategory === 'kaporta-boya';
+    
+    if (!isBodyworkCategory) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bu arıza bildirimi Kaporta/Boya kategorisinde değil'
+      });
+    }
+
+    // Zaten dönüştürülmüş mü kontrol et
+    if (faultReport.bodyworkJobId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bu arıza bildirimi zaten kaporta işine dönüştürülmüş',
+        data: {
+          bodyworkJobId: faultReport.bodyworkJobId
+        }
+      });
+    }
+
+    // Hasar tipini ve şiddetini varsayılan değerlerle belirle
+    const damageType = 'other'; // Varsayılan
+    const severity = faultReport.priority === 'urgent' ? 'severe' :
+                    faultReport.priority === 'high' ? 'major' :
+                    faultReport.priority === 'medium' ? 'moderate' : 'minor';
+    
+    // BodyworkJob oluştur
+    const bodyworkJobResponse = await BodyworkService.createBodyworkJob({
+      customerId: faultReport.userId.toString(),
+      vehicleId: faultReport.vehicleId.toString(),
+      mechanicId: mechanicId,
+      damageInfo: {
+        description: faultReport.faultDescription,
+        photos: faultReport.photos || [],
+        videos: faultReport.videos || [],
+        damageType: damageType as any,
+        severity: severity as any,
+        affectedAreas: [],
+        estimatedRepairTime: 7 // Varsayılan, usta güncelleyebilir
+      }
+    });
+
+    if (bodyworkJobResponse.success && bodyworkJobResponse.data) {
+      const bodyworkJob = bodyworkJobResponse.data;
+      
+      // FaultReport'a bodyworkJobId ekle
+      faultReport.bodyworkJobId = bodyworkJob._id;
+      await faultReport.save();
+
+      return res.json({
+        success: true,
+        message: 'Arıza bildirimi kaporta işine dönüştürüldü',
+        data: {
+          bodyworkJob: {
+            _id: bodyworkJob._id,
+            status: bodyworkJob.status
+          }
+        }
+      });
+    } else {
+      return res.status(500).json({
+        success: false,
+        message: 'Kaporta işi oluşturulamadı'
+      });
+    }
+
+  } catch (error: any) {
+    console.error('❌ convertToBodyworkJob error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Dönüştürme işlemi sırasında bir hata oluştu',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 async function findNearbyMechanics(
   coordinates: [number, number] | undefined,
   serviceCategory: string,
