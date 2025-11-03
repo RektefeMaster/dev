@@ -1478,10 +1478,20 @@ export const convertToBodyworkJob = async (req: Request, res: Response) => {
                     faultReport.priority === 'medium' ? 'moderate' : 'minor';
     
     // BodyworkJob oluştur
+    // mechanicId parametre olarak geliyor, ObjectId'e çevir
+    let finalMechanicIdForConvert: mongoose.Types.ObjectId;
+    if (typeof mechanicId === 'string') {
+      finalMechanicIdForConvert = new mongoose.Types.ObjectId(mechanicId);
+    } else if (mechanicId instanceof mongoose.Types.ObjectId) {
+      finalMechanicIdForConvert = mechanicId;
+    } else {
+      finalMechanicIdForConvert = new mongoose.Types.ObjectId(String(mechanicId));
+    }
+    
     const bodyworkJobResponse = await BodyworkService.createBodyworkJob({
       customerId: faultReport.userId.toString(),
       vehicleId: faultReport.vehicleId.toString(),
-      mechanicId: mechanicId,
+      mechanicId: finalMechanicIdForConvert.toString(),
       damageInfo: {
         description: faultReport.faultDescription,
         photos: faultReport.photos || [],
