@@ -543,6 +543,45 @@ export class BodyworkService {
   /**
    * Ustanın kaporta işlerini getir
    */
+  /**
+   * Usta iş detayını getir
+   */
+  static async getMechanicBodyworkJobById(jobId: string, mechanicId: string) {
+    try {
+      // ObjectId validation
+      if (!mongoose.Types.ObjectId.isValid(jobId)) {
+        throw new CustomError('Geçersiz iş ID', 400);
+      }
+      if (!mongoose.Types.ObjectId.isValid(mechanicId)) {
+        throw new CustomError('Geçersiz usta ID', 400);
+      }
+
+      const job = await BodyworkJob.findOne({ 
+        _id: new mongoose.Types.ObjectId(jobId), 
+        mechanicId: new mongoose.Types.ObjectId(mechanicId) 
+      })
+        .populate('customerId', 'name surname phone email')
+        .populate('vehicleId', 'brand modelName plateNumber year')
+        .lean();
+
+      if (!job) {
+        throw new CustomError('İş bulunamadı veya erişim yetkiniz yok', 404);
+      }
+
+      return {
+        success: true,
+        data: job,
+        message: 'İş detayı getirildi'
+      };
+
+    } catch (error: any) {
+      if (error instanceof CustomError) {
+        throw error;
+      }
+      throw new CustomError('İş detayı getirilirken hata oluştu: ' + (error.message || 'Bilinmeyen hata'), 500);
+    }
+  }
+
   static async getMechanicBodyworkJobs(mechanicId: string, status?: string, page: number = 1, limit: number = 20) {
     try {
       // ObjectId validation

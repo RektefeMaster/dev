@@ -230,6 +230,10 @@ const HomeScreen = () => {
     navigation.navigate('FaultReportList');
   };
 
+  const handleCreateBodyworkJob = () => {
+    navigation.navigate('CreateBodyworkJob');
+  };
+
   const handleMechanicDetail = () => {
     console.log('🔍 handleMechanicDetail: Fonksiyon çağrıldı');
     console.log('🔍 nearestMechanic:', nearestMechanic);
@@ -355,6 +359,15 @@ const HomeScreen = () => {
                 <Text style={[styles.faultReportListButtonText, { color: theme.colors.text.primary }]}>Arıza Bildirimlerim</Text>
               </TouchableOpacity>
             </View>
+            
+            <TouchableOpacity 
+              style={[styles.bodyworkJobButton, { backgroundColor: '#FF6B35' }]}
+              onPress={handleCreateBodyworkJob}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="car-repair" size={20} color="white" />
+              <Text style={styles.bodyworkJobButtonText}>Kaporta İşi Oluştur</Text>
+            </TouchableOpacity>
             
             <TouchableOpacity 
               style={[styles.maintenanceButton, { backgroundColor: theme.colors.primary.main }]}
@@ -790,6 +803,20 @@ const styles = StyleSheet.create({
   faultReportListButtonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  bodyworkJobButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 8,
+    marginBottom: 16,
+  },
+  bodyworkJobButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
   },
   mechanicCard: {
     padding: 16,

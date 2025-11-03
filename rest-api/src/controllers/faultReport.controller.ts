@@ -310,10 +310,17 @@ export const getFaultReportById = async (req: Request, res: Response) => {
       data: faultReport
     });
 
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ getFaultReportById error:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     res.status(500).json({
       success: false,
-      message: 'Arıza bildirimi detayı getirilirken bir hata oluştu'
+      message: 'Arıza bildirimi detayı getirilirken bir hata oluştu',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -358,10 +365,17 @@ export const getMechanicFaultReportById = async (req: Request, res: Response) =>
       data: faultReportData
     });
 
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ getFaultReportById error:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     res.status(500).json({
       success: false,
-      message: 'Arıza bildirimi detayı getirilirken bir hata oluştu'
+      message: 'Arıza bildirimi detayı getirilirken bir hata oluştu',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };

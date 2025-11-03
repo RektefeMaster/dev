@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
   Modal,
   TextInput,
@@ -15,6 +14,7 @@ import {
   Dimensions,
   FlatList,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -329,30 +329,20 @@ export default function BodyworkScreen() {
   const fetchTemplates = async () => {
     try {
       setLoadingTemplates(true);
-      console.log('🔄 [BodyworkScreen] fetchTemplates çağrılıyor...');
       const response = await apiService.BodyworkService.getTemplates();
-      console.log('📦 [BodyworkScreen] fetchTemplates response:', {
-        success: response.success,
-        dataType: typeof response.data,
-        isArray: Array.isArray(response.data),
-        dataLength: Array.isArray(response.data) ? response.data.length : 'N/A'
-      });
       
       if (response.success) {
         // Response.data bir array olabilir veya { data: [...] } formatında olabilir
         const templatesData = Array.isArray(response.data) 
           ? response.data 
           : (response.data?.data || []);
-        console.log('✅ [BodyworkScreen] Templates set ediliyor:', templatesData.length);
         setTemplates(templatesData);
       } else {
-        console.error('❌ [BodyworkScreen] Fetch templates error:', response.message);
         setTemplates([]);
       }
     } catch (error: any) {
-      console.error('❌ [BodyworkScreen] Şablonlar yüklenirken hata:', error);
+      console.error('Şablonlar yüklenirken hata:', error);
       setTemplates([]);
-      // Hata durumunda kullanıcıyı rahatsız etme, sadece logla
     } finally {
       setLoadingTemplates(false);
     }
@@ -691,58 +681,126 @@ export default function BodyworkScreen() {
     return statuses[status as keyof typeof statuses] || status;
   };
 
-  const renderActiveJobs = () => (
-    <View style={styles.tabContent}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {jobs.filter(job => ['quote_preparation', 'quote_sent', 'quote_accepted', 'work_started', 'in_progress'].includes(job.status)).map((job) => (
-          <Card key={job._id} style={styles.jobCard}>
-            <View style={styles.jobHeader}>
-              <View style={styles.jobInfo}>
-                <Text style={styles.jobCustomer}>
-                  {job.customerId.name} {job.customerId.surname}
-                </Text>
-                <Text style={styles.jobVehicle}>
-                  {job.vehicleId.brand} {job.vehicleId.modelName} - {job.vehicleId.plateNumber}
-                </Text>
+  const renderActiveJobs = () => {
+    const activeJobs = jobs.filter(job => ['quote_preparation', 'quote_sent', 'quote_accepted', 'work_started', 'in_progress'].includes(job.status));
+    
+    if (activeJobs.length === 0) {
+      return (
+        <View style={styles.emptyStateContainer}>
+          <View style={styles.emptyStateContent}>
+            <View style={styles.emptyStateIconContainer}>
+              <Ionicons name="briefcase-outline" size={64} color={colors.text.tertiary} />
+            </View>
+            <Text style={styles.emptyStateTitle}>Aktif İş Yok</Text>
+            <Text style={styles.emptyStateDescription}>
+              Henüz aktif kaporta/boya işiniz bulunmuyor. Yeni bir iş oluşturmak için yukarıdaki butonu kullanın.
+            </Text>
+            <Button
+              title="Yeni İş Oluştur"
+              onPress={() => setShowCreateJobModal(true)}
+              style={styles.emptyStateButton}
+              icon="add-circle"
+            />
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.tabContent}>
+        {activeJobs.map((job) => (
+          <Card key={job._id} variant="elevated" style={styles.jobCard} onPress={() => {
+            setSelectedJob(job);
+            if (job.status === 'quote_preparation') {
+              setShowQuoteModal(true);
+            } else {
+              setShowWorkflowModal(true);
+            }
+          }}>
+            <View style={styles.jobCardHeader}>
+              <View style={styles.jobCardHeaderLeft}>
+                <View style={styles.jobCardAvatar}>
+                  <Ionicons name="person" size={20} color={colors.primary.main} />
+                </View>
+                <View style={styles.jobCardInfo}>
+                  <Text style={styles.jobCustomer}>
+                    {job.customerId.name} {job.customerId.surname}
+                  </Text>
+                  <View style={styles.jobVehicleRow}>
+                    <Ionicons name="car" size={14} color={colors.text.secondary} />
+                    <Text style={styles.jobVehicle}>
+                      {job.vehicleId.brand} {job.vehicleId.modelName}
+                    </Text>
+                    <Text style={styles.jobVehiclePlate}>{job.vehicleId.plateNumber}</Text>
+                  </View>
+                </View>
               </View>
-              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(job.status) }]}>
-                <Text style={styles.statusText}>{getStatusText(job.status)}</Text>
+              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(job.status) + '20', borderColor: getStatusColor(job.status) }]}>
+                <View style={[styles.statusDot, { backgroundColor: getStatusColor(job.status) }]} />
+                <Text style={[styles.statusText, { color: getStatusColor(job.status) }]}>
+                  {getStatusText(job.status)}
+                </Text>
               </View>
             </View>
 
-            <View style={styles.jobDetails}>
-              <View style={styles.detailRow}>
-                <Ionicons name="warning" size={16} color={colors.text.secondary} />
-                <Text style={styles.detailText}>{getDamageTypeText(job.damageInfo.damageType)}</Text>
-                <View style={[styles.severityBadge, { backgroundColor: getSeverityColor(job.damageInfo.severity) }]}>
-                  <Text style={styles.severityText}>{getSeverityText(job.damageInfo.severity)}</Text>
+            <View style={styles.jobCardBody}>
+              <View style={styles.jobMetaRow}>
+                <View style={[styles.metaBadge, { backgroundColor: colors.background.tertiary }]}>
+                  <Ionicons name="warning" size={14} color={colors.warning?.main || '#F59E0B'} />
+                  <Text style={styles.metaBadgeText}>{getDamageTypeText(job.damageInfo.damageType)}</Text>
+                </View>
+                <View style={[styles.metaBadge, { backgroundColor: getSeverityColor(job.damageInfo.severity) + '20' }]}>
+                  <View style={[styles.severityDot, { backgroundColor: getSeverityColor(job.damageInfo.severity) }]} />
+                  <Text style={[styles.metaBadgeText, { color: getSeverityColor(job.damageInfo.severity) }]}>
+                    {getSeverityText(job.damageInfo.severity)}
+                  </Text>
                 </View>
               </View>
 
-              <Text style={styles.jobDescription}>{job.damageInfo.description}</Text>
+              {job.damageInfo.description && (
+                <Text style={styles.jobDescription} numberOfLines={2}>
+                  {job.damageInfo.description}
+                </Text>
+              )}
 
               {job.damageInfo.photos.length > 0 && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photosContainer}>
-                  {job.damageInfo.photos.map((photo, index) => (
-                    <Image key={index} source={{ uri: photo }} style={styles.photoThumbnail} />
-                  ))}
-                </ScrollView>
-              )}
-
-              {job.quote.totalAmount > 0 && (
-                <View style={styles.quoteInfo}>
-                  <Text style={styles.quoteAmount}>{job.quote.totalAmount.toLocaleString()}₺</Text>
-                  <Text style={styles.quoteStatus}>{getQuoteStatusText(job.quote.status)}</Text>
+                <View style={styles.photosContainer}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photosScrollContent}>
+                    {job.damageInfo.photos.slice(0, 3).map((photo, index) => (
+                      <View key={index} style={styles.photoThumbnailWrapper}>
+                        <Image source={{ uri: photo }} style={styles.photoThumbnail} />
+                        {index === 2 && job.damageInfo.photos.length > 3 && (
+                          <View style={styles.photoOverlay}>
+                            <Text style={styles.photoCountText}>+{job.damageInfo.photos.length - 3}</Text>
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                  </ScrollView>
                 </View>
               )}
 
-              <View style={styles.workflowPreview}>
-                <Text style={styles.workflowTitle}>İş Akışı:</Text>
-                <Text style={styles.currentStage}>{getStageText(job.workflow.currentStage)}</Text>
+              <View style={styles.jobCardFooter}>
+                {job.quote.totalAmount > 0 && (
+                  <View style={styles.quoteInfo}>
+                    <Text style={styles.quoteLabel}>Teklif</Text>
+                    <Text style={styles.quoteAmount}>{job.quote.totalAmount.toLocaleString('tr-TR')} ₺</Text>
+                    <View style={[styles.quoteStatusBadge, { backgroundColor: job.quote.status === 'accepted' ? colors.success.main + '20' : colors.warning?.main + '20' || '#F59E0B20' }]}>
+                      <Text style={[styles.quoteStatusText, { color: job.quote.status === 'accepted' ? colors.success.main : colors.warning?.main || '#F59E0B' }]}>
+                        {getQuoteStatusText(job.quote.status)}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+                
+                <View style={styles.workflowInfo}>
+                  <Ionicons name="list" size={14} color={colors.text.secondary} />
+                  <Text style={styles.workflowText}>{getStageText(job.workflow.currentStage)}</Text>
+                </View>
               </View>
             </View>
 
-            <View style={styles.jobActions}>
+            <View style={styles.jobCardActions}>
               {job.status === 'quote_preparation' && (
                 <Button
                   title="Teklif Hazırla"
@@ -750,6 +808,9 @@ export default function BodyworkScreen() {
                     setSelectedJob(job);
                     setShowQuoteModal(true);
                   }}
+                  variant="primary"
+                  size="medium"
+                  icon="document-text"
                   style={styles.actionButton}
                 />
               )}
@@ -758,61 +819,111 @@ export default function BodyworkScreen() {
                 <Button
                   title="Teklifi Yeniden Gönder"
                   onPress={() => handleSendQuote(job._id)}
+                  variant="outline"
+                  size="medium"
+                  icon="send"
                   style={styles.actionButton}
                 />
               )}
               
               {['quote_accepted', 'work_started', 'in_progress'].includes(job.status) && (
                 <Button
-                  title="İş Akışını Görüntüle"
+                  title="İş Akışını Yönet"
                   onPress={() => {
                     setSelectedJob(job);
                     setShowWorkflowModal(true);
                   }}
+                  variant="primary"
+                  size="medium"
+                  icon="construct"
                   style={styles.actionButton}
                 />
               )}
             </View>
           </Card>
         ))}
-      </ScrollView>
-    </View>
-  );
+      </View>
+    );
+  };
 
-  const renderCompletedJobs = () => (
-    <View style={styles.tabContent}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {jobs.filter(job => job.status === 'completed').map((job) => (
-          <Card key={job._id} style={styles.jobCard}>
-            <View style={styles.jobHeader}>
-              <View style={styles.jobInfo}>
-                <Text style={styles.jobCustomer}>
-                  {job.customerId.name} {job.customerId.surname}
-                </Text>
-                <Text style={styles.jobVehicle}>
-                  {job.vehicleId.brand} {job.vehicleId.modelName} - {job.vehicleId.plateNumber}
-                </Text>
+  const renderCompletedJobs = () => {
+    const completedJobs = jobs.filter(job => job.status === 'completed');
+    
+    if (completedJobs.length === 0) {
+      return (
+        <View style={styles.emptyStateContainer}>
+          <View style={styles.emptyStateContent}>
+            <View style={styles.emptyStateIconContainer}>
+              <Ionicons name="checkmark-done-circle-outline" size={64} color={colors.text.tertiary} />
+            </View>
+            <Text style={styles.emptyStateTitle}>Tamamlanan İş Yok</Text>
+            <Text style={styles.emptyStateDescription}>
+              Henüz tamamlanmış kaporta/boya işiniz bulunmuyor. Tamamlanan işler burada görüntülenecek.
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.tabContent}>
+        {completedJobs.map((job) => (
+          <Card key={job._id} variant="elevated" style={styles.jobCard}>
+            <View style={styles.jobCardHeader}>
+              <View style={styles.jobCardHeaderLeft}>
+                <View style={[styles.jobCardAvatar, { backgroundColor: colors.success.main + '20' }]}>
+                  <Ionicons name="checkmark-circle" size={20} color={colors.success.main} />
+                </View>
+                <View style={styles.jobCardInfo}>
+                  <Text style={styles.jobCustomer}>
+                    {job.customerId.name} {job.customerId.surname}
+                  </Text>
+                  <View style={styles.jobVehicleRow}>
+                    <Ionicons name="car" size={14} color={colors.text.secondary} />
+                    <Text style={styles.jobVehicle}>
+                      {job.vehicleId.brand} {job.vehicleId.modelName}
+                    </Text>
+                    <Text style={styles.jobVehiclePlate}>{job.vehicleId.plateNumber}</Text>
+                  </View>
+                </View>
               </View>
-              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(job.status) }]}>
-                <Text style={styles.statusText}>{getStatusText(job.status)}</Text>
+              <View style={[styles.statusBadge, { backgroundColor: colors.success.main + '20', borderColor: colors.success.main }]}>
+                <View style={[styles.statusDot, { backgroundColor: colors.success.main }]} />
+                <Text style={[styles.statusText, { color: colors.success.main }]}>
+                  {getStatusText(job.status)}
+                </Text>
               </View>
             </View>
 
-            <View style={styles.jobDetails}>
-              <Text style={styles.jobDescription}>{job.damageInfo.description}</Text>
-              
-              <View style={styles.quoteInfo}>
-                <Text style={styles.quoteAmount}>{job.quote.totalAmount.toLocaleString()}₺</Text>
-                <Text style={styles.completionDate}>
-                  Tamamlanma: {new Date(job.workflow.estimatedCompletionDate).toLocaleDateString('tr-TR')}
+            <View style={styles.jobCardBody}>
+              {job.damageInfo.description && (
+                <Text style={styles.jobDescription} numberOfLines={2}>
+                  {job.damageInfo.description}
                 </Text>
+              )}
+              
+              <View style={styles.completedJobFooter}>
+                <View style={styles.completedJobInfo}>
+                  <Text style={styles.completedJobLabel}>Toplam Tutar</Text>
+                  <Text style={styles.completedJobAmount}>{job.quote.totalAmount.toLocaleString('tr-TR')} ₺</Text>
+                </View>
+                <View style={styles.completedJobInfo}>
+                  <Text style={styles.completedJobLabel}>Tamamlanma</Text>
+                  <Text style={styles.completedJobDate}>
+                    {new Date(job.workflow.estimatedCompletionDate).toLocaleDateString('tr-TR', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric'
+                    })}
+                  </Text>
+                </View>
               </View>
             </View>
           </Card>
         ))}
-      </ScrollView>
-    </View>
-  );
+      </View>
+    );
+  };
 
   const renderTemplates = () => {
     if (loadingTemplates) {
@@ -829,83 +940,125 @@ export default function BodyworkScreen() {
     return (
       <View style={styles.tabContent}>
         <View style={styles.templatesHeader}>
-          <Text style={styles.templatesTitle}>İş Şablonları</Text>
-          <Button
-            title="Yeni Şablon"
+          <View>
+            <Text style={styles.templatesTitle}>İş Şablonları</Text>
+            <Text style={styles.templatesSubtitle}>
+              Sık kullanılan hasar türleri için hazır şablonlar
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.addTemplateButtonContainer}
             onPress={() => setShowTemplateModal(true)}
-            style={styles.addTemplateButton}
-          />
+          >
+            <Ionicons name="add-circle" size={28} color={colors.primary.main} />
+          </TouchableOpacity>
         </View>
 
         {templates.length === 0 ? (
-          <Card style={styles.emptyTemplateCard}>
-            <Ionicons name="document-text-outline" size={48} color={colors.text.secondary} />
+          <Card variant="outlined" style={styles.emptyTemplateCard}>
+            <View style={styles.emptyStateIconContainer}>
+              <Ionicons name="document-text-outline" size={64} color={colors.text.tertiary} />
+            </View>
             <Text style={styles.emptyTemplateTitle}>Henüz Şablon Yok</Text>
             <Text style={styles.emptyTemplateDescription}>
-              Sık kullanılan hasar türleri için şablonlar oluşturun ve hızlı iş oluşturun.
+              Sık kullanılan hasar türleri için şablonlar oluşturun. Şablonlar ile iş oluşturma sürecini hızlandırın.
             </Text>
             <Button
               title="İlk Şablonu Oluştur"
               onPress={() => setShowTemplateModal(true)}
-              style={styles.primaryButton}
+              variant="primary"
+              icon="add-circle"
+              style={styles.emptyStateButton}
             />
           </Card>
         ) : (
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.templatesGrid}>
             {templates.map((template) => (
-              <Card key={template._id} style={styles.templateCard}>
-                <View style={styles.templateHeader}>
-                  <View style={styles.templateInfo}>
-                    <Text style={styles.templateName}>{template.name}</Text>
-                    <Text style={styles.templateDescription}>{template.description}</Text>
-                    <View style={styles.templateTags}>
-                      <View style={styles.templateTag}>
-                        <Text style={styles.templateTagText}>
-                          {getDamageTypeText(template.damageType)}
-                        </Text>
-                      </View>
-                      <View style={styles.templateTag}>
-                        <Text style={styles.templateTagText}>
-                          {getSeverityText(template.severity)}
-                        </Text>
-                      </View>
+              <Card key={template._id} variant="elevated" style={styles.templateCard}>
+                <View style={styles.templateCardHeader}>
+                  <View style={styles.templateIconContainer}>
+                    <Ionicons 
+                      name="document-text" 
+                      size={24} 
+                      color={colors.primary.main} 
+                    />
+                  </View>
+                  <TouchableOpacity
+                    style={styles.templateMenuButton}
+                    onPress={() => {
+                      Alert.alert(
+                        'Şablon İşlemleri',
+                        '',
+                        [
+                          {
+                            text: 'Kullan',
+                            onPress: () => handleUseTemplate(template),
+                            style: 'default'
+                          },
+                          {
+                            text: 'Düzenle',
+                            onPress: () => Alert.alert('Bilgi', 'Şablon düzenleme yakında eklenecek'),
+                            style: 'default'
+                          },
+                          {
+                            text: 'Sil',
+                            onPress: () => handleDeleteTemplate(template._id),
+                            style: 'destructive'
+                          },
+                          {
+                            text: 'İptal',
+                            style: 'cancel'
+                          }
+                        ]
+                      );
+                    }}
+                  >
+                    <Ionicons name="ellipsis-vertical" size={20} color={colors.text.secondary} />
+                  </TouchableOpacity>
+                </View>
+                
+                <View style={styles.templateCardBody}>
+                  <Text style={styles.templateName} numberOfLines={2}>
+                    {template.name}
+                  </Text>
+                  <Text style={styles.templateDescription} numberOfLines={2}>
+                    {template.description}
+                  </Text>
+                  
+                  <View style={styles.templateTags}>
+                    <View style={[styles.templateTag, { backgroundColor: colors.primary.main + '15' }]}>
+                      <Ionicons name="warning" size={12} color={colors.primary.main} />
+                      <Text style={[styles.templateTagText, { color: colors.primary.main }]}>
+                        {getDamageTypeText(template.damageType)}
+                      </Text>
+                    </View>
+                    <View style={[styles.templateTag, { backgroundColor: getSeverityColor(template.severity) + '20' }]}>
+                      <View style={[styles.severityDot, { backgroundColor: getSeverityColor(template.severity) }]} />
+                      <Text style={[styles.templateTagText, { color: getSeverityColor(template.severity) }]}>
+                        {getSeverityText(template.severity)}
+                      </Text>
                     </View>
                   </View>
-                  <View style={styles.templateActions}>
-                    <TouchableOpacity
-                      style={styles.templateActionButton}
-                      onPress={() => handleUseTemplate(template)}
-                    >
-                      <Ionicons name="play" size={20} color={colors.primary.main} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.templateActionButton}
-                      onPress={() => Alert.alert('Bilgi', 'Şablon düzenleme yakında eklenecek')}
-                    >
-                      <Ionicons name="create-outline" size={20} color={colors.text.secondary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.templateActionButton}
-                      onPress={() => handleDeleteTemplate(template._id)}
-                    >
-                      <Ionicons name="trash-outline" size={20} color={colors.error.main} />
-                    </TouchableOpacity>
-                  </View>
                 </View>
-                <View style={styles.templateDetails}>
-                  <Text style={styles.templateDetailLabel}>
-                    İş Akışı: {template.workflowTemplate?.length || 0} aşama
-                  </Text>
-                  <Text style={styles.templateDetailLabel}>
-                    Parçalar: {template.standardParts?.length || 0} adet
-                  </Text>
-                  <Text style={styles.templateDetailLabel}>
-                    Malzemeler: {template.standardMaterials?.length || 0} adet
-                  </Text>
+                
+                <View style={styles.templateCardFooter}>
+                  <View style={styles.templateStat}>
+                    <Ionicons name="list" size={14} color={colors.text.secondary} />
+                    <Text style={styles.templateStatText}>
+                      {template.workflowTemplate?.length || 0} aşama
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.templateUseButton}
+                    onPress={() => handleUseTemplate(template)}
+                  >
+                    <Ionicons name="play" size={16} color={colors.primary.main} />
+                    <Text style={styles.templateUseButtonText}>Kullan</Text>
+                  </TouchableOpacity>
                 </View>
               </Card>
             ))}
-          </ScrollView>
+          </View>
         )}
       </View>
     );
@@ -1951,51 +2104,108 @@ export default function BodyworkScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Modern Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Kaporta/Boya</Text>
-        <TouchableOpacity onPress={() => setShowCreateJobModal(true)}>
-          <Ionicons name="add" size={24} color={colors.text.primary} />
+        <View style={styles.headerLeft}>
+          <TouchableOpacity 
+            onPress={() => navigation.goBack()}
+            style={styles.headerIconButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
+          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle}>Kaporta/Boya İşleri</Text>
+            <Text style={styles.headerSubtitle}>
+              {activeTab === 'active' && `${jobs.filter(job => ['quote_preparation', 'quote_sent', 'quote_accepted', 'work_started', 'in_progress'].includes(job.status)).length} aktif iş`}
+              {activeTab === 'completed' && `${jobs.filter(job => job.status === 'completed').length} tamamlanan`}
+              {activeTab === 'templates' && `${templates.length} şablon`}
+            </Text>
+          </View>
+        </View>
+        <TouchableOpacity 
+          onPress={() => setShowCreateJobModal(true)}
+          style={styles.headerActionButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="add-circle" size={28} color={colors.primary.main} />
         </TouchableOpacity>
       </View>
 
-      {/* Tab Navigation */}
+      {/* Modern Tab Navigation */}
       <View style={styles.tabNavigation}>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'active' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('active')}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabScrollContent}
         >
-          <Text style={[styles.tabButtonText, activeTab === 'active' && styles.tabButtonTextActive]}>
-            Aktif İşler
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'completed' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('completed')}
-        >
-          <Text style={[styles.tabButtonText, activeTab === 'completed' && styles.tabButtonTextActive]}>
-            Tamamlanan
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'templates' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('templates')}
-        >
-          <Text style={[styles.tabButtonText, activeTab === 'templates' && styles.tabButtonTextActive]}>
-            Şablonlar
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'active' && styles.tabButtonActive]}
+            onPress={() => setActiveTab('active')}
+          >
+            <View style={styles.tabButtonContent}>
+              <Ionicons 
+                name={activeTab === 'active' ? 'briefcase' : 'briefcase-outline'} 
+                size={18} 
+                color={activeTab === 'active' ? colors.text.inverse : colors.text.secondary} 
+              />
+              <Text style={[styles.tabButtonText, activeTab === 'active' && styles.tabButtonTextActive]}>
+                Aktif
+              </Text>
+            </View>
+            {activeTab === 'active' && jobs.filter(job => ['quote_preparation', 'quote_sent', 'quote_accepted', 'work_started', 'in_progress'].includes(job.status)).length > 0 && (
+              <View style={styles.tabBadge}>
+                <Text style={styles.tabBadgeText}>
+                  {jobs.filter(job => ['quote_preparation', 'quote_sent', 'quote_accepted', 'work_started', 'in_progress'].includes(job.status)).length}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'completed' && styles.tabButtonActive]}
+            onPress={() => setActiveTab('completed')}
+          >
+            <View style={styles.tabButtonContent}>
+              <Ionicons 
+                name={activeTab === 'completed' ? 'checkmark-done-circle' : 'checkmark-done-circle-outline'} 
+                size={18} 
+                color={activeTab === 'completed' ? colors.text.inverse : colors.text.secondary} 
+              />
+              <Text style={[styles.tabButtonText, activeTab === 'completed' && styles.tabButtonTextActive]}>
+                Tamamlanan
+              </Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'templates' && styles.tabButtonActive]}
+            onPress={() => setActiveTab('templates')}
+          >
+            <View style={styles.tabButtonContent}>
+              <Ionicons 
+                name={activeTab === 'templates' ? 'document-text' : 'document-text-outline'} 
+                size={18} 
+                color={activeTab === 'templates' ? colors.text.inverse : colors.text.secondary} 
+              />
+              <Text style={[styles.tabButtonText, activeTab === 'templates' && styles.tabButtonTextActive]}>
+                Şablonlar
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
 
       {/* Content */}
       <ScrollView
         style={styles.content}
+        contentContainerStyle={styles.contentContainer}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            tintColor={colors.primary.main}
+            colors={[colors.primary.main]}
+          />
         }
         showsVerticalScrollIndicator={false}
       >
@@ -2035,75 +2245,236 @@ const createStyles = (colors: any) => StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
+    backgroundColor: colors.background.primary,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.light,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerIconButton: {
+    padding: spacing.xs,
+    marginRight: spacing.sm,
+  },
+  headerTitleContainer: {
+    flex: 1,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: typography.fontSize.lg,
+    fontWeight: '700',
     color: colors.text.primary,
+    marginBottom: 2,
+  },
+  headerSubtitle: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+  },
+  headerActionButton: {
+    padding: spacing.xs,
+    marginLeft: spacing.sm,
   },
   tabNavigation: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    backgroundColor: colors.background.primary,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.light,
   },
-  tabButton: {
-    flex: 1,
+  tabScrollContent: {
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    alignItems: 'center',
-    borderRadius: borderRadius.sm,
-    marginHorizontal: spacing.xs,
+    gap: spacing.xs,
+  },
+  tabButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    marginRight: spacing.xs,
+    backgroundColor: colors.background.secondary,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    minWidth: 100,
   },
   tabButtonActive: {
     backgroundColor: colors.primary.main,
+    borderColor: colors.primary.main,
+  },
+  tabButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   tabButtonText: {
-    fontSize: 14,
+    fontSize: typography.fontSize.sm,
     color: colors.text.secondary,
+    fontWeight: '500',
   },
   tabButtonTextActive: {
     color: colors.text.inverse,
     fontWeight: '600',
   },
+  tabBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: colors.error?.main || '#EF4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.background.primary,
+  },
+  tabBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
   content: {
     flex: 1,
   },
-  tabContent: {
-    padding: spacing.lg,
+  contentContainer: {
+    paddingBottom: spacing.xl,
   },
-  jobCard: {
+  tabContent: {
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  // Empty State Styles
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.xxxl,
+    paddingHorizontal: spacing.lg,
+  },
+  emptyStateContent: {
+    alignItems: 'center',
+    maxWidth: 300,
+  },
+  emptyStateIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: colors.background.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: spacing.lg,
   },
-  jobHeader: {
+  emptyStateTitle: {
+    fontSize: typography.fontSize.xl,
+    fontWeight: '700',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  emptyStateDescription: {
+    fontSize: typography.fontSize.md,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+    lineHeight: 22,
+  },
+  emptyStateButton: {
+    marginTop: spacing.md,
+  },
+  // Job Card Styles
+  jobCard: {
+    marginBottom: spacing.md,
+    overflow: 'hidden',
+  },
+  jobCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: spacing.md,
   },
-  jobInfo: {
+  jobCardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  jobCardAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary.main + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  jobCardInfo: {
     flex: 1,
   },
   jobCustomer: {
-    fontSize: 16,
+    fontSize: typography.fontSize.md,
     fontWeight: '600',
     color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  jobVehicleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   jobVehicle: {
-    fontSize: 14,
+    fontSize: typography.fontSize.sm,
     color: colors.text.secondary,
-    marginTop: spacing.xs,
   },
-  statusBadge: {
+  jobVehiclePlate: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: '600',
+    color: colors.text.secondary,
+    backgroundColor: colors.background.tertiary,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  jobCardBody: {
+    marginBottom: spacing.md,
+  },
+  jobMetaRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  metaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.sm,
+    gap: spacing.xs,
+  },
+  metaBadgeText: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: '500',
+    color: colors.text.primary,
+  },
+  severityDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    gap: spacing.xs,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   statusText: {
-    fontSize: 12,
-    color: colors.text.inverse,
+    fontSize: typography.fontSize.xs,
     fontWeight: '600',
   },
   jobDetails: {
@@ -2136,54 +2507,112 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginBottom: spacing.sm,
   },
   photosContainer: {
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  photosScrollContent: {
+    gap: spacing.sm,
+  },
+  photoThumbnailWrapper: {
+    position: 'relative',
   },
   photoThumbnail: {
     width: 80,
     height: 80,
-    borderRadius: borderRadius.sm,
-    marginRight: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.background.secondary,
   },
-  quoteInfo: {
+  photoOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoCountText: {
+    fontSize: typography.fontSize.md,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  jobCardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  quoteAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.primary.main,
-  },
-  quoteStatus: {
-    fontSize: 14,
-    color: colors.text.secondary,
-  },
-  completionDate: {
-    fontSize: 14,
-    color: colors.text.secondary,
-  },
-  workflowPreview: {
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.light,
     marginTop: spacing.sm,
   },
-  workflowTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text.primary,
+  quoteInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flex: 1,
   },
-  currentStage: {
-    fontSize: 14,
+  quoteLabel: {
+    fontSize: typography.fontSize.xs,
     color: colors.text.secondary,
-    marginTop: spacing.xs,
+    fontWeight: '500',
   },
-  jobActions: {
+  quoteAmount: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: '700',
+    color: colors.primary.main,
+  },
+  quoteStatusBadge: {
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: borderRadius.xs,
+  },
+  quoteStatusText: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: '600',
+  },
+  workflowInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  workflowText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+    fontWeight: '500',
+  },
+  completedJobFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
     marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.light,
+  },
+  completedJobInfo: {
+    flex: 1,
+  },
+  completedJobLabel: {
+    fontSize: typography.fontSize.xs,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  completedJobAmount: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: '700',
+    color: colors.success.main,
+  },
+  completedJobDate: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.primary,
+    fontWeight: '500',
+  },
+  jobCardActions: {
+    marginTop: spacing.sm,
   },
   actionButton: {
-    marginBottom: spacing.sm,
-  },
-  templateCard: {
-    alignItems: 'center',
+    width: '100%',
   },
   cardTitle: {
     fontSize: 18,
@@ -2571,77 +3000,112 @@ const createStyles = (colors: any) => StyleSheet.create({
   templatesHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.sm,
+    alignItems: 'flex-start',
+    marginBottom: spacing.lg,
   },
   templatesTitle: {
     fontSize: typography.fontSize.xl,
     fontWeight: '700',
     color: colors.text.primary,
+    marginBottom: spacing.xs,
   },
-  addTemplateButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+  templatesSubtitle: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+  },
+  addTemplateButtonContainer: {
+    padding: spacing.xs,
+  },
+  templatesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
   },
   templateCard: {
-    marginBottom: spacing.md,
-    marginHorizontal: spacing.md,
+    width: (width - spacing.md * 3) / 2,
+    marginBottom: 0,
   },
-  templateHeader: {
+  templateCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: spacing.md,
   },
-  templateInfo: {
-    flex: 1,
+  templateIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary.main + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  templateMenuButton: {
+    padding: spacing.xs,
+  },
+  templateCardBody: {
+    marginBottom: spacing.md,
+    minHeight: 100,
   },
   templateName: {
-    fontSize: typography.fontSize.lg,
+    fontSize: typography.fontSize.md,
     fontWeight: '600',
     color: colors.text.primary,
     marginBottom: spacing.xs,
+    lineHeight: 20,
   },
   templateDescription: {
     fontSize: typography.fontSize.sm,
     color: colors.text.secondary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
+    lineHeight: 18,
   },
   templateTags: {
     flexDirection: 'row',
     gap: spacing.xs,
+    flexWrap: 'wrap',
   },
   templateTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    backgroundColor: colors.background.secondary,
     borderRadius: borderRadius.sm,
+    gap: spacing.xs,
   },
   templateTagText: {
     fontSize: typography.fontSize.xs,
-    color: colors.text.secondary,
+    fontWeight: '500',
   },
-  templateActions: {
+  templateCardFooter: {
     flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  templateActionButton: {
-    padding: spacing.xs,
-    borderRadius: borderRadius.sm,
-    backgroundColor: colors.background.secondary,
-  },
-  templateDetails: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingTop: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.border.light,
   },
-  templateDetailLabel: {
+  templateStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  templateStatText: {
     fontSize: typography.fontSize.xs,
     color: colors.text.secondary,
+  },
+  templateUseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.primary.main + '15',
+    borderRadius: borderRadius.sm,
+    gap: spacing.xs,
+  },
+  templateUseButtonText: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: '600',
+    color: colors.primary.main,
   },
   emptyTemplateCard: {
     alignItems: 'center',

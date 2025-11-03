@@ -19,7 +19,8 @@ const {
   createPayment,
   confirmPayment,
   finalizeWork,
-  createAppointmentFromFaultReport
+  createAppointmentFromFaultReport,
+  convertToBodyworkJob
 } = faultReportController;
 
 const router = express.Router();
@@ -141,6 +142,13 @@ router.post('/:id/create-appointment',
     next();
   },
   createAppointmentFromFaultReport
+);
+
+// Kaporta/Boya kategorisindeki fault report'u bodywork job'a dönüştür (Sadece ustalar)
+router.post('/:faultReportId/convert-to-bodywork-job',
+  auth,
+  requireRole([UserType.MECHANIC]),
+  convertToBodyworkJob
 );
 
 export default router;

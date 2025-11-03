@@ -11,35 +11,15 @@ import { TefePointService } from '../services/tefePoint.service';
 
 const router = Router();
 
-// ===== GLOBAL ROUTER MIDDLEWARE - TÜM İSTEKLER İÇİN =====
-router.use((req: Request, res: Response, next: any) => {
-  // Sadece GET /templates istekleri için özel log
-  if (req.method === 'GET' && req.path === '/templates') {
-    console.log('🌐🌐🌐 [BODYWORK ROUTES] GLOBAL MIDDLEWARE - GET /templates isteği geldi! Path:', req.path, 'URL:', req.url, 'OriginalUrl:', req.originalUrl);
-  }
-  next();
-});
-
-// Debug: Route kayıt logları
-console.log('📝 [BODYWORK ROUTES] Route\'lar yükleniyor...');
-
 // ===== TEMPLATE ROUTES (Dynamic routes'dan ÖNCE olmalı) =====
 
 // Şablonları getir - ÖNEMLİ: Bu route mutlaka dynamic route'lardan ÖNCE olmalı
-console.log('✅ [BODYWORK ROUTES] GET /templates route\'u kaydediliyor');
-router.get('/templates', (req: Request, res: Response, next: any) => {
-  console.log('🚀🚀🚀 [BODYWORK ROUTES] GET /templates MIDDLEWARE - İstek geldi! Path:', req.path, 'URL:', req.url, 'OriginalUrl:', req.originalUrl);
-  next();
-}, auth, async (req: Request, res: Response) => {
-  console.log('🚀 [BODYWORK ROUTES] GET /templates handler çağrıldı! Auth middleware geçti');
+router.get('/templates', auth, async (req: Request, res: Response) => {
   try {
     const mechanicId = req.user?.userId;
     const { damageType, severity } = req.query;
 
-    console.log('🔍 [BODYWORK ROUTES] GET /templates - mechanicId:', mechanicId);
-
     if (!mechanicId) {
-      console.error('❌ [BODYWORK ROUTES] GET /templates - mechanicId yok');
       return res.status(401).json({
         success: false,
         message: 'Kullanıcı kimliği bulunamadı'
@@ -48,7 +28,6 @@ router.get('/templates', (req: Request, res: Response, next: any) => {
 
     // ObjectId validation
     if (!mongoose.Types.ObjectId.isValid(mechanicId)) {
-      console.error('❌ [BODYWORK ROUTES] GET /templates - Geçersiz ObjectId:', mechanicId);
       return res.status(400).json({
         success: false,
         message: 'Geçersiz usta ID'
@@ -62,11 +41,7 @@ router.get('/templates', (req: Request, res: Response, next: any) => {
     if (damageType) query.damageType = damageType;
     if (severity) query.severity = severity;
 
-    console.log('🔍 [BODYWORK ROUTES] GET /templates - Query:', JSON.stringify(query));
-
     const templates = await BodyworkTemplate.find(query).sort({ createdAt: -1 });
-
-    console.log('✅ [BODYWORK ROUTES] GET /templates - Bulunan şablon sayısı:', templates.length);
 
     res.json({
       success: true,
@@ -74,7 +49,7 @@ router.get('/templates', (req: Request, res: Response, next: any) => {
       message: 'Şablonlar getirildi'
     });
   } catch (error: any) {
-    console.error('❌ [BODYWORK ROUTES] Get templates error:', error);
+    console.error('Get templates error:', error);
     res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || 'Şablonlar getirilirken hata oluştu'
@@ -277,7 +252,6 @@ router.post('/create', auth, validate(Joi.object({
 });
 
 // ÖNEMLİ: Dynamic route'lar - Bunlar /templates route'undan SONRA olmalı
-console.log('⚠️ [BODYWORK ROUTES] POST /:jobId/prepare-quote dynamic route\'u kaydediliyor');
 // Teklif hazırla
 router.post('/:jobId/prepare-quote', auth, validate(Joi.object({
     partsToReplace: Joi.array().items(Joi.object({
@@ -446,6 +420,51 @@ router.get('/mechanic-jobs', auth, async (req: Request, res: Response) => {
   }
 });
 
+// Usta iş detayı (genel endpoint - /api/bodywork/:jobId)
+router.get('/:jobId', auth, async (req: Request, res: Response) => {
+  try {
+    const { jobId } = req.params;
+    const mechanicId = req.user?.userId;
+
+    if (!mechanicId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Kullanıcı kimliği bulunamadı'
+      });
+    }
+
+    // ObjectId validation
+    if (!mongoose.Types.ObjectId.isValid(jobId)) {
+      return res.status(404).json({
+        success: false,
+        message: 'İş bulunamadı'
+      });
+    }
+
+    // Önce usta için kontrol et
+    try {
+      const result = await BodyworkService.getMechanicBodyworkJobById(jobId, mechanicId);
+      if (result.success) {
+        return res.json(result);
+      }
+    } catch (error: any) {
+      // Usta işi değilse, müşteri için kontrol et
+      try {
+        const customerResult = await BodyworkService.getCustomerBodyworkJobById(jobId, mechanicId);
+        return res.json(customerResult);
+      } catch (customerError: any) {
+        // Her iki durumda da bulunamadı
+        throw error; // İlk hatayı fırlat
+      }
+    }
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'İş detayı getirilirken hata oluştu'
+    });
+  }
+});
+
 // ===== MÜŞTERİ TARAFI ENDPOINT'LERİ =====
 
 // Müşteri iş oluşturma
@@ -513,25 +532,8 @@ router.get('/customer/jobs', auth, async (req: Request, res: Response) => {
   }
 });
 
-// Müşteri iş detayı - ÖNEMLİ: /templates ile çakışmaması için ObjectId kontrolü ekleniyor
-router.get('/customer/:jobId', (req: Request, res: Response, next: any) => {
-  console.log('🚨🚨🚨 [BODYWORK ROUTES] GET /customer/:jobId MIDDLEWARE - İstek geldi! Path:', req.path, 'URL:', req.url, 'OriginalUrl:', req.originalUrl, 'Params:', req.params);
-  
-  const { jobId } = req.params;
-  
-  // Eğer jobId "templates" ise, bu route'a gitmemeli - muhtemelen /templates route'una gitmeli
-  if (jobId === 'templates' || jobId === 'jobs' || jobId === 'create') {
-    console.log('⚠️⚠️⚠️ [BODYWORK ROUTES] UYARI: /customer/:jobId route\'u yanlış eşleşti! jobId:', jobId, 'Bu route\'a gitmemeli!');
-    // next() çağırmadan devam etmeyeceğiz - bu route'a gitmemeli
-    return res.status(404).json({
-      success: false,
-      message: 'Route bulunamadı'
-    });
-  }
-  
-  next();
-}, auth, async (req: Request, res: Response) => {
-  console.log('🚨 [BODYWORK ROUTES] GET /customer/:jobId handler çağrıldı - jobId:', req.params.jobId, 'path:', req.path);
+// Müşteri iş detayı
+router.get('/customer/:jobId', auth, async (req: Request, res: Response) => {
   try {
     const { jobId } = req.params;
     const customerId = req.user?.userId;
@@ -545,7 +547,6 @@ router.get('/customer/:jobId', (req: Request, res: Response, next: any) => {
     
     // ObjectId validation - eğer geçersiz ObjectId ise bu route'a gitmemeli
     if (!mongoose.Types.ObjectId.isValid(jobId)) {
-      console.error('❌ [BODYWORK ROUTES] GET /customer/:jobId - Geçersiz ObjectId:', jobId);
       return res.status(404).json({
         success: false,
         message: 'İş bulunamadı'
@@ -643,22 +644,5 @@ router.post('/:jobId/customer/payment', auth, validate(Joi.object({
     });
   }
 });
-
-// Route stack'ini kontrol et ve logla
-console.log('✅ [BODYWORK ROUTES] Tüm route\'lar yüklendi. Toplam route sayısı:', router.stack?.length || 'bilinmiyor');
-console.log('📋 [BODYWORK ROUTES] Route stack detayları:');
-let routeCount = 0;
-router.stack.forEach((layer: any, index: number) => {
-  if (layer.route) {
-    routeCount++;
-    const methods = Object.keys(layer.route.methods).join(', ').toUpperCase();
-    const path = layer.route.path;
-    const regexp = layer.regexp?.toString() || 'N/A';
-    console.log(`  ${routeCount}. ${methods} ${path} (regexp: ${regexp.substring(0, 50)}...)`);
-  } else if (layer.name === 'router') {
-    console.log(`  [${index}] Router middleware: ${layer.regexp?.toString()?.substring(0, 50)}...`);
-  }
-});
-console.log(`📊 [BODYWORK ROUTES] Toplam ${routeCount} route handler kaydedildi`);
 
 export default router;

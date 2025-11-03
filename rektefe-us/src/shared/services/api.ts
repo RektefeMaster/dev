@@ -1570,6 +1570,25 @@ export const FaultReportService = {
       console.error('Finalize work error:', error);
       return createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, 'İş sonlandırılamadı', error.response?.data?.error?.details);
     }
+  },
+
+  /**
+   * Kaporta/Boya kategorisindeki fault report'u bodywork job'a dönüştür
+   */
+  async convertToBodyworkJob(faultReportId: string, mechanicId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/fault-reports/${faultReportId}/convert-to-bodywork-job`, {
+        mechanicId
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Convert to bodywork job error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Dönüştürme işlemi başarısız oldu',
+        error.response?.data?.error?.details
+      );
+    }
   }
 };
 
@@ -2346,13 +2365,7 @@ const BodyworkService = {
       if (damageType) params.damageType = damageType;
       if (severity) params.severity = severity;
       
-      console.log('🔍 [API] getTemplates çağrılıyor:', { damageType, severity });
       const response = await apiClient.get('/bodywork/templates', { params });
-      console.log('✅ [API] getTemplates response:', { 
-        success: response.data?.success, 
-        dataLength: response.data?.data?.length,
-        message: response.data?.message 
-      });
       
       // Backend response format: { success: true, data: [...], message: '...' }
       if (response.data && response.data.success && response.data.data) {
@@ -2362,12 +2375,7 @@ const BodyworkService = {
       // Fallback: direkt data dönerse
       return createSuccessResponse(response.data.data || response.data || []);
     } catch (error: any) {
-      console.error('❌ [API] Get templates error:', {
-        status: error.response?.status,
-        message: error.response?.data?.message,
-        url: error.config?.url,
-        method: error.config?.method
-      });
+      console.error('Get templates error:', error);
       return createErrorResponse(
         error.response?.status >= 500 ? ErrorCode.INTERNAL_SERVER_ERROR : ErrorCode.BAD_REQUEST,
         error.response?.data?.message || 'Şablonlar getirilemedi',

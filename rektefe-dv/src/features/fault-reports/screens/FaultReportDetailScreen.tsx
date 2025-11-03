@@ -814,6 +814,29 @@ const FaultReportDetailScreen = () => {
               </View>
             )}
 
+            {/* Kaporta İşi Oluşturuldu Bilgisi */}
+            {faultReport.bodyworkJobId && (
+              <View style={[styles.section, { backgroundColor: theme.colors.success.light, borderColor: theme.colors.success.main }]}>
+                <View style={styles.infoRow}>
+                  <Ionicons name="construct" size={20} color={theme.colors.success.main} />
+                  <Text style={[styles.infoValue, { color: theme.colors.success.main, marginLeft: 8, flex: 1 }]}>
+                    Bu arıza için kaporta işi oluşturuldu
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.createAppointmentButton, { backgroundColor: theme.colors.success.main, marginTop: 12 }]}
+                  onPress={() => {
+                    navigation.navigate('BodyworkJobDetail' as any, { 
+                      jobId: faultReport.bodyworkJobId._id || faultReport.bodyworkJobId 
+                    });
+                  }}
+                >
+                  <Ionicons name="car" size={20} color="#fff" />
+                  <Text style={styles.createAppointmentButtonText}>Kaporta İşine Git</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* Ödeme Butonları */}
             {appointmentStatus === 'created' && (
               <TouchableOpacity

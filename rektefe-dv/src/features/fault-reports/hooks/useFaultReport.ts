@@ -57,14 +57,21 @@ export const useFaultReport = () => {
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationAddress, setLocationAddress] = useState('');
 
-  // 4 ana hizmet türü - tüm hizmetler bu 4 kategoriye bölünür
+  // 5 ana hizmet türü - tüm hizmetler bu 5 kategoriye bölünür
   const staticServiceCategories = [
+    { 
+      id: 'Kaporta/Boya', 
+      name: 'Kaporta/Boya', 
+      icon: 'car-repair', 
+      color: '#FF6B35',
+      description: 'Kaporta ve boya hizmetleri'
+    },
     { 
       id: 'Tamir ve Bakım', 
       name: 'Tamir ve Bakım', 
       icon: 'wrench', 
       color: '#007AFF',
-      description: 'Genel bakım, ağır bakım, alt/üst takım, kaporta/boya, elektrik-elektronik, yedek parça, egzoz & emisyon'
+      description: 'Genel bakım, ağır bakım, alt/üst takım, elektrik-elektronik, yedek parça, egzoz & emisyon'
     },
     { 
       id: 'Araç Yıkama', 

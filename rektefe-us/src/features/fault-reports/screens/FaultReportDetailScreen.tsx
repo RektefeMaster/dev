@@ -79,6 +79,8 @@ interface FaultReport {
     message?: string;
     createdAt: string;
   }>;
+  appointmentId?: string;
+  bodyworkJobId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -300,6 +302,80 @@ const FaultReportDetailScreen: React.FC = () => {
     }
   };
 
+  const handleConvertToBodyworkJob = async () => {
+    if (!faultReport || !user) {
+      return;
+    }
+
+    // Eğer zaten bodyworkJobId varsa, o işe yönlendir
+    if (faultReport.bodyworkJobId) {
+      Alert.alert(
+        'Bilgi',
+        'Bu arıza bildirimi zaten kaporta işine dönüştürülmüş.',
+        [
+          { text: 'Tamam', style: 'cancel' },
+          { 
+            text: 'Kaporta İşlerine Git', 
+            onPress: () => {
+              // Bodywork ekranına yönlendir
+              navigation.navigate('Bodywork' as any);
+            }
+          }
+        ]
+      );
+      return;
+    }
+
+    // Seçili quote yoksa uyarı ver
+    if (!faultReport.selectedQuote || !faultReport.selectedQuote.mechanicId) {
+      Alert.alert(
+        'Uyarı',
+        'Kaporta işine dönüştürmek için önce müşterinin bir teklifi kabul etmesi gerekiyor.'
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Kaporta İşine Dönüştür',
+      'Bu arıza bildirimi kaporta/boya işine dönüştürülecek. Devam etmek istiyor musunuz?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        { 
+          text: 'Dönüştür', 
+          onPress: async () => {
+            try {
+              // Backend'e istek gönder
+              const response = await apiService.FaultReportService.convertToBodyworkJob(
+                faultReportId,
+                faultReport.selectedQuote?.mechanicId || user.userId
+              );
+
+              if (response.success) {
+                Alert.alert(
+                  'Başarılı',
+                  'Arıza bildirimi kaporta işine dönüştürüldü.',
+                  [
+                    { text: 'Tamam', onPress: () => {
+                      // Bodywork ekranına yönlendir
+                      navigation.navigate('Bodywork' as any);
+                      // Sayfayı yenile
+                      fetchFaultReportDetail();
+                    }}
+                  ]
+                );
+              } else {
+                Alert.alert('Hata', response.message || 'Dönüştürme işlemi başarısız oldu');
+              }
+            } catch (error: any) {
+              console.error('Convert to bodywork job error:', error);
+              Alert.alert('Hata', 'Dönüştürme işlemi sırasında bir hata oluştu');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -498,6 +574,21 @@ const FaultReportDetailScreen: React.FC = () => {
           </View>
         </View>
       </ScrollView>
+
+      {/* Kaporta/Boya kategorisinde ve accepted durumunda "Kaporta İşine Dönüştür" butonu */}
+      {(faultReport.serviceCategory === 'Kaporta/Boya' || faultReport.serviceCategory === 'Kaporta & Boya') && 
+       (faultReport.status === 'accepted' || faultReport.status === 'quoted') && 
+       !faultReport.bodyworkJobId && (
+        <View style={styles.bottomButtonContainer}>
+          <TouchableOpacity 
+            style={styles.convertButton} 
+            onPress={handleConvertToBodyworkJob}
+          >
+            <Ionicons name="construct" size={20} color="#FFFFFF" />
+            <Text style={styles.convertButtonText}>Kaporta İşine Dönüştür</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Alt Butonlar */}
       {faultReport.status === 'pending' && !hasResponded && !hasQuoted && (
@@ -1041,6 +1132,21 @@ const styles = StyleSheet.create({
     borderTopColor: '#E5E7EB',
     flexDirection: 'row',
     gap: 12,
+  },
+  convertButton: {
+    backgroundColor: '#FF6B35',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    gap: 8,
+  },
+  convertButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   quoteButton: {
     backgroundColor: '#3B82F6',

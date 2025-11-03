@@ -46,6 +46,7 @@ export interface IFaultReport extends Document {
     transactionId?: string;
   };
   appointmentId?: mongoose.Types.ObjectId; // Seçilen teklif için oluşturulan randevu
+  bodyworkJobId?: mongoose.Types.ObjectId; // Kaporta/Boya kategorisinde oluşturulan bodywork job
   createdAt: Date;
   updatedAt: Date;
 }
@@ -119,7 +120,8 @@ const FaultReportSchema: Schema = new Schema({
     paymentDate: { type: Date },
     transactionId: { type: String }
   },
-  appointmentId: { type: Schema.Types.ObjectId, ref: 'Appointment' }
+  appointmentId: { type: Schema.Types.ObjectId, ref: 'Appointment' },
+  bodyworkJobId: { type: Schema.Types.ObjectId, ref: 'BodyworkJob' }
 }, {
   timestamps: true
 });
