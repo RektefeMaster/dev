@@ -1418,7 +1418,11 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
           // FaultReport'a bodyworkJobId ekle (ileride referans için)
           (faultReport as any).bodyworkJobId = bodyworkJob._id;
           await faultReport.save();
-          console.log('✅ FaultReport bodyworkJobId güncellendi');
+          console.log('✅ FaultReport bodyworkJobId güncellendi:', bodyworkJob._id.toString());
+          
+          // FaultReport'u yeniden yükle ve kontrol et
+          const savedFaultReport = await FaultReport.findById(faultReport._id);
+          console.log('🔍 [DEBUG] Saved FaultReport bodyworkJobId:', (savedFaultReport as any)?.bodyworkJobId);
         } else {
           console.warn('⚠️ BodyworkJob oluşturulamadı:', bodyworkJobResponse);
         }
