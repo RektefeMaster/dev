@@ -420,51 +420,6 @@ router.get('/mechanic-jobs', auth, async (req: Request, res: Response) => {
   }
 });
 
-// Usta iş detayı (genel endpoint - /api/bodywork/:jobId)
-router.get('/:jobId', auth, async (req: Request, res: Response) => {
-  try {
-    const { jobId } = req.params;
-    const mechanicId = req.user?.userId;
-
-    if (!mechanicId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Kullanıcı kimliği bulunamadı'
-      });
-    }
-
-    // ObjectId validation
-    if (!mongoose.Types.ObjectId.isValid(jobId)) {
-      return res.status(404).json({
-        success: false,
-        message: 'İş bulunamadı'
-      });
-    }
-
-    // Önce usta için kontrol et
-    try {
-      const result = await BodyworkService.getMechanicBodyworkJobById(jobId, mechanicId);
-      if (result.success) {
-        return res.json(result);
-      }
-    } catch (error: any) {
-      // Usta işi değilse, müşteri için kontrol et
-      try {
-        const customerResult = await BodyworkService.getCustomerBodyworkJobById(jobId, mechanicId);
-        return res.json(customerResult);
-      } catch (customerError: any) {
-        // Her iki durumda da bulunamadı
-        throw error; // İlk hatayı fırlat
-      }
-    }
-  } catch (error: any) {
-    res.status(error.statusCode || 500).json({
-      success: false,
-      message: error.message || 'İş detayı getirilirken hata oluştu'
-    });
-  }
-});
-
 // ===== MÜŞTERİ TARAFI ENDPOINT'LERİ =====
 
 // Müşteri iş oluşturma
@@ -641,6 +596,51 @@ router.post('/:jobId/customer/payment', auth, validate(Joi.object({
     res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || 'Ödeme işlemi sırasında hata oluştu'
+    });
+  }
+});
+
+// Usta iş detayı (genel endpoint - /api/bodywork/:jobId) - EN SON olmalı (diğer dynamic route'lardan sonra)
+router.get('/:jobId', auth, async (req: Request, res: Response) => {
+  try {
+    const { jobId } = req.params;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Kullanıcı kimliği bulunamadı'
+      });
+    }
+
+    // ObjectId validation
+    if (!mongoose.Types.ObjectId.isValid(jobId)) {
+      return res.status(404).json({
+        success: false,
+        message: 'İş bulunamadı'
+      });
+    }
+
+    // Önce usta için kontrol et
+    try {
+      const result = await BodyworkService.getMechanicBodyworkJobById(jobId, userId);
+      if (result.success) {
+        return res.json(result);
+      }
+    } catch (error: any) {
+      // Usta işi değilse, müşteri için kontrol et
+      try {
+        const customerResult = await BodyworkService.getCustomerBodyworkJobById(jobId, userId);
+        return res.json(customerResult);
+      } catch (customerError: any) {
+        // Her iki durumda da bulunamadı
+        throw error; // İlk hatayı fırlat
+      }
+    }
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'İş detayı getirilirken hata oluştu'
     });
   }
 });
