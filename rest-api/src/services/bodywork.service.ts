@@ -81,6 +81,20 @@ export class BodyworkService {
 
       const bodyworkJob = new BodyworkJob({
         ...data,
+        quote: {
+          totalAmount: 0,
+          breakdown: {
+            partsToReplace: [],
+            partsToRepair: [],
+            paintMaterials: [],
+            laborCost: 0,
+            materialCost: 0,
+            totalCost: 0
+          },
+          validityDays: 30,
+          createdAt: new Date(),
+          status: 'draft' as const
+        },
         workflow: {
           currentStage: 'quote_preparation',
           stages: workflowStages.map(stage => ({
