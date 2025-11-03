@@ -1412,7 +1412,6 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
         hasFinalMechanicId: !!finalMechanicId
       });
     }
-    }
 
     res.json({
       success: true,
