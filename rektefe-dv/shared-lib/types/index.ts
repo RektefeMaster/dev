@@ -216,6 +216,12 @@ export interface Appointment extends BaseEntity {
     transmission?: string;
     color?: string;
   };
+  // Electrical service specific fields
+  electricalSystemType?: 'klima' | 'far' | 'alternator' | 'batarya' | 'elektrik-araci' | 'sinyal' | 'diger';
+  electricalProblemType?: 'calismiyor' | 'arizali-bos' | 'ariza-gostergesi' | 'ses-yapiyor' | 'isinma-sorunu' | 'kisa-devre' | 'tetik-atmiyor' | 'diger';
+  electricalUrgencyLevel?: 'normal' | 'acil';
+  isRecurring?: boolean;
+  lastWorkingCondition?: string;
 }
 
 export interface AppointmentItem {

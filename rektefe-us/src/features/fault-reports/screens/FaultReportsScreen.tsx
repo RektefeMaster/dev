@@ -56,6 +56,9 @@ interface FaultReport {
     selectedAt: string;
   };
   selectedQuoteIndex?: number;
+  appointmentId?: string;
+  bodyworkJobId?: string;
+  electricalJobId?: string;
   createdAt: string;
   updatedAt: string;
 }

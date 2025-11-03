@@ -14,6 +14,7 @@ import {
   getServiceTypeFromServiceCategory
 } from '../utils/serviceCategoryHelper';
 import { BodyworkService } from '../services/bodywork.service';
+import { ElectricalService } from '../services/electrical.service';
 import { FAULT_CATEGORY_TO_SERVICE_CATEGORY } from '../../../shared/types/enums';
 
 // Arıza bildirimi oluştur
@@ -296,6 +297,7 @@ export const getFaultReportById = async (req: Request, res: Response) => {
       .populate('selectedQuote.mechanicId', 'name surname shopName phone rating experience')
       .populate('appointmentId')
       .populate('bodyworkJobId', '_id status')
+      .populate('electricalJobId', '_id status')
       .lean(); // 🚀 OPTIMIZE: Memory optimization
 
     if (!faultReport) {
@@ -337,7 +339,8 @@ export const getMechanicFaultReportById = async (req: Request, res: Response) =>
       .populate('quotes.mechanicId', 'name surname shopName phone rating experience')
       .populate('selectedQuote.mechanicId', 'name surname shopName phone rating experience')
       .populate('appointmentId')
-      .populate('bodyworkJobId');
+      .populate('bodyworkJobId')
+      .populate('electricalJobId');
 
     if (!faultReport) {
       return res.status(404).json({
@@ -1457,9 +1460,112 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
       });
     }
 
+    // Eğer Elektrik-Elektronik ise ElectricalJob oluştur
+    const isElectricalCategory = faultReport.serviceCategory === 'Elektrik-Elektronik';
+    
+    console.log('🔍 ElectricalJob kontrolü:', {
+      serviceCategory: faultReport.serviceCategory,
+      isElectricalCategory,
+      finalMechanicId: finalMechanicId?.toString(),
+      finalMechanicIdType: typeof finalMechanicId
+    });
+    
+    let electricalJob = null;
+    if (isElectricalCategory && finalMechanicId) {
+      try {
+        console.log('🔍 Elektrik-Elektronik kategorisi tespit edildi, ElectricalJob oluşturuluyor...');
+        
+        // Priority'yi urgencyLevel'e map et
+        const urgencyLevel = (faultReport.priority === 'urgent' || faultReport.priority === 'high') ? 'acil' : 'normal';
+        
+        // vehicleId'yi doğru şekilde al (populate edilmişse _id'yi al)
+        let vehicleIdString: string;
+        if (faultReport.vehicleId && typeof faultReport.vehicleId === 'object' && '_id' in faultReport.vehicleId) {
+          vehicleIdString = (faultReport.vehicleId as any)._id.toString();
+        } else if (faultReport.vehicleId instanceof mongoose.Types.ObjectId) {
+          vehicleIdString = faultReport.vehicleId.toString();
+        } else {
+          vehicleIdString = String(faultReport.vehicleId);
+        }
+        
+        // userId'yi doğru şekilde al (populate edilmişse _id'yi al)
+        let customerIdString: string;
+        if (faultReport.userId && typeof faultReport.userId === 'object' && '_id' in faultReport.userId) {
+          customerIdString = (faultReport.userId as any)._id.toString();
+        } else if (faultReport.userId instanceof mongoose.Types.ObjectId) {
+          customerIdString = faultReport.userId.toString();
+        } else {
+          customerIdString = String(faultReport.userId || userId);
+        }
+        
+        console.log('🔍 ElectricalJob parametreleri:', {
+          customerId: customerIdString,
+          vehicleId: vehicleIdString,
+          mechanicId: finalMechanicId.toString()
+        });
+        console.log('🔍 [DEBUG] vehicleId extracted:', vehicleIdString);
+        console.log('🔍 [DEBUG] customerId extracted:', customerIdString);
+        
+        // FaultReport'dan electrical-specific fields'ları al (varsa), yoksa varsayılanlar kullan
+        const electricalJobResponse = await ElectricalService.createElectricalJob({
+          customerId: customerIdString,
+          vehicleId: vehicleIdString,
+          mechanicId: finalMechanicId.toString(),
+          electricalInfo: {
+            description: faultReport.faultDescription,
+            photos: faultReport.photos || [],
+            videos: faultReport.videos || [],
+            systemType: 'diger', // Varsayılan, usta güncelleyebilir
+            problemType: 'diger', // Varsayılan, usta güncelleyebilir
+            urgencyLevel: urgencyLevel,
+            isRecurring: false, // Varsayılan
+            estimatedRepairTime: 4 // Varsayılan saat, usta güncelleyebilir
+          }
+        });
+        
+        console.log('🔍 ElectricalJob response:', {
+          success: electricalJobResponse.success,
+          hasData: !!electricalJobResponse.data,
+          message: electricalJobResponse.message
+        });
+        
+        if (electricalJobResponse.success && electricalJobResponse.data) {
+          electricalJob = electricalJobResponse.data;
+          console.log('✅ ElectricalJob oluşturuldu:', electricalJob._id);
+          
+          // FaultReport'a electricalJobId ekle (ileride referans için)
+          (faultReport as any).electricalJobId = electricalJob._id;
+          await faultReport.save();
+          console.log('✅ FaultReport electricalJobId güncellendi:', electricalJob._id.toString());
+          
+          // FaultReport'u yeniden yükle ve kontrol et
+          const savedFaultReport = await FaultReport.findById(faultReport._id);
+          console.log('🔍 [DEBUG] Saved FaultReport electricalJobId:', (savedFaultReport as any)?.electricalJobId);
+        } else {
+          console.warn('⚠️ ElectricalJob oluşturulamadı:', electricalJobResponse);
+        }
+        
+      } catch (electricalError: any) {
+        console.error('❌ ElectricalJob oluşturulurken hata:', electricalError);
+        console.error('❌ Error details:', {
+          message: electricalError.message,
+          stack: electricalError.stack,
+          name: electricalError.name
+        });
+        // ElectricalJob hatası randevu oluşturmayı durdurmamalı
+      }
+    } else {
+      console.warn('⚠️ ElectricalJob oluşturulmadı:', {
+        isElectricalCategory,
+        hasFinalMechanicId: !!finalMechanicId
+      });
+    }
+
     res.json({
       success: true,
-      message: 'Randevu başarıyla oluşturuldu' + (bodyworkJob ? ' ve kaporta işi oluşturuldu' : ''),
+      message: 'Randevu başarıyla oluşturuldu' + 
+               (bodyworkJob ? ' ve kaporta işi oluşturuldu' : '') + 
+               (electricalJob ? ' ve elektrik işi oluşturuldu' : ''),
       data: {
         appointment: {
           _id: appointment._id,
@@ -1470,6 +1576,12 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
           bodyworkJob: {
             _id: bodyworkJob._id,
             status: bodyworkJob.status
+          }
+        }),
+        ...(electricalJob && {
+          electricalJob: {
+            _id: electricalJob._id,
+            status: electricalJob.status
           }
         })
       }
@@ -1604,6 +1716,144 @@ export const convertToBodyworkJob = async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('❌ convertToBodyworkJob error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Dönüştürme işlemi sırasında bir hata oluştu',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// Elektrik-Elektronik kategorisindeki fault report'u electrical job'a dönüştür
+export const convertToElectricalJob = async (req: Request, res: Response) => {
+  try {
+    const { faultReportId } = req.params;
+    const { mechanicId } = req.body;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Kullanıcı kimliği bulunamadı'
+      });
+    }
+
+    if (!mechanicId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Usta ID gereklidir'
+      });
+    }
+
+    // FaultReport'u bul
+    const faultReport = await FaultReport.findById(faultReportId)
+      .populate('userId', 'name surname phone')
+      .populate('vehicleId', 'brand modelName plateNumber year');
+
+    if (!faultReport) {
+      return res.status(404).json({
+        success: false,
+        message: 'Arıza bildirimi bulunamadı'
+      });
+    }
+
+    // Elektrik-Elektronik kategorisi kontrolü
+    const isElectricalCategory = faultReport.serviceCategory === 'Elektrik-Elektronik';
+    
+    if (!isElectricalCategory) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bu arıza bildirimi Elektrik-Elektronik kategorisinde değil'
+      });
+    }
+
+    // Zaten dönüştürülmüş mü kontrol et
+    if ((faultReport as any).electricalJobId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bu arıza bildirimi zaten elektrik işine dönüştürülmüş',
+        data: {
+          electricalJobId: (faultReport as any).electricalJobId
+        }
+      });
+    }
+
+    // Priority'yi urgencyLevel'e map et
+    const urgencyLevel = (faultReport.priority === 'urgent' || faultReport.priority === 'high') ? 'acil' : 'normal';
+    
+    // ElectricalJob oluştur
+    // mechanicId parametre olarak geliyor, ObjectId'e çevir
+    let finalMechanicIdForConvert: mongoose.Types.ObjectId;
+    if (typeof mechanicId === 'string') {
+      finalMechanicIdForConvert = new mongoose.Types.ObjectId(mechanicId);
+    } else if (mechanicId instanceof mongoose.Types.ObjectId) {
+      finalMechanicIdForConvert = mechanicId;
+    } else {
+      finalMechanicIdForConvert = new mongoose.Types.ObjectId(String(mechanicId));
+    }
+    
+    // vehicleId'yi doğru şekilde al (populate edilmişse _id'yi al)
+    let vehicleIdString: string;
+    if (faultReport.vehicleId && typeof faultReport.vehicleId === 'object' && '_id' in faultReport.vehicleId) {
+      vehicleIdString = (faultReport.vehicleId as any)._id.toString();
+    } else if (faultReport.vehicleId instanceof mongoose.Types.ObjectId) {
+      vehicleIdString = faultReport.vehicleId.toString();
+    } else {
+      vehicleIdString = String(faultReport.vehicleId);
+    }
+    
+    // userId'yi doğru şekilde al (populate edilmişse _id'yi al)
+    let customerIdString: string;
+    if (faultReport.userId && typeof faultReport.userId === 'object' && '_id' in faultReport.userId) {
+      customerIdString = (faultReport.userId as any)._id.toString();
+    } else if (faultReport.userId instanceof mongoose.Types.ObjectId) {
+      customerIdString = faultReport.userId.toString();
+    } else {
+      customerIdString = String(faultReport.userId);
+    }
+    
+    const electricalJobResponse = await ElectricalService.createElectricalJob({
+      customerId: customerIdString,
+      vehicleId: vehicleIdString,
+      mechanicId: finalMechanicIdForConvert.toString(),
+      electricalInfo: {
+        description: faultReport.faultDescription,
+        photos: faultReport.photos || [],
+        videos: faultReport.videos || [],
+        systemType: 'diger', // Varsayılan, usta güncelleyebilir
+        problemType: 'diger', // Varsayılan, usta güncelleyebilir
+        urgencyLevel: urgencyLevel,
+        isRecurring: false, // Varsayılan
+        estimatedRepairTime: 4 // Varsayılan saat, usta güncelleyebilir
+      }
+    });
+
+    if (electricalJobResponse.success && electricalJobResponse.data) {
+      const electricalJob = electricalJobResponse.data;
+      
+      // FaultReport'a electricalJobId ekle
+      (faultReport as any).electricalJobId = electricalJob._id;
+      await faultReport.save();
+
+      return res.json({
+        success: true,
+        message: 'Arıza bildirimi elektrik işine dönüştürüldü',
+        data: {
+          electricalJob: {
+            _id: electricalJob._id,
+            status: electricalJob.status
+          }
+        }
+      });
+    } else {
+      return res.status(500).json({
+        success: false,
+        message: 'Elektrik işi oluşturulamadı'
+      });
+    }
+
+  } catch (error: any) {
+    console.error('❌ convertToElectricalJob error:', error);
     res.status(500).json({
       success: false,
       message: 'Dönüştürme işlemi sırasında bir hata oluştu',

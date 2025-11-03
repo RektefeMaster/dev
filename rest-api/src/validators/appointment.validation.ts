@@ -51,7 +51,33 @@ export const createAppointmentSchema = Joi.object({
     oneDayBefore: Joi.boolean().optional(),
     oneHourBefore: Joi.boolean().optional(),
     twoHoursBefore: Joi.boolean().optional()
-  }).optional()
+  }).optional(),
+  // Electrical service specific fields
+  electricalSystemType: Joi.when('serviceType', {
+    is: 'elektrik-elektronik',
+    then: Joi.string().valid('klima', 'far', 'alternator', 'batarya', 'elektrik-araci', 'sinyal', 'diger').optional(),
+    otherwise: Joi.forbidden()
+  }),
+  electricalProblemType: Joi.when('serviceType', {
+    is: 'elektrik-elektronik',
+    then: Joi.string().valid('calismiyor', 'arizali-bos', 'ariza-gostergesi', 'ses-yapiyor', 'isinma-sorunu', 'kisa-devre', 'tetik-atmiyor', 'diger').optional(),
+    otherwise: Joi.forbidden()
+  }),
+  electricalUrgencyLevel: Joi.when('serviceType', {
+    is: 'elektrik-elektronik',
+    then: Joi.string().valid('normal', 'acil').optional().default('normal'),
+    otherwise: Joi.forbidden()
+  }),
+  isRecurring: Joi.when('serviceType', {
+    is: 'elektrik-elektronik',
+    then: Joi.boolean().optional().default(false),
+    otherwise: Joi.forbidden()
+  }),
+  lastWorkingCondition: Joi.when('serviceType', {
+    is: 'elektrik-elektronik',
+    then: Joi.string().max(500).allow('').optional(),
+    otherwise: Joi.forbidden()
+  })
 });
 
 export const updateAppointmentSchema = Joi.object({

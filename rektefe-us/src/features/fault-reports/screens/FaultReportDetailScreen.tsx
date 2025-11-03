@@ -17,10 +17,11 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, NavigationProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/shared/context';
 import apiService from '@/shared/services';
+import { RootStackParamList } from '@/shared/types/common';
 
 const { width } = Dimensions.get('window');
 
@@ -81,12 +82,13 @@ interface FaultReport {
   }>;
   appointmentId?: string;
   bodyworkJobId?: string;
+  electricalJobId?: string;
   createdAt: string;
   updatedAt: string;
 }
 
 const FaultReportDetailScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute();
   const { user, isAuthenticated } = useAuth();
   const [faultReport, setFaultReport] = useState<FaultReport | null>(null);
@@ -318,7 +320,7 @@ const FaultReportDetailScreen: React.FC = () => {
             text: 'Kaporta İşlerine Git', 
             onPress: () => {
               // Bodywork ekranına yönlendir
-              navigation.navigate('Bodywork' as any);
+              navigation.navigate('Bodywork');
             }
           }
         ]
@@ -347,7 +349,7 @@ const FaultReportDetailScreen: React.FC = () => {
               // Backend'e istek gönder
               const response = await apiService.FaultReportService.convertToBodyworkJob(
                 faultReportId,
-                faultReport.selectedQuote?.mechanicId || user.userId
+                faultReport.selectedQuote?.mechanicId || user?._id || ''
               );
 
               if (response.success) {
@@ -357,7 +359,7 @@ const FaultReportDetailScreen: React.FC = () => {
                   [
                     { text: 'Tamam', onPress: () => {
                       // Bodywork ekranına yönlendir
-                      navigation.navigate('Bodywork' as any);
+                      navigation.navigate('Bodywork');
                       // Sayfayı yenile
                       fetchFaultReportDetail();
                     }}
@@ -368,6 +370,80 @@ const FaultReportDetailScreen: React.FC = () => {
               }
             } catch (error: any) {
               console.error('Convert to bodywork job error:', error);
+              Alert.alert('Hata', 'Dönüştürme işlemi sırasında bir hata oluştu');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleConvertToElectricalJob = async () => {
+    if (!faultReport || !user) {
+      return;
+    }
+
+    // Eğer zaten electricalJobId varsa, o işe yönlendir
+    if (faultReport.electricalJobId) {
+      Alert.alert(
+        'Bilgi',
+        'Bu arıza bildirimi zaten elektrik işine dönüştürülmüş.',
+        [
+          { text: 'Tamam', style: 'cancel' },
+          { 
+            text: 'Elektrik İşlerine Git', 
+            onPress: () => {
+              // Electrical ekranına yönlendir
+              navigation.navigate('ElectricalService');
+            }
+          }
+        ]
+      );
+      return;
+    }
+
+    // Seçili quote yoksa uyarı ver
+    if (!faultReport.selectedQuote || !faultReport.selectedQuote.mechanicId) {
+      Alert.alert(
+        'Uyarı',
+        'Elektrik işine dönüştürmek için önce müşterinin bir teklifi kabul etmesi gerekiyor.'
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Elektrik İşine Dönüştür',
+      'Bu arıza bildirimi elektrik-elektronik işine dönüştürülecek. Devam etmek istiyor musunuz?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        { 
+          text: 'Dönüştür', 
+          onPress: async () => {
+            try {
+              // Backend'e istek gönder
+              const response = await apiService.FaultReportService.convertToElectricalJob(
+                faultReportId,
+                faultReport.selectedQuote?.mechanicId || user?._id || ''
+              );
+
+              if (response.success) {
+                Alert.alert(
+                  'Başarılı',
+                  'Arıza bildirimi elektrik işine dönüştürüldü.',
+                  [
+                    { text: 'Tamam', onPress: () => {
+                      // Electrical ekranına yönlendir
+                      navigation.navigate('ElectricalService');
+                      // Sayfayı yenile
+                      fetchFaultReportDetail();
+                    }}
+                  ]
+                );
+              } else {
+                Alert.alert('Hata', response.message || 'Dönüştürme işlemi başarısız oldu');
+              }
+            } catch (error: any) {
+              console.error('Convert to electrical job error:', error);
               Alert.alert('Hata', 'Dönüştürme işlemi sırasında bir hata oluştu');
             }
           }
@@ -586,6 +662,21 @@ const FaultReportDetailScreen: React.FC = () => {
           >
             <Ionicons name="construct" size={20} color="#FFFFFF" />
             <Text style={styles.convertButtonText}>Kaporta İşine Dönüştür</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Elektrik-Elektronik kategorisinde ve accepted durumunda "Elektrik İşine Dönüştür" butonu */}
+      {faultReport.serviceCategory === 'Elektrik-Elektronik' && 
+       (faultReport.status === 'accepted' || faultReport.status === 'quoted') && 
+       !faultReport.electricalJobId && (
+        <View style={styles.bottomButtonContainer}>
+          <TouchableOpacity 
+            style={styles.convertButton} 
+            onPress={handleConvertToElectricalJob}
+          >
+            <Ionicons name="flash" size={20} color="#FFFFFF" />
+            <Text style={styles.convertButtonText}>Elektrik İşine Dönüştür</Text>
           </TouchableOpacity>
         </View>
       )}

@@ -1589,6 +1589,25 @@ export const FaultReportService = {
         error.response?.data?.error?.details
       );
     }
+  },
+
+  /**
+   * Elektrik-Elektronik kategorisindeki fault report'u electrical job'a dönüştür
+   */
+  async convertToElectricalJob(faultReportId: string, mechanicId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/fault-reports/${faultReportId}/convert-to-electrical-job`, {
+        mechanicId
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Convert to electrical job error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Dönüştürme işlemi başarısız oldu',
+        error.response?.data?.error?.details
+      );
+    }
   }
 };
 
@@ -2430,6 +2449,200 @@ const BodyworkService = {
       return createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,
         'Şablon silinemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  }
+};
+
+// ===== ELECTRICAL SERVICE =====
+
+const ElectricalService = {
+  /**
+   * Yeni elektrik-elektronik işi oluştur
+   */
+  async createElectricalJob(data: {
+    customerId: string;
+    vehicleId: string;
+    electricalInfo: {
+      description: string;
+      photos: string[];
+      videos?: string[];
+      systemType: 'klima' | 'far' | 'alternator' | 'batarya' | 'elektrik-araci' | 'sinyal' | 'diger';
+      problemType: 'calismiyor' | 'arizali-bos' | 'ariza-gostergesi' | 'ses-yapiyor' | 'isinma-sorunu' | 'kisa-devre' | 'tetik-atmiyor' | 'diger';
+      urgencyLevel: 'normal' | 'acil';
+      isRecurring: boolean;
+      lastWorkingCondition?: string;
+      estimatedRepairTime: number;
+    };
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post('/electrical', data);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Create electrical job error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Elektrik işi oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Teklif hazırla
+   */
+  async prepareQuote(jobId: string, quoteData: {
+    partsToReplace: Array<{
+      partName: string;
+      partNumber?: string;
+      brand: string;
+      quantity: number;
+      unitPrice: number;
+      notes?: string;
+    }>;
+    partsToRepair: Array<{
+      partName: string;
+      laborHours: number;
+      laborRate: number;
+      notes?: string;
+    }>;
+    diagnosisCost: number;
+    testingCost: number;
+    validityDays?: number;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/electrical/${jobId}/quote`, quoteData);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Prepare quote error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Teklif hazırlanamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Teklifi gönder
+   */
+  async sendQuote(jobId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/electrical/${jobId}/quote/send`);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Send quote error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Teklif gönderilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * İş akışı aşamasını güncelle
+   */
+  async updateWorkflowStage(jobId: string, stageData: {
+    stage: string;
+    status: 'in_progress' | 'completed' | 'skipped';
+    photos?: string[];
+    notes?: string;
+    assignedTo?: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.put(`/electrical/${jobId}/workflow`, stageData);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Update workflow stage error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'İş akışı güncellenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Müşteri onayı iste
+   */
+  async requestCustomerApproval(jobId: string, stage: string, photos?: string[]): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/electrical/${jobId}/request-approval`, {
+        stage,
+        photos
+      });
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Request customer approval error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Müşteri onayı istenemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Kalite kontrol yap
+   */
+  async performQualityCheck(jobId: string, qualityData: {
+    passed: boolean;
+    checkedBy: string;
+    issues?: string[];
+    photos?: string[];
+    notes?: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/electrical/${jobId}/quality-check`, qualityData);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Perform quality check error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Kalite kontrol yapılamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Ustanın elektrik işlerini getir
+   */
+  async getElectricalJobs(status?: string, page?: number, limit?: number): Promise<ApiResponse<any>> {
+    try {
+      const params: any = {};
+      if (status) params.status = status;
+      if (page) params.page = page;
+      if (limit) params.limit = limit;
+      const response = await apiClient.get('/electrical/mechanic', { params });
+      if (response.data && response.data.success) {
+        return createSuccessResponse(response.data.data || [], response.data.pagination);
+      }
+      return createSuccessResponse([], undefined);
+    } catch (error: any) {
+      console.error('Get electrical jobs error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Elektrik işleri getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Elektrik işi detayını getir
+   */
+  async getElectricalJobById(jobId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get(`/electrical/${jobId}`);
+      return createSuccessResponse(response.data.data);
+    } catch (error: any) {
+      console.error('Get electrical job by id error:', error);
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Elektrik işi detayı getirilemedi',
         error.response?.data?.error?.details
       );
     }
@@ -3576,6 +3789,7 @@ const apiService = {
   WalletService,
   TireHotelService,
   BodyworkService,
+  ElectricalService,
   CarWashService,
   ReportService,
   PartsService,
@@ -3592,6 +3806,7 @@ const apiService = {
   ...WalletService,
   ...TireHotelService,
   ...BodyworkService,
+  ...ElectricalService,
   ...CarWashService,
   ...ReportService,
   ...PartsService,

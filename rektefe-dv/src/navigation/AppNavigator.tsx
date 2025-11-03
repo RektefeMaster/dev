@@ -54,6 +54,11 @@ import {
   BodyworkQuoteScreen,
   BodyworkWorkflowScreen,
 } from '@/features/bodywork/screens';
+import {
+  CreateElectricalJobScreen,
+  ElectricalJobsScreen,
+  ElectricalJobDetailScreen,
+} from '@/features/electrical/screens';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -159,6 +164,9 @@ export type RootStackParamList = {
   BodyworkJobs: undefined;
   CreateBodyworkJob: undefined;
   BodyworkJobDetail: { jobId: string };
+  ElectricalJobs: undefined;
+  CreateElectricalJob: undefined;
+  ElectricalJobDetail: { jobId: string };
   BodyworkQuote: { jobId: string };
   BodyworkWorkflow: { jobId: string };
   BodyworkPayment: { jobId: string };
@@ -416,6 +424,28 @@ const AppNavigator = () => {
         <Stack.Screen 
           name="BodyworkJobDetail" 
           component={BodyworkJobDetailScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        {/* Electrical Screens */}
+        <Stack.Screen 
+          name="ElectricalJobs" 
+          component={ElectricalJobsScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="CreateElectricalJob" 
+          component={CreateElectricalJobScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="ElectricalJobDetail" 
+          component={ElectricalJobDetailScreen}
           options={{
             headerShown: false,
           }}

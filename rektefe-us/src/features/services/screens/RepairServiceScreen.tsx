@@ -75,10 +75,9 @@ export default function RepairServiceScreen() {
     return user?.serviceCategories || [];
   }, [user?.serviceCategories]);
 
-  // Route name'den kategoriyi belirle
+  // Route name'den kategoriyi belirle - sadece repair ve parts
   const targetCategory = React.useMemo(() => {
     if (routeName === 'RepairService') return 'repair';
-    if (routeName === 'ElectricalService') return 'electrical';
     if (routeName === 'PartsService') return 'parts';
     return 'repair'; // default
   }, [routeName]);
@@ -91,10 +90,6 @@ export default function RepairServiceScreen() {
     if (targetCategory === 'repair') {
       return userServiceCategories.some(cat => 
         ['repair', 'tamir-bakim', 'Genel Bakım'].includes(cat)
-      );
-    } else if (targetCategory === 'electrical') {
-      return userServiceCategories.some(cat => 
-        ['electrical', 'elektrik'].includes(cat)
       );
     } else if (targetCategory === 'parts') {
       return userServiceCategories.some(cat => 
@@ -122,13 +117,6 @@ export default function RepairServiceScreen() {
       info.gradientColors = ['#3B82F6', '#2563EB'];
       // Repair kategorisi: genel-bakim, agir-bakim, alt-takim, ust-takim, egzoz-emisyon
       info.serviceTypes = ['genel-bakim', 'agir-bakim', 'alt-takim', 'ust-takim', 'egzoz-emisyon'];
-    } else if (targetCategory === 'electrical') {
-      info.title = 'Elektrik & Elektronik';
-      info.icon = 'flask';
-      info.color = '#F97316';
-      info.gradientColors = ['#F97316', '#EA580C'];
-      // Electrical kategorisi
-      info.serviceTypes = ['elektrik-elektronik'];
     } else if (targetCategory === 'parts') {
       info.title = 'Yedek Parça';
       info.icon = 'settings';
@@ -219,7 +207,9 @@ export default function RepairServiceScreen() {
             location: appointment.location || { address: '', city: '', coordinates: [0, 0] as [number, number] },
             scheduledDate: appointment.appointmentDate || new Date().toISOString(),
             createdAt: appointment.createdAt || appointment.appointmentDate,
-            updatedAt: appointment.updatedAt || new Date().toISOString()
+            updatedAt: appointment.updatedAt || new Date().toISOString(),
+            // Electrical service artık ElectricalScreen'de işlendiği için burada kaldırıldı
+            lastWorkingCondition: (appointment as any).lastWorkingCondition
           };
         });
         
@@ -438,11 +428,14 @@ export default function RepairServiceScreen() {
       switch (job.status) {
         case 'pending':
           return (
-            <TouchableOpacity
-              style={[styles.modernActionButton, { backgroundColor: categoryInfo.color }]}
-              onPress={() => handleAppointmentStatusUpdate(job._id, 'in-progress')}
-              activeOpacity={0.8}
-            >
+              <TouchableOpacity
+                style={[styles.modernActionButton, { backgroundColor: categoryInfo.color }]}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleAppointmentStatusUpdate(job._id, 'in-progress');
+                }}
+                activeOpacity={0.8}
+              >
               <LinearGradient
                 colors={categoryInfo.gradientColors}
                 style={styles.buttonGradient}
@@ -465,7 +458,10 @@ export default function RepairServiceScreen() {
               </View>
               <TouchableOpacity
                 style={[styles.modernActionButton, { backgroundColor: '#10B981' }]}
-                onPress={() => openPriceModal(job._id)}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  openPriceModal(job._id);
+                }}
                 activeOpacity={0.8}
               >
                 <LinearGradient
@@ -524,7 +520,12 @@ export default function RepairServiceScreen() {
     };
 
     return (
-      <View key={job._id} style={styles.jobCard}>
+      <TouchableOpacity
+        key={job._id}
+        style={styles.jobCard}
+        onPress={() => (navigation as any).navigate('AppointmentDetail', { appointmentId: job._id })}
+        activeOpacity={0.8}
+      >
         {/* Header */}
         <View style={styles.cardHeader}>
           <View style={styles.headerLeft}>
@@ -599,11 +600,26 @@ export default function RepairServiceScreen() {
           </View>
         </View>
 
+        {/* Electrical service artık ElectricalScreen'de işlendiği için burada kaldırıldı */}
+
         {/* Action Section */}
         <View style={styles.actionSection}>
           {renderActionSection()}
         </View>
-      </View>
+
+        {/* Detay Butonu */}
+        <TouchableOpacity
+          style={styles.detailButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            (navigation as any).navigate('AppointmentDetail', { appointmentId: job._id });
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-forward" size={20} color={categoryInfo.color} />
+          <Text style={[styles.detailButtonText, { color: categoryInfo.color }]}>Detayları Gör</Text>
+        </TouchableOpacity>
+      </TouchableOpacity>
     );
   };
 
@@ -1032,6 +1048,61 @@ const styles = StyleSheet.create({
     backgroundColor: '#E2E8F0',
     marginVertical: 12,
   },
+  electricalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  electricalHeaderText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+    flex: 1,
+  },
+  urgencyBadgeInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  urgencyBadgeTextInline: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  recurringBadgeInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  recurringBadgeTextInline: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  electricalDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  electricalDetailLabel: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+    minWidth: 60,
+  },
+  electricalDetailValue: {
+    fontSize: 13,
+    color: '#1E293B',
+    fontWeight: '600',
+    flex: 1,
+  },
   actionSection: {
     marginTop: 4,
   },
@@ -1279,5 +1350,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  detailButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
+  },
+  detailButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

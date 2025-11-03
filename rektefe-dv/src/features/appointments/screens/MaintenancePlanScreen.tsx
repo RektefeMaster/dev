@@ -321,13 +321,10 @@ const MaintenancePlanScreen = () => {
         mechanicId: selectedMaster,
       };
 
-      // Electrical-specific fields
+      // Electrical hizmeti artık ayrı akışta (CreateElectricalJobScreen) işlendiği için burada appointment oluşturulmaz
       if (selectedService === 'elektrik-elektronik') {
-        if (electricalSystemType) appointmentData.electricalSystemType = electricalSystemType;
-        if (electricalProblemType) appointmentData.electricalProblemType = electricalProblemType;
-        appointmentData.electricalUrgencyLevel = electricalUrgencyLevel;
-        appointmentData.isRecurring = isRecurring;
-        if (lastWorkingCondition) appointmentData.lastWorkingCondition = lastWorkingCondition;
+        Alert.alert('Bilgi', 'Elektrik hizmeti için lütfen "Yeni Elektrik İşi" ekranını kullanın.');
+        return;
       }
 
       console.log('📤 MaintenancePlanScreen: Gönderilen veri:', appointmentData);
@@ -374,6 +371,13 @@ const MaintenancePlanScreen = () => {
       Alert.alert('Uyarı', 'Lütfen bir servis seçin');
       return;
     }
+    
+    // Electrical hizmeti seçildiğinde CreateElectricalJobScreen'e yönlendir
+    if (step === 2 && selectedService === 'elektrik-elektronik') {
+      navigation.navigate('CreateElectricalJob' as never);
+      return;
+    }
+    
     if (step === 3 && !selectedMaster) {
       Alert.alert('Uyarı', 'Lütfen bir usta veya dükkan seçin');
       return;
@@ -383,17 +387,15 @@ const MaintenancePlanScreen = () => {
       return;
     }
     
-    // Electrical hizmeti için özel adım
-    if (step === 4 && selectedService === 'elektrik-elektronik') {
-      setStep(5); // Electrical-specific step
-      return;
-    }
-    
     if (step === 5) {
       // Electrical için step 5 = electrical details, step 6 = notes/final
       if (selectedService === 'elektrik-elektronik') {
-        if (!electricalSystemType || !electricalProblemType) {
-          Alert.alert('Uyarı', 'Lütfen elektrik sistemi tipini ve problem tipini seçin');
+        if (!electricalSystemType) {
+          Alert.alert('Eksik Bilgi', 'Lütfen elektrik sistemi tipini seçin (Klima, Far/Lamba, Alternatör, vb.)');
+          return;
+        }
+        if (!electricalProblemType) {
+          Alert.alert('Eksik Bilgi', 'Lütfen problem tipini seçin (Çalışmıyor, Arızalı/Boş, vb.)');
           return;
         }
         setStep(6); // Notes step for electrical

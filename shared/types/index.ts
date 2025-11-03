@@ -215,6 +215,12 @@ export interface Appointment extends BaseEntity {
     transmission?: string;
     color?: string;
   };
+  // Electrical service specific fields
+  electricalSystemType?: 'klima' | 'far' | 'alternator' | 'batarya' | 'elektrik-araci' | 'sinyal' | 'diger';
+  electricalProblemType?: 'calismiyor' | 'arizali-bos' | 'ariza-gostergesi' | 'ses-yapiyor' | 'isinma-sorunu' | 'kisa-devre' | 'tetik-atmiyor' | 'diger';
+  electricalUrgencyLevel?: 'normal' | 'acil';
+  isRecurring?: boolean;
+  lastWorkingCondition?: string;
 }
 
 export interface AppointmentItem {
@@ -564,3 +570,138 @@ export type {
   TireStock,
   PriceCalculationParams
 } from './tire';
+
+// ===== ELECTRICAL JOB TYPES =====
+export type ElectricalSystemType = 'klima' | 'far' | 'alternator' | 'batarya' | 'elektrik-araci' | 'sinyal' | 'diger';
+export type ElectricalProblemType = 'calismiyor' | 'arizali-bos' | 'ariza-gostergesi' | 'ses-yapiyor' | 'isinma-sorunu' | 'kisa-devre' | 'tetik-atmiyor' | 'diger';
+export type ElectricalUrgencyLevel = 'normal' | 'acil';
+export type ElectricalJobStatus = 'quote_preparation' | 'quote_sent' | 'quote_accepted' | 'work_started' | 'in_progress' | 'completed' | 'cancelled' | 'pending_mechanic';
+export type ElectricalWorkflowStageType = 'quote_preparation' | 'diagnosis' | 'part_ordering' | 'repair' | 'replacement' | 'testing' | 'quality_check' | 'completed';
+export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
+export type StageStatus = 'pending' | 'in_progress' | 'completed' | 'skipped';
+
+export interface ElectricalInfo {
+  description: string;
+  photos: string[];
+  videos?: string[];
+  systemType: ElectricalSystemType;
+  problemType: ElectricalProblemType;
+  urgencyLevel: ElectricalUrgencyLevel;
+  isRecurring: boolean;
+  lastWorkingCondition?: string;
+  estimatedRepairTime: number;
+}
+
+export interface ElectricalQuotePart {
+  partName: string;
+  partNumber?: string;
+  brand: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  notes?: string;
+}
+
+export interface ElectricalQuoteRepair {
+  partName: string;
+  laborHours: number;
+  laborRate: number;
+  totalPrice: number;
+  notes?: string;
+}
+
+export interface ElectricalQuoteBreakdown {
+  partsToReplace: ElectricalQuotePart[];
+  partsToRepair: ElectricalQuoteRepair[];
+  diagnosisCost: number;
+  testingCost: number;
+  laborCost: number;
+  materialCost: number;
+  totalCost: number;
+}
+
+export interface ElectricalQuote {
+  totalAmount: number;
+  breakdown: ElectricalQuoteBreakdown;
+  validityDays: number;
+  createdAt: string | Date;
+  status: QuoteStatus;
+}
+
+export interface ElectricalWorkflowStage {
+  stage: ElectricalWorkflowStageType;
+  status: StageStatus;
+  startDate?: string | Date;
+  endDate?: string | Date;
+  photos: string[];
+  notes?: string;
+  assignedTo?: string;
+}
+
+export interface ElectricalWorkflow {
+  currentStage: ElectricalWorkflowStageType;
+  stages: ElectricalWorkflowStage[];
+  estimatedCompletionDate: string | Date;
+  actualCompletionDate?: string | Date;
+}
+
+export interface ElectricalPayment {
+  totalAmount: number;
+  paidAmount: number;
+  paymentStatus: 'pending' | 'partial' | 'paid' | 'overdue';
+  paymentMethod?: 'cash' | 'card' | 'bank_transfer';
+  paymentDate?: string | Date;
+}
+
+export interface CustomerApproval {
+  stage: string;
+  approved: boolean;
+  approvedAt?: string | Date;
+  notes?: string;
+  photos?: string[];
+}
+
+export interface QualityCheck {
+  passed: boolean;
+  checkedBy?: string;
+  checkedAt?: string | Date;
+  issues: string[];
+  photos: string[];
+  notes?: string;
+}
+
+export interface ElectricalJob extends BaseEntity {
+  customerId: string;
+  vehicleId: string;
+  mechanicId?: string;
+  electricalInfo: ElectricalInfo;
+  quote: ElectricalQuote;
+  workflow: ElectricalWorkflow;
+  status: ElectricalJobStatus;
+  payment: ElectricalPayment;
+  customerApprovals: CustomerApproval[];
+  qualityCheck: QualityCheck;
+  
+  // Populated fields
+  customer?: {
+    _id: string;
+    name: string;
+    surname: string;
+    phone: string;
+    email: string;
+  };
+  vehicle?: {
+    _id: string;
+    brand: string;
+    modelName: string;
+    plateNumber: string;
+    year?: number;
+  };
+  mechanic?: {
+    _id: string;
+    name: string;
+    surname: string;
+    phone?: string;
+    email?: string;
+  };
+}

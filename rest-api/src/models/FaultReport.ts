@@ -47,6 +47,7 @@ export interface IFaultReport extends Document {
   };
   appointmentId?: mongoose.Types.ObjectId; // Seçilen teklif için oluşturulan randevu
   bodyworkJobId?: mongoose.Types.ObjectId; // Kaporta/Boya kategorisinde oluşturulan bodywork job
+  electricalJobId?: mongoose.Types.ObjectId; // Elektrik-Elektronik kategorisinde oluşturulan electrical job
   createdAt: Date;
   updatedAt: Date;
 }
@@ -121,7 +122,8 @@ const FaultReportSchema: Schema = new Schema({
     transactionId: { type: String }
   },
   appointmentId: { type: Schema.Types.ObjectId, ref: 'Appointment' },
-  bodyworkJobId: { type: Schema.Types.ObjectId, ref: 'BodyworkJob' }
+  bodyworkJobId: { type: Schema.Types.ObjectId, ref: 'BodyworkJob' },
+  electricalJobId: { type: Schema.Types.ObjectId, ref: 'ElectricalJob' }
 }, {
   timestamps: true
 });

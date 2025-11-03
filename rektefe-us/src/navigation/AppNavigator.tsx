@@ -124,7 +124,7 @@ const AppNavigator = () => {
     <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         id={undefined}
-        initialRouteName={initialRoute}
+        initialRouteName={initialRoute as keyof RootStackParamList}
         screenOptions={{
           headerShown: false,
         }}
@@ -201,6 +201,28 @@ const AppNavigator = () => {
             title: 'Tamir & Bakım',
             headerStyle: {
               backgroundColor: '#3B82F6',
+            },
+            headerTintColor: '#fff',
+          }}
+        />
+        <Stack.Screen 
+          name="ElectricalService"
+          component={require('../features/services/screens/ElectricalScreen').default}
+          options={{
+            title: 'Elektrik & Elektronik',
+            headerStyle: {
+              backgroundColor: '#F97316',
+            },
+            headerTintColor: '#fff',
+          }}
+        />
+        <Stack.Screen 
+          name="ElectricalJobDetail"
+          component={require('../features/services/screens/ElectricalJobDetailScreen').default}
+          options={{
+            title: 'Elektrik İş Detayı',
+            headerStyle: {
+              backgroundColor: '#F97316',
             },
             headerTintColor: '#fff',
           }}

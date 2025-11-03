@@ -23,6 +23,11 @@ export const getServiceCategory = (serviceCategories?: string[]): ServiceCategor
     return 'repair';
   }
 
+  // Elektrik & Elektronik (repair'den sonra kontrol et)
+  if (serviceCategories.some(s => ['electrical', 'elektrik', 'Elektrik-Elektronik', 'elektrik-elektronik'].includes(s))) {
+    return 'electrical';
+  }
+
   // Oto Yıkama
   if (serviceCategories.some(s => ['wash', 'arac-yikama', 'Yıkama Hizmeti'].includes(s))) {
     return 'wash';
@@ -36,11 +41,6 @@ export const getServiceCategory = (serviceCategories?: string[]): ServiceCategor
   // Kaporta & Boya
   if (serviceCategories.some(s => ['bodywork', 'kaporta', 'boya', 'Kaporta & Boya'].includes(s))) {
     return 'bodywork';
-  }
-
-  // Elektrik & Elektronik
-  if (serviceCategories.some(s => ['electrical', 'elektrik', 'Elektrik-Elektronik', 'elektrik-elektronik'].includes(s))) {
-    return 'electrical';
   }
 
   // Yedek Parça

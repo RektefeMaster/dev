@@ -34,7 +34,17 @@ import {
   DashboardStats,
   TodaySchedule,
   AppointmentItem,
-  ExtraApprovalRequest
+  ExtraApprovalRequest,
+  ElectricalJob,
+  ElectricalInfo,
+  ElectricalQuote,
+  ElectricalWorkflow,
+  ElectricalWorkflowStage,
+  ElectricalWorkflowStageType,
+  ElectricalJobStatus,
+  ElectricalSystemType,
+  ElectricalProblemType,
+  ElectricalUrgencyLevel
 } from '../../../../shared/types/index';
 
 // ===== RE-EXPORT SHARED TYPES =====
@@ -62,7 +72,17 @@ export type {
   DashboardStats,
   TodaySchedule,
   AppointmentItem,
-  ExtraApprovalRequest
+  ExtraApprovalRequest,
+  ElectricalJob,
+  ElectricalInfo,
+  ElectricalQuote,
+  ElectricalWorkflow,
+  ElectricalWorkflowStage,
+  ElectricalWorkflowStageType,
+  ElectricalJobStatus,
+  ElectricalSystemType,
+  ElectricalProblemType,
+  ElectricalUrgencyLevel
 };
 
 // Re-export enums as values
@@ -557,11 +577,14 @@ export type RootStackParamList = {
   WashPackageManagement: undefined;
   WashJobs: undefined;
   WashJobDetail: { jobId: string };
+  ElectricalJobDetail: { jobId: string };
   WashProviderSetup: undefined;
   Inventory: undefined;
   PartsInventory: undefined;
   PartsReservations: undefined;
   AddPart: { partId?: string } | undefined;
+  WalletHistory: undefined;
+  Customers: undefined;
 };
 
 // ===== DRAWER NAVIGATION TYPES =====

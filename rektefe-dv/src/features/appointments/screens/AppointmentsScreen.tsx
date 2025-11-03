@@ -14,6 +14,14 @@ import { translateServiceName } from '@/shared/utils/serviceTranslator';
 import { RootStackParamList } from '@/navigation/AppNavigator';
 import { BackButton } from '@/shared/components';
 import { useAuth } from '@/context/AuthContext';
+import {
+  translateElectricalSystemType,
+  translateElectricalProblemType,
+  translateElectricalUrgencyLevel,
+  getUrgencyLevelBadgeStyle,
+  getRecurringBadgeStyle,
+  getUrgencyLevelIcon
+} from '@/shared/utils/electricalHelpers';
 
 type AppointmentsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Appointments'>;
 
@@ -745,6 +753,52 @@ const AppointmentsScreen = () => {
                 Son Güncelleme: {format(new Date(item.updatedAt), 'dd.MM.yyyy HH:mm', { locale: tr })}
               </Text>
             </View>
+          )}
+
+          {/* Electrical Details - Only for electrical service */}
+          {item.serviceType === 'elektrik-elektronik' && (
+            (item.electricalSystemType || item.electricalProblemType || item.electricalUrgencyLevel || item.isRecurring) && (
+              <View style={styles.electricalSection}>
+                <View style={styles.electricalHeader}>
+                  <MaterialCommunityIcons name="lightning-bolt" size={18} color="#F97316" />
+                  <Text style={styles.electricalHeaderText}>Elektrik Detayları</Text>
+                  {item.electricalUrgencyLevel === 'acil' && (
+                    <View style={[styles.urgencyBadgeInline, { backgroundColor: getUrgencyLevelBadgeStyle(item.electricalUrgencyLevel).backgroundColor }]}>
+                      <MaterialCommunityIcons name={getUrgencyLevelIcon(item.electricalUrgencyLevel) as any} size={12} color={getUrgencyLevelBadgeStyle(item.electricalUrgencyLevel).color} />
+                      <Text style={[styles.urgencyBadgeTextInline, { color: getUrgencyLevelBadgeStyle(item.electricalUrgencyLevel).color }]}>
+                        Acil
+                      </Text>
+                    </View>
+                  )}
+                  {item.isRecurring && (
+                    <View style={[styles.recurringBadgeInline, { backgroundColor: getRecurringBadgeStyle().backgroundColor }]}>
+                      <MaterialCommunityIcons name="repeat" size={12} color={getRecurringBadgeStyle().color} />
+                      <Text style={[styles.recurringBadgeTextInline, { color: getRecurringBadgeStyle().color }]}>
+                        Tekrarlayan
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                {item.electricalSystemType && (
+                  <View style={styles.electricalDetailRow}>
+                    <MaterialCommunityIcons name="flash" size={16} color="#666" />
+                    <Text style={styles.electricalDetailText}>
+                      <Text style={styles.electricalDetailLabel}>Sistem: </Text>
+                      {translateElectricalSystemType(item.electricalSystemType)}
+                    </Text>
+                  </View>
+                )}
+                {item.electricalProblemType && (
+                  <View style={styles.electricalDetailRow}>
+                    <MaterialCommunityIcons name="alert-circle" size={16} color="#666" />
+                    <Text style={styles.electricalDetailText}>
+                      <Text style={styles.electricalDetailLabel}>Problem: </Text>
+                      {translateElectricalProblemType(item.electricalProblemType)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )
           )}
 
           {item.notes && (
@@ -1540,7 +1594,67 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  electricalSection: {
+    backgroundColor: '#FEF9E7',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
+    marginBottom: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#F97316',
+  },
+  electricalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  electricalHeaderText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+    flex: 1,
+  },
+  urgencyBadgeInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
     paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  urgencyBadgeTextInline: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  recurringBadgeInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  recurringBadgeTextInline: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  electricalDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    gap: 8,
+  },
+  electricalDetailText: {
+    fontSize: 13,
+    color: '#1E293B',
+    flex: 1,
+  },
+  electricalDetailLabel: {
+    fontWeight: '600',
+    color: '#64748B',
   },
   dateTime: {
     fontSize: 15,

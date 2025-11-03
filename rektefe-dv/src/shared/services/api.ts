@@ -1356,6 +1356,132 @@ export const BodyworkService = {
   }
 };
 
+// ===== ELECTRICAL SERVICES =====
+
+export const ElectricalService = {
+  /**
+   * Müşteri electrical işi oluştur
+   */
+  async createElectricalJob(data: {
+    vehicleId: string;
+    mechanicId?: string;
+    electricalInfo: {
+      description: string;
+      photos: string[];
+      videos?: string[];
+      systemType: 'klima' | 'far' | 'alternator' | 'batarya' | 'elektrik-araci' | 'sinyal' | 'diger';
+      problemType: 'calismiyor' | 'arizali-bos' | 'ariza-gostergesi' | 'ses-yapiyor' | 'isinma-sorunu' | 'kisa-devre' | 'tetik-atmiyor' | 'diger';
+      urgencyLevel: 'normal' | 'acil';
+      isRecurring: boolean;
+      lastWorkingCondition?: string;
+      estimatedRepairTime: number;
+    };
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post('/electrical/customer/create', data);
+      return response.data;
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Create electrical job error:', error);
+      }
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Elektrik işi oluşturulamadı',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Müşteri electrical işlerini getir
+   */
+  async getElectricalJobs(status?: string, page?: number, limit?: number): Promise<ApiResponse<any>> {
+    try {
+      const params: any = {};
+      if (status) params.status = status;
+      if (page) params.page = page;
+      if (limit) params.limit = limit;
+      const response = await apiClient.get('/electrical/customer/jobs', { params });
+      return {
+        ...response.data,
+        pagination: response.data.pagination
+      };
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Get electrical jobs error:', error);
+      }
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Elektrik işleri getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Electrical iş detayını getir
+   */
+  async getElectricalJobById(jobId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.get(`/electrical/customer/${jobId}`);
+      return response.data;
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Get electrical job detail error:', error);
+      }
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'İş detayı getirilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Teklif yanıtı (kabul/red)
+   */
+  async respondToQuote(jobId: string, response: 'accept' | 'reject', reason?: string): Promise<ApiResponse<any>> {
+    try {
+      const response_data = await apiClient.post(`/electrical/customer/${jobId}/quote/respond`, {
+        response,
+        reason
+      });
+      return response_data.data;
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Respond to quote error:', error);
+      }
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Teklif yanıtı gönderilemedi',
+        error.response?.data?.error?.details
+      );
+    }
+  },
+
+  /**
+   * Electrical job ödeme işlemi
+   */
+  async processElectricalPayment(jobId: string, amount: number, paymentMethod: 'cash' | 'card' | 'bank_transfer' = 'card'): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post(`/electrical/customer/${jobId}/payment`, {
+        amount,
+        paymentMethod
+      });
+      return response.data;
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Electrical payment error:', error);
+      }
+      return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'Ödeme işlemi başarısız oldu',
+        error.response?.data?.error?.details
+      );
+    }
+  }
+};
+
 // ===== EXPORT ALL SERVICES =====
 
 export const apiService = {
@@ -2071,6 +2197,13 @@ export const apiService = {
   respondToQuote: BodyworkService.respondToQuote,
   approveStage: BodyworkService.approveStage,
   processBodyworkPayment: BodyworkService.processBodyworkPayment,
+
+  // Electrical Services
+  createElectricalJob: ElectricalService.createElectricalJob,
+  getElectricalJobs: ElectricalService.getElectricalJobs,
+  getElectricalJobById: ElectricalService.getElectricalJobById,
+  respondToElectricalQuote: ElectricalService.respondToQuote,
+  processElectricalPayment: ElectricalService.processElectricalPayment,
 
   // Photo Upload
   uploadProfilePhoto: async (uri: string) => {

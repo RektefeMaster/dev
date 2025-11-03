@@ -546,8 +546,8 @@ const TabNavigator = () => {
       {/* Elektrik & Elektronik Hizmeti */}
       {(userCapabilities.includes('electrical') || userCapabilities.includes('elektrik')) && (
           <Tab.Screen 
-          name="ElectricalService" 
-          component={require('../features/services/screens/RepairServiceScreen').default}
+          name="ElectricalService"
+          component={require('../features/services/screens/ElectricalScreen').default}
           options={{
             title: 'Elektrik',
             tabBarIcon: ({ color, size }) => (

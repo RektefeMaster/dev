@@ -703,11 +703,14 @@ const mechanicCapabilities = [
     console.log('🔍 HomeScreen getPrimaryServiceText Debug:');
     console.log('User serviceCategories:', userCapabilities);
     
-    // Öncelik sırası: repair > towing > wash > tire
-    // Backend'den gelen format: 'repair', 'towing', 'wash', 'tire', 'bodywork'
+    // Öncelik sırası: repair > electrical > towing > wash > tire > bodywork
+    // Backend'den gelen format: 'repair', 'electrical', 'towing', 'wash', 'tire', 'bodywork'
     if (userCapabilities.includes('repair') || userCapabilities.includes('tamir-bakim') || userCapabilities.includes('Genel Bakım')) {
       console.log('✅ Hizmet: Tamir & Bakım Randevuları');
       return 'Tamir & Bakım Randevuları';
+    } else if (userCapabilities.includes('electrical') || userCapabilities.includes('elektrik')) {
+      console.log('✅ Hizmet: Elektrik İşleri');
+      return 'Elektrik İşleri';
     } else if (userCapabilities.includes('towing') || userCapabilities.includes('cekici') || userCapabilities.includes('Çekici Hizmeti')) {
       console.log('✅ Hizmet: Çekici İşleri');
       return 'Çekici İşleri';
@@ -730,10 +733,12 @@ const mechanicCapabilities = [
     // Kullanıcının hizmet kategorisine göre öncelik sırasına göre yönlendir
     const userCapabilities = user?.serviceCategories || [];
     
-    // Öncelik sırası: repair > towing > wash > tire > bodywork
-    // Backend'den gelen format: 'repair', 'towing', 'wash', 'tire', 'bodywork'
+    // Öncelik sırası: repair > electrical > towing > wash > tire > bodywork
+    // Backend'den gelen format: 'repair', 'electrical', 'towing', 'wash', 'tire', 'bodywork'
     if (userCapabilities.includes('repair') || userCapabilities.includes('tamir-bakim') || userCapabilities.includes('Genel Bakım')) {
-      navigation.navigate('Appointments');
+      navigation.navigate('RepairService');
+    } else if (userCapabilities.includes('electrical') || userCapabilities.includes('elektrik')) {
+      navigation.navigate('ElectricalService');
     } else if (userCapabilities.includes('towing') || userCapabilities.includes('cekici') || userCapabilities.includes('Çekici Hizmeti')) {
       navigation.navigate('TowingService');
     } else if (userCapabilities.includes('wash') || userCapabilities.includes('arac-yikama') || userCapabilities.includes('Yıkama Hizmeti')) {
@@ -743,7 +748,8 @@ const mechanicCapabilities = [
     } else if (userCapabilities.includes('bodywork') || userCapabilities.includes('kaporta')) {
       navigation.navigate('Bodywork');
     } else {
-      navigation.navigate('Appointments');
+      // Varsayılan olarak repair service'e yönlendir
+      navigation.navigate('RepairService');
     }
   };
 
@@ -773,9 +779,9 @@ const mechanicCapabilities = [
       case 'parts':
         navigation.navigate('PartsReservations');
         break;
-      default:
-        // Kategori belirlenemezse Appointments ekranına yönlendir
-        navigation.navigate('Appointments');
+        default:
+        // Kategori belirlenemezse RepairService ekranına yönlendir
+        navigation.navigate('RepairService');
         break;
     }
   };
@@ -1120,7 +1126,24 @@ const mechanicCapabilities = [
                     {pendingAppointments.length > 3 && (
                       <TouchableOpacity 
                         style={styles.showMoreButton}
-                        onPress={() => navigation.navigate('Appointments')}
+                        onPress={() => {
+                          const serviceCategory = getServiceCategory(user?.serviceCategories);
+                          if (serviceCategory === 'electrical') {
+                            navigation.navigate('ElectricalService');
+                          } else if (serviceCategory === 'repair') {
+                            navigation.navigate('RepairService');
+                          } else if (serviceCategory === 'bodywork') {
+                            navigation.navigate('Bodywork');
+                          } else if (serviceCategory === 'tire') {
+                            navigation.navigate('TireService');
+                          } else if (serviceCategory === 'wash') {
+                            navigation.navigate('CarWash');
+                          } else if (serviceCategory === 'towing') {
+                            navigation.navigate('TowingService');
+                          } else {
+                            navigation.navigate('RepairService');
+                          }
+                        }}
                         activeOpacity={0.7}
                       >
                         <Text style={styles.showMoreText}>
@@ -1163,7 +1186,24 @@ const mechanicCapabilities = [
                   {pendingAppointmentsCount > 0 && (
                     <TouchableOpacity 
                       style={[styles.actionItem, styles.actionItemWarning]}
-                      onPress={() => navigation.navigate('Appointments')}
+                      onPress={() => {
+                        const serviceCategory = getServiceCategory(user?.serviceCategories);
+                        if (serviceCategory === 'electrical') {
+                          navigation.navigate('ElectricalService');
+                        } else if (serviceCategory === 'repair') {
+                          navigation.navigate('RepairService');
+                        } else if (serviceCategory === 'bodywork') {
+                          navigation.navigate('Bodywork');
+                        } else if (serviceCategory === 'tire') {
+                          navigation.navigate('TireService');
+                        } else if (serviceCategory === 'wash') {
+                          navigation.navigate('CarWash');
+                        } else if (serviceCategory === 'towing') {
+                          navigation.navigate('TowingService');
+                        } else {
+                          navigation.navigate('RepairService');
+                        }
+                      }}
                       activeOpacity={0.7}
                     >
                       <View style={styles.actionItemIcon}>

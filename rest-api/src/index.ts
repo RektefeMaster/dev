@@ -62,6 +62,7 @@ import paymentRoutes from './routes/payment';
 import tireStorageRoutes from './routes/tireStorage';
 import tireServiceRoutes from './routes/tireService';
 import bodyworkRoutes from './routes/bodywork';
+import electricalRoutes from './routes/electrical';
 import carWashRoutes from './routes/carWash';
 import washRoutes from './routes/wash';
 import partsRoutes from './routes/parts';
@@ -158,6 +159,7 @@ import './models/DepotLayout';
 import './models/SeasonalReminder';
 import './models/BodyworkJob';
 import './models/BodyworkTemplate';
+import './models/ElectricalJob';
 import './models/CarWashPackage';
 import './models/CarWashJob';
 import './models/CarWashLoyaltyProgram';
@@ -360,6 +362,7 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/tire-storage', tireStorageRoutes);
 app.use('/api/tire-service', tireServiceRoutes);
 app.use('/api/bodywork', bodyworkRoutes);
+app.use('/api/electrical', electricalRoutes);
 app.use('/api/carwash', carWashRoutes);
 app.use('/api/wash', washRoutes); // Yeni araç yıkama modülü
 app.use('/api/parts', partsRoutes); // Yedek parça marketplace modülü

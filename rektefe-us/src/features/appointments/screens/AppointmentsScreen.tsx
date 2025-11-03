@@ -22,6 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors as themeColors, typography, spacing, borderRadius, shadows } from '@/shared/theme';
 import { serviceNameMapping } from '@/shared/utils/serviceTranslator';
 import { BackButton } from '@/shared/components';
+import { getServiceCategory, getScreenTitle } from '@/shared/utils/serviceTypeHelpers';
 
 const { width } = Dimensions.get('window');
 
@@ -151,6 +152,10 @@ export default function AppointmentsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'IPTAL'>('all');
   const [activeTab, setActiveTab] = useState<'appointments' | 'faults'>('appointments');
+
+  // Hizmet kategorisine göre başlık belirle
+  const serviceCategory = getServiceCategory(user?.serviceCategories);
+  const screenTitle = getScreenTitle(serviceCategory, 'appointments');
 
   // Randevuları yükle
   const fetchAppointments = useCallback(async () => {
@@ -530,7 +535,7 @@ export default function AppointmentsScreen() {
         <View style={styles.headerTop}>
           <View style={styles.headerLeft}>
             <BackButton />
-            <Text style={styles.headerTitle}>Tamir & Bakım</Text>
+            <Text style={styles.headerTitle}>{screenTitle}</Text>
           </View>
           <TouchableOpacity
             style={styles.refreshButton}

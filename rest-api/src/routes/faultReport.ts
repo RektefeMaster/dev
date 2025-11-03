@@ -20,7 +20,8 @@ const {
   confirmPayment,
   finalizeWork,
   createAppointmentFromFaultReport,
-  convertToBodyworkJob
+  convertToBodyworkJob,
+  convertToElectricalJob
 } = faultReportController;
 
 const router = express.Router();
@@ -149,6 +150,13 @@ router.post('/:faultReportId/convert-to-bodywork-job',
   auth,
   requireRole([UserType.MECHANIC]),
   convertToBodyworkJob
+);
+
+// Elektrik-Elektronik kategorisindeki fault report'u electrical job'a dönüştür (Sadece ustalar)
+router.post('/:faultReportId/convert-to-electrical-job',
+  auth,
+  requireRole([UserType.MECHANIC]),
+  convertToElectricalJob
 );
 
 export default router;

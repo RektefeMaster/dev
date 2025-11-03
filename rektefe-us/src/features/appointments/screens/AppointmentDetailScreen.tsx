@@ -21,6 +21,14 @@ import { useAuth } from '@/shared/context';
 import { translateServiceName } from '@/shared/utils/serviceTranslator';
 import { useTheme } from '@/shared/context';
 import { Appointment } from '@/shared/types';
+import {
+  translateElectricalSystemType,
+  translateElectricalProblemType,
+  translateElectricalUrgencyLevel,
+  getUrgencyLevelBadgeStyle,
+  getRecurringBadgeStyle,
+  getUrgencyLevelIcon
+} from '@/shared/utils/electricalHelpers';
 
 export default function AppointmentDetailScreen() {
   const navigation = useNavigation();
@@ -716,6 +724,105 @@ export default function AppointmentDetailScreen() {
             {renderInfoRow('Plaka', appointment.vehicle.plateNumber, 'card')}
             {renderInfoRow('Renk', appointment.vehicle.color, 'color-palette')}
 
+          </>
+        ))}
+
+        {/* Electrical Details */}
+        {appointment.serviceType === 'elektrik-elektronik' && (
+          appointment.electricalSystemType || appointment.electricalProblemType || appointment.electricalUrgencyLevel || appointment.isRecurring || appointment.lastWorkingCondition
+        ) && renderInfoSection('Elektrik Arıza Detayları', (
+          <>
+            {appointment.electricalSystemType && (
+              <View style={styles.infoRow}>
+                <View style={styles.iconContainer}>
+                  <Ionicons name="flash" size={20} color={colors.primary} />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Elektrik Sistemi</Text>
+                  <Text style={styles.infoValue}>
+                    {translateElectricalSystemType(appointment.electricalSystemType)}
+                  </Text>
+                </View>
+              </View>
+            )}
+            
+            {appointment.electricalProblemType && (
+              <View style={styles.infoRow}>
+                <View style={styles.iconContainer}>
+                  <Ionicons name="warning" size={20} color={colors.warning?.main || '#F59E0B'} />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Problem Tipi</Text>
+                  <Text style={styles.infoValue}>
+                    {translateElectricalProblemType(appointment.electricalProblemType)}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {appointment.electricalUrgencyLevel && (
+              <View style={styles.infoRow}>
+                <View style={styles.iconContainer}>
+                  <Ionicons 
+                    name={getUrgencyLevelIcon(appointment.electricalUrgencyLevel) as any} 
+                    size={20} 
+                    color={getUrgencyLevelBadgeStyle(appointment.electricalUrgencyLevel).color} 
+                  />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Aciliyet Seviyesi</Text>
+                  <View style={styles.badgeContainer}>
+                    <View style={[
+                      styles.urgencyBadge,
+                      { backgroundColor: getUrgencyLevelBadgeStyle(appointment.electricalUrgencyLevel).backgroundColor }
+                    ]}>
+                      <Text style={[
+                        styles.urgencyBadgeText,
+                        { color: getUrgencyLevelBadgeStyle(appointment.electricalUrgencyLevel).color }
+                      ]}>
+                        {translateElectricalUrgencyLevel(appointment.electricalUrgencyLevel)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {appointment.isRecurring && (
+              <View style={styles.infoRow}>
+                <View style={styles.iconContainer}>
+                  <Ionicons name="repeat" size={20} color="#D97706" />
+                </View>
+                <View style={styles.infoContent}>
+                  <View style={styles.badgeContainer}>
+                    <View style={[
+                      styles.recurringBadge,
+                      { backgroundColor: getRecurringBadgeStyle().backgroundColor }
+                    ]}>
+                      <Ionicons name="repeat" size={14} color={getRecurringBadgeStyle().color} />
+                      <Text style={[
+                        styles.recurringBadgeText,
+                        { color: getRecurringBadgeStyle().color }
+                      ]}>
+                        Tekrarlayan Arıza
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {appointment.lastWorkingCondition && (
+              <View style={styles.infoRow}>
+                <View style={styles.iconContainer}>
+                  <Ionicons name="information-circle" size={20} color={colors.text.secondary} />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Son Çalışma Durumu</Text>
+                  <Text style={styles.infoValue}>{appointment.lastWorkingCondition}</Text>
+                </View>
+              </View>
+            )}
           </>
         ))}
 
@@ -1484,6 +1591,42 @@ const createStyles = (colors: any) => StyleSheet.create({
     alignItems: 'center',
     marginRight: spacing.sm,
     marginTop: 2,
+  },
+  iconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.background.tertiary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.sm,
+    marginTop: 2,
+  },
+  badgeContainer: {
+    marginTop: spacing.xs,
+  },
+  urgencyBadge: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    alignSelf: 'flex-start',
+  },
+  urgencyBadgeText: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: '600',
+  },
+  recurringBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+  },
+  recurringBadgeText: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: '600',
   },
   infoContent: {
     flex: 1,
