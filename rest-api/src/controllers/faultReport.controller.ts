@@ -1341,7 +1341,7 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
                                 faultReport.serviceCategory === 'kaporta-boya';
     
     let bodyworkJob = null;
-    if (isBodyworkCategory && mechanicId) {
+    if (isBodyworkCategory && finalMechanicId) {
       try {
         console.log('🔍 Kaporta/Boya kategorisi tespit edildi, BodyworkJob oluşturuluyor...');
         
