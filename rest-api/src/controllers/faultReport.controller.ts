@@ -1216,13 +1216,19 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
     }
 
     // selectedQuote'dan mechanicId'yi al, null ise quotes array'inden bul
-    let mechanicId = faultReport.selectedQuote?.mechanicId;
+    let mechanicId: mongoose.Types.ObjectId | string | undefined | any = faultReport.selectedQuote?.mechanicId;
     
-    // mechanicId bir object ise (populate edilmiş), _id'yi al
-    if (mechanicId && typeof mechanicId === 'object' && mechanicId._id) {
-      mechanicId = mechanicId._id;
-    } else if (mechanicId && typeof mechanicId === 'object') {
-      mechanicId = mechanicId.toString();
+    // mechanicId bir object ise (populate edilmiş), _id'yi al ve ObjectId'e çevir
+    if (mechanicId) {
+      if (typeof mechanicId === 'object' && '_id' in mechanicId) {
+        mechanicId = new mongoose.Types.ObjectId(mechanicId._id);
+      } else if (typeof mechanicId === 'object' && mechanicId.toString) {
+        mechanicId = new mongoose.Types.ObjectId(String(mechanicId));
+      } else if (typeof mechanicId === 'string') {
+        mechanicId = new mongoose.Types.ObjectId(mechanicId);
+      } else if (mechanicId instanceof mongoose.Types.ObjectId) {
+        // Zaten ObjectId, değiştirme
+      }
     }
     
     if (!mechanicId) {
@@ -1233,12 +1239,18 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
       );
       
       if (matchingQuote) {
-        mechanicId = matchingQuote.mechanicId;
-        // mechanicId bir object ise, _id'yi al
-        if (mechanicId && typeof mechanicId === 'object' && mechanicId._id) {
-          mechanicId = mechanicId._id;
-        } else if (mechanicId && typeof mechanicId === 'object') {
-          mechanicId = mechanicId.toString();
+        const quoteMechanicId = matchingQuote.mechanicId;
+        // mechanicId bir object ise, ObjectId'e çevir
+        if (quoteMechanicId) {
+          if (typeof quoteMechanicId === 'object' && '_id' in quoteMechanicId) {
+            mechanicId = new mongoose.Types.ObjectId((quoteMechanicId as any)._id);
+          } else if (typeof quoteMechanicId === 'object') {
+            mechanicId = new mongoose.Types.ObjectId(String(quoteMechanicId));
+          } else if (typeof quoteMechanicId === 'string') {
+            mechanicId = new mongoose.Types.ObjectId(quoteMechanicId);
+          } else {
+            mechanicId = quoteMechanicId as mongoose.Types.ObjectId;
+          }
         }
       }
     }
@@ -1249,22 +1261,34 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
         quote.quoteAmount === faultReport.selectedQuote?.quoteAmount
       );
       if (anyQuote) {
-        mechanicId = anyQuote.mechanicId;
-        // mechanicId bir object ise, _id'yi al
-        if (mechanicId && typeof mechanicId === 'object' && mechanicId._id) {
-          mechanicId = mechanicId._id;
-        } else if (mechanicId && typeof mechanicId === 'object') {
-          mechanicId = mechanicId.toString();
+        const quoteMechanicId = anyQuote.mechanicId;
+        if (quoteMechanicId) {
+          if (typeof quoteMechanicId === 'object' && '_id' in quoteMechanicId) {
+            mechanicId = new mongoose.Types.ObjectId((quoteMechanicId as any)._id);
+          } else if (typeof quoteMechanicId === 'object') {
+            mechanicId = new mongoose.Types.ObjectId(String(quoteMechanicId));
+          } else if (typeof quoteMechanicId === 'string') {
+            mechanicId = new mongoose.Types.ObjectId(quoteMechanicId);
+          } else {
+            mechanicId = quoteMechanicId as mongoose.Types.ObjectId;
+          }
         }
       }
     }
 
     // Eğer hala mechanicId yoksa, geçici bir ID oluştur
+    let finalMechanicId: mongoose.Types.ObjectId;
     if (!mechanicId) {
       console.warn('⚠️ mechanicId bulunamadı, geçici ID oluşturuluyor');
-      mechanicId = new mongoose.Types.ObjectId();
+      finalMechanicId = new mongoose.Types.ObjectId();
     } else {
-      console.log('✅ mechanicId bulundu:', mechanicId);
+      // mechanicId'yi ObjectId'e garanti et
+      if (mechanicId instanceof mongoose.Types.ObjectId) {
+        finalMechanicId = mechanicId;
+      } else {
+        finalMechanicId = new mongoose.Types.ObjectId(String(mechanicId));
+      }
+      console.log('✅ mechanicId bulundu:', finalMechanicId);
     }
 
     // ServiceCategory'yi ServiceType'a çevir
@@ -1278,7 +1302,7 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
     console.log('🔍 Appointment oluşturuluyor...');
     const appointment = new Appointment({
       userId: new mongoose.Types.ObjectId(userId),
-      mechanicId: new mongoose.Types.ObjectId(mechanicId),
+      mechanicId: finalMechanicId,
       serviceType: serviceType,
       appointmentDate: new Date(appointmentDate),
       timeSlot: timeSlot,
@@ -1331,7 +1355,7 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
         const bodyworkJobResponse = await BodyworkService.createBodyworkJob({
           customerId: userId,
           vehicleId: faultReport.vehicleId.toString(),
-          mechanicId: mechanicId.toString(),
+          mechanicId: finalMechanicId.toString(),
           damageInfo: {
             description: faultReport.faultDescription,
             photos: faultReport.photos || [],
@@ -1348,7 +1372,7 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
           console.log('✅ BodyworkJob oluşturuldu:', bodyworkJob._id);
           
           // FaultReport'a bodyworkJobId ekle (ileride referans için)
-          faultReport.bodyworkJobId = bodyworkJob._id;
+          (faultReport as any).bodyworkJobId = bodyworkJob._id;
           await faultReport.save();
         }
         
@@ -1437,12 +1461,12 @@ export const convertToBodyworkJob = async (req: Request, res: Response) => {
     }
 
     // Zaten dönüştürülmüş mü kontrol et
-    if (faultReport.bodyworkJobId) {
+    if ((faultReport as any).bodyworkJobId) {
       return res.status(400).json({
         success: false,
         message: 'Bu arıza bildirimi zaten kaporta işine dönüştürülmüş',
         data: {
-          bodyworkJobId: faultReport.bodyworkJobId
+          bodyworkJobId: (faultReport as any).bodyworkJobId
         }
       });
     }
@@ -1473,7 +1497,7 @@ export const convertToBodyworkJob = async (req: Request, res: Response) => {
       const bodyworkJob = bodyworkJobResponse.data;
       
       // FaultReport'a bodyworkJobId ekle
-      faultReport.bodyworkJobId = bodyworkJob._id;
+      (faultReport as any).bodyworkJobId = bodyworkJob._id;
       await faultReport.save();
 
       return res.json({
