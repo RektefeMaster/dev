@@ -62,7 +62,7 @@ export const useFaultReport = () => {
     { 
       id: 'Kaporta/Boya', 
       name: 'Kaporta/Boya', 
-      icon: 'car-repair', 
+      icon: 'car-wrench', 
       color: '#FF6B35',
       description: 'Kaporta ve boya hizmetleri'
     },

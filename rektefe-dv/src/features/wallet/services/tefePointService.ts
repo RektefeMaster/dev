@@ -238,7 +238,7 @@ class TefePointService {
   getTransactionIcon(type: string, status: string): string {
     switch (type) {
       case 'service_purchase':
-        return 'shopping-cart';
+        return 'cart';
       case 'referral':
         return 'account-plus';
       case 'bonus':

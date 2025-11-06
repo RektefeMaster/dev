@@ -3,7 +3,6 @@ import React from 'react';
 import { View, StyleSheet, ImageBackground } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/context/ThemeContext';
-import theme from '@/theme/theme';
 
 interface BackgroundProps {
   children: React.ReactNode;
@@ -12,20 +11,20 @@ interface BackgroundProps {
   imageSource?: any;
 }
 
-const getGradientColors = (isDark: boolean): readonly [string, string, string] => {
+const getGradientColors = (theme: any, isDark: boolean): readonly [string, string, string] => {
   if (isDark) {
     // Koyu tema - modern gradient
     return [
-      theme.colors.background.quaternary,
-      theme.colors.background.tertiary,
-      theme.colors.primary.main
+      theme?.colors?.background?.quaternary || '#000000',
+      theme?.colors?.background?.tertiary || '#1C1C1E',
+      theme?.colors?.primary?.main || '#4B6382'
     ] as const;
   } else {
     // Açık tema - göz yormayan, gradient benzeri renkler
     return [
-      theme.colors.background.primary,
-      theme.colors.background.secondary,
-      theme.colors.primary.light
+      theme?.colors?.background?.primary || '#F2F2F7',
+      theme?.colors?.background?.secondary || '#FFFFFF',
+      theme?.colors?.primary?.light || '#5AC8FA'
     ] as const;
   }
 };
@@ -36,8 +35,8 @@ const Background: React.FC<BackgroundProps> = ({
   withImage = false,
   imageSource,
 }) => {
-  const { isDark } = useTheme();
-  const appliedColors = gradientColors || getGradientColors(isDark);
+  const { isDark, theme } = useTheme();
+  const appliedColors = gradientColors || getGradientColors(theme, isDark);
   
   if (withImage && imageSource) {
     return (

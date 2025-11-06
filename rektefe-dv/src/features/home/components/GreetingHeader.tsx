@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { DrawerNavigationProp } from '@react-navigation/drawer';
+import { StackNavigationProp } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiService } from '@/shared/services/api';
 import { withErrorHandling } from '@/shared/utils/errorHandler';
@@ -22,7 +22,7 @@ interface GreetingHeaderProps {
 }
 
 export const GreetingHeader: React.FC<GreetingHeaderProps> = ({ userName, favoriteCar, userId: propUserId, unreadCount: propUnreadCount = 0 }) => {
-  const navigation = useNavigation<DrawerNavigationProp<any>>();
+  const navigation = useNavigation<StackNavigationProp<any>>();
   const [userId, setUserId] = useState('');
 
   useEffect(() => {

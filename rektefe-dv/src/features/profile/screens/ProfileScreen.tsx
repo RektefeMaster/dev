@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Modal, TextInput, Switch, Alert, Platform, Animated, ScrollView, KeyboardAvoidingView, Keyboard, TouchableWithoutFeedback, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Modal, TextInput, Switch, Alert, Platform, Animated, ScrollView, KeyboardAvoidingView, Keyboard, TouchableWithoutFeedback, SafeAreaView, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiService, api } from '@/shared/services/api';
@@ -8,20 +8,26 @@ import { useNavigation } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
 import { useAuth } from '@/context/AuthContext';
 import { colors as themeColors, typography, spacing, borderRadius, shadows, dimensions } from '@/theme/theme';
+import { useTheme } from '@/context/ThemeContext';
 import * as ImagePicker from 'expo-image-picker';
+import LoadingSkeleton from '@/shared/components/LoadingSkeleton';
+import ErrorState from '@/shared/components/ErrorState';
 
 const defaultAvatar = require('../../../../assets/default_avatar.png');
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
+  const { theme, isDark } = useTheme();
+  const { logout, token, userId } = useAuth();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [editModal, setEditModal] = useState(false);
   const [editData, setEditData] = useState<any>({});
   const [showEmail, setShowEmail] = useState(true);
   const [showPhone, setShowPhone] = useState(true);
   const [avatarScale] = useState(new Animated.Value(1));
-  const { logout } = useAuth();
   const [imageModalVisible, setImageModalVisible] = useState(false);
   const [coverImageModalVisible, setCoverImageModalVisible] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -32,11 +38,9 @@ const ProfileScreen = () => {
   const filledFields = profileFields.filter(Boolean).length;
   const profileCompletion = filledFields / profileFields.length;
 
-  const { token, userId } = useAuth();
-
-  useEffect(() => {
-    const fetchUser = async () => {
+  const fetchUserData = async () => {
       try {
+      setError(null);
         if (!token || !userId) {
           setLoading(false);
           return;
@@ -46,24 +50,21 @@ const ProfileScreen = () => {
         
         // API response formatı kontrol et
         if (!data || !data.success) {
-          // Rate limit hatası ise sessizce atla, logout yapma ve bilgilendirme yapma
+        // Rate limit hatası ise sessizce atla
           if (data?.error?.code === 'RATE_LIMIT_EXCEEDED' || data?.error?.message?.includes('429')) {
-            // Sessizce return, hiçbir alert gösterilmez
             return;
           }
           
           // 401 hatası - API interceptor zaten logout'u handle ediyor
-          // Eğer gerçek auth hatası ise (INVALID_TOKEN, TOKEN_EXPIRED), interceptor logout yapmış olacak
-          // Burada sadece sessizce return et, AuthContext otomatik olarak state'i güncelleyecek
           if (data?.error?.code === 'UNAUTHORIZED' || 
               data?.error?.code === 'INVALID_TOKEN' || 
               data?.error?.code === 'TOKEN_EXPIRED' ||
               data?.error?.message?.includes('401')) {
-            // Sessizce return - API interceptor logout'u handle ediyor
             return;
           }
           
-          // Diğer hatalar için sessizce atla (network, server vb.)
+        // Diğer hatalar için error state set et
+        setError(data?.error?.message || 'Profil bilgileri alınamadı');
           return;
         }
         
@@ -87,24 +88,30 @@ const ProfileScreen = () => {
         if (__DEV__) {
           console.error('ProfileScreen: Error fetching user:', e.response?.status || e.message);
         }
-        // Rate limit hatası ise sessizce atla, logout yapma ve bilgilendirme yapma
+      // Rate limit hatası ise sessizce atla
         if (e.response?.status === 429) {
-          // Sessizce return, hiçbir alert gösterilmez
           return;
         }
         if (e.response?.status === 401) {
           Alert.alert('Oturum Süresi Doldu', 'Lütfen tekrar giriş yapın.');
           logout();
         } else {
-          // Rate limit olmayan diğer hatalar için normal hata mesajı
-          Alert.alert('Hata', 'Kullanıcı bilgileri alınamadı.');
+        setError('Kullanıcı bilgileri alınamadı');
         }
       } finally {
         setLoading(false);
+      setRefreshing(false);
       }
     };
-    fetchUser();
+
+  useEffect(() => {
+    fetchUserData();
   }, [token, userId, logout]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchUserData();
+  };
 
   const handleEditChange = (field: string, value: string | boolean) => {
     setEditData((prev: any) => ({ ...prev, [field]: value }));
@@ -317,10 +324,22 @@ const ProfileScreen = () => {
     );
   };
 
-  if (loading) {
+  if (loading && !refreshing) {
     return (
-      <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: themeColors.background.primary }}>
-        <Text style={{ color: themeColors.text.primary }}>Yükleniyor...</Text>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
+        <LoadingSkeleton variant="fullscreen" />
+      </SafeAreaView>
+    );
+  }
+
+  if (error && !refreshing) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
+        <ErrorState 
+          message={error} 
+          onRetry={handleRefresh}
+          title="Profil Yüklenemedi"
+        />
       </SafeAreaView>
     );
   }
@@ -340,7 +359,19 @@ const ProfileScreen = () => {
         </Modal>
       )}
       
-      <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false} bounces={false}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContainer} 
+        showsVerticalScrollIndicator={false} 
+        bounces={true}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[theme.colors.primary.main]}
+            tintColor={theme.colors.primary.main}
+          />
+        }
+      >
         {/* Header Section with Cover Photo */}
         <View style={styles.headerSection}>
           {/* Cover Photo */}

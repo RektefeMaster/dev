@@ -83,34 +83,35 @@ export const Colors = {
   },
   
   // Dark tema (31 ile biten renkler - her iki app için)
+  // WCAG 2.1 kontrast standartlarına uygun, göz yorgunluğunu azaltan renkler
   dark: {
     text: {
-      primary: '#FFFFFF',    // Ana metin - beyaz, yüksek kontrast
-      secondary: '#A4B5C4',  // İkincil metin - açık mavi-gri
-      tertiary: '#848A92',   // Üçüncül metin - orta gri
-      quaternary: '#636970', // Dördüncül metin - koyu gri
+      primary: '#E0E0E0',    // Ana metin - açık gri (saf beyaz yerine), göz yorgunluğunu azaltır
+      secondary: '#B0B0B0',  // İkincil metin - orta-açık gri
+      tertiary: '#888888',   // Üçüncül metin - orta gri
+      quaternary: '#666666', // Dördüncül metin - koyu gri
       inverse: '#11181C',    // Ters metin - koyu arka plan üzerinde
     },
     background: {
-      primary: '#0E2235',    // Ana arka plan - çok koyu mavi
-      secondary: '#184567',  // İkincil arka plan - koyu mavi
-      tertiary: '#24252B',   // Üçüncül arka plan - koyu gri
-      card: '#184567',       // Kart arka planı - koyu mavi
-      surface: '#24252B',    // Yüzey rengi - koyu gri
+      primary: '#121212',    // Ana arka plan - koyu gri (saf siyah yerine), WCAG uyumlu
+      secondary: '#1E1E1E',  // İkincil arka plan - biraz daha açık koyu gri
+      tertiary: '#2C2C2C',   // Üçüncül arka plan - orta koyu gri
+      card: '#1E1E1E',       // Kart arka planı - koyu gri
+      surface: '#2C2C2C',    // Yüzey rengi - orta koyu gri
     },
     border: {
-      light: '#184567',      // Açık kenarlık - koyu mavi
-      medium: '#266691',     // Orta kenarlık - orta mavi
-      dark: '#A4B5C4',       // Koyu kenarlık - açık mavi-gri
+      light: '#2C2C2C',      // Açık kenarlık - orta koyu gri
+      medium: '#3A3A3A',     // Orta kenarlık - orta gri
+      dark: '#888888',       // Koyu kenarlık - açık gri
     },
-    tint: '#266691',         // Vurgu rengi - orta mavi
-    icon: '#A4B5C4',         // İkon rengi - açık mavi-gri
-    tabIconDefault: '#848A92', // Varsayılan tab ikonu - orta gri
-    tabIconSelected: '#266691', // Seçili tab ikonu - orta mavi
-    cardBorder: '#0E2235',   // Kart kenarlığı - çok koyu mavi
-    shadow: '#03080C',       // Gölge rengi - neredeyse siyah
-    divider: '#184567',      // Ayırıcı çizgi - koyu mavi
-    accent: '#734A0E',       // Vurgu rengi - altın kahverengi
+    tint: '#4B6382',         // Vurgu rengi - orta mavi (doygunluk azaltılmış)
+    icon: '#B0B0B0',         // İkon rengi - açık gri
+    tabIconDefault: '#888888', // Varsayılan tab ikonu - orta gri
+    tabIconSelected: '#4B6382', // Seçili tab ikonu - orta mavi
+    cardBorder: '#2C2C2C',   // Kart kenarlığı - orta koyu gri
+    shadow: '#000000',       // Gölge rengi - siyah (gölge için)
+    divider: '#2C2C2C',      // Ayırıcı çizgi - orta koyu gri
+    accent: '#734A0E',       // Vurgu rengi - altın kahverengi (doygunluk azaltılmış)
   },
   
   // Özel renkler

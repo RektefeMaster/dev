@@ -1,16 +1,16 @@
 import React from 'react';
 import { View, ViewStyle, StyleSheet, Text } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
-import theme from '@/theme/theme';
+import { spacing as spacingValues } from '@/theme/theme';
 
 export interface SpacingProps {
-  size?: keyof typeof theme.spacing;
-  horizontal?: keyof typeof theme.spacing;
-  vertical?: keyof typeof theme.spacing;
-  top?: keyof typeof theme.spacing;
-  bottom?: keyof typeof theme.spacing;
-  left?: keyof typeof theme.spacing;
-  right?: keyof typeof theme.spacing;
+  size?: keyof typeof spacingValues;
+  horizontal?: keyof typeof spacingValues;
+  vertical?: keyof typeof spacingValues;
+  top?: keyof typeof spacingValues;
+  bottom?: keyof typeof spacingValues;
+  left?: keyof typeof spacingValues;
+  right?: keyof typeof spacingValues;
   style?: ViewStyle;
   children?: React.ReactNode;
 }
@@ -20,9 +20,9 @@ export interface LayoutProps {
   align?: 'start' | 'center' | 'end' | 'stretch' | 'baseline';
   justify?: 'start' | 'center' | 'end' | 'space-between' | 'space-around' | 'space-evenly';
   wrap?: 'nowrap' | 'wrap' | 'wrap-reverse';
-  gap?: keyof typeof theme.spacing;
-  padding?: keyof typeof theme.spacing;
-  margin?: keyof typeof theme.spacing;
+  gap?: keyof typeof spacingValues;
+  padding?: keyof typeof spacingValues;
+  margin?: keyof typeof spacingValues;
   fullWidth?: boolean;
   fullHeight?: boolean;
   style?: ViewStyle;
@@ -45,31 +45,31 @@ export const Spacing: React.FC<SpacingProps> = ({
     const spacingStyle: ViewStyle = {};
 
     if (size) {
-      spacingStyle.margin = theme.spacing[size as keyof typeof theme.spacing];
+      spacingStyle.margin = spacingValues[size as keyof typeof spacingValues];
     }
 
     if (horizontal) {
-      spacingStyle.marginHorizontal = theme.spacing[horizontal as keyof typeof theme.spacing];
+      spacingStyle.marginHorizontal = spacingValues[horizontal as keyof typeof spacingValues];
     }
 
     if (vertical) {
-      spacingStyle.marginVertical = theme.spacing[vertical as keyof typeof theme.spacing];
+      spacingStyle.marginVertical = spacingValues[vertical as keyof typeof spacingValues];
     }
 
     if (top) {
-      spacingStyle.marginTop = theme.spacing[top as keyof typeof theme.spacing];
+      spacingStyle.marginTop = spacingValues[top as keyof typeof spacingValues];
     }
 
     if (bottom) {
-      spacingStyle.marginBottom = theme.spacing[bottom as keyof typeof theme.spacing];
+      spacingStyle.marginBottom = spacingValues[bottom as keyof typeof spacingValues];
     }
 
     if (left) {
-      spacingStyle.marginLeft = theme.spacing[left as keyof typeof theme.spacing];
+      spacingStyle.marginLeft = spacingValues[left as keyof typeof spacingValues];
     }
 
     if (right) {
-      spacingStyle.marginRight = theme.spacing[right as keyof typeof theme.spacing];
+      spacingStyle.marginRight = spacingValues[right as keyof typeof spacingValues];
     }
 
     return spacingStyle;
@@ -117,18 +117,18 @@ export const Layout: React.FC<LayoutProps> = ({
 
     if (gap) {
       if (direction === 'row') {
-        layoutStyle.columnGap = theme.spacing[gap];
+        layoutStyle.columnGap = spacingValues[gap];
       } else {
-        layoutStyle.rowGap = theme.spacing[gap];
+        layoutStyle.rowGap = spacingValues[gap];
       }
     }
 
     if (padding) {
-      layoutStyle.padding = theme.spacing[padding];
+      layoutStyle.padding = spacingValues[padding];
     }
 
     if (margin) {
-      layoutStyle.margin = theme.spacing[margin];
+      layoutStyle.margin = spacingValues[margin];
     }
 
     if (fullWidth) {
@@ -153,18 +153,27 @@ export const Layout: React.FC<LayoutProps> = ({
 export const Container: React.FC<{
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'full';
-  padding?: keyof typeof theme.spacing;
+  padding?: keyof typeof spacingValues;
   style?: ViewStyle;
 }> = ({ children, size = 'md', padding = 'md', style }) => {
+  const { theme } = useTheme();
+  
   const getContainerStyle = (): ViewStyle => {
+    const containerPaddingMap: Record<string, number> = {
+      sm: theme?.layout?.containerPadding?.sm || 16,
+      md: theme?.layout?.containerPadding?.md || 20,
+      lg: theme?.layout?.containerPadding?.lg || 24,
+      full: 0,
+    };
+    
     const containerStyle: ViewStyle = {
-      paddingHorizontal: theme.layout.containerPadding[size],
-      paddingVertical: theme.spacing[padding],
+      paddingHorizontal: containerPaddingMap[size] || 20,
+      paddingVertical: spacingValues[padding],
       alignSelf: 'center',
     };
 
     if (size !== 'full') {
-      containerStyle.maxWidth = theme.layout.maxContentWidth;
+      containerStyle.maxWidth = theme?.layout?.maxContentWidth || 1200;
     }
 
     return containerStyle;
@@ -200,22 +209,24 @@ export const Flex: React.FC<{
 // Divider component with dark mode support
 export const Divider: React.FC<{
   orientation?: 'horizontal' | 'vertical';
-  size?: keyof typeof theme.spacing;
+  size?: keyof typeof spacingValues;
   color?: string;
   style?: ViewStyle;
 }> = ({ orientation = 'horizontal', size = 'sm', color, style }) => {
-  const { isDark } = useTheme();
+  const { theme, isDark } = useTheme();
   
   const dividerStyle: ViewStyle = {
-    backgroundColor: color || (isDark ? theme.colors.border.tertiary : theme.colors.border.secondary),
+    backgroundColor: color || (isDark 
+      ? (theme?.colors?.border?.tertiary || '#1C1C1E')
+      : (theme?.colors?.border?.secondary || '#C7C7CC')),
   };
 
   if (orientation === 'horizontal') {
     dividerStyle.height = 1;
-    dividerStyle.marginVertical = theme.spacing[size];
+    dividerStyle.marginVertical = spacingValues[size];
   } else {
     dividerStyle.width = 1;
-    dividerStyle.marginHorizontal = theme.spacing[size];
+    dividerStyle.marginHorizontal = spacingValues[size];
   }
 
   return <View style={[dividerStyle, style]} />;
@@ -226,24 +237,32 @@ export const Section: React.FC<{
   children: React.ReactNode;
   title?: string;
   subtitle?: string;
-  padding?: keyof typeof theme.spacing;
-  margin?: keyof typeof theme.spacing;
+  padding?: keyof typeof spacingValues;
+  margin?: keyof typeof spacingValues;
   style?: ViewStyle;
 }> = ({ children, title, subtitle, padding = 'lg', margin = 'md', style }) => {
-  const { isDark } = useTheme();
+  const { theme, isDark } = useTheme();
   
   return (
-    <View style={[styles.section, { padding: theme.spacing[padding], margin: theme.spacing[margin] }, style]}>
+    <View style={[styles.section, { padding: spacingValues[padding], margin: spacingValues[margin] }, style]}>
       {title && (
         <View style={styles.sectionHeader}>
-                  <Text style={[styles.sectionTitle, { color: isDark ? theme.colors.text.inverse : theme.colors.text.primary }]}>
-          {title}
-        </Text>
-        {subtitle && (
-          <Text style={[styles.sectionSubtitle, { color: isDark ? theme.colors.text.tertiary : theme.colors.text.secondary }]}>
-            {subtitle}
+          <Text style={[styles.sectionTitle, { 
+            color: isDark 
+              ? (theme?.colors?.text?.inverse || '#FFFFFF')
+              : (theme?.colors?.text?.primary || '#000000')
+          }]}>
+            {title}
           </Text>
-        )}
+          {subtitle && (
+            <Text style={[styles.sectionSubtitle, { 
+              color: isDark 
+                ? (theme?.colors?.text?.tertiary || '#8E8E93')
+                : (theme?.colors?.text?.secondary || '#8E8E93')
+            }]}>
+              {subtitle}
+            </Text>
+          )}
         </View>
       )}
       {children}
@@ -254,18 +273,20 @@ export const Section: React.FC<{
 // Screen component for full screen layouts
 export const Screen: React.FC<{
   children: React.ReactNode;
-  padding?: keyof typeof theme.spacing;
+  padding?: keyof typeof spacingValues;
   safe?: boolean;
   style?: ViewStyle;
-}> = ({ children, padding = 'screen', safe = true, style }) => {
-  const { isDark } = useTheme();
+}> = ({ children, padding = 'screenPadding', safe = true, style }) => {
+  const { theme, isDark } = useTheme();
   
   return (
     <View style={[
       styles.screen, 
       { 
-        padding: theme.spacing[padding as keyof typeof theme.spacing],
-        backgroundColor: isDark ? theme.colors.background.quaternary : theme.colors.background.primary
+        padding: spacingValues[padding as keyof typeof spacingValues],
+        backgroundColor: isDark 
+          ? (theme?.colors?.background?.quaternary || '#000000')
+          : (theme?.colors?.background?.primary || '#F2F2F7')
       }, 
       style
     ]}>

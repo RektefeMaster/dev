@@ -1,16 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import LottieView from 'lottie-react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '@/context/ThemeContext';
-import theme from '@/theme/theme';
 import HomeScreen from '@/features/home/HomeScreen';
-import WalletScreen from '@/features/wallet/screens/WalletScreen';
-import MessagesScreen from '@/features/messages/screens/MessagesScreen';
-import GarageScreen from '@/features/services/screens/GarageScreen';
-import SupportScreen from '@/features/support/screens/SupportScreen';
-import TefeWalletScreen from '@/features/wallet/screens/TefeWalletScreen';
+import MechanicSearchScreen from '@/features/mechanics/screens/MechanicSearchScreen';
+import AppointmentsScreen from '@/features/appointments/screens/AppointmentsScreen';
+import ProfileScreen from '@/features/profile/screens/ProfileScreen';
+import BottomSheet from '@/shared/components/BottomSheet';
 
 const Tab = createBottomTabNavigator();
 
@@ -19,63 +16,118 @@ interface Route {
   name: string;
 }
 
-const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => {
-  const { isDark } = useTheme();
-  const currentRoute = state.routes[state.index]?.name;
-  
-  return (
-    <View style={styles.tabBarWrapper}>
-      <View style={styles.tabBarBackground} />
-      <View style={[styles.tabBarContainer, { 
-        backgroundColor: isDark ? theme.colors.background.tertiary : theme.colors.background.secondary,
-        borderColor: isDark ? theme.colors.border.tertiary : theme.colors.border.primary,
-      }]}>
-        {state.routes.map((route: Route, idx: number) => {
-          const isFocused = state.index === idx;
-          let icon = null;
-          let label = route.name;
-          let iconSize = isFocused ? 34 : 28;
-          let iconColor = isFocused ? theme.colors.primary.main : (isDark ? theme.colors.text.tertiary : theme.colors.text.secondary);
-          let iconStyle = isFocused ? styles.activeIcon : {};
+interface CustomTabBarProps extends BottomTabBarProps {
+  onCenterButtonPress?: () => void;
+}
 
-          if (route.name === 'Anasayfa') {
-            icon = <MaterialCommunityIcons name="home" size={iconSize} color={iconColor} style={iconStyle} />;
-          }
-          if (route.name === 'Mesajlar') {
-            icon = <MaterialCommunityIcons name="message-text" size={iconSize} color={iconColor} style={iconStyle} />;
-          }
-          if (route.name === 'Garajım') {
-            icon = <MaterialCommunityIcons name="car" size={iconSize} color={iconColor} style={iconStyle} />;
-          }
-          if (route.name === 'Cüzdan') {
-            icon = <MaterialCommunityIcons name="wallet" size={iconSize} color={iconColor} style={iconStyle} />;
-          }
-          if (route.name === 'TEFECüzdan') {
-            icon = <MaterialCommunityIcons name="cash" size={iconSize} color={iconColor} style={iconStyle} />;
-          }
-          if (route.name === 'Destek') {
-            icon = <MaterialCommunityIcons name="lifebuoy" size={iconSize} color={iconColor} style={iconStyle} />;
-          }
-          return (
-            <TouchableOpacity
-              key={route.key}
-              accessibilityRole="button"
-              accessibilityState={isFocused ? { selected: true } : {}}
-              onPress={() => navigation.navigate(route.name)}
-              style={[styles.tabButton, isFocused && styles.activeTabButton]}
-              activeOpacity={0.85}
-            >
-              {icon}
-              <Text style={[
-                styles.tabLabel, 
-                { color: isDark ? theme.colors.text.tertiary : theme.colors.text.secondary },
-                isFocused && [styles.activeTabLabel, { color: theme.colors.primary.main }]
-              ]}>{label}</Text>
-            </TouchableOpacity>
-          );
-        })}
+const CustomTabBar = ({ state, descriptors, navigation, onCenterButtonPress }: CustomTabBarProps) => {
+  const { isDark, theme } = useTheme();
+  const [bottomSheetVisible, setBottomSheetVisible] = useState(false);
+  
+  const handleCenterButtonPress = () => {
+    if (onCenterButtonPress) {
+      onCenterButtonPress();
+    } else {
+      setBottomSheetVisible(true);
+    }
+  };
+
+  const handleCloseBottomSheet = () => {
+    setBottomSheetVisible(false);
+  };
+
+  return (
+    <>
+      <View style={styles.tabBarWrapper}>
+        <View style={styles.tabBarBackground} />
+        <View style={[styles.tabBarContainer, { 
+          backgroundColor: isDark ? '#1E1E1E' : '#F5F5F5',
+          borderColor: isDark ? '#2C2C2C' : '#E0E0E0',
+        }]}>
+          {state.routes.map((route: Route, idx: number) => {
+            // Merkezi buton için özel işlem
+            if (route.name === 'MerkeziButon') {
+              return (
+                <TouchableOpacity
+                  key={route.key}
+                  onPress={handleCenterButtonPress}
+                  style={styles.centerButton}
+                  activeOpacity={0.85}
+                >
+                  <View style={[
+                    styles.centerButtonCircle, 
+                    { 
+                      backgroundColor: '#FFFFFF',
+                      borderWidth: 2,
+                      borderColor: theme.colors.primary.main + '30',
+                    }
+                  ]}>
+                    <View style={styles.hamburgerIcon}>
+                      <View style={[styles.hamburgerLine, { backgroundColor: theme.colors.primary.main }]} />
+                      <View style={[styles.hamburgerLine, { backgroundColor: theme.colors.primary.main }]} />
+                      <View style={[styles.hamburgerLine, { backgroundColor: theme.colors.primary.main }]} />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            }
+
+            const isFocused = state.index === idx;
+            const { options } = descriptors[route.key];
+            let icon = null;
+            let label = route.name;
+            let iconSize = isFocused ? 26 : 24;
+            let iconColor = isFocused ? theme.colors.primary.main : (isDark ? '#9CA3AF' : '#6B7280');
+
+            // İkonlar
+            if (route.name === 'Anasayfa') {
+              icon = <MaterialCommunityIcons name="home" size={iconSize} color={iconColor} />;
+              label = 'Anasayfa';
+            } else if (route.name === 'Arama') {
+              icon = <MaterialCommunityIcons name="magnify" size={iconSize} color={iconColor} />;
+              label = 'Arama';
+            } else if (route.name === 'Randevular') {
+              icon = <MaterialCommunityIcons name="calendar-clock" size={iconSize} color={iconColor} />;
+              label = 'Randevular';
+            } else if (route.name === 'Hesap') {
+              icon = <MaterialCommunityIcons name="account" size={iconSize} color={iconColor} />;
+              label = 'Hesap';
+            }
+
+            return (
+              <TouchableOpacity
+                key={route.key}
+                accessibilityRole="button"
+                accessibilityState={isFocused ? { selected: true } : {}}
+                onPress={() => navigation.navigate(route.name)}
+                style={[styles.tabButton, isFocused && styles.activeTabButton]}
+                activeOpacity={0.85}
+              >
+                <View style={isFocused ? styles.iconWrapper : null}>
+                  {icon}
+                </View>
+                <Text 
+                  style={[
+                    styles.tabLabel, 
+                    { color: isDark ? '#9CA3AF' : '#6B7280' },
+                    isFocused && [styles.activeTabLabel, { color: theme.colors.primary.main }]
+                  ]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
-    </View>
+      
+      <BottomSheet
+        visible={bottomSheetVisible}
+        onClose={handleCloseBottomSheet}
+      />
+    </>
   );
 };
 
@@ -89,67 +141,30 @@ const TabNavigator = () => {
       }}
     >
       <Tab.Screen name="Anasayfa" component={HomeScreen} options={{ tabBarLabel: 'Anasayfa' }} />
-      <Tab.Screen name="Mesajlar" component={MessagesScreen} options={{ tabBarLabel: 'Mesajlar' }} />
-      <Tab.Screen name="Garajım" component={GarageScreen} options={{ tabBarLabel: 'Garajım' }} />
-      <Tab.Screen name="Cüzdan" component={WalletScreen} options={{ tabBarLabel: 'Cüzdan' }} />
-      <Tab.Screen name="TEFECüzdan" component={TefeWalletScreen} options={{ tabBarLabel: 'TEFE Cüzdan' }} />
-      <Tab.Screen name="Destek" component={SupportScreen} options={{ tabBarLabel: 'Destek' }} />
+      <Tab.Screen name="Arama" component={MechanicSearchScreen} options={{ tabBarLabel: 'Arama' }} />
+      <Tab.Screen 
+        name="MerkeziButon" 
+        component={View} 
+        options={{ 
+          tabBarLabel: '',
+          tabBarButton: () => null,
+        }}
+      />
+      <Tab.Screen name="Randevular" component={AppointmentsScreen} options={{ tabBarLabel: 'Randevular' }} />
+      <Tab.Screen name="Hesap" component={ProfileScreen} options={{ tabBarLabel: 'Hesap' }} />
     </Tab.Navigator>
   );
 };
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  tabBarContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    height: 68,
-    borderRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
-    paddingHorizontal: 4,
-    paddingVertical: 8,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-  },
-  tabButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 1,
-  },
-  activeTabButton: {
-    transform: [{ scale: 1.1 }],
-  },
-  tabItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 1,
-  },
-  tabLabel: {
-    fontSize: 8.5,
-    fontWeight: '500',
-    marginTop: 3,
-    textAlign: 'center',
-  },
-  activeTabLabel: {
-    fontWeight: '600',
-  },
   tabBarWrapper: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     backgroundColor: 'transparent',
-    paddingBottom: 16,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 16,
+    pointerEvents: 'box-none',
   },
   tabBarBackground: {
     position: 'absolute',
@@ -159,25 +174,80 @@ const styles = StyleSheet.create({
     height: 100,
     backgroundColor: 'transparent',
   },
-  lottieIcon: {
-    width: 84,
-    height: 84,
+  tabBarContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    height: 70,
+    borderRadius: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginHorizontal: 12,
+    marginBottom: Platform.OS === 'ios' ? 0 : 8,
+    borderWidth: 0.5,
   },
-  activeIcon: {
-    textShadowColor: theme.colors.primary.main,
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
-  },
-  touchable: {
+  tabButton: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    width: '100%',
-    height: '100%',
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+    position: 'relative',
+    minWidth: 0,
+    maxWidth: 80,
   },
-  iconContainer: {
+  activeTabButton: {
+    transform: [{ scale: 1.05 }],
+  },
+  iconWrapper: {
+    shadowColor: '#9333EA',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  tabLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  activeTabLabel: {
+    fontWeight: '600',
+  },
+  centerButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2,
+    marginHorizontal: 8,
+    marginTop: -8,
+  },
+  centerButtonCircle: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  hamburgerIcon: {
+    width: 28,
+    height: 20,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  hamburgerLine: {
+    width: 24,
+    height: 3,
+    borderRadius: 1.5,
   },
 });
 

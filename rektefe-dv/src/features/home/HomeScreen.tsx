@@ -11,15 +11,15 @@ import { AdDetailModal } from './components/AdDetailModal';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import LoadingSkeleton from '@/shared/components/LoadingSkeleton';
 import ErrorState from '@/shared/components/ErrorState';
-import NoDataCard from '@/shared/components/NoDataCard';
+import EmptyState from '@/shared/components/NoDataCard';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/navigation/AppNavigator';
-import { CardNav } from '@/shared/components';
 import { formatWorkingHours } from '@/shared/utils/workingHoursFormatter';
 
 // Import theme values
 import { useTheme } from '@/context/ThemeContext';
+import { spacing } from '@/theme/theme';
 
 const HomeScreen = () => {
   const { theme } = useTheme();
@@ -68,134 +68,6 @@ const HomeScreen = () => {
     userId,
   } = useHomeData();
 
-  // CardNav için menü öğeleri - sürücü odaklı
-  const navItems = useMemo(() => {
-    console.log('🏠 HomeScreen: navItems oluşturuluyor...');
-    const items = [
-    {
-      id: 'appointments',
-      label: 'Randevularım',
-      links: [
-        {
-          label: 'Bugünkü Randevular',
-          onPress: () => navigation.navigate('Appointments'),
-        },
-        {
-          label: 'Yeni Randevu Oluştur',
-          onPress: () => navigation.navigate('MechanicSearch'),
-        },
-        {
-          label: 'Geçmiş Randevular',
-          onPress: () => navigation.navigate('Appointments'),
-        },
-      ],
-    },
-    {
-      id: 'financial',
-      label: 'Cüzdan & Ödemeler',
-      links: [
-        {
-          label: 'Cüzdanım',
-          onPress: () => navigation.navigate('Wallet'),
-        },
-        {
-          label: 'TEFE Cüzdanı',
-          onPress: () => navigation.navigate('TefeWallet'),
-        },
-        {
-          label: 'Ödeme Geçmişi',
-          onPress: () => navigation.navigate('Wallet'),
-        },
-      ],
-    },
-    {
-      id: 'profile',
-      label: 'Profil & Ayarlar',
-      links: [
-        {
-          label: 'Profilim',
-          onPress: () => navigation.navigate('Profile'),
-        },
-        {
-          label: 'Bildirimler',
-          onPress: () => navigation.navigate('Notifications'),
-        },
-        {
-          label: 'Ayarlar',
-          onPress: () => navigation.navigate('Settings'),
-        },
-      ],
-    },
-    {
-      id: 'services',
-      label: 'Hizmetler',
-      links: [
-        {
-          label: 'Usta Ara',
-          onPress: () => navigation.navigate('MechanicSearch'),
-        },
-        {
-          label: 'Çekici Hizmeti',
-          onPress: () => navigation.navigate('QuickTowing'),
-        },
-        {
-          label: 'Araç Yıkama',
-          onPress: () => navigation.navigate('WashBooking'),
-        },
-        {
-          label: 'Yedek Parça',
-          onPress: () => navigation.navigate('PartsMarket'),
-        },
-        {
-          label: 'Parça Rezervasyonlarım',
-          onPress: () => navigation.navigate('PartsReservations'),
-        },
-        {
-          label: 'Lastik',
-          onPress: () => navigation.navigate('TireParts'),
-        },
-      ],
-    },
-    {
-      id: 'messages',
-      label: 'Mesajlaşma',
-      links: [
-        {
-          label: 'Mesajlarım',
-          onPress: () => navigation.navigate('Messages'),
-        },
-        {
-          label: 'Yeni Mesaj',
-          onPress: () => navigation.navigate('NewMessage'),
-        },
-      ],
-    },
-  ];
-  console.log('🏠 HomeScreen: navItems tamamlandı, toplam item sayısı:', items.length);
-  console.log('🏠 HomeScreen: Services item:', items.find(item => item.id === 'services'));
-  return items;
-  }, [navigation]);
-
-  // CardNav handler fonksiyonları
-  const handleNavItemPress = (item: any) => {
-    // Ana menü öğesine tıklandığında
-    };
-
-  const handleNavLinkPress = (link: any) => {
-    // Alt menü linkine tıklandığında
-    if (link.onPress) {
-      link.onPress();
-    }
-  };
-
-  const handleCtaPress = () => {
-    // CTA butonuna tıklandığında - Randevularım sayfasına yönlendir
-    navigation.navigate('Appointments');
-  };
-
-  const getPrimaryServiceText = useMemo(() => {
-    return 'Randevular';
-  }, []);
 
   const [refreshing, setRefreshing] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -296,27 +168,33 @@ const HomeScreen = () => {
     navigation.navigate('MaintenancePlan');
   };
 
-  if (loading) return <LoadingSkeleton />;
-  if (error) return <ErrorState message={error} />;
+  if (loading && !refreshing) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background.primary }]}>
+        <Background>
+          <LoadingSkeleton variant="fullscreen" />
+        </Background>
+      </SafeAreaView>
+    );
+  }
+
+  if (error && !refreshing) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background.primary }]}>
+        <Background>
+          <ErrorState 
+            message={error} 
+            onRetry={handleRefresh}
+            title="Veri Yüklenemedi"
+          />
+        </Background>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background.primary }]}>
       <Background>
-        {/* CardNav Drawer */}
-        <CardNav
-          logoAlt="Rektefe"
-          items={navItems}
-          onItemPress={handleNavItemPress}
-          onLinkPress={handleNavLinkPress}
-          onCtaPress={handleCtaPress}
-          ctaText={getPrimaryServiceText}
-          baseColor="#FFFFFF"
-          menuColor="#1E293B"
-          buttonBgColor="#3B82F6"
-          buttonTextColor="#FFFFFF"
-          maxItems={5}
-        />
-        
         <ScrollView
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
@@ -365,7 +243,7 @@ const HomeScreen = () => {
               onPress={handleCreateBodyworkJob}
               activeOpacity={0.8}
             >
-              <MaterialCommunityIcons name="car-repair" size={20} color="white" />
+              <MaterialCommunityIcons name="car-wrench" size={20} color="white" />
               <Text style={styles.bodyworkJobButtonText}>Kaporta İşi Oluştur</Text>
             </TouchableOpacity>
             
@@ -385,13 +263,13 @@ const HomeScreen = () => {
             </View>
             
             {(!campaigns || campaigns.length === 0) ? (
-              <NoDataCard
+              <EmptyState
                 icon="gift-outline"
                 title="Henüz kampanya yok"
                 subtitle="Yeni kampanyalar eklendikçe burada görünecek"
                 actionText="Yenile"
                 onActionPress={handleRefresh}
-                style={[styles.noDataCard, { backgroundColor: theme.colors.background.secondary, borderColor: theme.colors.border.primary }]}
+                style={styles.emptyState}
               />
             ) : (
               <ScrollView
@@ -739,9 +617,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  noDataCard: {
-    // Tema renkleri dinamik olarak uygulanacak
-    borderWidth: 1,
+  emptyState: {
+    marginVertical: spacing.lg,
   },
   favoriteCarCard: {
     marginTop: 16,

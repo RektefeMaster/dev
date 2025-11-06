@@ -7,7 +7,8 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing, borderRadius } from '@/shared/theme';
+import { useTheme } from '@/shared/context';
+import { spacing, borderRadius, shadows } from '@/shared/theme';
 
 export interface EmptyStateProps {
   icon?: keyof typeof Ionicons.glyphMap;
@@ -16,6 +17,7 @@ export interface EmptyStateProps {
   actionText?: string;
   onActionPress?: () => void;
   style?: ViewStyle;
+  iconSize?: number;
 }
 
 const EmptyState: React.FC<EmptyStateProps> = ({
@@ -25,12 +27,22 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   actionText,
   onActionPress,
   style,
+  iconSize = 64,
 }) => {
+  const { themeColors, isDark } = useTheme();
+  const styles = createStyles(themeColors, isDark);
+
   return (
     <View style={[styles.container, style]}>
-      {/* Icon */}
+      {/* Icon Container with subtle background */}
+      <View style={styles.iconWrapper}>
       <View style={styles.iconContainer}>
-        <Ionicons name={icon} size={64} color={colors.text.tertiary} />
+          <Ionicons 
+            name={icon} 
+            size={iconSize} 
+            color={themeColors.text.tertiary} 
+          />
+        </View>
       </View>
 
       {/* Title */}
@@ -55,40 +67,57 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.xxl,
     minHeight: 300,
   },
-  iconContainer: {
+  iconWrapper: {
     marginBottom: spacing.lg,
-    opacity: 0.6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: isDark 
+      ? colors.background.tertiary 
+      : colors.background.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.small,
+    opacity: 0.8,
   },
   title: {
-    fontSize: typography.h3.fontSize,
+    fontSize: 22,
     fontWeight: '600',
     color: colors.text.primary,
     textAlign: 'center',
     marginBottom: spacing.sm,
+    lineHeight: 28,
   },
   subtitle: {
-    fontSize: typography.body2.fontSize,
-    color: colors.text.tertiary,
+    fontSize: 15,
+    color: colors.text.secondary,
     textAlign: 'center',
     marginBottom: spacing.lg,
-    lineHeight: typography.body2.lineHeight,
+    lineHeight: 22,
+    paddingHorizontal: spacing.lg,
   },
   actionButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.primary.main,
+    paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     borderRadius: borderRadius.button,
+    ...shadows.button,
+    marginTop: spacing.sm,
   },
   actionText: {
     color: colors.text.inverse,
-    fontSize: typography.button.medium.fontSize,
+    fontSize: 15,
     fontWeight: '600',
   },
 });

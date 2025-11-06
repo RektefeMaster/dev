@@ -17,10 +17,14 @@ const STORAGE_KEYS = ['theme_preference', 'app_theme'] as const;
 type ThemeShape = ReturnType<typeof createTheme>;
 type ThemeColors = ThemeShape['colors'];
 
+export type ThemeMode = 'light' | 'dark' | 'auto';
+
 export type ThemeContextType = {
   isDark: boolean;
+  themeMode: ThemeMode;
   toggleTheme: () => void;
   setTheme: (isDark: boolean) => void;
+  setThemeMode: (mode: ThemeMode) => void;
   theme: ThemeShape;
   themeColors: ThemeColors;
   colors: ThemeColors;
@@ -31,6 +35,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const systemColorScheme = useSystemColorScheme();
+  const [themeMode, setThemeModeState] = useState<ThemeMode>('auto');
   const [isDark, setIsDark] = useState(systemColorScheme === 'dark');
   const [hasStoredPreference, setHasStoredPreference] = useState(false);
 
@@ -39,10 +44,22 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
     const loadThemePreference = async () => {
       try {
+        // Önce theme mode'u kontrol et
+        const savedMode = await AsyncStorage.getItem('theme_mode');
+        if (savedMode && (savedMode === 'light' || savedMode === 'dark' || savedMode === 'auto')) {
+          if (isMounted) {
+            setThemeModeState(savedMode as ThemeMode);
+            setHasStoredPreference(true);
+          }
+        }
+
+        // Eski tema tercihlerini kontrol et (backward compatibility)
         for (const key of STORAGE_KEYS) {
           const savedTheme = await AsyncStorage.getItem(key);
           if (savedTheme === 'dark' || savedTheme === 'light') {
-            if (isMounted) {
+            if (isMounted && !savedMode) {
+              // Eğer theme_mode yoksa eski tercihi kullan
+              setThemeModeState(savedTheme === 'dark' ? 'dark' : 'light');
               setIsDark(savedTheme === 'dark');
               setHasStoredPreference(true);
             }
@@ -67,36 +84,72 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [systemColorScheme]);
 
+  // Theme mode'a göre isDark'ı güncelle
   useEffect(() => {
-    if (!hasStoredPreference && systemColorScheme) {
+    if (themeMode === 'auto') {
+      if (systemColorScheme) {
+        setIsDark(systemColorScheme === 'dark');
+      }
+    } else {
+      setIsDark(themeMode === 'dark');
+    }
+  }, [themeMode, systemColorScheme]);
+
+  // Auto mode'da sistem tema değişikliklerini dinle
+  useEffect(() => {
+    if (themeMode === 'auto' && systemColorScheme) {
       setIsDark(systemColorScheme === 'dark');
     }
-  }, [systemColorScheme, hasStoredPreference]);
+  }, [systemColorScheme, themeMode]);
 
-  const persistThemePreference = useCallback((darkMode: boolean) => {
+  const persistThemePreference = useCallback((mode: ThemeMode, darkMode?: boolean) => {
+    AsyncStorage.setItem('theme_mode', mode).catch((): void => {});
+
+    // Backward compatibility için eski key'leri de güncelle
+    if (darkMode !== undefined) {
     const value = darkMode ? 'dark' : 'light';
-
     for (const key of STORAGE_KEYS) {
       AsyncStorage.setItem(key, value).catch((): void => {});
+      }
     }
   }, []);
 
   const toggleTheme = useCallback(() => {
     setHasStoredPreference(true);
-    setIsDark(prev => {
-      const next = !prev;
-      persistThemePreference(next);
-      return next;
-    });
-  }, [persistThemePreference]);
+    const currentMode = themeMode === 'auto' ? (isDark ? 'dark' : 'light') : themeMode;
+    const newMode = currentMode === 'dark' ? 'light' : 'dark';
+    
+    setThemeModeState(newMode);
+    setIsDark(newMode === 'dark');
+    persistThemePreference(newMode, newMode === 'dark');
+  }, [themeMode, isDark, persistThemePreference]);
 
   const setTheme = useCallback(
     (darkMode: boolean) => {
       setHasStoredPreference(true);
+      const newMode = darkMode ? 'dark' : 'light';
+      setThemeModeState(newMode);
       setIsDark(darkMode);
-      persistThemePreference(darkMode);
+      persistThemePreference(newMode, darkMode);
     },
     [persistThemePreference]
+  );
+
+  const setThemeMode = useCallback(
+    (mode: ThemeMode) => {
+      setHasStoredPreference(true);
+      setThemeModeState(mode);
+      
+      if (mode === 'auto') {
+        if (systemColorScheme) {
+          setIsDark(systemColorScheme === 'dark');
+        }
+      } else {
+        setIsDark(mode === 'dark');
+        persistThemePreference(mode, mode === 'dark');
+      }
+    },
+    [systemColorScheme, persistThemePreference]
   );
 
   const theme = useMemo(() => createTheme(isDark), [isDark]);
@@ -105,14 +158,16 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const contextValue = useMemo(
     () => ({
       isDark,
+      themeMode,
       toggleTheme,
       setTheme,
+      setThemeMode,
       theme,
       themeColors,
       colors: themeColors,
       palette: Colors,
     }),
-    [isDark, toggleTheme, setTheme, theme, themeColors]
+    [isDark, themeMode, toggleTheme, setTheme, setThemeMode, theme, themeColors]
   );
 
   return (

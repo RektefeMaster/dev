@@ -6,6 +6,7 @@ import AppNavigator from './navigation/AppNavigator';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import ErrorBoundary from './shared/components/ErrorBoundary';
+import { ToastProvider } from './shared/components/ToastProvider';
 import notificationService from './features/notifications/services/notificationService';
 
 function App() {
@@ -13,7 +14,9 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider>
         <AuthProvider>
+          <ToastProvider>
           <AppContent />
+          </ToastProvider>
         </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>

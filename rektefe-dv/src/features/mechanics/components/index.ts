@@ -4,4 +4,5 @@ export { MechanicHeader } from './MechanicHeader';
 export { MechanicInfo } from './MechanicInfo';
 export { ReviewsList } from './ReviewsList';
 export { SearchBar } from './SearchBar';
+export { SearchFilters } from './SearchFilters';
 export { MechanicCard } from './MechanicCard';

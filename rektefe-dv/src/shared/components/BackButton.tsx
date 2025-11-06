@@ -9,13 +9,15 @@ interface BackButtonProps {
   color?: string;
   size?: number;
   style?: any;
+  accessibilityLabel?: string;
 }
 
 const BackButton: React.FC<BackButtonProps> = ({ 
   onPress, 
   color, 
   size = 24,
-  style 
+  style,
+  accessibilityLabel = 'Geri'
 }) => {
   const navigation = useNavigation();
   const { theme } = useTheme();
@@ -33,6 +35,9 @@ const BackButton: React.FC<BackButtonProps> = ({
       style={[styles.backButton, { backgroundColor: theme.colors.background.secondary, borderColor: theme.colors.border.secondary }, style]}
       onPress={handlePress}
       activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint="Önceki ekrana dön"
     >
       <Ionicons 
         name="chevron-back" 
@@ -45,8 +50,10 @@ const BackButton: React.FC<BackButtonProps> = ({
 
 const styles = StyleSheet.create({
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44, // WCAG 2.1 AA: Minimum 44x44px touch target
+    height: 44,
+    minWidth: 44,
+    minHeight: 44,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',

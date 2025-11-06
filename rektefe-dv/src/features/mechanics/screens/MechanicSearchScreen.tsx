@@ -2,12 +2,16 @@ import React, { useCallback, useMemo } from 'react';
 import { View, StyleSheet, FlatList, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useTheme } from '@/context/ThemeContext';
 import { NavigationProps, MechanicSearchResult } from '@/shared/types/common';
 import { openLocationInMaps } from '@/shared/utils/distanceCalculator';
 import { useMechanicSearch } from '../hooks/useMechanicSearch';
 import { useSearchUI } from '../hooks/useSearchUI';
-import { SearchBar, MechanicCard } from '../components';
+import { SearchBar, SearchFilters, MechanicCard } from '../components';
+import EmptyState from '@/shared/components/NoDataCard';
+import ErrorState from '@/shared/components/ErrorState';
+import LoadingSkeleton from '@/shared/components/LoadingSkeleton';
 
 const MechanicSearchScreen: React.FC<NavigationProps> = ({ navigation, route }) => {
   const { theme } = useTheme();
@@ -152,29 +156,110 @@ const MechanicSearchScreen: React.FC<NavigationProps> = ({ navigation, route }) 
         onToggleMapView={() => setShowMapView(!showMapView)}
       />
 
-      {/* TODO: Filters Component */}
+      {/* Filters Component */}
       {showFilters && (
-        <View style={styles.filtersPlaceholder}>
-          {/* SearchFilters component buraya gelecek */}
-        </View>
+        <SearchFilters
+          selectedFilters={selectedFilters}
+          sortBy={sortBy}
+          onFiltersChange={setSelectedFilters}
+          onSortChange={setSortBy}
+          onClose={() => setShowFilters(false)}
+        />
       )}
 
-      {/* Results List */}
+      {/* Loading State */}
+      {loading && processedMechanics.length === 0 && (
+        <LoadingSkeleton variant="list" count={5} />
+      )}
+
+      {/* Error State */}
+      {!loading && processedMechanics.length === 0 && mechanics.length === 0 && (
+        <ErrorState
+          message="Usta bilgileri yüklenirken bir hata oluştu."
+          onRetry={fetchMechanics}
+          title="Yükleme Hatası"
+        />
+      )}
+
+      {/* Empty State */}
+      {!loading && processedMechanics.length === 0 && mechanics.length > 0 && (
+        <EmptyState
+          icon="search-outline"
+          title="Sonuç Bulunamadı"
+          subtitle="Arama kriterlerinize uygun usta bulunamadı. Filtreleri değiştirerek tekrar deneyin."
+          actionText="Filtreleri Temizle"
+          onActionPress={() => {
+            setSelectedFilters([]);
+            setSortBy('rating');
+            setSearchQuery('');
+          }}
+        />
+      )}
+
+      {/* Map View */}
+      {showMapView ? (
+        <View style={styles.mapContainer}>
+          <MapView
+            provider={PROVIDER_GOOGLE}
+            style={styles.map}
+            initialRegion={{
+              latitude: userLocation?.latitude || 41.0082,
+              longitude: userLocation?.longitude || 28.9784,
+              latitudeDelta: 0.1,
+              longitudeDelta: 0.1,
+            }}
+            showsUserLocation={true}
+            showsMyLocationButton={true}
+          >
+            {processedMechanics.map((mechanic) => {
+              if (!mechanic.location?.coordinates) return null;
+              return (
+                <Marker
+                  key={mechanic._id}
+                  coordinate={{
+                    latitude: mechanic.location.coordinates.latitude,
+                    longitude: mechanic.location.coordinates.longitude,
+                  }}
+                  title={`${mechanic.name} ${mechanic.surname}`}
+                  description={mechanic.shopName || mechanic.city}
+                  onPress={() => handleMechanicPress(mechanic)}
+                />
+              );
+            })}
+          </MapView>
+        </View>
+      ) : (
+        /* Results List */
       <FlatList
         data={processedMechanics}
-        keyExtractor={(item) => item._id}
+          keyExtractor={(item) => item._id || 'unknown'}
         renderItem={renderMechanicItem}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
         onRefresh={fetchMechanics}
         refreshing={loading}
-      />
-
-      {/* TODO: Map View */}
-      {showMapView && (
-        <View style={styles.mapPlaceholder}>
-          {/* Map component buraya gelecek */}
-        </View>
+          ListEmptyComponent={
+            !loading && mechanics.length === 0 ? (
+              <ErrorState
+                message="Usta bilgileri yüklenirken bir hata oluştu."
+                onRetry={fetchMechanics}
+                title="Yükleme Hatası"
+              />
+            ) : !loading && processedMechanics.length === 0 ? (
+              <EmptyState
+                icon="search-outline"
+                title="Sonuç Bulunamadı"
+                subtitle="Arama kriterlerinize uygun usta bulunamadı. Filtreleri değiştirerek tekrar deneyin."
+                actionText="Filtreleri Temizle"
+                onActionPress={() => {
+                  setSelectedFilters([]);
+                  setSortBy('rating');
+                  setSearchQuery('');
+                }}
+              />
+            ) : null
+          }
+        />
       )}
     </SafeAreaView>
   );
@@ -186,18 +271,13 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingBottom: 20,
+    paddingHorizontal: 16,
   },
-  filtersPlaceholder: {
-    height: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
+  mapContainer: {
+    flex: 1,
   },
-  mapPlaceholder: {
-    position: 'absolute',
-    top: 100,
-    left: 0,
-    right: 0,
-    bottom: 0,
+  map: {
+    flex: 1,
   },
 });
 

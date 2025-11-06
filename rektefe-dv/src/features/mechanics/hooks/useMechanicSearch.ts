@@ -12,7 +12,7 @@ export const useMechanicSearch = () => {
   const [mechanics, setMechanics] = useState<MechanicSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<'rating' | 'experience' | 'jobs'>('rating');
+  const [sortBy, setSortBy] = useState<'rating' | 'experience' | 'jobs' | 'distance'>('rating');
   const [userLocation, setUserLocation] = useState(getFallbackUserLocation());
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [locationLoaded, setLocationLoaded] = useState(false);
@@ -162,6 +162,10 @@ export const useMechanicSearch = () => {
   }, [searchQuery, selectedService, selectedFilters]);
 
   const sortMechanics = useCallback((mechanicsToSort: MechanicSearchResult[]) => {
+    if (sortBy === 'distance' && userLocation) {
+      return sortMechanicsByDistance(mechanicsToSort, userLocation);
+    }
+    
     return [...mechanicsToSort].sort((a, b) => {
       switch (sortBy) {
         case 'rating':
@@ -174,7 +178,7 @@ export const useMechanicSearch = () => {
           return 0;
       }
     });
-  }, [sortBy]);
+  }, [sortBy, userLocation]);
 
   // İlk yükleme
   useEffect(() => {

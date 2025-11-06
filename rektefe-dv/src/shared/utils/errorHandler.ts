@@ -122,8 +122,11 @@ export const isRateLimitOrCanceledError = (error: any): boolean => {
 
 /**
  * Hata mesajını kullanıcıya gösterir
+ * Toast kullanır (Alert yerine)
  */
 export const showError = (error: AppError | string, title: string = 'Hata') => {
+  // Toast service'i lazy import et (circular dependency'i önlemek için)
+  const toastService = require('@/shared/services/toastService').default;
   // Rate limit hatası ise kullanıcıya gösterilmez (sessizce işlenir)
   if (typeof error !== 'string' && error.type === ErrorType.RATE_LIMIT) {
     if (__DEV__) {
@@ -134,18 +137,18 @@ export const showError = (error: AppError | string, title: string = 'Hata') => {
   
   const message = typeof error === 'string' ? error : error.message;
   
-  Alert.alert(title, message, [
-    { text: 'Tamam', style: 'default' }
-  ]);
+  // Toast service ile hata göster
+  toastService.error(message);
 };
 
 /**
  * Başarı mesajını kullanıcıya gösterir
+ * Toast kullanır (Alert yerine)
  */
 export const showSuccess = (message: string, title: string = 'Başarılı') => {
-  Alert.alert(title, message, [
-    { text: 'Tamam', style: 'default' }
-  ]);
+  // Toast service'i lazy import et (circular dependency'i önlemek için)
+  const toastService = require('@/shared/services/toastService').default;
+  toastService.success(message);
 };
 
 /**

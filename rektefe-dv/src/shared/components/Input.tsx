@@ -9,7 +9,8 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, borderRadius, spacing, shadows } from '@/theme/theme';
+import { useTheme } from '@/context/ThemeContext';
+import { borderRadius, spacing } from '@/theme/theme';
 
 export interface InputProps {
   label?: string;
@@ -30,6 +31,8 @@ export interface InputProps {
   onRightIconPress?: () => void;
   style?: ViewStyle;
   inputStyle?: TextStyle;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 const Input: React.FC<InputProps> = ({
@@ -51,11 +54,19 @@ const Input: React.FC<InputProps> = ({
   onRightIconPress,
   style,
   inputStyle,
+  accessibilityLabel,
+  accessibilityHint,
 }) => {
+  const { theme, isDark } = useTheme();
+  const styles = createStyles(theme, isDark);
   const [isFocused, setIsFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleFocus = () => setIsFocused(true);
+  const handleFocus = () => {
+    if (!error) {
+      setIsFocused(true);
+    }
+  };
   const handleBlur = () => setIsFocused(false);
 
   const togglePasswordVisibility = () => {
@@ -63,22 +74,22 @@ const Input: React.FC<InputProps> = ({
   };
 
   const getBorderColor = () => {
-    if (error) return colors.error.main;
-    if (isFocused) return colors.primary.main;
-    if (disabled) return colors.border.tertiary;
-    return colors.border.primary;
+    if (error) return theme.colors.error.main;
+    if (isFocused) return theme.colors.primary.main;
+    if (disabled) return theme.colors.border.tertiary;
+    return theme.colors.border.primary;
   };
 
   const getBackgroundColor = () => {
-    if (disabled) return colors.background.quaternary;
-    return colors.background.card;
+    if (disabled) return theme.colors.background.quaternary;
+    return theme.colors.background.card;
   };
 
   return (
     <View style={[styles.container, style]}>
       {/* Label */}
       {label && (
-        <Text style={[styles.label, disabled && styles.labelDisabled]}>
+        <Text style={[styles.label, disabled && styles.labelDisabled, error && styles.labelError]}>
           {label}
         </Text>
       )}
@@ -102,7 +113,7 @@ const Input: React.FC<InputProps> = ({
             <Ionicons
               name={leftIcon}
               size={20}
-              color={disabled ? colors.text.quaternary : colors.text.tertiary}
+              color={disabled ? theme.colors.text.quaternary : (error ? theme.colors.error.main : theme.colors.text.tertiary)}
             />
           </View>
         )}
@@ -119,7 +130,7 @@ const Input: React.FC<InputProps> = ({
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={colors.text.quaternary}
+          placeholderTextColor={theme.colors.text.quaternary}
           secureTextEntry={secureTextEntry && !showPassword}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
@@ -127,9 +138,12 @@ const Input: React.FC<InputProps> = ({
           multiline={multiline}
           numberOfLines={numberOfLines}
           maxLength={maxLength}
-          editable={!disabled}
-          onFocus={handleFocus}
+          editable={!disabled && !error}
+          onFocus={error ? undefined : handleFocus}
           onBlur={handleBlur}
+          accessibilityLabel={accessibilityLabel || label || placeholder}
+          accessibilityHint={accessibilityHint || (error ? `Hata: ${error}` : undefined)}
+          accessibilityState={{ disabled: disabled || !!error }}
         />
 
         {/* Right Icon */}
@@ -142,7 +156,7 @@ const Input: React.FC<InputProps> = ({
             <Ionicons
               name={rightIcon}
               size={20}
-              color={disabled ? colors.text.quaternary : colors.text.tertiary}
+              color={disabled ? theme.colors.text.quaternary : (error ? theme.colors.error.main : theme.colors.text.tertiary)}
             />
           </TouchableOpacity>
         )}
@@ -153,11 +167,15 @@ const Input: React.FC<InputProps> = ({
             style={styles.passwordToggleContainer}
             onPress={togglePasswordVisibility}
             disabled={disabled}
+            accessibilityRole="button"
+            accessibilityLabel={showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
+            accessibilityHint="Şifre görünürlüğünü değiştir"
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Ionicons
               name={showPassword ? 'eye-off' : 'eye'}
               size={20}
-              color={disabled ? colors.text.quaternary : colors.text.tertiary}
+              color={disabled ? theme.colors.text.quaternary : theme.colors.text.tertiary}
             />
           </TouchableOpacity>
         )}
@@ -166,7 +184,7 @@ const Input: React.FC<InputProps> = ({
       {/* Error Message */}
       {error && (
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={16} color={colors.error.main} />
+          <Ionicons name="alert-circle" size={16} color={theme.colors.error.main} />
           <Text style={styles.errorText}>{error}</Text>
         </View>
       )}
@@ -174,29 +192,32 @@ const Input: React.FC<InputProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any, isDark: boolean) => StyleSheet.create({
   container: {
     marginBottom: spacing.md,
   },
   label: {
-    fontSize: typography.label.fontSize,
+    fontSize: theme.typography.label.fontSize,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: theme.colors.text.primary,
     marginBottom: spacing.sm,
   },
   labelDisabled: {
-    color: colors.text.quaternary,
+    color: theme.colors.text.quaternary,
+  },
+  labelError: {
+    color: theme.colors.error.main,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: borderRadius.input,
-    backgroundColor: colors.background.card,
-    ...shadows.small,
+    backgroundColor: theme.colors.background.card,
+    ...theme.shadows.small,
   },
   inputContainerFocused: {
-    ...shadows.medium,
+    ...theme.shadows.medium,
   },
   inputContainerError: {
     borderWidth: 2,
@@ -218,11 +239,12 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: typography.body2.fontSize,
-    color: colors.text.primary,
+    fontSize: theme.typography.body2.fontSize,
+    color: theme.colors.text.primary,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
-    lineHeight: typography.body2.lineHeight,
+    lineHeight: theme.typography.body2.lineHeight,
+    minHeight: 44, // WCAG 2.1 AA: Minimum 44px touch target height
   },
   inputWithLeftIcon: {
     paddingLeft: spacing.sm,
@@ -241,8 +263,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   errorText: {
-    fontSize: typography.caption.large.fontSize,
-    color: colors.error.main,
+    fontSize: theme.typography.caption.large.fontSize,
+    color: theme.colors.error.main,
     fontWeight: '500',
   },
 });

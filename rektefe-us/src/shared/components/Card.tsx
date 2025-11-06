@@ -5,7 +5,8 @@ import {
   ViewStyle,
   TouchableOpacity,
 } from 'react-native';
-import { colors, borderRadius, spacing } from '@/shared/theme';
+import { useTheme } from '@/shared/context';
+import { borderRadius, spacing } from '@/shared/theme';
 
 export interface CardProps {
   children: React.ReactNode;
@@ -26,30 +27,34 @@ const Card: React.FC<CardProps> = ({
   style,
   disabled = false,
 }) => {
+  const { themeColors, isDark } = useTheme();
+  const { shadows } = require('@/shared/theme');
+  const styles = createStyles(themeColors, isDark);
+
   const getCardStyle = (): ViewStyle => {
     const baseStyle: ViewStyle = {
       borderRadius: borderRadius.card,
-      backgroundColor: colors.background.card,
+      backgroundColor: themeColors.background.card,
       overflow: 'hidden',
     };
 
     // Variant styles
     switch (variant) {
       case 'elevated':
-        // Note: Shadow should be applied via inline styles with backgroundColor for better performance
         return {
           ...baseStyle,
+          ...shadows.card,
         };
       case 'outlined':
         return {
           ...baseStyle,
           borderWidth: 1,
-          borderColor: colors.border.primary,
+          borderColor: themeColors.border.primary,
         };
       case 'filled':
         return {
           ...baseStyle,
-          backgroundColor: colors.background.tertiary,
+          backgroundColor: themeColors.background.tertiary,
         };
       default:
         return baseStyle;
@@ -114,7 +119,7 @@ const Card: React.FC<CardProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   disabled: {
     opacity: 0.6,
   },

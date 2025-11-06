@@ -9,7 +9,8 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, borderRadius, spacing } from '@/shared/theme';
+import { useTheme } from '@/shared/context';
+import { borderRadius, spacing } from '@/shared/theme';
 
 export interface ButtonProps {
   title: string;
@@ -40,6 +41,10 @@ const Button: React.FC<ButtonProps> = ({
   textStyle,
   children,
 }) => {
+  const { themeColors, isDark } = useTheme();
+  const { shadows } = require('@/shared/theme');
+  const styles = createStyles(themeColors, isDark);
+
   const getButtonStyle = (): ViewStyle => {
     const baseStyle: ViewStyle = {
       borderRadius: borderRadius.button,
@@ -47,6 +52,11 @@ const Button: React.FC<ButtonProps> = ({
       justifyContent: 'center',
       flexDirection: 'row',
     };
+
+    // Shadow sadece outline ve ghost variant'larda olmamalı
+    if (variant !== 'outline' && variant !== 'ghost') {
+      Object.assign(baseStyle, shadows.button);
+    }
 
     if (fullWidth) {
       baseStyle.width = '100%';
@@ -76,34 +86,34 @@ const Button: React.FC<ButtonProps> = ({
       case 'primary':
         return {
           ...baseStyle,
-          backgroundColor: colors.primary.main,
+          backgroundColor: themeColors.primary.main,
         };
       case 'secondary':
         return {
           ...baseStyle,
-          backgroundColor: colors.secondary.main,
+          backgroundColor: themeColors.secondary.main,
         };
       case 'success':
         return {
           ...baseStyle,
-          backgroundColor: colors.success.main,
+          backgroundColor: themeColors.success.main,
         };
       case 'warning':
         return {
           ...baseStyle,
-          backgroundColor: colors.warning.main,
+          backgroundColor: themeColors.warning.main,
         };
       case 'error':
         return {
           ...baseStyle,
-          backgroundColor: colors.error.main,
+          backgroundColor: themeColors.error.main,
         };
       case 'outline':
         return {
           ...baseStyle,
           backgroundColor: 'transparent',
           borderWidth: 2,
-          borderColor: colors.primary.main,
+          borderColor: themeColors.primary.main,
         };
       case 'ghost':
         return {
@@ -121,7 +131,8 @@ const Button: React.FC<ButtonProps> = ({
       textAlign: 'center',
     };
 
-    // Size text styles
+    // Size text styles - US'de themeColors'da typography yok, direkt değerler kullanılıyor
+    const { typography } = require('@/shared/theme');
     switch (size) {
       case 'small':
         baseTextStyle.fontSize = typography.button.small.fontSize;
@@ -140,32 +151,32 @@ const Button: React.FC<ButtonProps> = ({
     // Variant text styles
     switch (variant) {
       case 'outline':
-        baseTextStyle.color = colors.primary.main;
+        baseTextStyle.color = themeColors.primary.main;
         break;
       case 'ghost':
-        baseTextStyle.color = colors.primary.main;
+        baseTextStyle.color = themeColors.primary.main;
         break;
       default:
-        baseTextStyle.color = colors.text.inverse;
+        baseTextStyle.color = themeColors.text.inverse;
         break;
     }
 
     if (disabled) {
-      baseTextStyle.color = colors.text.tertiary;
+      baseTextStyle.color = themeColors.text.tertiary;
     }
 
     return baseTextStyle;
   };
 
   const getIconColor = (): string => {
-    if (disabled) return colors.text.tertiary;
+    if (disabled) return themeColors.text.tertiary;
     
     switch (variant) {
       case 'outline':
       case 'ghost':
-        return colors.primary.main;
+        return themeColors.primary.main;
       default:
-        return colors.text.inverse;
+        return themeColors.text.inverse;
     }
   };
 
@@ -247,7 +258,7 @@ const Button: React.FC<ButtonProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',

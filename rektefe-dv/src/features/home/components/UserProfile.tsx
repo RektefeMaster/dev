@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
-import { useNavigation } from '@react-navigation/native';
 
 interface UserProfileProps {
   userName: string;
@@ -42,7 +42,6 @@ export const UserProfile: React.FC<UserProfileProps> = ({
   navigation
 }) => {
   const { theme } = useTheme();
-  
 
   return (
     <View style={styles.container}>
@@ -53,21 +52,26 @@ export const UserProfile: React.FC<UserProfileProps> = ({
           <Text style={[styles.subtitle, { color: theme.colors.text.secondary }]}>Bugün nasılsın?</Text>
         </View>
         
-        {/* Notification Bell Icon */}
-        <TouchableOpacity style={[styles.notificationButton, { backgroundColor: theme.colors.background.secondary }]} onPress={onNotificationPress}>
+        <View style={styles.headerButtons}>
+          {/* Notification Bell Icon */}
+          <TouchableOpacity 
+            style={[styles.notificationButton, { backgroundColor: theme.colors.background.secondary }]} 
+            onPress={onNotificationPress}
+          >
           <MaterialCommunityIcons 
             name="bell-outline" 
             size={24} 
             color={theme.colors.text.primary} 
           />
           {unreadCount > 0 && (
-            <View style={[styles.notificationBadge, { backgroundColor: theme.colors.text.primary }]}>
+              <View style={[styles.notificationBadge, { backgroundColor: theme.colors.error.main }]}>
               <Text style={styles.notificationBadgeText}>
                 {unreadCount > 99 ? '99+' : unreadCount}
               </Text>
             </View>
           )}
         </TouchableOpacity>
+        </View>
       </View>
 
       {/* User Info Section */}
@@ -115,6 +119,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 20,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
   },
   greetingSection: {
     flex: 1,

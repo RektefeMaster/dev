@@ -9,7 +9,8 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, borderRadius, spacing, shadows } from '@/shared/theme';
+import { useTheme } from '@/shared/context';
+import { borderRadius, spacing } from '@/shared/theme';
 
 export interface InputProps {
   label?: string;
@@ -52,10 +53,17 @@ const Input: React.FC<InputProps> = ({
   style,
   inputStyle,
 }) => {
+  const { themeColors, isDark } = useTheme();
+  const { shadows } = require('@/shared/theme');
+  const styles = createStyles(themeColors, isDark);
   const [isFocused, setIsFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleFocus = () => setIsFocused(true);
+  const handleFocus = () => {
+    if (!error) {
+      setIsFocused(true);
+    }
+  };
   const handleBlur = () => setIsFocused(false);
 
   const togglePasswordVisibility = () => {
@@ -63,22 +71,22 @@ const Input: React.FC<InputProps> = ({
   };
 
   const getBorderColor = () => {
-    if (error) return colors.error.main;
-    if (isFocused) return colors.primary.main;
-    if (disabled) return colors.border.tertiary;
-    return colors.border.primary;
+    if (error) return themeColors.error.main;
+    if (isFocused) return themeColors.primary.main;
+    if (disabled) return themeColors.border.tertiary;
+    return themeColors.border.primary;
   };
 
   const getBackgroundColor = () => {
-    if (disabled) return colors.background.quaternary;
-    return colors.background.card;
+    if (disabled) return themeColors.background.quaternary;
+    return themeColors.background.card;
   };
 
   return (
     <View style={[styles.container, style]}>
       {/* Label */}
       {label && (
-        <Text style={[styles.label, disabled && styles.labelDisabled]}>
+        <Text style={[styles.label, disabled && styles.labelDisabled, error && styles.labelError]}>
           {label}
         </Text>
       )}
@@ -102,7 +110,7 @@ const Input: React.FC<InputProps> = ({
             <Ionicons
               name={leftIcon}
               size={20}
-              color={disabled ? colors.text.quaternary : colors.text.tertiary}
+              color={disabled ? themeColors.text.quaternary : (error ? themeColors.error.main : themeColors.text.tertiary)}
             />
           </View>
         )}
@@ -119,7 +127,7 @@ const Input: React.FC<InputProps> = ({
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={colors.text.quaternary}
+          placeholderTextColor={themeColors.text.quaternary}
           secureTextEntry={secureTextEntry && !showPassword}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
@@ -142,7 +150,7 @@ const Input: React.FC<InputProps> = ({
             <Ionicons
               name={rightIcon}
               size={20}
-              color={disabled ? colors.text.quaternary : colors.text.tertiary}
+              color={disabled ? themeColors.text.quaternary : (error ? themeColors.error.main : themeColors.text.tertiary)}
             />
           </TouchableOpacity>
         )}
@@ -157,7 +165,7 @@ const Input: React.FC<InputProps> = ({
             <Ionicons
               name={showPassword ? 'eye-off' : 'eye'}
               size={20}
-              color={disabled ? colors.text.quaternary : colors.text.tertiary}
+              color={disabled ? themeColors.text.quaternary : themeColors.text.tertiary}
             />
           </TouchableOpacity>
         )}
@@ -166,7 +174,7 @@ const Input: React.FC<InputProps> = ({
       {/* Error Message */}
       {error && (
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={16} color={colors.error.main} />
+          <Ionicons name="alert-circle" size={16} color={themeColors.error.main} />
           <Text style={styles.errorText}>{error}</Text>
         </View>
       )}
@@ -174,7 +182,9 @@ const Input: React.FC<InputProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => {
+  const { typography, shadows } = require('@/shared/theme');
+  return StyleSheet.create({
   container: {
     marginBottom: spacing.md,
   },
@@ -187,6 +197,9 @@ const styles = StyleSheet.create({
   labelDisabled: {
     color: colors.text.quaternary,
   },
+    labelError: {
+      color: colors.error.main,
+    },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -246,5 +259,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
+};
 
 export default Input;

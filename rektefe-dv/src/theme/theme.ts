@@ -6,6 +6,38 @@ const { width, height } = Dimensions.get('window');
 // Rektefe-DV için optimize edilmiş tema sistemi
 // Light tema: 29 ile biten renkler, Dark tema: 31 ile biten renkler
 
+// Spacing ve borderRadius değerlerini dosyanın başında tanımla (modül yükleme sırasından bağımsız)
+const SPACING_VALUES = {
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  xxl: 48,
+  xxxl: 64,
+  screenPadding: 20,
+  cardPadding: 16,
+  buttonPadding: 12,
+  iconSpacing: 8,
+};
+
+const BORDER_RADIUS_VALUES = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
+  xxxl: 32,
+  round: 50,
+  card: 16,
+  button: 12,
+  input: 12,
+  modal: 20,
+  avatar: 25,
+  full: 9999,
+};
+
 export const createTheme = (isDark: boolean = false) => {
   const themeColors = isDark ? Colors.dark : Colors.light;
   
@@ -32,33 +64,34 @@ export const createTheme = (isDark: boolean = false) => {
       },
       
       // Durum renkleri
+      // Dark temada doygunluk azaltılmış, göz yorgunluğunu önleyen tonlar
       success: {
         main: Colors.success,
-        light: isDark ? '#1A4D2E' : '#D1FAE5',
-        dark: isDark ? '#0F2E1C' : '#047857',
-        ultraLight: isDark ? '#1C1C1E' : '#F0FDF4',
-        background: isDark ? '#0F2E1C' : '#F0FDF4',
+        light: isDark ? '#2A4D3E' : '#D1FAE5', // Dark: daha yumuşak yeşil
+        dark: isDark ? '#1A3D2E' : '#047857',
+        ultraLight: isDark ? '#1E2E24' : '#F0FDF4', // Dark: çok hafif yeşilimsi gri
+        background: isDark ? '#1E2E24' : '#F0FDF4',
       },
       warning: {
         main: Colors.warning,
-        light: isDark ? '#4A2E00' : '#FEF3C7',
-        dark: isDark ? '#2A1A00' : '#B45309',
-        ultraLight: isDark ? '#1C1C1E' : '#FFFBEB',
-        background: isDark ? '#2A1A00' : '#FFFBEB',
+        light: isDark ? '#4A3E2A' : '#FEF3C7', // Dark: daha yumuşak turuncu
+        dark: isDark ? '#3A2E1A' : '#B45309',
+        ultraLight: isDark ? '#2E2A1E' : '#FFFBEB', // Dark: çok hafif turuncumsu gri
+        background: isDark ? '#2E2A1E' : '#FFFBEB',
       },
       error: {
         main: Colors.error,
-        light: isDark ? '#4A1A1A' : '#FEE2E2',
-        dark: isDark ? '#2A0F0F' : '#B91C1C',
-        ultraLight: isDark ? '#1C1C1E' : '#FEF2F2',
-        background: isDark ? '#2A0F0F' : '#FEF2F2',
+        light: isDark ? '#4A2E2E' : '#FEE2E2', // Dark: daha yumuşak kırmızı
+        dark: isDark ? '#3A1E1E' : '#B91C1C',
+        ultraLight: isDark ? '#2E1E1E' : '#FEF2F2', // Dark: çok hafif kırmızımsı gri
+        background: isDark ? '#2E1E1E' : '#FEF2F2',
       },
       info: {
         main: Colors.info,
-        light: isDark ? '#1A3A4A' : '#DBEAFE',
-        dark: isDark ? '#0F222A' : '#1E40AF',
-        ultraLight: isDark ? '#1C1C1E' : '#EFF6FF',
-        background: isDark ? '#0F222A' : '#EFF6FF',
+        light: isDark ? '#2A3A4A' : '#DBEAFE', // Dark: daha yumuşak mavi
+        dark: isDark ? '#1A2A3A' : '#1E40AF',
+        ultraLight: isDark ? '#1E2A2E' : '#EFF6FF', // Dark: çok hafif mavimsi gri
+        background: isDark ? '#1E2A2E' : '#EFF6FF',
       },
       
       // Metin renkleri
@@ -82,7 +115,7 @@ export const createTheme = (isDark: boolean = false) => {
         quaternary: isDark ? themeColors.background.surface : '#E2E8F0',
         card: themeColors.background.card,
         modal: themeColors.background.primary,
-        overlay: isDark ? 'rgba(3, 8, 12, 0.8)' : 'rgba(0, 0, 0, 0.4)',
+        overlay: isDark ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.4)',
       },
       
       // Kenarlık renkleri
@@ -107,27 +140,27 @@ export const createTheme = (isDark: boolean = false) => {
         600: isDark ? themeColors.text.primary : '#475569',
         700: isDark ? themeColors.background.secondary : '#334155',
         800: isDark ? themeColors.background.primary : '#1E293B',
-        900: isDark ? themeColors.shadow : '#0F172A',
-        950: isDark ? '#03080C' : '#020617',
+        900: isDark ? '#000000' : '#0F172A',
+        950: isDark ? '#000000' : '#020617',
       },
       
       // Gradient renkleri
       gradients: {
-        primary: isDark ? ['#266691', '#184567'] : ['#4B6382', '#3A4F6B'],
-        secondary: isDark ? ['#A68868', '#734A0E'] : ['#A68868', '#8B6B4F'],
+        primary: isDark ? ['#1E1E1E', '#121212'] : ['#4B6382', '#3A4F6B'],
+        secondary: isDark ? ['#2C2C2C', '#1E1E1E'] : ['#A68868', '#8B6B4F'],
         success: ['#34C759', '#28A745'],
-        subtle: isDark ? ['#184567', '#0E2235'] : ['#F8FAFC', '#F1F5F9'],
-        card: isDark ? ['#184567', '#0E2235'] : ['#FFFFFF', '#F8FAFC'],
-        warm: isDark ? ['#734A0E', '#A68868'] : ['#795238', '#AEA7A3'],
+        subtle: isDark ? ['#1E1E1E', '#121212'] : ['#F8FAFC', '#F1F5F9'],
+        card: isDark ? ['#1E1E1E', '#121212'] : ['#FFFFFF', '#F8FAFC'],
+        warm: isDark ? ['#2C2C2C', '#1E1E1E'] : ['#795238', '#AEA7A3'],
       },
       
       // Gölge renkleri
       shadow: {
-        primary: isDark ? 'rgba(38, 102, 145, 0.2)' : 'rgba(75, 99, 130, 0.1)',
-        secondary: isDark ? 'rgba(166, 136, 104, 0.2)' : 'rgba(166, 136, 104, 0.1)',
+        primary: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(75, 99, 130, 0.1)',
+        secondary: isDark ? 'rgba(0, 0, 0, 0.25)' : 'rgba(166, 136, 104, 0.1)',
         success: 'rgba(52, 199, 89, 0.1)',
         error: 'rgba(255, 59, 48, 0.1)',
-        dark: isDark ? 'rgba(3, 8, 12, 0.4)' : 'rgba(0, 0, 0, 0.08)',
+        dark: isDark ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.08)',
       },
       
       // UI elementleri
@@ -140,43 +173,47 @@ export const createTheme = (isDark: boolean = false) => {
       // DV özel renkleri
       warm: isDark ? '#FF9F0A' : '#FF9500',
       warmLight: isDark ? '#FFB340' : '#FFB340',
+      
+      // Hizmet türüne göre renk kodları
+      service: {
+        repair: {
+          main: '#3B82F6', // Mavi - Tamir & Bakım
+          light: isDark ? '#1E3A8A' : '#DBEAFE',
+          dark: isDark ? '#1E40AF' : '#1E40AF',
+        },
+        towing: {
+          main: '#EF4444', // Kırmızı - Çekici
+          light: isDark ? '#7F1D1D' : '#FEE2E2',
+          dark: isDark ? '#991B1B' : '#DC2626',
+        },
+        wash: {
+          main: '#10B981', // Yeşil - Yıkama
+          light: isDark ? '#064E3B' : '#D1FAE5',
+          dark: isDark ? '#047857' : '#059669',
+        },
+        tire: {
+          main: '#F59E0B', // Turuncu - Lastik
+          light: isDark ? '#78350F' : '#FEF3C7',
+          dark: isDark ? '#92400E' : '#D97706',
+        },
+        bodywork: {
+          main: '#8B5CF6', // Mor - Kaporta
+          light: isDark ? '#4C1D95' : '#EDE9FE',
+          dark: isDark ? '#5B21B6' : '#7C3AED',
+        },
+        electrical: {
+          main: '#F97316', // Turuncu - Elektrik
+          light: isDark ? '#7C2D12' : '#FFEDD5',
+          dark: isDark ? '#9A3412' : '#EA580C',
+        },
+      },
     },
 
     // iOS tarzında boşluk sistemi
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 16,
-      lg: 24,
-      xl: 32,
-      xxl: 48,
-      xxxl: 64,
-      
-      // Özel boşluklar
-      screenPadding: 20,
-      cardPadding: 16,
-      buttonPadding: 12,
-      iconSpacing: 8,
-    },
+    spacing: { ...SPACING_VALUES },
 
     // iOS tarzında border radius
-    borderRadius: {
-      xs: 4,
-      sm: 8,
-      md: 12,
-      lg: 16,
-      xl: 20,
-      xxl: 24,
-      xxxl: 32,
-      round: 50,
-      
-      // Özel radius değerleri
-      card: 16,
-      button: 12,
-      input: 12,
-      modal: 20,
-      avatar: 25,
-    },
+    borderRadius: { ...BORDER_RADIUS_VALUES },
 
     // iOS tarzında tipografi
     typography: {
@@ -243,8 +280,20 @@ export const createTheme = (isDark: boolean = false) => {
         lineHeight: 25,
         letterSpacing: 0.38,
       },
+      h5: {
+        fontSize: 18,
+        fontWeight: '600' as const,
+        lineHeight: 23,
+        letterSpacing: 0.35,
+      },
       
       // Gövde metinleri
+      body: {
+        fontSize: 15,
+        fontWeight: '400' as const,
+        lineHeight: 20,
+        letterSpacing: -0.24,
+      },
       body1: {
         fontSize: 17,
         fontWeight: '400' as const,
@@ -331,67 +380,83 @@ export const createTheme = (isDark: boolean = false) => {
     },
 
     // Gölgeler
+    // Dark temada daha belirgin shadow'lar, depth hissi için
     shadows: {
       // Hafif gölgeler
-      small: {
-        shadowColor: isDark ? themeColors.shadow : '#000000',
+      sm: {
+        shadowColor: isDark ? '#000000' : '#000000',
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: isDark ? 0.2 : 0.05,
-        shadowRadius: 2,
-        elevation: 1,
+        shadowOpacity: isDark ? 0.3 : 0.05, // Dark: daha belirgin
+        shadowRadius: isDark ? 3 : 2,
+        elevation: isDark ? 2 : 1,
+      },
+      small: {
+        shadowColor: isDark ? '#000000' : '#000000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: isDark ? 0.3 : 0.05, // Dark: daha belirgin
+        shadowRadius: isDark ? 3 : 2,
+        elevation: isDark ? 2 : 1,
       },
       medium: {
-        shadowColor: isDark ? themeColors.shadow : '#000000',
+        shadowColor: isDark ? '#000000' : '#000000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: isDark ? 0.3 : 0.08,
-        shadowRadius: 4,
-        elevation: 2,
+        shadowOpacity: isDark ? 0.4 : 0.08, // Dark: daha belirgin
+        shadowRadius: isDark ? 6 : 4,
+        elevation: isDark ? 4 : 2,
       },
       large: {
-        shadowColor: isDark ? themeColors.shadow : '#000000',
+        shadowColor: isDark ? '#000000' : '#000000',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: isDark ? 0.4 : 0.12,
-        shadowRadius: 8,
-        elevation: 4,
+        shadowOpacity: isDark ? 0.5 : 0.12, // Dark: daha belirgin
+        shadowRadius: isDark ? 12 : 8,
+        elevation: isDark ? 8 : 4,
       },
       
       // Özel gölgeler
       card: {
-        shadowColor: isDark ? themeColors.shadow : '#000000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: isDark ? 0.25 : 0.05,
-        shadowRadius: 4,
-        elevation: 2,
+        shadowColor: isDark ? '#000000' : '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: isDark ? 0.35 : 0.06, // Dark: daha belirgin, depth hissi
+        shadowRadius: isDark ? 6 : 4,
+        elevation: isDark ? 4 : 2,
       },
       button: {
-        shadowColor: isDark ? themeColors.shadow : '#000000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: isDark ? 0.3 : 0.08,
-        shadowRadius: 2,
-        elevation: 1,
+        shadowColor: isDark ? '#000000' : '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: isDark ? 0.4 : 0.1, // Dark: daha belirgin
+        shadowRadius: isDark ? 4 : 2,
+        elevation: isDark ? 3 : 1,
       },
       modal: {
-        shadowColor: isDark ? themeColors.shadow : '#000000',
+        shadowColor: isDark ? '#000000' : '#000000',
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: isDark ? 0.5 : 0.15,
-        shadowRadius: 16,
-        elevation: 8,
+        shadowOpacity: isDark ? 0.6 : 0.15, // Dark: daha belirgin
+        shadowRadius: isDark ? 20 : 16,
+        elevation: isDark ? 12 : 8,
       },
       
-      // Renkli gölgeler
+      // Renkli gölgeler (subtle glow efektleri için)
       primary: {
-        shadowColor: isDark ? '#266691' : Colors.primary,
+        shadowColor: isDark ? '#4B6382' : Colors.primary,
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: isDark ? 0.3 : 0.15,
-        shadowRadius: 4,
-        elevation: 2,
+        shadowOpacity: isDark ? 0.4 : 0.15, // Dark: daha belirgin glow
+        shadowRadius: isDark ? 6 : 4,
+        elevation: isDark ? 4 : 2,
       },
       success: {
         shadowColor: Colors.success,
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 4,
-        elevation: 2,
+        shadowOpacity: isDark ? 0.3 : 0.15,
+        shadowRadius: isDark ? 6 : 4,
+        elevation: isDark ? 4 : 2,
+      },
+      // Subtle glow için extra shadow
+      glow: {
+        shadowColor: isDark ? '#4B6382' : Colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: isDark ? 0.5 : 0.2,
+        shadowRadius: isDark ? 8 : 6,
+        elevation: 0,
       },
     },
 
@@ -435,15 +500,19 @@ export const createTheme = (isDark: boolean = false) => {
   };
 };
 
+// Spacing ve borderRadius'u defaultTheme oluşturulmadan ÖNCE export et (modül yükleme sırasından bağımsız)
+// Spread operator kullanarak yeni obje oluştur (referans sorunlarını önlemek için)
+export const spacing = { ...SPACING_VALUES };
+export const borderRadius = { ...BORDER_RADIUS_VALUES };
+
 // Varsayılan light tema
-const theme = createTheme(false);
+const defaultTheme = createTheme(false);
 
-// Named exports
-export const colors = theme.colors;
-export const typography = theme.typography;
-export const spacing = theme.spacing;
-export const borderRadius = theme.borderRadius;
-export const shadows = theme.shadows;
-export const dimensions = theme.dimensions;
+// Named exports - defaultTheme'den al
+export const colors = defaultTheme.colors;
+export const typography = defaultTheme.typography;
+export const shadows = defaultTheme.shadows;
+export const dimensions = defaultTheme.dimensions;
 
-export default theme;
+// Default export
+export default defaultTheme;

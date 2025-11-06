@@ -2,7 +2,6 @@ import React from 'react';
 import { TouchableOpacity, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/context/ThemeContext';
-import theme from '@/theme/theme';
 
 interface ThemeToggleProps {
   size?: 'sm' | 'md' | 'lg';
@@ -13,7 +12,7 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({
   size = 'md', 
   style 
 }) => {
-  const { isDark, toggleTheme } = useTheme();
+  const { isDark, toggleTheme, theme } = useTheme();
 
   const getIconSize = () => {
     switch (size) {
@@ -41,8 +40,9 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({
           width: getContainerSize(),
           height: getContainerSize(),
           borderRadius: getContainerSize() / 2,
-                  backgroundColor: isDark ? theme.colors.background.tertiary : theme.colors.background.secondary,
-        borderColor: isDark ? theme.colors.border.tertiary : theme.colors.border.primary,
+          backgroundColor: isDark ? theme.colors.background.tertiary : theme.colors.background.secondary,
+          borderColor: isDark ? theme.colors.border.tertiary : theme.colors.border.primary,
+          ...(theme?.shadows?.small || {}),
         },
         style
       ]}
@@ -60,12 +60,12 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({
   );
 };
 
+// Styles - theme runtime'da ekleniyor
 const styles = StyleSheet.create({
   container: {
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    ...theme.shadows.small,
   },
 });
 

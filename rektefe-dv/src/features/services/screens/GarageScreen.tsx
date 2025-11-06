@@ -20,9 +20,14 @@ import { API_URL } from '@/constants/config';
 import { useFocusEffect } from '@react-navigation/native';
 import Background from '@/shared/components/Background';
 import { BackButton } from '@/shared/components';
-import LottieView from 'lottie-react-native';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 import carData from '@/constants/carData.json';
+import { validateForm, validationRules } from '@/shared/utils/validation';
+import toastService from '@/shared/services/toastService';
+import ErrorState from '@/shared/components/ErrorState';
+import LoadingSkeleton from '@/shared/components/LoadingSkeleton';
+import EmptyState from '@/shared/components/NoDataCard';
 
 interface Vehicle {
   _id: string;
@@ -43,9 +48,13 @@ interface Vehicle {
 
 const GarageScreen = () => {
   const { token, userId } = useAuth();
+  const { theme } = useTheme();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
   const hasFetchedRef = useRef(false);
 
   // Refs for scroll
@@ -96,10 +105,12 @@ const GarageScreen = () => {
     try {
       if (!token) {
         setVehicles([]);
+        setLoading(false);
         return;
       }
       
       setLoading(true);
+      setError(null);
       const [vehiclesRes, userRes] = await Promise.all([
         axios.get(`${API_URL}/vehicles`, { 
           headers: { Authorization: `Bearer ${token}` },
@@ -117,7 +128,8 @@ const GarageScreen = () => {
       } else {
         setVehicles([]);
       }
-    } catch (error) {
+    } catch (error: any) {
+      setError(error.response?.data?.message || 'Araçlar yüklenirken bir hata oluştu.');
       setVehicles([]);
     } finally {
       setLoading(false);
@@ -254,12 +266,42 @@ const GarageScreen = () => {
   };
 
   const handleAddVehicle = async () => {
-    // Validation
-    if (!formData.brand || !formData.model || !formData.package || !formData.year || 
-        !formData.fuelType || !formData.transmission || !formData.plateNumber) {
-      Alert.alert('Uyarı', 'Lütfen tüm gerekli alanları doldurun.');
+    // Form validation using validation utility
+    const validationResult = validateForm([
+      { field: 'brand', value: formData.brand, rules: [validationRules.required('Marka seçimi zorunludur')] },
+      { field: 'model', value: formData.model, rules: [validationRules.required('Model seçimi zorunludur')] },
+      { field: 'package', value: formData.package, rules: [validationRules.required('Paket seçimi zorunludur')] },
+      { field: 'year', value: formData.year, rules: [
+        validationRules.required('Yıl bilgisi zorunludur'),
+        validationRules.pattern(/^\d{4}$/, 'Geçerli bir yıl giriniz (örn: 2024)'),
+        validationRules.custom((val) => {
+          const year = parseInt(val);
+          return year >= 1900 && year <= new Date().getFullYear() + 1;
+        }, `Yıl 1900 ile ${new Date().getFullYear() + 1} arasında olmalıdır`)
+      ]},
+      { field: 'fuelType', value: formData.fuelType, rules: [validationRules.required('Yakıt türü seçimi zorunludur')] },
+      { field: 'transmission', value: formData.transmission, rules: [validationRules.required('Vites türü seçimi zorunludur')] },
+      { field: 'plateNumber', value: formData.plateNumber, rules: [
+        validationRules.required('Plaka numarası zorunludur'),
+        validationRules.pattern(/^[0-9]{2}[A-Z]{1,3}[0-9]{1,4}$/, 'Geçerli bir plaka numarası giriniz (örn: 34ABC123)')
+      ]},
+      { field: 'mileage', value: formData.mileage, rules: [
+        validationRules.custom((val) => {
+          if (!val || val === '') return true; // Optional
+          const mileage = parseInt(val);
+          return !isNaN(mileage) && mileage >= 0;
+        }, 'Kilometre geçerli bir sayı olmalıdır')
+      ]},
+    ]);
+
+    if (!validationResult.isValid) {
+      setFormErrors(validationResult.errors);
+      toastService.error('Lütfen formdaki hataları düzeltin.');
       return;
     }
+
+    setFormErrors({});
+    setSubmitting(true);
     
     const vehicleData = {
       brand: formData.brand,
@@ -269,7 +311,7 @@ const GarageScreen = () => {
       engineType: 'Bilinmiyor',
       fuelType: formData.fuelType === 'LPG' ? 'Benzin/Tüp' : formData.fuelType === 'Plug-in Hybrid' ? 'Hybrid' : formData.fuelType,
       transmission: formData.transmission,
-      plateNumber: formData.plateNumber,
+      plateNumber: formData.plateNumber.toUpperCase(),
       mileage: Number(formData.mileage) || 0,
     };
     
@@ -286,9 +328,12 @@ const GarageScreen = () => {
       
       resetForm();
       setShowAddModal(false);
-      Alert.alert('Başarılı', 'Araç başarıyla eklendi.');
+      toastService.success('Araç başarıyla eklendi.');
     } catch (error: any) {
-      Alert.alert('Hata', 'Araç eklenirken bir hata oluştu.');
+      const errorMessage = error.response?.data?.message || 'Araç eklenirken bir hata oluştu.';
+      toastService.error(errorMessage);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -296,9 +341,10 @@ const GarageScreen = () => {
     try {
       await axios.delete(`${API_URL}/vehicles/${vehicleId}`, { headers: { Authorization: `Bearer ${token}` } });
       setVehicles(vehicles.filter(vehicle => vehicle._id !== vehicleId));
-      Alert.alert('Başarılı', 'Araç başarıyla silindi.');
-    } catch (error) {
-      Alert.alert('Hata', 'Araç silinirken bir hata oluştu.');
+      toastService.success('Araç başarıyla silindi.');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Araç silinirken bir hata oluştu.';
+      toastService.error(errorMessage);
     }
   };
 
@@ -310,8 +356,10 @@ const GarageScreen = () => {
     try {
       await axios.put(`${API_URL}/vehicles/${vehicleId}/favorite`, {}, { headers: { Authorization: `Bearer ${token}` } });
       await fetchVehicles();
-    } catch (error) {
-      Alert.alert('Hata', 'Favori araç seçilirken bir hata oluştu.');
+      toastService.success('Favori araç güncellendi.');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Favori araç seçilirken bir hata oluştu.';
+      toastService.error(errorMessage);
       await fetchVehicles();
     }
   };
@@ -394,18 +442,26 @@ const GarageScreen = () => {
     </View>
   );
 
-  if (loading) {
+  if (loading && vehicles.length === 0) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loadingContainer}>
-          <LottieView
-            source={require('../../../../assets/loading.json')}
-            autoPlay
-            loop
-            style={{ width: 120, height: 120 }}
+        <Background>
+          <LoadingSkeleton variant="list" count={3} />
+        </Background>
+      </SafeAreaView>
+    );
+  }
+
+  if (error && vehicles.length === 0) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <Background>
+          <ErrorState
+            message={error}
+            onRetry={fetchVehicles}
+            title="Yükleme Hatası"
           />
-          <Text style={styles.loadingText}>Araçlar yükleniyor...</Text>
-        </View>
+        </Background>
       </SafeAreaView>
     );
   }
@@ -431,13 +487,13 @@ const GarageScreen = () => {
           </View>
 
           {vehicles.length === 0 ? (
-            <View style={styles.emptyState}>
-              <MaterialCommunityIcons name="car-off" size={64} color="#ccc" />
-              <Text style={styles.emptyStateText}>
-                {!token ? 'Oturum açmanız gerekiyor.' : 'Henüz araç eklenmemiş.'}
-                {token && '\nYeni bir araç eklemek için "Araç Ekle" butonuna tıklayın.'}
-              </Text>
-            </View>
+            <EmptyState
+              icon="car-outline"
+              title={!token ? 'Oturum Gerekli' : 'Henüz Araç Eklenmemiş'}
+              subtitle={!token ? 'Araç eklemek için lütfen oturum açın.' : 'Yeni bir araç eklemek için "Yeni Araç Ekle" butonuna tıklayın.'}
+              actionText={token ? 'Araç Ekle' : undefined}
+              onActionPress={token ? () => setShowAddModal(true) : undefined}
+            />
           ) : (
             <View style={styles.vehiclesContainer}>
               {vehicles.map(renderVehicleCard)}
@@ -743,17 +799,25 @@ const GarageScreen = () => {
                       {formData.year && <MaterialCommunityIcons name="check-circle" size={18} color="#34C759" />}
                     </View>
                     <TextInput
-                      style={styles.textInput}
+                      style={[styles.textInput, formErrors.year && styles.textInputError]}
                       placeholder="2024"
                       placeholderTextColor="#999"
                       value={formData.year}
-                      onChangeText={(text) => setFormData(prev => ({ ...prev, year: text }))}
+                      onChangeText={(text) => {
+                        setFormData(prev => ({ ...prev, year: text }));
+                        if (formErrors.year) {
+                          setFormErrors(prev => ({ ...prev, year: '' }));
+                        }
+                      }}
                       keyboardType="numeric"
                       maxLength={4}
                       returnKeyType="done"
                       blurOnSubmit={true}
                       onSubmitEditing={Keyboard.dismiss}
                     />
+                    {formErrors.year && (
+                      <Text style={styles.errorText}>{formErrors.year}</Text>
+                    )}
                   </View>
 
                   <View style={styles.inputGroup}>
@@ -780,17 +844,25 @@ const GarageScreen = () => {
                       {formData.plateNumber && <MaterialCommunityIcons name="check-circle" size={18} color="#34C759" />}
                     </View>
                     <TextInput
-                      style={styles.textInput}
+                      style={[styles.textInput, formErrors.plateNumber && styles.textInputError]}
                       placeholder="34ABC123"
                       placeholderTextColor="#999"
                       value={formData.plateNumber}
-                      onChangeText={(text) => setFormData(prev => ({ ...prev, plateNumber: text.toUpperCase() }))}
+                      onChangeText={(text) => {
+                        setFormData(prev => ({ ...prev, plateNumber: text.toUpperCase() }));
+                        if (formErrors.plateNumber) {
+                          setFormErrors(prev => ({ ...prev, plateNumber: '' }));
+                        }
+                      }}
                       autoCapitalize="characters"
                       maxLength={9}
                       returnKeyType="done"
                       blurOnSubmit={true}
                       onSubmitEditing={Keyboard.dismiss}
                     />
+                    {formErrors.plateNumber && (
+                      <Text style={styles.errorText}>{formErrors.plateNumber}</Text>
+                    )}
                   </View>
                 </ScrollView>
                 
@@ -798,8 +870,14 @@ const GarageScreen = () => {
                   <TouchableOpacity style={styles.cancelButton} onPress={handleCloseModal}>
                     <Text style={styles.cancelButtonText}>İptal</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.saveButton} onPress={handleAddVehicle}>
-                    <Text style={styles.saveButtonText}>Araç Ekle</Text>
+                  <TouchableOpacity
+                    style={[styles.saveButton, submitting && styles.saveButtonDisabled]}
+                    onPress={handleAddVehicle}
+                    disabled={submitting}
+                  >
+                    <Text style={styles.saveButtonText}>
+                      {submitting ? 'Ekleniyor...' : 'Araç Ekle'}
+                    </Text>
                   </TouchableOpacity>
                 </View>
                     </View>
@@ -1186,6 +1264,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     minHeight: 52,
   },
+  textInputError: {
+    borderColor: '#FF3B30',
+    borderWidth: 2,
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
+  },
   modalFooter: {
     flexDirection: 'row',
     paddingHorizontal: 20,
@@ -1203,6 +1291,9 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     backgroundColor: '#fff',
     alignItems: 'center',
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
   },
   saveButton: {
     flex: 2,

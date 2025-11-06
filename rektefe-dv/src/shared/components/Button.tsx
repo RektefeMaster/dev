@@ -8,9 +8,40 @@ import {
   ActivityIndicator,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, borderRadius, spacing, shadows } from '@/theme/theme';
+import { useTheme } from '@/context/ThemeContext';
+
+// Spacing ve borderRadius'u doğrudan tanımla (modül yükleme sırasından bağımsız)
+const spacing = {
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  xxl: 48,
+  xxxl: 64,
+  screenPadding: 20,
+  cardPadding: 16,
+  buttonPadding: 12,
+  iconSpacing: 8,
+};
+
+const borderRadius = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
+  xxxl: 32,
+  round: 50,
+  card: 16,
+  button: 12,
+  input: 12,
+  modal: 20,
+  avatar: 25,
+  full: 9999,
+};
 
 export interface ButtonProps {
   title: string;
@@ -25,6 +56,8 @@ export interface ButtonProps {
   style?: ViewStyle;
   textStyle?: TextStyle;
   children?: React.ReactNode;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -40,36 +73,48 @@ const Button: React.FC<ButtonProps> = ({
   style,
   textStyle,
   children,
+  accessibilityLabel,
+  accessibilityHint,
 }) => {
+  const { theme, isDark } = useTheme();
+  const styles = createStyles(theme, isDark);
+
   const getButtonStyle = (): ViewStyle => {
     const baseStyle: ViewStyle = {
       borderRadius: borderRadius.button,
       alignItems: 'center',
       justifyContent: 'center',
       flexDirection: 'row',
-      ...shadows.button,
     };
+
+    // Shadow sadece outline ve ghost variant'larda olmamalı
+    if (variant !== 'outline' && variant !== 'ghost') {
+      Object.assign(baseStyle, theme.shadows.button);
+    }
 
     if (fullWidth) {
       baseStyle.width = '100%';
     }
 
-    // Size styles
+    // Size styles - Minimum 44x44 touch target (WCAG 2.1 AA standardı)
     switch (size) {
       case 'small':
         baseStyle.paddingHorizontal = spacing.md;
         baseStyle.paddingVertical = spacing.sm;
-        baseStyle.minHeight = 36;
+        baseStyle.minHeight = 44; // WCAG 2.1 AA: Minimum 44x44px touch target
+        baseStyle.minWidth = 44;
         break;
       case 'medium':
         baseStyle.paddingHorizontal = spacing.lg;
         baseStyle.paddingVertical = spacing.md;
-        baseStyle.minHeight = 48;
+        baseStyle.minHeight = 48; // 48px already meets requirement
+        baseStyle.minWidth = 44;
         break;
       case 'large':
         baseStyle.paddingHorizontal = spacing.xl;
         baseStyle.paddingVertical = spacing.lg;
-        baseStyle.minHeight = 56;
+        baseStyle.minHeight = 56; // 56px already meets requirement
+        baseStyle.minWidth = 44;
         break;
     }
 
@@ -78,34 +123,34 @@ const Button: React.FC<ButtonProps> = ({
       case 'primary':
         return {
           ...baseStyle,
-          backgroundColor: colors.primary.main,
+          backgroundColor: theme.colors.primary.main,
         };
       case 'secondary':
         return {
           ...baseStyle,
-          backgroundColor: colors.secondary.main,
+          backgroundColor: theme.colors.secondary.main,
         };
       case 'success':
         return {
           ...baseStyle,
-          backgroundColor: colors.success.main,
+          backgroundColor: theme.colors.success.main,
         };
       case 'warning':
         return {
           ...baseStyle,
-          backgroundColor: colors.warning.main,
+          backgroundColor: theme.colors.warning.main,
         };
       case 'error':
         return {
           ...baseStyle,
-          backgroundColor: colors.error.main,
+          backgroundColor: theme.colors.error.main,
         };
       case 'outline':
         return {
           ...baseStyle,
           backgroundColor: 'transparent',
           borderWidth: 2,
-          borderColor: colors.primary.main,
+          borderColor: theme.colors.primary.main,
         };
       case 'ghost':
         return {
@@ -126,48 +171,48 @@ const Button: React.FC<ButtonProps> = ({
     // Size text styles
     switch (size) {
       case 'small':
-        baseTextStyle.fontSize = typography.button.small.fontSize;
-        baseTextStyle.lineHeight = typography.button.small.lineHeight;
+        baseTextStyle.fontSize = theme.typography.button.small.fontSize;
+        baseTextStyle.lineHeight = theme.typography.button.small.lineHeight;
         break;
       case 'medium':
-        baseTextStyle.fontSize = typography.button.medium.fontSize;
-        baseTextStyle.lineHeight = typography.button.medium.lineHeight;
+        baseTextStyle.fontSize = theme.typography.button.medium.fontSize;
+        baseTextStyle.lineHeight = theme.typography.button.medium.lineHeight;
         break;
       case 'large':
-        baseTextStyle.fontSize = typography.button.large.fontSize;
-        baseTextStyle.lineHeight = typography.button.large.lineHeight;
+        baseTextStyle.fontSize = theme.typography.button.large.fontSize;
+        baseTextStyle.lineHeight = theme.typography.button.large.lineHeight;
         break;
     }
 
     // Variant text styles
     switch (variant) {
       case 'outline':
-        baseTextStyle.color = colors.primary.main;
+        baseTextStyle.color = theme.colors.primary.main;
         break;
       case 'ghost':
-        baseTextStyle.color = colors.primary.main;
+        baseTextStyle.color = theme.colors.primary.main;
         break;
       default:
-        baseTextStyle.color = colors.text.inverse;
+        baseTextStyle.color = theme.colors.text.inverse;
         break;
     }
 
     if (disabled) {
-      baseTextStyle.color = colors.text.tertiary;
+      baseTextStyle.color = theme.colors.text.tertiary;
     }
 
     return baseTextStyle;
   };
 
   const getIconColor = (): string => {
-    if (disabled) return colors.text.tertiary;
+    if (disabled) return theme.colors.text.tertiary;
     
     switch (variant) {
       case 'outline':
       case 'ghost':
-        return colors.primary.main;
+        return theme.colors.primary.main;
       default:
-        return colors.text.inverse;
+        return theme.colors.text.inverse;
     }
   };
 
@@ -243,13 +288,17 @@ const Button: React.FC<ButtonProps> = ({
       onPress={onPress}
       disabled={disabled || loading}
       activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel || title}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: disabled || loading }}
     >
       {renderContent()}
     </TouchableOpacity>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any, isDark: boolean) => StyleSheet.create({
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',

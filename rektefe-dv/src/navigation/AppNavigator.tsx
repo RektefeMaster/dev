@@ -28,6 +28,11 @@ import NotificationsScreen from '@/features/notifications/screens/NotificationsS
 import NotificationSettingsScreen from '@/features/notifications/screens/NotificationSettingsScreen';
 import MechanicSearchScreen from '@/features/mechanics/screens/MechanicSearchScreen';
 import BookAppointmentScreen from '@/features/appointments/screens/BookAppointmentScreen';
+import { SettingsScreen } from '@/features/settings/screens';
+import { OrdersScreen } from '@/features/orders/screens';
+import { RemindersScreen } from '@/features/reminders/screens';
+import { FavoritesScreen } from '@/features/favorites/screens';
+import { DeleteAccountScreen } from '@/features/account/screens';
 import PaymentScreen from '@/features/wallet/screens/PaymentScreen';
 import AddBalanceScreen from '@/features/wallet/screens/AddBalanceScreen';
 import MechanicDetailScreen from '@/features/mechanics/screens/MechanicDetailScreen';
@@ -468,62 +473,44 @@ const AppNavigator = () => {
         {/* Placeholder screens for missing functionality */}
         <Stack.Screen 
           name="Orders" 
-          component={SupportScreen} // Geçici olarak SupportScreen kullanıyoruz
+          component={OrdersScreen}
           options={{
-            title: 'Siparişlerim',
-            headerShown: true,
-            headerStyle: { backgroundColor: '#007AFF' },
-            headerTintColor: '#fff',
+            headerShown: false,
           }}
         />
         <Stack.Screen 
           name="TefeCodes" 
-          component={SupportScreen} // Geçici olarak SupportScreen kullanıyoruz
+          component={TefeWalletScreen}
           options={{
-            title: 'TEFE Kodlarım',
-            headerShown: true,
-            headerStyle: { backgroundColor: '#007AFF' },
-            headerTintColor: '#fff',
+            headerShown: false,
           }}
         />
         <Stack.Screen 
           name="Reminders" 
-          component={SupportScreen} // Geçici olarak SupportScreen kullanıyoruz
+          component={RemindersScreen}
           options={{
-            title: 'Hatırlatıcılar',
-            headerShown: true,
-            headerStyle: { backgroundColor: '#007AFF' },
-            headerTintColor: '#fff',
+            headerShown: false,
           }}
         />
         <Stack.Screen 
           name="Settings" 
-          component={SupportScreen} // Geçici olarak SupportScreen kullanıyoruz
+          component={SettingsScreen}
           options={{
-            title: 'Ayarlar',
-            headerShown: true,
-            headerStyle: { backgroundColor: '#007AFF' },
-            headerTintColor: '#fff',
+            headerShown: false,
           }}
         />
         <Stack.Screen 
           name="Favorites" 
-          component={SupportScreen} // Geçici olarak SupportScreen kullanıyoruz
+          component={FavoritesScreen}
           options={{
-            title: 'Favorilerim',
-            headerShown: true,
-            headerStyle: { backgroundColor: '#007AFF' },
-            headerTintColor: '#fff',
+            headerShown: false,
           }}
         />
         <Stack.Screen 
           name="DeleteAccount" 
-          component={SupportScreen} // Geçici olarak SupportScreen kullanıyoruz
+          component={DeleteAccountScreen}
           options={{
-            title: 'Hesabı Sil',
-            headerShown: true,
-            headerStyle: { backgroundColor: '#007AFF' },
-            headerTintColor: '#fff',
+            headerShown: false,
           }}
         />
       </Stack.Navigator>
