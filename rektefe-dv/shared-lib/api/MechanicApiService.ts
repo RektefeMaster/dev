@@ -51,6 +51,8 @@ export interface MechanicAppointment {
   status: 'TALEP_EDILDI' | 'PLANLANDI' | 'SERVISTE' | 'ODEME_BEKLIYOR' | 'TAMAMLANDI' | 'IPTAL_EDILDI';
   description?: string;
   price?: number;
+  autoCancelled?: boolean;
+  rejectionReason?: string;
   estimatedDuration?: number;
   mechanicNotes?: string;
   kalemler?: Array<{

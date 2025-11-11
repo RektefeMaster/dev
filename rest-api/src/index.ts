@@ -26,6 +26,7 @@ import {
 } from './utils/monitoring';
 import schedule from 'node-schedule';
 import { PartsService } from './services/parts.service';
+import { AppointmentService } from './services/appointment.service';
 
 // Config import (dependency olabilecek route'lardan önce)
 import { MONGODB_URI, MONGODB_OPTIONS, PORT as CONFIG_PORT, CORS_ORIGIN, JWT_SECRET } from './config';
@@ -441,7 +442,17 @@ async function startServer() {
           Logger.error('❌ [CRON] Parts expiry job hatası:', error.message);
         }
       });
-      Logger.info('✅ Cron job\'lar başlatıldı: Parts expiry (her 5 dakika)');
+      schedule.scheduleJob('*/5 * * * *', async () => {
+        try {
+          const { checked, cancelled } = await AppointmentService.cancelExpiredPendingAppointments();
+          if (cancelled > 0) {
+            Logger.info(`✅ [CRON] ${cancelled}/${checked} onay bekleyen randevu otomatik iptal edildi`);
+          }
+        } catch (error: any) {
+          Logger.error('❌ [CRON] Appointment auto-cancel job hatası:', error.message || error);
+        }
+      });
+      Logger.info('✅ Cron job\'lar başlatıldı: Parts expiry & appointment auto-cancel (her 5 dakika)');
     } catch (cronError) {
       Logger.warn('⚠️ Cron job başlatma hatası (devam ediliyor):', cronError);
     }

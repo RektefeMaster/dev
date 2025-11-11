@@ -111,9 +111,9 @@ const RepairAppointmentCard: React.FC<{
             }
           </Text>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(appointment.status) + '20' }]}>
-          <Text style={[styles.statusText, { color: getStatusColor(appointment.status) }]}>
-            {getStatusText(appointment.status)}
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(appointment.status, appointment.autoCancelled) + '20' }]}>
+          <Text style={[styles.statusText, { color: getStatusColor(appointment.status, appointment.autoCancelled) }]}>
+            {getStatusText(appointment.status, appointment.autoCancelled)}
           </Text>
         </View>
       </View>
@@ -1462,7 +1462,10 @@ const getPersonalGreeting = (name?: string) => {
   return `${name} Usta`;
 };
 
-const getStatusColor = (status: string) => {
+const getStatusColor = (status: string, autoCancelled?: boolean) => {
+  if (autoCancelled && (status === 'cancelled' || status === 'IPTAL')) {
+    return '#6B7280';
+  }
   switch (status) {
     case 'pending': return '#F59E0B';
     case 'confirmed': return '#10B981';
@@ -1473,7 +1476,10 @@ const getStatusColor = (status: string) => {
   }
 };
 
-const getStatusText = (status: string) => {
+const getStatusText = (status: string, autoCancelled?: boolean) => {
+  if (autoCancelled && (status === 'cancelled' || status === 'IPTAL')) {
+    return 'İşlem Yok';
+  }
   switch (status) {
     case 'pending': return 'Bekliyor';
     case 'confirmed': return 'Onaylandı';

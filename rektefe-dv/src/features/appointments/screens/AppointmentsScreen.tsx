@@ -62,6 +62,8 @@ interface AppointmentItem {
   electricalUrgencyLevel?: string;
   isRecurring?: boolean;
   faultReportId?: string;
+  autoCancelled?: boolean;
+  timeSlot?: string;
 }
 
 const AppointmentsScreen = () => {
@@ -526,13 +528,17 @@ const AppointmentsScreen = () => {
     return serviceIcons[type] || 'wrench';
   };
 
-  const getStatusInfo = (status: string, paymentStatus?: string, appointmentDate?: Date) => {
+  const getStatusInfo = (status: string, paymentStatus?: string, appointmentDate?: Date, autoCancelled?: boolean) => {
     if (status === 'completed' && paymentStatus === 'pending') {
       return { color: '#FF9500', text: 'Ödeme Bekleniyor', icon: 'currency-try' as any };
     }
     
     if (status === 'completed' && paymentStatus === 'paid') {
       return { color: '#34C759', text: 'Tamamlandı', icon: 'check-circle' as any };
+    }
+
+    if (autoCancelled && (status === 'cancelled' || status === 'IPTAL_EDILDI')) {
+      return { color: '#6B7280', text: 'İşlem Yok', icon: 'minus-circle-outline' as any };
     }
     
     if ((status === 'pending' || status === 'TALEP_EDILDI') && appointmentDate) {
@@ -580,7 +586,7 @@ const AppointmentsScreen = () => {
     const canCancel = minutesUntil >= 60;
     const isPast = appointmentDate.getTime() < new Date().getTime();
     const isNotApproved = isPast && (item.status === 'pending' || item.status === 'TALEP_EDILDI');
-    const statusInfo = getStatusInfo(item.status, item.paymentStatus, appointmentDate);
+    const statusInfo = getStatusInfo(item.status, item.paymentStatus, appointmentDate, item.autoCancelled);
 
     return (
       <View style={styles.appointmentCard}>

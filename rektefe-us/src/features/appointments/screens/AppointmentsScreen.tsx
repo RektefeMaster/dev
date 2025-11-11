@@ -137,6 +137,9 @@ interface Appointment {
   appointmentDate: string;
   price?: number;
   createdAt: string;
+  autoCancelled?: boolean;
+  rejectionReason?: string;
+  timeSlot?: string;
 }
 
 export default function AppointmentsScreen() {
@@ -307,9 +310,31 @@ export default function AppointmentsScreen() {
   }, [appointments, faultReports, activeTab]);
 
   // Randevu kartı
+  const getStatusPresentation = (appointment: Appointment) => {
+    if (appointment.autoCancelled && (appointment.status === 'cancelled' || appointment.status === 'IPTAL')) {
+      return {
+        colors: {
+          bg: '#E5E7EB',
+          border: '#9CA3AF',
+          text: '#374151',
+          icon: 'remove-circle-outline' as const,
+        },
+        label: 'İşlem Yok',
+      };
+    }
+
+    const fallback = STATUS_COLORS[appointment.status] || STATUS_COLORS.pending;
+    const label = STATUS_TEXT[appointment.status] || 'Bilinmiyor';
+
+    return {
+      colors: fallback,
+      label,
+    };
+  };
+
   const renderAppointmentCard = ({ item }: { item: Appointment }) => {
-    // Güvenli status erişimi
-    const statusConfig = STATUS_COLORS[item.status] || STATUS_COLORS.pending;
+    const statusPresentation = getStatusPresentation(item);
+    const statusConfig = statusPresentation.colors;
     const date = new Date(item.appointmentDate);
     const formattedDate = date.toLocaleDateString('tr-TR', {
       day: 'numeric',
@@ -346,7 +371,7 @@ export default function AppointmentsScreen() {
           <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg, borderColor: statusConfig.border }]}>
             <Ionicons name={statusConfig.icon} size={14} color={statusConfig.text} />
             <Text style={[styles.statusText, { color: statusConfig.text }]}>
-              {STATUS_TEXT[item.status] || 'Bilinmiyor'}
+              {statusPresentation.label}
             </Text>
           </View>
         </View>

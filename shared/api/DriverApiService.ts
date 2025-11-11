@@ -27,6 +27,7 @@ export interface Appointment {
   completionNotes?: string;
   rating?: number;
   ratingComment?: string;
+  autoCancelled?: boolean;
 }
 
 export interface EmergencyTowingRequest {

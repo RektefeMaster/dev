@@ -5,6 +5,7 @@ import { Mechanic } from '../models/Mechanic';
 import { CustomError } from '../utils/response';
 import { Vehicle } from '../models/Vehicle';
 import { AppointmentStatus, PaymentStatus } from '../../../shared/types/enums';
+import { sendNotification } from '../utils/notifications';
 
 // Mechanic model'ini dinamik olarak import et (circular dependency'den kaçınmak için)
 let MechanicModel: typeof Mechanic;
@@ -1315,5 +1316,144 @@ export class AppointmentService {
     } catch (error) {
       return [];
     }
+  }
+
+  /**
+   * Randevu tarih/saat bilgisini gerçek Date objesine çevir
+   */
+  private static resolveAppointmentDateTime(appointment: { appointmentDate?: Date; timeSlot?: string }): Date | null {
+    if (!appointment || !appointment.appointmentDate) {
+      return null;
+    }
+
+    const appointmentDate = new Date(appointment.appointmentDate);
+    if (Number.isNaN(appointmentDate.getTime())) {
+      return null;
+    }
+
+    const normalizedDate = new Date(appointmentDate);
+
+    if (appointment.timeSlot && typeof appointment.timeSlot === 'string') {
+      // "09:00" veya "09:00 - 10:00" formatlarını destekle
+      const slot = appointment.timeSlot.split(' ')[0];
+      const timeParts = slot.includes(':') ? slot.split(':') : slot.split('.');
+      if (timeParts.length >= 2) {
+        const hours = parseInt(timeParts[0], 10);
+        const minutes = parseInt(timeParts[1], 10);
+
+        if (!Number.isNaN(hours)) {
+          normalizedDate.setHours(hours, Number.isNaN(minutes) ? 0 : minutes, 0, 0);
+          return normalizedDate;
+        }
+      }
+    }
+
+    return normalizedDate;
+  }
+
+  /**
+   * Onay bekleyen ve tarihi geçmiş randevuları otomatik olarak iptal et
+   */
+  static async cancelExpiredPendingAppointments(referenceDate: Date = new Date()) {
+    const now = referenceDate;
+    const cancellationReason = 'İşlem Yok';
+
+    const candidates = await Appointment.find({
+      status: { $in: ['TALEP_EDILDI', 'pending'] },
+      appointmentDate: { $lte: now },
+      autoCancelled: { $ne: true }
+    });
+
+    let cancelled = 0;
+    let notified = 0;
+
+    for (const appointment of candidates) {
+      const scheduledAt = this.resolveAppointmentDateTime(appointment);
+      if (!scheduledAt) {
+        continue;
+      }
+
+      if (scheduledAt.getTime() > now.getTime()) {
+        // Tarih geldi fakat saat henüz geçmediyse iptal etme
+        continue;
+      }
+
+      try {
+        await this.updateAppointmentStatus(
+          appointment._id.toString(),
+          'IPTAL_EDILDI',
+          cancellationReason
+        );
+
+        const statusHistoryEntry = {
+          status: 'IPTAL_EDILDI',
+          timestamp: new Date(),
+          mechanicId: 'system',
+          notes: 'Otomatik iptal - İşlem Yok'
+        };
+
+        const updatePayload: Record<string, any> = {
+          $set: {
+            autoCancelled: true,
+            rejectionReason: cancellationReason,
+            updatedAt: new Date()
+          }
+        };
+
+        const hasSameHistory = Array.isArray((appointment as any).statusHistory)
+          ? (appointment as any).statusHistory.some(
+              (entry: any) =>
+                entry?.status === 'IPTAL_EDILDI' &&
+                entry?.notes === statusHistoryEntry.notes
+            )
+          : false;
+
+        if (!hasSameHistory) {
+          updatePayload.$push = { statusHistory: statusHistoryEntry };
+        }
+
+        await Appointment.findByIdAndUpdate(appointment._id, updatePayload);
+
+        if (appointment.userId) {
+          const driverId =
+            appointment.userId instanceof mongoose.Types.ObjectId
+              ? appointment.userId
+              : new mongoose.Types.ObjectId(appointment.userId);
+          const formattedDate = scheduledAt.toLocaleDateString('tr-TR');
+          const formattedTime = appointment.timeSlot
+            ? appointment.timeSlot
+            : scheduledAt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+          try {
+            await sendNotification(
+              driverId,
+              'driver',
+              'Randevu Otomatik İptal Edildi',
+              `${formattedDate} ${formattedTime} tarihli randevunuz ustadan yanıt gelmediği için iptal edildi.`,
+              'appointment_rejected',
+              {
+                appointmentId: appointment._id,
+                autoCancelled: true,
+                status: 'cancelled',
+                reason: cancellationReason
+              }
+            );
+            notified++;
+          } catch (notificationError) {
+            console.error('❌ Otomatik iptal bildirimi gönderilemedi:', notificationError);
+          }
+        }
+
+        cancelled++;
+      } catch (error) {
+        console.error('❌ Otomatik iptal sırasında hata oluştu:', error);
+      }
+    }
+
+    return {
+      checked: candidates.length,
+      cancelled,
+      notified
+    };
   }
 }

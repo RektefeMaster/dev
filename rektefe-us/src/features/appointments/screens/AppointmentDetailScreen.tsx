@@ -492,7 +492,10 @@ export default function AppointmentDetailScreen() {
     return statusMap[status] || status;
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string, autoCancelled?: boolean) => {
+    if (autoCancelled && (status === 'cancelled' || status === 'IPTAL' || status === 'IPTAL_EDILDI')) {
+      return colors.text.secondary;
+    }
     const colorMap: { [key: string]: string } = {
       'pending': colors.warning.main,
       'TALEP_EDILDI': colors.warning.main,
@@ -535,7 +538,10 @@ export default function AppointmentDetailScreen() {
     }
   };
 
-  const getStatusText = (status: string) => {
+  const getStatusText = (status: string, autoCancelled?: boolean) => {
+    if (autoCancelled && (status === 'cancelled' || status === 'IPTAL' || status === 'IPTAL_EDILDI')) {
+      return 'İşlem Yok';
+    }
     switch (status) {
       case 'pending': return 'Bekliyor';
       case 'confirmed': return 'Onaylandı';
@@ -659,18 +665,18 @@ export default function AppointmentDetailScreen() {
           <View style={styles.statusHeader}>
             <View style={styles.statusInfo}>
               <Text style={[styles.statusLabel, { color: colors.text.secondary }]}>Durum</Text>
-              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(appointment.status) }]}>
-                <Text style={styles.statusText}>{getStatusText(appointment.status)}</Text>
+              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(appointment.status, appointment.autoCancelled) }]}>
+                <Text style={styles.statusText}>{getStatusText(appointment.status, appointment.autoCancelled)}</Text>
               </View>
             </View>
-            <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(appointment.status) + '20' }]}>
+            <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(appointment.status, appointment.autoCancelled) + '20' }]}>
               <Ionicons 
                 name={(appointment.status === 'pending' || appointment.status === 'TALEP_EDILDI') ? 'time' : 
                       appointment.status === 'confirmed' ? 'checkmark-circle' :
                       appointment.status === 'in-progress' ? 'construct' :
                       appointment.status === 'completed' ? 'checkmark-done-circle' : 'close-circle'} 
                 size={24} 
-                color={getStatusColor(appointment.status)} 
+                color={getStatusColor(appointment.status, appointment.autoCancelled)} 
               />
             </View>
           </View>
@@ -683,6 +689,7 @@ export default function AppointmentDetailScreen() {
             {renderInfoRow('Saat', formatTime(appointment.appointmentDate as string), 'time')}
             {renderInfoRow('Hizmet Türü', translateServiceName(appointment.serviceType), 'construct')}
             {appointment.description && renderInfoRow('Açıklama', appointment.description, 'document-text')}
+            {appointment.rejectionReason && renderInfoRow('Not', appointment.rejectionReason, 'alert-circle')}
           </>
         ))}
 

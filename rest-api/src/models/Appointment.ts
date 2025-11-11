@@ -33,6 +33,7 @@ export interface IAppointment extends Document {
   shareContactInfo: boolean; // İletişim bilgisi paylaşımı
   isShopAppointment?: boolean; // Ustanın kendi eklediği randevu mu?
   faultReportId?: mongoose.Types.ObjectId; // Arıza bildirimi ID'si (opsiyonel)
+  autoCancelled?: boolean; // Otomatik iptal edildi mi?
   
   // Yeni hizmet türleri için alanlar
   requestType?: 'immediate' | 'scheduled' | 'quoted'; // Talep türü
@@ -229,6 +230,10 @@ const AppointmentSchema: Schema = new Schema({
   shareContactInfo: { 
     type: Boolean, 
     default: false 
+  },
+  autoCancelled: {
+    type: Boolean,
+    default: false
   },
   isShopAppointment: {
     type: Boolean,

@@ -103,7 +103,10 @@ export default function CalendarScreen() {
     });
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string, autoCancelled?: boolean) => {
+    if (autoCancelled && status === 'cancelled') {
+      return '#6B7280';
+    }
     switch (status) {
       case 'pending': return '#F59E0B'; // Turuncu - Onay Bekleyen
       case 'confirmed': return '#3B82F6'; // Mavi - Onaylanmış Randevu
@@ -116,7 +119,10 @@ export default function CalendarScreen() {
     }
   };
 
-  const getStatusText = (status: string) => {
+  const getStatusText = (status: string, autoCancelled?: boolean) => {
+    if (autoCancelled && status === 'cancelled') {
+      return 'İşlem Yok';
+    }
     switch (status) {
       case 'pending': return 'Onay Bekleyen';
       case 'confirmed': return 'Onaylanmış';
@@ -264,8 +270,8 @@ export default function CalendarScreen() {
                           )}
                         </View>
                         
-                        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(appointment.status) }]}>
-                          <Text style={styles.statusText}>{getStatusText(appointment.status)}</Text>
+                        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(appointment.status, appointment.autoCancelled) }]}>
+                          <Text style={styles.statusText}>{getStatusText(appointment.status, appointment.autoCancelled)}</Text>
                         </View>
                       </TouchableOpacity>
                     ))}
