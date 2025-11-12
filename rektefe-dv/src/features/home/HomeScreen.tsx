@@ -162,6 +162,99 @@ const HomeScreen = () => {
     navigation.navigate('MaintenancePlan');
   };
 
+  const renderCampaignCard = (campaign: any, index: number) => (
+    <TouchableOpacity
+      key={campaign.id ?? index}
+      style={[
+        styles.campaignCard,
+        {
+          backgroundColor: theme.colors.background.card,
+          borderColor: theme.colors.border.primary,
+        },
+      ]}
+      activeOpacity={0.85}
+      onPress={() => handleCampaignPress(campaign)}
+    >
+      <View style={styles.campaignImageContainer}>
+        <Image source={{ uri: campaign.image }} style={styles.campaignImage} resizeMode="cover" />
+        <LinearGradient
+          colors={['rgba(0,0,0,0.05)', 'rgba(0,0,0,0.55)']}
+          style={styles.campaignGradient}
+        />
+        {campaign.discount ? (
+          <View style={[styles.campaignDiscountBadge, { backgroundColor: theme.colors.primary.main }]}>
+            <MaterialCommunityIcons name="percent" size={14} color="#fff" />
+            <Text style={styles.campaignDiscountText} numberOfLines={1}>
+              {campaign.discount}
+            </Text>
+          </View>
+        ) : null}
+        <View style={styles.campaignCompanyChip}>
+          <Text style={styles.campaignCompanyText} numberOfLines={1}>
+            {campaign.company}
+          </Text>
+          {campaign.isVerified && (
+            <MaterialCommunityIcons name="check-decagram" size={14} color="#22c55e" />
+          )}
+        </View>
+      </View>
+      <View style={styles.campaignBody}>
+        <View style={styles.campaignTagRow}>
+          {campaign.serviceType ? (
+            <View style={[styles.campaignTag, { backgroundColor: theme.colors.background.secondary }]}>
+              <MaterialCommunityIcons
+                name={getServiceTypeIcon(campaign.serviceType) as any}
+                size={14}
+                color={theme.colors.primary.main}
+              />
+              <Text style={[styles.campaignTagText, { color: theme.colors.primary.main }]}>
+                {campaign.serviceType}
+              </Text>
+            </View>
+          ) : null}
+          {campaign.validUntil ? (
+            <View style={[styles.campaignTag, { backgroundColor: theme.colors.background.secondary }]}>
+              <MaterialCommunityIcons name="calendar-range" size={14} color={theme.colors.text.secondary} />
+              <Text style={[styles.campaignTagText, { color: theme.colors.text.secondary }]}>
+                {new Date(campaign.validUntil).toLocaleDateString('tr-TR')}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        <Text style={[styles.campaignCardTitle, { color: theme.colors.text.primary }]} numberOfLines={2}>
+          {campaign.title}
+        </Text>
+        <Text style={[styles.campaignDescription, { color: theme.colors.text.secondary }]} numberOfLines={2}>
+          {campaign.description}
+        </Text>
+      </View>
+      <View style={styles.campaignFooter}>
+        <View style={styles.campaignFootItem}>
+          <MaterialCommunityIcons name="star" size={14} color="#FFC107" />
+          <Text style={[styles.campaignFootText, { color: theme.colors.text.primary }]}>
+            {campaign.rating ? Number(campaign.rating).toFixed(1) : '—'}
+          </Text>
+          {campaign.reviewCount ? (
+            <Text style={[styles.campaignFootSubText, { color: theme.colors.text.secondary }]}>
+              ({campaign.reviewCount})
+            </Text>
+          ) : null}
+        </View>
+        <View style={styles.campaignFootItem}>
+          <MaterialCommunityIcons name="map-marker" size={14} color={theme.colors.text.secondary} />
+          <Text
+            style={[styles.campaignFootText, { color: theme.colors.text.secondary }]}
+            numberOfLines={1}
+          >
+            {campaign.location?.district
+              ? `${campaign.location.city}, ${campaign.location.district}`
+              : campaign.location?.city || 'Konum bilgisi yok'}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
   if (loading && !refreshing) {
     return (
       <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background.primary }]}>
@@ -250,12 +343,28 @@ const HomeScreen = () => {
           </View>
 
           {/* Campaigns Section - Hızlı işlemlerden sonra */}
-          <View style={styles.campaignSection}>
+          <View style={[styles.section, styles.campaignSection]}>
             <View style={styles.campaignHeader}>
-              <Text style={[styles.campaignTitle, { color: theme.colors.text.primary }]}>Özel Kampanyalar</Text>
-              <View style={[styles.campaignDivider, { backgroundColor: theme.colors.primary.main }]} />
+              <View>
+                <Text style={[styles.campaignSectionTitle, { color: theme.colors.text.primary }]}>
+                  Öne Çıkan Kampanyalar
+                </Text>
+                <Text style={[styles.campaignSectionSubtitle, { color: theme.colors.text.secondary }]}>
+                  Sana özel avantajlar ve fırsatlar
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.campaignSeeAll, { borderColor: theme.colors.border.primary }]}
+                onPress={() => Alert.alert('Bilgi', 'Tüm kampanyalar sayfası yakında eklenecek!')}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.campaignSeeAllText, { color: theme.colors.primary.main }]}>
+                  Tümünü Gör
+                </Text>
+                <MaterialCommunityIcons name="chevron-right" size={18} color={theme.colors.primary.main} />
+              </TouchableOpacity>
             </View>
-            
+
             {(!campaigns || campaigns.length === 0) ? (
               <EmptyState
                 icon="gift-outline"
@@ -269,99 +378,9 @@ const HomeScreen = () => {
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.campaignScrollContainer}
+                contentContainerStyle={styles.campaignCarousel}
               >
-                {campaigns.map((campaign, index) => (
-                  <TouchableOpacity
-                    key={campaign.id}
-                    style={[styles.campaignCard, { backgroundColor: theme.colors.background.card, borderColor: theme.colors.border.primary }]}
-                    onPress={() => handleCampaignPress(campaign)}
-                    activeOpacity={0.8}
-                  >
-                    {/* Image Container with Gradient Overlay */}
-                    <View style={styles.imageContainer}>
-                      <Image source={{ uri: campaign.image }} style={styles.campaignImage} resizeMode="cover" />
-                      <LinearGradient
-                        colors={['transparent', 'rgba(0,0,0,0.3)']}
-                        style={styles.imageGradient}
-                      />
-                      
-                      {/* Discount Badge - Floating */}
-                      <View style={[styles.discountBadge, { backgroundColor: theme.colors.primary.main }]}>
-                        <Text style={styles.discountText}>{campaign.discount}</Text>
-                      </View>
-                      
-                      {/* Company Info - Top Right */}
-                      <View style={styles.companyInfoOverlay}>
-                        <Text style={[styles.companyName, { color: 'white' }]}>{campaign.company}</Text>
-                        {campaign.isVerified && (
-                          <MaterialCommunityIcons name="check-circle" size={16} color="#4CAF50" />
-                        )}
-                      </View>
-                    </View>
-                    
-                    <View style={styles.campaignContent}>
-                      {/* Service Type Badge */}
-                      <View style={[styles.serviceTypeBadge, { backgroundColor: theme.colors.background.secondary }]}>
-                        <MaterialCommunityIcons 
-                          name={getServiceTypeIcon(campaign.serviceType) as any} 
-                          size={14} 
-                          color={theme.colors.primary.main} 
-                        />
-                        <Text style={[styles.serviceTypeText, { color: theme.colors.primary.main }]}>
-                          {campaign.serviceType}
-                        </Text>
-                      </View>
-
-                      <Text style={[styles.campaignTitle, { color: theme.colors.text.primary }]} numberOfLines={2}>
-                        {campaign.title}
-                      </Text>
-                      <Text style={[styles.campaignDescription, { color: theme.colors.text.secondary }]} numberOfLines={2}>
-                        {campaign.description}
-                      </Text>
-
-                      <View style={styles.campaignFooter}>
-                        {/* Rating and Location Row */}
-                        <View style={styles.infoRow}>
-                          <View style={styles.ratingContainer}>
-                            <MaterialCommunityIcons name="star" size={14} color="#FFD700" />
-                            <Text style={[styles.ratingText, { color: theme.colors.text.primary }]}>{campaign.rating}</Text>
-                            <Text style={[styles.reviewCount, { color: theme.colors.text.secondary }]}>({campaign.reviewCount})</Text>
-                          </View>
-
-                          <View style={styles.locationContainer}>
-                            <MaterialCommunityIcons name="map-marker" size={12} color={theme.colors.text.secondary} />
-                            <Text style={[styles.locationText, { color: theme.colors.text.secondary }]} numberOfLines={1}>
-                              {campaign.location.city}
-                            </Text>
-                          </View>
-                        </View>
-
-                        {/* Valid Until with Icon */}
-                        <View style={styles.validUntilContainer}>
-                          <MaterialCommunityIcons name="clock-outline" size={12} color={theme.colors.text.secondary} />
-                          <Text style={[styles.validUntilText, { color: theme.colors.text.secondary }]}>
-                            Geçerli: {new Date(campaign.validUntil).toLocaleDateString('tr-TR')}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-                
-                {/* Tümünü Gör Butonu */}
-                <TouchableOpacity 
-                  style={[styles.viewAllCampaignsButton, { backgroundColor: theme.colors.background.card, borderColor: theme.colors.border.primary }]}
-                  onPress={() => {
-                    Alert.alert('Bilgi', 'Tüm kampanyalar sayfası yakında eklenecek!');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <MaterialCommunityIcons name="gift" size={32} color={theme.colors.primary.main} />
-                  <Text style={[styles.viewAllCampaignsButtonText, { color: theme.colors.text.primary }]}>
-                    Tüm Kampanyaları Gör
-                  </Text>
-                </TouchableOpacity>
+                {campaigns.map(renderCampaignCard)}
               </ScrollView>
             )}
           </View>
@@ -917,176 +936,160 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   campaignSection: {
-    paddingTop: 24,
-    paddingBottom: 32,
+    paddingTop: 12,
+    paddingBottom: 24,
   },
   campaignHeader: {
-    marginBottom: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: 16,
+  },
+  campaignSectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  campaignSectionSubtitle: {
+    fontSize: 13,
+    marginTop: 4,
+  },
+  campaignSeeAll: {
+    flexDirection: 'row',
     alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    gap: 4,
   },
-  campaignTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    textAlign: 'center',
+  campaignSeeAllText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
-  campaignDivider: {
-    height: 3,
-    borderRadius: 2,
-    width: 60,
-  },
-  campaignScrollContainer: {
-    paddingHorizontal: 8,
+  campaignCarousel: {
+    paddingRight: 20,
   },
   campaignCard: {
     width: 280,
-    height: 200,
-    borderRadius: 12,
+    borderRadius: 18,
     borderWidth: 1,
-    marginRight: 12,
+    marginRight: 16,
     overflow: 'hidden',
-    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
   },
-  imageContainer: {
+  campaignImageContainer: {
     position: 'relative',
-    height: 120,
+    height: 148,
   },
   campaignImage: {
     width: '100%',
     height: '100%',
   },
-  imageGradient: {
+  campaignGradient: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
   },
-  discountBadge: {
+  campaignDiscountBadge: {
     position: 'absolute',
-    top: 12,
-    left: 12,
+    top: 16,
+    left: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
-    elevation: 4,
+    gap: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
+    elevation: 3,
   },
-  discountText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  companyInfoOverlay: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  companyName: {
+  campaignDiscountText: {
+    color: '#fff',
     fontSize: 12,
-    fontWeight: '600',
-    marginRight: 4,
+    fontWeight: '700',
   },
-  campaignContent: {
-    flex: 1,
-    padding: 16,
-  },
-  serviceTypeBadge: {
+  campaignCompanyChip: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(15,23,42,0.55)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    gap: 8,
+  },
+  campaignCompanyText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
+  campaignBody: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  campaignTagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     marginBottom: 12,
   },
-  serviceTypeText: {
+  campaignTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginRight: 8,
+    marginBottom: 8,
+    gap: 6,
+  },
+  campaignTagText: {
     fontSize: 12,
     fontWeight: '600',
-    marginLeft: 6,
+  },
+  campaignCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 6,
   },
   campaignDescription: {
     fontSize: 13,
     lineHeight: 18,
-    marginBottom: 16,
-    opacity: 0.8,
   },
   campaignFooter: {
-    marginTop: 'auto',
-  },
-  infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 12,
   },
-  ratingContainer: {
+  campaignFootItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
-  ratingText: {
+  campaignFootText: {
     fontSize: 13,
     fontWeight: '600',
-    marginLeft: 4,
   },
-  reviewCount: {
-    fontSize: 11,
-    marginLeft: 4,
-    opacity: 0.7,
-  },
-  locationContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginLeft: 12,
-  },
-  locationText: {
-    fontSize: 11,
-    marginLeft: 4,
-    opacity: 0.8,
-  },
-  validUntilContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  validUntilText: {
-    fontSize: 11,
-    marginLeft: 4,
-    opacity: 0.7,
-  },
-  viewAllCampaignsButton: {
-    width: 280,
-    height: 200,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginRight: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  viewAllCampaignsButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginTop: 8,
+  campaignFootSubText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
 
