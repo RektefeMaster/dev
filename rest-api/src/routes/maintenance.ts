@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { auth } from '../middleware/optimizedAuth';
 import { MaintenanceRecordModel } from '../models/HomeRecords';
-import { createSampleMaintenanceRecords } from '../utils/homeFixtures';
 
 const router = Router();
 
@@ -16,25 +15,19 @@ router.get('/', auth, async (req: Request, res: Response) => {
     }
 
     const userId = req.user.userId;
-    let records = await MaintenanceRecordModel.find({ userId })
+    const records = await MaintenanceRecordModel.find({ userId })
       .sort({ date: -1 })
-      .limit(10)
-      .exec();
+      .limit(10);
 
     const plainRecords = records.map((record) => record.toObject());
-
-    if (!plainRecords.length) {
-      return res.json({
-        success: true,
-        data: createSampleMaintenanceRecords(userId),
-        message: 'Kayıt bulunamadı.',
-      });
-    }
+    const message = plainRecords.length
+      ? 'Bakım kayıtları başarıyla getirildi.'
+      : 'Bakım kaydı bulunamadı.';
 
     return res.json({
       success: true,
       data: plainRecords,
-      message: 'Bakım kayıtları başarıyla getirildi.',
+      message,
     });
   } catch (error: any) {
     return res.status(500).json({

@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { auth } from '../middleware/optimizedAuth';
 import { InsurancePolicyModel } from '../models/HomeRecords';
-import { createSampleInsurancePolicy } from '../utils/homeFixtures';
 
 const router = Router();
 
@@ -15,18 +14,23 @@ router.get('/:userId', auth, async (req: Request, res: Response) => {
       });
     }
 
-    const insuranceDoc = await InsurancePolicyModel.findOne({ userId: req.params.userId })
-      .sort({ endDate: -1 })
-      .exec();
+    const insuranceDoc = await InsurancePolicyModel.findOne({ userId: req.params.userId }).sort({
+      endDate: -1,
+    });
 
-    const info = insuranceDoc
-      ? insuranceDoc.toObject()
-      : createSampleInsurancePolicy(req.params.userId);
+    if (!insuranceDoc) {
+      return res.status(404).json({
+        success: false,
+        message: 'Sigorta kaydı bulunamadı.',
+      });
+    }
+
+    const info = insuranceDoc.toObject();
 
     return res.json({
       success: true,
       data: info,
-      message: insuranceDoc ? 'Sigorta bilgisi getirildi.' : 'Sigorta kaydı bulunamadı.',
+      message: 'Sigorta bilgisi getirildi.',
     });
   } catch (error: any) {
     return res.status(500).json({

@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { auth } from '../middleware/optimizedAuth';
 import { VehicleStatusRecordModel } from '../models/HomeRecords';
-import { createSampleVehicleStatus } from '../utils/homeFixtures';
 
 const router = Router();
 
@@ -15,20 +14,23 @@ router.get('/:userId', auth, async (req: Request, res: Response) => {
       });
     }
 
-    const vehicleStatusDoc = await VehicleStatusRecordModel.findOne({ userId: req.params.userId })
-      .sort({ lastCheck: -1 })
-      .exec();
+    const vehicleStatusDoc = await VehicleStatusRecordModel.findOne({ userId: req.params.userId }).sort({
+      lastCheck: -1,
+    });
 
-    const status = vehicleStatusDoc
-      ? vehicleStatusDoc.toObject()
-      : createSampleVehicleStatus(req.params.userId);
+    if (!vehicleStatusDoc) {
+      return res.status(404).json({
+        success: false,
+        message: 'Araç durumu kaydı bulunamadı.',
+      });
+    }
+
+    const status = vehicleStatusDoc.toObject();
 
     return res.json({
       success: true,
       data: status,
-      message: vehicleStatusDoc
-        ? 'Araç durumu başarıyla getirildi.'
-        : 'Araç durumu kaydı bulunamadı.',
+      message: 'Araç durumu başarıyla getirildi.',
     });
   } catch (error: any) {
     return res.status(500).json({

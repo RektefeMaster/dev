@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { auth } from '../middleware/optimizedAuth';
 import { TireStatusRecordModel } from '../models/HomeRecords';
-import { createSampleTireStatus } from '../utils/homeFixtures';
 
 const router = Router();
 
@@ -15,20 +14,23 @@ router.get('/:userId', auth, async (req: Request, res: Response) => {
       });
     }
 
-    const tireStatusDoc = await TireStatusRecordModel.findOne({ userId: req.params.userId })
-      .sort({ lastCheck: -1 })
-      .exec();
+    const tireStatusDoc = await TireStatusRecordModel.findOne({ userId: req.params.userId }).sort({
+      lastCheck: -1,
+    });
 
-    const status = tireStatusDoc
-      ? tireStatusDoc.toObject()
-      : createSampleTireStatus(req.params.userId);
+    if (!tireStatusDoc) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lastik durumu kaydı bulunamadı.',
+      });
+    }
+
+    const status = tireStatusDoc.toObject();
 
     return res.json({
       success: true,
       data: status,
-      message: tireStatusDoc
-        ? 'Lastik durumu başarıyla getirildi.'
-        : 'Lastik durumu kaydı bulunamadı.',
+      message: 'Lastik durumu başarıyla getirildi.',
     });
   } catch (error: any) {
     return res.status(500).json({
