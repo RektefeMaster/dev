@@ -15,7 +15,7 @@ router.get('/:userId', auth, async (req: Request, res: Response) => {
     }
 
     const vehicleStatusDoc = await VehicleStatusRecordModel.findOne({ userId: req.params.userId })
-      .sort({ lastCheck: -1 })
+      .sort({ lastCheck: 'desc' })
       .exec();
 
     if (!vehicleStatusDoc) {

@@ -16,7 +16,7 @@ router.get('/', auth, async (req: Request, res: Response) => {
 
     const userId = req.user.userId;
     const records = await MaintenanceRecordModel.find({ userId })
-      .sort({ date: -1 })
+      .sort({ date: 'desc' })
       .limit(10)
       .exec();
 

@@ -20,20 +20,20 @@ router.get('/overview', auth, async (req: Request, res: Response) => {
     const userId = req.user.userId;
 
     const maintenanceDocs = await MaintenanceRecordModel.find({ userId })
-      .sort({ date: -1 })
+      .sort({ date: 'desc' })
       .limit(10)
       .exec();
 
     const insuranceDoc = await InsurancePolicyModel.findOne({ userId })
-      .sort({ endDate: -1 })
+      .sort({ endDate: 'desc' })
       .exec();
 
     const vehicleStatusDoc = await VehicleStatusRecordModel.findOne({ userId })
-      .sort({ lastCheck: -1 })
+      .sort({ lastCheck: 'desc' })
       .exec();
 
     const tireStatusDoc = await TireStatusRecordModel.findOne({ userId })
-      .sort({ lastCheck: -1 })
+      .sort({ lastCheck: 'desc' })
       .exec();
 
     const maintenanceRecords = maintenanceDocs.map((doc) => doc.toObject());
