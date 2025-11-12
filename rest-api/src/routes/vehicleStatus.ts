@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { auth } from '../middleware/optimizedAuth';
-import { VehicleStatusRecordModel } from '../models/HomeRecords';
+import { VehicleStatusService } from '../services/vehicleStatus.service';
 
 const router = Router();
 
@@ -14,18 +14,19 @@ router.get('/:userId', auth, async (req: Request, res: Response) => {
       });
     }
 
-    const vehicleStatusDoc = await VehicleStatusRecordModel.findOne({ userId: req.params.userId })
-      .sort({ lastCheck: -1 })
-      .lean();
+    const tenantId = req.tenantId || (req.headers['x-tenant-id'] as string) || 'default';
 
-    if (!vehicleStatusDoc) {
+    const status = await VehicleStatusService.getStatusForUser({
+      userId: req.params.userId,
+      tenantId,
+    });
+
+    if (!status) {
       return res.status(404).json({
         success: false,
         message: 'Araç durumu kaydı bulunamadı.',
       });
     }
-
-    const status = vehicleStatusDoc;
 
     return res.json({
       success: true,

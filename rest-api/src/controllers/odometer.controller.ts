@@ -10,6 +10,38 @@ import { OdometerEvent } from '../models/OdometerEvent';
 import { OdometerAuditLog } from '../models/OdometerAuditLog';
 import { UserType } from '../../../shared/types/enums';
 import { logger } from '../utils/monitoring';
+
+const DEFAULT_FORCED_FLAGS = new Set(['akilli_kilometre', 'akilli_kilometre_shadow']);
+const configuredForcedFlags = new Set(
+  (process.env.FEATURE_FLAGS_FORCE_ON || '')
+    .split(',')
+    .map((key) => key.trim())
+    .filter(Boolean)
+);
+const isNonProductionEnv = (process.env.NODE_ENV || 'development').toLowerCase() !== 'production';
+
+const shouldForceEnableFlag = (key: string) => {
+  if (configuredForcedFlags.has(key)) {
+    return true;
+  }
+
+  const envOverride = process.env[`FORCE_FLAG_${key.toUpperCase()}`];
+  if (typeof envOverride === 'string') {
+    const normalized = envOverride.trim().toLowerCase();
+    if (normalized === 'true' || normalized === '1' || normalized === 'on' || normalized === 'enabled') {
+      return true;
+    }
+    if (normalized === 'false' || normalized === '0' || normalized === 'off' || normalized === 'disabled') {
+      return false;
+    }
+  }
+
+  if (isNonProductionEnv && DEFAULT_FORCED_FLAGS.has(key)) {
+    return true;
+  }
+
+  return false;
+};
 import { getRedisClient } from '../config/cache';
 
 const generateWeakEtag = (payload: unknown) => {
@@ -43,10 +75,49 @@ const ensureFlagEnabled = async (req: Request, key: string) => {
   const userId = req.user?.userId;
   const cached = req.featureFlags?.[key];
   if (cached) {
-    return cached.enabled;
+    if (cached.enabled) {
+      return true;
+    }
+    if (shouldForceEnableFlag(key)) {
+      logger.debug?.(`Feature flag ${key} dev ortamında zorla aktifleştirildi (cached).`);
+      req.featureFlags = {
+        ...(req.featureFlags || {}),
+        [key]: {
+          ...cached,
+          enabled: true,
+        },
+      };
+      return true;
+    }
+    return false;
   }
   const flag = await FeatureFlagService.getFlag(key, { tenantId, userId });
-  return flag.enabled;
+  if (flag.enabled) {
+    req.featureFlags = {
+      ...(req.featureFlags || {}),
+      [key]: flag,
+    };
+    return true;
+  }
+
+  if (shouldForceEnableFlag(key)) {
+    logger.debug?.(`Feature flag ${key} dev ortamında zorla aktifleştirildi.`);
+    const forcedFlag = {
+      ...flag,
+      enabled: true,
+    };
+    req.featureFlags = {
+      ...(req.featureFlags || {}),
+      [key]: forcedFlag,
+    };
+    return true;
+  }
+
+  req.featureFlags = {
+    ...(req.featureFlags || {}),
+    [key]: flag,
+  };
+  return false;
 };
 
 const ensureVehicleAccess = async (req: Request, vehicleId: string) => {

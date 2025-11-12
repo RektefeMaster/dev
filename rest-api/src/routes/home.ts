@@ -1,11 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { auth } from '../middleware/optimizedAuth';
-import {
-  MaintenanceRecordModel,
-  InsurancePolicyModel,
-  VehicleStatusRecordModel,
-  TireStatusRecordModel,
-} from '../models/HomeRecords';
+import { MaintenanceRecordModel, InsurancePolicyModel, TireStatusRecordModel } from '../models/HomeRecords';
 import {
   createSampleMaintenanceRecords,
   createSampleInsurancePolicy,
@@ -14,7 +9,8 @@ import {
   getSampleAds,
 } from '../utils/homeFixtures';
 import { Vehicle } from '../models/Vehicle';
-import { OdometerService } from '../services/odometer.service';
+import { OdometerService, EstimateResult } from '../services/odometer.service';
+import { VehicleStatusService } from '../services/vehicleStatus.service';
 import { createErrorResponse, ErrorCode } from '../../../shared/types/apiResponse';
 import { logger } from '../utils/monitoring';
 const router = Router();
@@ -40,15 +36,12 @@ router.get('/overview', auth, async (req: Request, res: Response) => {
       .sort({ endDate: -1 })
       .lean();
 
-    const vehicleStatusDoc = await VehicleStatusRecordModel.findOne({ userId })
-      .sort({ lastCheck: -1 })
-      .lean();
-
     const tireStatusDoc = await TireStatusRecordModel.findOne({ userId })
       .sort({ lastCheck: -1 })
       .lean();
 
     let odometerEstimate: any = null;
+    let odometerEstimateResult: EstimateResult | null = null;
     const primaryVehicle = await Vehicle.findOne({ userId }).sort({ isFavorite: -1, createdAt: -1 }).lean();
     if (primaryVehicle?._id) {
       try {
@@ -57,6 +50,7 @@ router.get('/overview', auth, async (req: Request, res: Response) => {
           vehicleId: primaryVehicle._id.toString(),
           featureFlags: req.featureFlags,
         });
+        odometerEstimateResult = estimate;
         odometerEstimate = {
           vehicleId: estimate.vehicleId,
           estimateKm: estimate.estimateKm,
@@ -83,12 +77,21 @@ router.get('/overview', auth, async (req: Request, res: Response) => {
       }
     }
 
+    const vehicleStatus =
+      primaryVehicle?._id
+        ? await VehicleStatusService.getStatusForUser({
+            userId,
+            tenantId,
+            vehicle: primaryVehicle as any,
+            odometerEstimate: odometerEstimateResult ?? undefined,
+          })
+        : null;
+
     const maintenanceRecords =
       maintenanceDocs && maintenanceDocs.length > 0
         ? maintenanceDocs
         : createSampleMaintenanceRecords(userId);
     const insurancePolicy = insuranceDoc ?? createSampleInsurancePolicy(userId);
-    const vehicleStatus = vehicleStatusDoc ?? null;
     const tireStatus = tireStatusDoc ?? createSampleTireStatus(userId);
     const campaigns = getSampleCampaigns();
     const ads = getSampleAds();
