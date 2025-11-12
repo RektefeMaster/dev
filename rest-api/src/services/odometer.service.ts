@@ -483,13 +483,18 @@ export class OdometerService {
       }
 
       const deltaKm = kmValue - mileageModel.lastTrueKm;
-      const deltaDays = computeSinceDays(mileageModel.lastTrueTsUtc, timestamp);
+      let deltaDays = computeSinceDays(mileageModel.lastTrueTsUtc, timestamp);
+      const hasBaseline = mileageModel.hasBaseline;
+
+      if (!hasBaseline && deltaDays <= 0) {
+        deltaDays = 1;
+      }
 
       if (!input.odometerReset && deltaKm < 0) {
         throw new CustomError('Yeni kilometre, son doğrulamanın altında olamaz.', 409, ErrorCode.ERR_ODO_DECREASING);
       }
 
-      if (!input.odometerReset && deltaDays <= 0) {
+      if (!input.odometerReset && hasBaseline && deltaDays <= 0) {
         throw new CustomError('Kilometre güncellemesi için zaman farkı bulunamadı.', 400, ErrorCode.BUSINESS_RULE_VIOLATION);
       }
 
@@ -499,7 +504,7 @@ export class OdometerService {
       let outlierClass: 'soft' | 'hard' | undefined;
 
       if (!input.odometerReset && deltaDays > 0) {
-        if (observedRate > ABS_MAX_RATE_PER_DAY) {
+        if (Number.isFinite(ABS_MAX_RATE_PER_DAY) && observedRate > ABS_MAX_RATE_PER_DAY) {
           throw new CustomError(
             'Kilometre artışı olağan dışı derecede yüksek görünüyor. Lütfen değeri kontrol edin.',
             400,

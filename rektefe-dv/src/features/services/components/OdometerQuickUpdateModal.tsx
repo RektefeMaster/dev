@@ -79,6 +79,7 @@ export const OdometerQuickUpdateModal: React.FC<OdometerQuickUpdateModalProps> =
 
   const formattedPreview = useMemo(() => formatPreview(inputValue, defaultUnit), [inputValue, defaultUnit]);
   const hasError = hasSubmitted && !inputValue;
+  const rateGuardEnabled = Number.isFinite(MAX_OBSERVED_RATE_PER_DAY);
 
   const handleSubmit = () => {
     setHasSubmitted(true);
@@ -96,7 +97,7 @@ export const OdometerQuickUpdateModal: React.FC<OdometerQuickUpdateModalProps> =
       return;
     }
 
-    if (typeof initialKm === 'number' && lastVerifiedAt) {
+    if (rateGuardEnabled && typeof initialKm === 'number' && lastVerifiedAt) {
       const lastDate = new Date(lastVerifiedAt);
       const elapsedMs = Date.now() - lastDate.getTime();
       const elapsedDays = Math.max(elapsedMs / MS_PER_DAY, 1);

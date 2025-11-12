@@ -707,79 +707,86 @@ const GarageScreen = () => {
   };
 
   const renderVehicleCard = (vehicle: Vehicle) => (
-    <View key={vehicle._id} style={[styles.vehicleCard, vehicle.isFavorite && styles.favoriteCard]}>
-      <View style={styles.vehicleHeader}>
-        <View style={styles.carIconContainer}>
-          <MaterialCommunityIcons name="car-side" size={28} color="#007AFF" />
+    <View
+      key={vehicle._id}
+      style={[
+        styles.vehicleCard,
+        vehicle.isFavorite && styles.vehicleCardFavorite,
+      ]}
+    >
+      <View style={styles.vehicleCardHeader}>
+        <View style={styles.vehicleIdentity}>
+          <Text style={styles.vehiclePlateBadge}>{vehicle.plateNumber}</Text>
+          <Text style={styles.vehicleName}>{vehicle.brand} {vehicle.modelName}</Text>
+          {vehicle.package ? (
+            <Text style={styles.vehiclePackage}>{vehicle.package}</Text>
+          ) : null}
         </View>
-        <View style={styles.vehicleTitle}>
-          <Text style={styles.vehicleBrand}>{vehicle.brand}</Text>
-          <Text style={styles.vehicleModel}>{vehicle.modelName}</Text>
-          <Text style={styles.vehiclePlate}>{vehicle.plateNumber}</Text>
+        <View style={styles.vehicleActions}>
+          <TouchableOpacity
+            style={[
+              styles.iconAction,
+              vehicle.isFavorite && styles.iconActionActive,
+            ]}
+            onPress={() => handleSetFavorite(vehicle._id)}
+            accessibilityLabel={vehicle.isFavorite ? 'Favoriden çıkar' : 'Favoriye ekle'}
+          >
+            <MaterialCommunityIcons
+              name={vehicle.isFavorite ? 'star' : 'star-outline'}
+              size={18}
+              color={vehicle.isFavorite ? '#FFD233' : '#4B5563'}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconAction}
+            onPress={() => {
+              Alert.alert(
+                'Araç Sil',
+                'Bu aracı silmek istediğinizden emin misiniz?',
+                [
+                  { text: 'İptal', style: 'cancel' },
+                  { text: 'Sil', onPress: () => handleDeleteVehicle(vehicle._id), style: 'destructive' },
+                ]
+              );
+            }}
+            accessibilityLabel="Aracı sil"
+          >
+            <MaterialCommunityIcons name="trash-can-outline" size={18} color="#D7263D" />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={styles.favoriteButton}
-          onPress={() => handleSetFavorite(vehicle._id)}
-        >
-          <MaterialCommunityIcons 
-            name={vehicle.isFavorite ? 'star' : 'star-outline'} 
-            size={24} 
-            color={vehicle.isFavorite ? '#FFD700' : '#ccc'} 
-          />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => {
-            Alert.alert(
-              'Araç Sil',
-              'Bu aracı silmek istediğinizden emin misiniz?',
-              [
-                { text: 'İptal', style: 'cancel' },
-                { text: 'Sil', onPress: () => handleDeleteVehicle(vehicle._id), style: 'destructive' }
-              ]
-            );
-          }}
-        >
-          <MaterialCommunityIcons name="delete-outline" size={22} color="#FF3B30" />
-        </TouchableOpacity>
       </View>
-      
-      <View style={styles.vehicleDetails}>
-        <View style={styles.detailRow}>
-          <View style={styles.detailLabelContainer}>
-            <MaterialCommunityIcons name="package-variant" size={16} color="#666" />
-            <Text style={styles.detailLabel}>Paket</Text>
+
+      <View style={styles.vehicleMetaRow}>
+        {vehicle.year ? (
+          <View style={styles.metaChip}>
+            <MaterialCommunityIcons name="calendar" size={14} color="#475569" />
+            <Text style={styles.metaChipText}>{vehicle.year}</Text>
           </View>
-          <Text style={styles.detailValue}>{vehicle.package}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <View style={styles.detailLabelContainer}>
-            <MaterialCommunityIcons name="calendar" size={16} color="#666" />
-            <Text style={styles.detailLabel}>Yıl</Text>
+        ) : null}
+        {vehicle.fuelType ? (
+          <View style={styles.metaChip}>
+            <MaterialCommunityIcons name="gas-station" size={14} color="#475569" />
+            <Text style={styles.metaChipText}>{vehicle.fuelType}</Text>
           </View>
-          <Text style={styles.detailValue}>{vehicle.year}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <View style={styles.detailLabelContainer}>
-            <MaterialCommunityIcons name="gas-station" size={16} color="#666" />
-            <Text style={styles.detailLabel}>Yakıt</Text>
+        ) : null}
+        {vehicle.transmission ? (
+          <View style={styles.metaChip}>
+            <MaterialCommunityIcons name="swap-horizontal" size={14} color="#475569" />
+            <Text style={styles.metaChipText}>{vehicle.transmission}</Text>
           </View>
-          <Text style={styles.detailValue}>{vehicle.fuelType}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <View style={styles.detailLabelContainer}>
-            <MaterialCommunityIcons name="car-shift-pattern" size={16} color="#666" />
-            <Text style={styles.detailLabel}>Vites</Text>
-          </View>
-          <Text style={styles.detailValue}>{vehicle.transmission}</Text>
-        </View>
-        <OdometerSummary
-          estimate={vehicle.odometerEstimate}
-          verification={vehicle.odometerVerification}
-          onUpdatePress={() => handleOpenOdometerModal(vehicle._id)}
-          hasOfflineSubmission={Boolean(pendingQueue[vehicle._id])}
-        />
+        ) : null}
       </View>
+
+      <View style={styles.cardDivider} />
+
+      <OdometerSummary
+        estimate={vehicle.odometerEstimate}
+        verification={vehicle.odometerVerification}
+        onUpdatePress={() => handleOpenOdometerModal(vehicle._id)}
+        hasOfflineSubmission={Boolean(pendingQueue[vehicle._id])}
+        initialMileage={vehicle.mileage}
+        initialMileageUpdatedAt={vehicle.updatedAt}
+      />
     </View>
   );
 
@@ -1637,96 +1644,95 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   vehicleCard: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
     padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 10,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 6,
   },
-  vehicleHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 18,
+  vehicleCardFavorite: {
+    borderColor: '#2563EB',
   },
-  carIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: '#e8f4ff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  vehicleTitle: {
-    flex: 1,
-    marginLeft: 14,
-  },
-  vehicleBrand: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#1a1a1a',
-    letterSpacing: 0.3,
-  },
-  vehicleModel: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 3,
-    fontWeight: '500',
-  },
-  vehiclePlate: {
-    fontSize: 15,
-    color: '#007AFF',
-    fontWeight: '800',
-    marginTop: 4,
-    letterSpacing: 1,
-  },
-  deleteButton: {
-    padding: 10,
-    backgroundColor: '#fff0f0',
-    borderRadius: 12,
-  },
-  vehicleDetails: {
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    paddingTop: 18,
-    gap: 10,
-  },
-  detailRow: {
+  vehicleCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 6,
+    alignItems: 'flex-start',
   },
-  detailLabelContainer: {
+  vehicleIdentity: {
+    flex: 1,
+  },
+  vehiclePlateBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#EEF2FF',
+    color: '#1E3A8A',
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    marginBottom: 8,
+  },
+  vehicleName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  vehiclePackage: {
+    marginTop: 4,
+    fontSize: 14,
+    color: '#4B5563',
+  },
+  vehicleActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginLeft: 12,
   },
-  detailLabel: {
-    fontSize: 14,
-    color: '#666',
+  iconAction: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+  },
+  iconActionActive: {
+    borderColor: '#2563EB',
+    backgroundColor: '#EFF6FF',
+  },
+  vehicleMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 16,
+  },
+  metaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  metaChipText: {
+    fontSize: 13,
+    color: '#475569',
     fontWeight: '600',
   },
-  detailValue: {
-    fontSize: 15,
-    color: '#1a1a1a',
-    fontWeight: '700',
-  },
-  favoriteButton: {
-    marginHorizontal: 10,
-    backgroundColor: '#fff9e6',
-    padding: 10,
-    borderRadius: 12,
-  },
-  favoriteCard: {
-    borderWidth: 2,
-    borderColor: '#FFD700',
-    backgroundColor: '#fffef8',
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginTop: 16,
+    marginBottom: 12,
   },
   disabledButton: {
     backgroundColor: '#ccc',

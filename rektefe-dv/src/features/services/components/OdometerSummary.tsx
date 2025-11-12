@@ -27,6 +27,8 @@ export interface OdometerSummaryProps {
   loading?: boolean;
   onUpdatePress?: () => void;
   hasOfflineSubmission?: boolean;
+  initialMileage?: number;
+  initialMileageUpdatedAt?: string;
 }
 
 const formatDate = (isoString: string) => {
@@ -86,7 +88,15 @@ const statusIconMap: Record<'OK' | 'NO_BASELINE' | 'STALE' | 'LOW_CONFIDENCE', s
 };
 
 export const OdometerSummary: React.FC<OdometerSummaryProps> = memo(
-  ({ estimate, verification, loading, onUpdatePress, hasOfflineSubmission }) => {
+  ({
+    estimate,
+    verification,
+    loading,
+    onUpdatePress,
+    hasOfflineSubmission,
+    initialMileage,
+    initialMileageUpdatedAt,
+  }) => {
     if (loading) {
       return (
         <View style={styles.container}>
@@ -95,7 +105,43 @@ export const OdometerSummary: React.FC<OdometerSummaryProps> = memo(
       );
     }
 
+    const hasInitialMileage =
+      typeof initialMileage === 'number' && Number.isFinite(initialMileage) && initialMileage >= 0;
+
     if (!estimate) {
+      if (hasInitialMileage) {
+        return (
+          <View style={[styles.container, styles.baselineCard]}>
+            <View style={styles.headerRow}>
+              <View>
+                <Text style={styles.baselineLabel}>Manuel kilometre</Text>
+                <Text style={styles.baselineValue}>{formatKm(initialMileage)} km</Text>
+                {initialMileageUpdatedAt && (
+                  <Text style={styles.metaText}>
+                    Kaydedildi: {formatDate(initialMileageUpdatedAt)}
+                  </Text>
+                )}
+              </View>
+              {onUpdatePress && (
+                <TouchableOpacity
+                  style={[styles.updateButton, hasOfflineSubmission && styles.offlineButton]}
+                  onPress={onUpdatePress}
+                  accessibilityRole="button"
+                  accessibilityLabel="Kilometre güncelle"
+                >
+                  <MaterialCommunityIcons name="plus-circle" size={18} color="#fff" />
+                  <Text style={styles.updateButtonText}>Güncelle</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <Text style={styles.baselineHint}>
+              Henüz doğrulanmış kilometre kaydı bulunmuyor. Yeni bir kilometre girerek tahminleri
+              başlatabilirsiniz.
+            </Text>
+          </View>
+        );
+      }
+
       return (
         <View style={[styles.container, styles.emptyState]}>
           <Text style={styles.emptyTitle}>Kilometre verisi bulunamadı</Text>
@@ -123,7 +169,11 @@ export const OdometerSummary: React.FC<OdometerSummaryProps> = memo(
     const statusIcon = statusIconMap[status?.code ?? 'OK'];
 
     return (
-      <View style={styles.container} accessible accessibilityRole="summary">
+      <View
+        style={[styles.container, status?.severity === 'critical' && styles.criticalOutline]}
+        accessible
+        accessibilityRole="summary"
+      >
         {status && status.code !== 'OK' && (
           <View style={[styles.statusAlert, statusStyles.container]}>
             <MaterialCommunityIcons
@@ -135,7 +185,7 @@ export const OdometerSummary: React.FC<OdometerSummaryProps> = memo(
           </View>
         )}
         <View style={styles.headerRow}>
-          <View>
+          <View style={styles.headerInfo}>
             <Text
               style={styles.estimate}
               accessibilityLabel={`Araç kilometresi ${approxLabel} ${formatKm(estimate.displayKm)} kilometre`}
@@ -151,15 +201,17 @@ export const OdometerSummary: React.FC<OdometerSummaryProps> = memo(
             </Text>
           </View>
           {onUpdatePress && (
-            <TouchableOpacity
-              style={[styles.updateButton, hasOfflineSubmission && styles.offlineButton]}
-              onPress={onUpdatePress}
-              accessibilityRole="button"
-              accessibilityLabel="Kilometre güncelle"
-            >
-              <MaterialCommunityIcons name="plus-circle" size={18} color="#fff" />
-              <Text style={styles.updateButtonText}>Güncelle</Text>
-            </TouchableOpacity>
+            <View style={styles.updateButtonContainer}>
+              <TouchableOpacity
+                style={[styles.updateButton, hasOfflineSubmission && styles.offlineButton]}
+                onPress={onUpdatePress}
+                accessibilityRole="button"
+                accessibilityLabel="Kilometre güncelle"
+              >
+                <MaterialCommunityIcons name="plus-circle" size={18} color="#fff" style={styles.updateButtonIcon} />
+                <Text style={styles.updateButtonText}>Kilometreyi Güncelle</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
 
@@ -232,10 +284,45 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E1E7F0',
   },
+  criticalOutline: {
+    borderColor: '#EF4444',
+    shadowColor: '#EF4444',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  baselineCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D4DEEA',
+  },
+  baselineLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 4,
+  },
+  baselineValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  baselineHint: {
+    marginTop: 12,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#4B5563',
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  headerInfo: {
+    flex: 1,
+    paddingRight: 12,
   },
   approxSymbol: {
     fontSize: 20,
@@ -255,16 +342,29 @@ const styles = StyleSheet.create({
   updateButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
     backgroundColor: '#007AFF',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
     borderRadius: 12,
+    minWidth: 180,
+    justifyContent: 'center',
+    shadowColor: '#007AFF',
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 4,
   },
   updateButtonText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  updateButtonIcon: {
+    marginRight: 8,
+  },
+  updateButtonContainer: {
+    flexShrink: 0,
+    alignItems: 'flex-end',
   },
   verificationBadge: {
     marginTop: 12,
