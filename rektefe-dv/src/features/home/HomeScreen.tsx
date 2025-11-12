@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl, Alert, SafeAreaView, TouchableOpacity, Text, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -16,7 +16,6 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/navigation/AppNavigator';
 import { formatWorkingHours } from '@/shared/utils/workingHoursFormatter';
-import { formatDateValue } from './utils/dateHelpers';
 import { useTheme } from '@/context/ThemeContext';
 import { spacing } from '@/theme/theme';
 
@@ -52,16 +51,12 @@ const HomeScreen = () => {
     userName,
     favoriteCar,
     vehicles,
-    maintenanceRecords,
-    maintenanceRecord,
-    insuranceInfo,
     serviceProviders,
     campaigns,
     ads,
     loading,
     error,
     refreshData,
-    tireStatus,
     nearestMechanic,
     userLocation,
     userId,
@@ -73,36 +68,6 @@ const HomeScreen = () => {
   const [selectedCard, setSelectedCard] = useState<{ title: string; value: string } | null>(null);
   const [showAdModal, setShowAdModal] = useState(false);
   const [selectedAd, setSelectedAd] = useState<any>(null);
-
-  const maintenanceSummary = useMemo(() => {
-    if (!maintenanceRecord) {
-      return 'Kayıt bulunamadı';
-    }
-
-    const date = formatDateValue(maintenanceRecord.date ?? maintenanceRecord.createdAt ?? null);
-    const type = maintenanceRecord.type ?? 'Bakım';
-    return date ? `${type} • ${date}` : type;
-  }, [maintenanceRecord]);
-
-  const maintenanceCount = maintenanceRecords?.length ?? 0;
-
-  const insuranceSummary = useMemo(() => {
-    if (!insuranceInfo) {
-      return 'Bilgi bulunamadı';
-    }
-
-    const expiry = formatDateValue(insuranceInfo.endDate ?? null);
-    const company = insuranceInfo.company ?? 'Sigorta';
-    return expiry ? `${company} • ${expiry}` : company;
-  }, [insuranceInfo]);
-
-  const tireStatusSummary = useMemo(() => {
-    if (!tireStatus?.status) {
-      return 'Bilgi bulunamadı';
-    }
-
-    return tireStatus.status;
-  }, [tireStatus]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -242,59 +207,6 @@ const HomeScreen = () => {
           {/* Header Section */}
           <View style={[styles.section, styles.headerSection]}>
             <GreetingHeader userName={userName} favoriteCar={favoriteCar} userId={userId} />
-          </View>
-
-          {/* Vehicle Snapshot */}
-          <View style={[styles.section, styles.snapshotSection]}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>Araç Özeti</Text>
-            <View
-              style={[
-                styles.snapshotCard,
-                {
-                  backgroundColor: theme.colors.background.card,
-                  borderColor: theme.colors.border.primary,
-                },
-              ]}
-            >
-              <View style={styles.snapshotRow}>
-                <MaterialCommunityIcons name="wrench" size={20} color={theme.colors.primary.main} />
-                <View style={styles.snapshotContent}>
-                  <Text style={[styles.snapshotLabel, { color: theme.colors.text.secondary }]}>Son Bakım</Text>
-                  <Text style={[styles.snapshotValue, { color: theme.colors.text.primary }]} numberOfLines={1}>
-                    {maintenanceSummary}
-                  </Text>
-                  {maintenanceCount > 0 && (
-                    <Text style={[styles.snapshotHint, { color: theme.colors.text.tertiary }]}>
-                      {`${maintenanceCount} kayıt`}
-                    </Text>
-                  )}
-                </View>
-              </View>
-
-              <View style={[styles.snapshotDivider, { backgroundColor: theme.colors.border.secondary }]} />
-
-              <View style={styles.snapshotRow}>
-                <MaterialCommunityIcons name="shield-check" size={20} color={theme.colors.success.main} />
-                <View style={styles.snapshotContent}>
-                  <Text style={[styles.snapshotLabel, { color: theme.colors.text.secondary }]}>Sigorta</Text>
-                  <Text style={[styles.snapshotValue, { color: theme.colors.text.primary }]} numberOfLines={1}>
-                    {insuranceSummary}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={[styles.snapshotDivider, { backgroundColor: theme.colors.border.secondary }]} />
-
-              <View style={styles.snapshotRow}>
-                <MaterialCommunityIcons name="car-tire-alert" size={20} color={theme.colors.info.main} />
-                <View style={styles.snapshotContent}>
-                  <Text style={[styles.snapshotLabel, { color: theme.colors.text.secondary }]}>Lastik Durumu</Text>
-                  <Text style={[styles.snapshotValue, { color: theme.colors.text.primary }]} numberOfLines={1}>
-                    {tireStatusSummary}
-                  </Text>
-                </View>
-              </View>
-            </View>
           </View>
 
           {/* Hızlı İşlemler - Kampanyaların üstüne taşındı */}
@@ -678,42 +590,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 24,
     paddingTop: 16,
-  },
-  snapshotSection: {
-    marginBottom: 28,
-  },
-  snapshotCard: {
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 16,
-    gap: 16,
-  },
-  snapshotRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  snapshotContent: {
-    flex: 1,
-  },
-  snapshotLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  snapshotValue: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  snapshotHint: {
-    marginTop: 4,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  snapshotDivider: {
-    height: StyleSheet.hairlineWidth,
   },
   headerSection: {
     marginBottom: 16,
