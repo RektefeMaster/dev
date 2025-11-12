@@ -16,8 +16,7 @@ router.get('/:userId', auth, async (req: Request, res: Response) => {
 
     const vehicleStatusDoc = await VehicleStatusRecordModel.findOne({ userId: req.params.userId })
       .sort({ lastCheck: -1 })
-      .lean()
-      .exec();
+      .lean();
 
     if (!vehicleStatusDoc) {
       return res.status(404).json({

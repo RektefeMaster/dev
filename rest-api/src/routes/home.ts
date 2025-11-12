@@ -22,23 +22,19 @@ router.get('/overview', auth, async (req: Request, res: Response) => {
     const maintenanceDocs = await MaintenanceRecordModel.find({ userId })
       .sort({ date: -1 })
       .limit(10)
-      .lean()
-      .exec();
+      .lean();
 
     const insuranceDoc = await InsurancePolicyModel.findOne({ userId })
       .sort({ endDate: -1 })
-      .lean()
-      .exec();
+      .lean();
 
     const vehicleStatusDoc = await VehicleStatusRecordModel.findOne({ userId })
       .sort({ lastCheck: -1 })
-      .lean()
-      .exec();
+      .lean();
 
     const tireStatusDoc = await TireStatusRecordModel.findOne({ userId })
       .sort({ lastCheck: -1 })
-      .lean()
-      .exec();
+      .lean();
 
     const maintenanceRecords = maintenanceDocs ?? [];
     const insurancePolicy = insuranceDoc ?? null;

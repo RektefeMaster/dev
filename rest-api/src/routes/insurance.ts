@@ -16,8 +16,7 @@ router.get('/:userId', auth, async (req: Request, res: Response) => {
 
     const insuranceDoc = await InsurancePolicyModel.findOne({ userId: req.params.userId })
       .sort({ endDate: -1 })
-      .lean()
-      .exec();
+      .lean();
 
     if (!insuranceDoc) {
       return res.status(404).json({

@@ -16,8 +16,7 @@ router.get('/:userId', auth, async (req: Request, res: Response) => {
 
     const tireStatusDoc = await TireStatusRecordModel.findOne({ userId: req.params.userId })
       .sort({ lastCheck: -1 })
-      .lean()
-      .exec();
+      .lean();
 
     if (!tireStatusDoc) {
       return res.status(404).json({

@@ -70,16 +70,25 @@ const tireStatusSchema = new Schema(
   { timestamps: true, collection: 'tire_status' }
 );
 
-export const MaintenanceRecordModel =
-  mongoose.models.MaintenanceRecord || mongoose.model('MaintenanceRecord', maintenanceSchema);
+type MaintenanceRecord = mongoose.InferSchemaType<typeof maintenanceSchema>;
+type InsurancePolicy = mongoose.InferSchemaType<typeof insuranceSchema>;
+type VehicleStatusRecord = mongoose.InferSchemaType<typeof vehicleStatusSchema>;
+type TireStatusRecord = mongoose.InferSchemaType<typeof tireStatusSchema>;
 
-export const InsurancePolicyModel =
-  mongoose.models.InsurancePolicy || mongoose.model('InsurancePolicy', insuranceSchema);
+export const MaintenanceRecordModel: mongoose.Model<MaintenanceRecord> =
+  (mongoose.models.MaintenanceRecord as mongoose.Model<MaintenanceRecord>) ||
+  mongoose.model<MaintenanceRecord>('MaintenanceRecord', maintenanceSchema);
 
-export const VehicleStatusRecordModel =
-  mongoose.models.VehicleStatusRecord || mongoose.model('VehicleStatusRecord', vehicleStatusSchema);
+export const InsurancePolicyModel: mongoose.Model<InsurancePolicy> =
+  (mongoose.models.InsurancePolicy as mongoose.Model<InsurancePolicy>) ||
+  mongoose.model<InsurancePolicy>('InsurancePolicy', insuranceSchema);
 
-export const TireStatusRecordModel =
-  mongoose.models.TireStatusRecord || mongoose.model('TireStatusRecord', tireStatusSchema);
+export const VehicleStatusRecordModel: mongoose.Model<VehicleStatusRecord> =
+  (mongoose.models.VehicleStatusRecord as mongoose.Model<VehicleStatusRecord>) ||
+  mongoose.model<VehicleStatusRecord>('VehicleStatusRecord', vehicleStatusSchema);
+
+export const TireStatusRecordModel: mongoose.Model<TireStatusRecord> =
+  (mongoose.models.TireStatusRecord as mongoose.Model<TireStatusRecord>) ||
+  mongoose.model<TireStatusRecord>('TireStatusRecord', tireStatusSchema);
 
 
