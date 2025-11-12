@@ -162,6 +162,56 @@ const HomeScreen = () => {
     navigation.navigate('MaintenancePlan');
   };
 
+  const renderCampaigns = () => {
+    if (!campaigns || campaigns.length === 0) {
+      return (
+        <View style={[styles.campaignSection, styles.campaignEmpty]}>
+          <EmptyState
+            icon="gift-outline"
+            title="Henüz kampanya yok"
+            subtitle="Yeni kampanyalar eklendikçe burada görünecek"
+            actionText="Yenile"
+            onActionPress={handleRefresh}
+            style={styles.emptyStateCompact}
+          />
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.campaignSection}>
+        <View style={styles.campaignHeader}>
+          <View style={styles.campaignHeaderTexts}>
+            <Text style={[styles.campaignSectionTitle, { color: theme.colors.text.primary }]}>
+              Öne Çıkan Kampanyalar
+            </Text>
+            <Text style={[styles.campaignSectionSubtitle, { color: theme.colors.text.secondary }]}>
+              Sana özel avantajlar ve fırsatlar
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.campaignSeeAll, { borderColor: theme.colors.border.primary }]}
+            onPress={() => Alert.alert('Bilgi', 'Tüm kampanyalar sayfası yakında eklenecek!')}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.campaignSeeAllText, { color: theme.colors.primary.main }]}>
+              Tümünü Gör
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={18} color={theme.colors.primary.main} />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.campaignCarousel}
+        >
+          {campaigns.map(renderCampaignCard)}
+        </ScrollView>
+      </View>
+    );
+  };
+
   const renderCampaignCard = (campaign: any, index: number) => (
     <TouchableOpacity
       key={campaign.id ?? index}
@@ -300,49 +350,7 @@ const HomeScreen = () => {
           {/* Header Section */}
           <View style={[styles.section, styles.headerSection]}>
             <GreetingHeader userName={userName} favoriteCar={favoriteCar} userId={userId} />
-          </View>
-
-          {/* Campaigns Section - Hızlı işlemlerden sonra */}
-          <View style={[styles.section, styles.campaignSection]}>
-            <View style={styles.campaignHeader}>
-              <View>
-                <Text style={[styles.campaignSectionTitle, { color: theme.colors.text.primary }]}>
-                  Öne Çıkan Kampanyalar
-                </Text>
-                <Text style={[styles.campaignSectionSubtitle, { color: theme.colors.text.secondary }]}>
-                  Sana özel avantajlar ve fırsatlar
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={[styles.campaignSeeAll, { borderColor: theme.colors.border.primary }]}
-                onPress={() => Alert.alert('Bilgi', 'Tüm kampanyalar sayfası yakında eklenecek!')}
-                activeOpacity={0.85}
-              >
-                <Text style={[styles.campaignSeeAllText, { color: theme.colors.primary.main }]}>
-                  Tümünü Gör
-                </Text>
-                <MaterialCommunityIcons name="chevron-right" size={18} color={theme.colors.primary.main} />
-              </TouchableOpacity>
-            </View>
-
-            {(!campaigns || campaigns.length === 0) ? (
-              <EmptyState
-                icon="gift-outline"
-                title="Henüz kampanya yok"
-                subtitle="Yeni kampanyalar eklendikçe burada görünecek"
-                actionText="Yenile"
-                onActionPress={handleRefresh}
-                style={styles.emptyState}
-              />
-            ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.campaignCarousel}
-              >
-                {campaigns.map(renderCampaignCard)}
-              </ScrollView>
-            )}
+            {renderCampaigns()}
           </View>
 
           {/* Hızlı İşlemler */}
@@ -638,28 +646,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
-    marginBottom: 16,
-  },
-  favoriteCarHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  favoriteCarTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  favoriteCarInfo: {
-    marginLeft: 32,
-  },
-  favoriteCarName: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  favoriteCarDetails: {
-    fontSize: 14,
+    marginBottom: 8,
   },
   faultReportSection: {
     flexDirection: 'row',
@@ -945,6 +932,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     marginBottom: 16,
   },
+  campaignHeaderTexts: {
+    flexShrink: 1,
+    paddingRight: 12,
+  },
   campaignSectionTitle: {
     fontSize: 20,
     fontWeight: '700',
@@ -968,6 +959,14 @@ const styles = StyleSheet.create({
   },
   campaignCarousel: {
     paddingRight: 20,
+  },
+  campaignEmpty: {
+    paddingTop: 12,
+    paddingBottom: 24,
+  },
+  emptyStateCompact: {
+    marginVertical: spacing.md,
+    paddingHorizontal: 0,
   },
   campaignCard: {
     width: 280,
