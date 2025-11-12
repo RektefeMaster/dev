@@ -10,6 +10,7 @@ export const ODOMETER_UNIT = ['km', 'mi'] as const;
 export type OdometerUnit = (typeof ODOMETER_UNIT)[number];
 
 export interface IOdometerEvent extends Document {
+  _id: mongoose.Types.ObjectId;
   tenantId: string;
   vehicleId: mongoose.Types.ObjectId;
   seriesId: string;

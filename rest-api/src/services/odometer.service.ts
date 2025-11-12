@@ -435,7 +435,7 @@ export class OdometerService {
         { session }
       );
 
-      const createdEvent = event[0];
+      const createdEvent = event[0] as IOdometerEvent;
 
       if (!pendingReview) {
         mileageModel.lastTrueKm = kmValue;

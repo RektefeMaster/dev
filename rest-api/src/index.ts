@@ -82,7 +82,6 @@ import adsRoutes from './routes/ads';
 import homeRoutes from './routes/home';
 import mechanicReportsRoutes from './routes/mechanicReports';
 import analyticsRoutes from './routes/analytics';
-import odometerRoutes from './routes/odometer';
 
 // .env dosyasını yükle
 dotenv.config();
