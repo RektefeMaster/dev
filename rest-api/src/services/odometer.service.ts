@@ -126,6 +126,26 @@ const computeSinceDays = (from: Date, to: Date) =>
 
 const ensureDate = (input: Date | string) => (input instanceof Date ? input : new Date(input));
 
+const isValidRateWeekdayJson = (value?: number[] | null) => {
+  if (!Array.isArray(value)) {
+    return false;
+  }
+  if (value.length !== 7) {
+    return false;
+  }
+  return value.every((entry) => typeof entry === 'number' && entry >= RATE_MIN && entry <= RATE_MAX);
+};
+
+const normalizeRateWeekdayJson = (model: IMileageModel): boolean => {
+  if (isValidRateWeekdayJson(model.rateWeekdayJson)) {
+    return false;
+  }
+
+  const baseRate = clamp(model.rateKmPerDay ?? DEFAULT_RATE_KM_PER_DAY, RATE_MIN, RATE_MAX);
+  model.rateWeekdayJson = Array(7).fill(baseRate);
+  return true;
+};
+
 const getUnitForEvent = (unit: OdometerUnit | undefined, mileageModel: IMileageModel) =>
   unit || mileageModel.defaultUnit || 'km';
 
@@ -169,6 +189,14 @@ const loadMileageModel = async (
 ) => {
   const model = await MileageModel.findOne({ tenantId, vehicleId }).session(session ?? null);
   if (model) {
+    const needsNormalization = normalizeRateWeekdayJson(model);
+    if (needsNormalization) {
+      if (session) {
+        await model.save({ session });
+      } else {
+        await model.save();
+      }
+    }
     return model;
   }
 
@@ -182,6 +210,7 @@ const loadMileageModel = async (
     confidence: DEFAULT_CONFIDENCE,
     defaultUnit,
     hasBaseline: false,
+    rateWeekdayJson: Array(7).fill(DEFAULT_RATE_KM_PER_DAY),
   });
 
   if (session) {

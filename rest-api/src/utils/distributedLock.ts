@@ -17,10 +17,42 @@ const DEFAULT_LOCK_OPTIONS: Required<LockOptions> = {
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const localLocks = new Map<string, { token: string; expiresAt: number }>();
+
+const cleanupExpiredLocalLocks = () => {
+  const now = Date.now();
+  for (const [key, value] of localLocks.entries()) {
+    if (value.expiresAt <= now) {
+      localLocks.delete(key);
+    }
+  }
+};
+
 export class DistributedLock {
   static async acquire(lockKey: string, options: LockOptions = {}): Promise<string | null> {
     const redis = getRedisClient();
     if (!redis) {
+      const merged = { ...DEFAULT_LOCK_OPTIONS, ...options };
+      cleanupExpiredLocalLocks();
+
+      for (let attempt = 0; attempt <= merged.retryCount; attempt += 1) {
+        const existing = localLocks.get(lockKey);
+        const now = Date.now();
+
+        if (!existing || existing.expiresAt <= now) {
+          const token = uuid();
+          localLocks.set(lockKey, { token, expiresAt: now + merged.ttlMs });
+          return token;
+        }
+
+        const delay =
+          merged.retryDelayMs +
+          Math.floor(Math.random() * (merged.jitterMs * 2)) -
+          merged.jitterMs;
+        await wait(Math.max(delay, 0));
+        cleanupExpiredLocalLocks();
+      }
+
       return null;
     }
 
@@ -46,6 +78,10 @@ export class DistributedLock {
   static async release(lockKey: string, token: string): Promise<void> {
     const redis = getRedisClient();
     if (!redis) {
+      const existing = localLocks.get(lockKey);
+      if (existing && existing.token === token) {
+        localLocks.delete(lockKey);
+      }
       return;
     }
 

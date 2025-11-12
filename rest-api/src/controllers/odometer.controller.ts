@@ -10,6 +10,7 @@ import { OdometerEvent } from '../models/OdometerEvent';
 import { OdometerAuditLog } from '../models/OdometerAuditLog';
 import { UserType } from '../../../shared/types/enums';
 import { logger } from '../utils/monitoring';
+import { CustomError } from '../middleware/errorHandler';
 
 import { CRITICAL_FEATURE_FLAGS, FeatureFlagKey } from '../config/featureFlags';
 
@@ -436,11 +437,23 @@ export class OdometerController {
       }
       return res.status(201).json(response);
     } catch (error) {
+      if (error instanceof CustomError) {
+        const status = error.statusCode || ERROR_STATUS_MAPPING[error.errorCode] || 500;
+        const errorResponse = createErrorResponse(
+          error.errorCode || ErrorCode.INTERNAL_SERVER_ERROR,
+          error.message,
+          process.env.NODE_ENV === 'development' ? { stack: error.stack } : null,
+          req.headers['x-request-id'] as string
+        );
+        return res.status(status).json(errorResponse);
+      }
+
       if ((error as any)?.success === false) {
         const code = (error as any).error?.code as ErrorCode;
         const status = (code && ERROR_STATUS_MAPPING[code]) || 400;
         return res.status(status).json(error);
       }
+
       logger.error('createEvent error', { error });
       const errorResponse = createErrorResponse(
         ErrorCode.INTERNAL_SERVER_ERROR,

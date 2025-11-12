@@ -32,7 +32,7 @@ const VehicleSchema: Schema = new Schema({
   brand: { type: String, required: true },
   modelName: { type: String, required: true },
   year: { type: Number, required: true },
-  plateNumber: { type: String, required: true, unique: true },
+  plateNumber: { type: String, required: true, trim: true },
   fuelType: {
     type: String,
     required: false,
@@ -61,5 +61,14 @@ const VehicleSchema: Schema = new Schema({
 }, {
   timestamps: true
 });
+
+VehicleSchema.index(
+  { userId: 1, plateNumber: 1 },
+  {
+    unique: true,
+    name: 'user_plate_unique',
+    collation: { locale: 'tr', strength: 2 }
+  }
+);
 
 export const Vehicle = mongoose.model<IVehicle>('Vehicle', VehicleSchema); 
