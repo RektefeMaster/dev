@@ -19,12 +19,14 @@ router.get('/overview', auth, async (req: Request, res: Response) => {
 
     const userId = req.user.userId;
 
-    const [maintenanceDocs, insuranceDoc, vehicleStatusDoc, tireStatusDoc] = await Promise.all([
-      MaintenanceRecordModel.find({ userId }).sort({ date: -1 }).limit(10),
-      InsurancePolicyModel.findOne({ userId }).sort({ endDate: -1 }),
-      VehicleStatusRecordModel.findOne({ userId }).sort({ lastCheck: -1 }),
-      TireStatusRecordModel.findOne({ userId }).sort({ lastCheck: -1 }),
-    ]);
+    const maintenanceDocs = await MaintenanceRecordModel.find({ userId })
+      .sort({ date: -1 })
+      .limit(10);
+    const insuranceDoc = await InsurancePolicyModel.findOne({ userId }).sort({ endDate: -1 });
+    const vehicleStatusDoc = await VehicleStatusRecordModel.findOne({ userId }).sort({
+      lastCheck: -1,
+    });
+    const tireStatusDoc = await TireStatusRecordModel.findOne({ userId }).sort({ lastCheck: -1 });
 
     const maintenanceRecords = maintenanceDocs.map((doc) => doc.toObject());
     const insurancePolicy = insuranceDoc ? insuranceDoc.toObject() : null;
