@@ -47,6 +47,19 @@ const vehicleStatusSchema = new Schema(
     issues: [{ type: String }],
     mileage: { type: Number },
     nextServiceDate: { type: Date },
+    recommendations: [
+      {
+        ruleId: { type: String },
+        title: { type: String },
+        severity: { type: String, enum: ['info', 'warning', 'critical'] },
+        message: { type: String },
+        dueInKm: { type: Number },
+        dueInDays: { type: Number },
+        recommendedActions: [{ type: String }],
+        reasonCodes: [{ type: String }],
+        relatedServiceTypes: [{ type: String }],
+      },
+    ],
   },
   { timestamps: true, collection: 'vehicle_status' }
 );

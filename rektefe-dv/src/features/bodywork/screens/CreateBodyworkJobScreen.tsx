@@ -26,8 +26,12 @@ const { width } = Dimensions.get('window');
 interface Vehicle {
   _id: string;
   brand: string;
-  modelName: string;
+  modelName?: string;
+  model?: string;
   plateNumber: string;
+  year?: number;
+  fuelType?: string;
+  transmission?: string;
 }
 
 interface Mechanic {
@@ -102,7 +106,12 @@ export default function CreateBodyworkJobScreen() {
       const mechanicsRes = await apiService.getMechanics({ serviceCategories: ['bodywork'] });
 
       if (vehiclesRes.success && vehiclesRes.data) {
-        setVehicles(vehiclesRes.data);
+        const vehiclesData = Array.isArray(vehiclesRes.data)
+          ? vehiclesRes.data
+          : (vehiclesRes.data as { vehicles?: Vehicle[] }).vehicles;
+        if (Array.isArray(vehiclesData)) {
+          setVehicles(vehiclesData);
+        }
       }
 
       if (mechanicsRes.success && mechanicsRes.data) {

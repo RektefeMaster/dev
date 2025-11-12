@@ -15,6 +15,7 @@ export interface IMileageModel extends Document {
   defaultUnit: OdometerUnit;
   shadowRateKmPerDay?: number;
   metadata?: Record<string, any>;
+  hasBaseline: boolean;
 }
 
 const WeekdayValidator = {
@@ -43,6 +44,7 @@ const MileageModelSchema = new Schema<IMileageModel>(
     defaultUnit: { type: String, enum: ['km', 'mi'], required: true, default: 'km' },
     shadowRateKmPerDay: { type: Number, required: false },
     metadata: { type: Schema.Types.Mixed, required: false },
+    hasBaseline: { type: Boolean, required: true, default: false },
   },
   {
     collection: 'mileage_model',

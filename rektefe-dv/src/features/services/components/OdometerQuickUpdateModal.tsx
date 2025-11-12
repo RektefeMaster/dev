@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNetworkStatus } from '@/shared/hooks/useNetworkStatus';
+import { MAX_OBSERVED_RATE_PER_DAY } from '@shared/config/mileage';
 
 export interface OdometerQuickUpdatePayload {
   km: number;
@@ -48,6 +49,8 @@ const formatPreview = (value: string, unit: 'km' | 'mi' = 'km') => {
   return `${numeric.toLocaleString('tr-TR')} ${unit}`;
 };
 
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
 export const OdometerQuickUpdateModal: React.FC<OdometerQuickUpdateModalProps> = ({
   visible,
   onClose,
@@ -61,6 +64,7 @@ export const OdometerQuickUpdateModal: React.FC<OdometerQuickUpdateModalProps> =
   const [inputValue, setInputValue] = useState(initialKm ? String(Math.round(initialKm)) : '');
   const [notes, setNotes] = useState('');
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const { isConnected } = useNetworkStatus();
 
   useEffect(() => {
@@ -68,6 +72,7 @@ export const OdometerQuickUpdateModal: React.FC<OdometerQuickUpdateModalProps> =
       setInputValue(initialKm ? String(Math.round(initialKm)) : '');
       setNotes('');
       setHasSubmitted(false);
+      setValidationError(null);
     }
   }, [visible, initialKm]);
 
@@ -84,6 +89,32 @@ export const OdometerQuickUpdateModal: React.FC<OdometerQuickUpdateModalProps> =
     if (Number.isNaN(km)) {
       return;
     }
+
+    if (typeof initialKm === 'number' && km < initialKm) {
+      setValidationError('Yeni kilometre, mevcut gösterge değerinin altında olamaz.');
+      return;
+    }
+
+    if (typeof initialKm === 'number' && lastVerifiedAt) {
+      const lastDate = new Date(lastVerifiedAt);
+      const elapsedMs = Date.now() - lastDate.getTime();
+      const elapsedDays = Math.max(elapsedMs / MS_PER_DAY, 1);
+      const maxDelta = Math.max(
+        elapsedDays * MAX_OBSERVED_RATE_PER_DAY,
+        MAX_OBSERVED_RATE_PER_DAY
+      );
+      const delta = km - initialKm;
+      if (delta > maxDelta) {
+        setValidationError(
+          `Kilometre artışı beklenenden yüksek görünüyor. En fazla yaklaşık ${Math.round(maxDelta).toLocaleString(
+            'tr-TR'
+          )} km artış beklenir.`
+        );
+        return;
+      }
+    }
+
+    setValidationError(null);
 
     const payload: OdometerQuickUpdatePayload = {
       km,
@@ -124,7 +155,10 @@ export const OdometerQuickUpdateModal: React.FC<OdometerQuickUpdateModalProps> =
               <View style={[styles.inputWrapper, hasError && styles.inputWrapperError]}>
                 <TextInput
                   value={inputValue}
-                  onChangeText={(text) => setInputValue(sanitizeNumericInput(text))}
+                  onChangeText={(text) => {
+                    setValidationError(null);
+                    setInputValue(sanitizeNumericInput(text));
+                  }}
                   keyboardType="number-pad"
                   returnKeyType="done"
                   placeholder="Örn. 128450"
@@ -135,6 +169,7 @@ export const OdometerQuickUpdateModal: React.FC<OdometerQuickUpdateModalProps> =
                 <MaterialCommunityIcons name="counter" size={18} color="#9AA5B1" />
               </View>
               {hasError && <Text style={styles.errorText}>Kilometre değeri zorunludur.</Text>}
+              {validationError && <Text style={styles.errorText}>{validationError}</Text>}
             </View>
 
             <View style={styles.inputGroup}>

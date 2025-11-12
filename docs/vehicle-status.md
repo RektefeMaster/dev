@@ -100,6 +100,22 @@ Hesaplanan özet, `VehicleStatusRecordModel` ile (koleksiyon: `vehicle_status`) 
         "Araç serviste: Genel Bakım.",
         "Son bakım 180 gün önce yapılmış. Takipte kalın."
       ],
+      "recommendations": [
+        {
+          "ruleId": "engine_oil_service",
+          "title": "Motor Yağı ve Filtre Değişimi",
+          "severity": "critical",
+          "message": "Motor yağının düzenli aralıklarla değiştirilmesi motor sağlığı için kritik öneme sahiptir.",
+          "dueInKm": 0,
+          "dueInDays": 0,
+          "recommendedActions": [
+            "Motor yağı ve yağ filtresi değişimi",
+            "Hava filtresi kontrolü"
+          ],
+          "reasonCodes": ["NO_SERVICE_HISTORY"],
+          "relatedServiceTypes": ["genel-bakim"]
+        }
+      ],
       "metrics": {
         "daysSinceLastCheck": 180,
         "activeFaults": 1,
@@ -114,6 +130,22 @@ Hesaplanan özet, `VehicleStatusRecordModel` ile (koleksiyon: `vehicle_status`) 
             "description": "Motor arızası nedeniyle titreşim",
             "priority": "Yüksek",
             "createdAt": "2025-02-01T08:30:00.000Z"
+          }
+        ],
+        "recommendations": [
+          {
+            "ruleId": "engine_oil_service",
+            "title": "Motor Yağı ve Filtre Değişimi",
+            "severity": "critical",
+            "message": "Motor yağını ve filtrelerini yenileyin.",
+            "dueInKm": 0,
+            "dueInDays": 0,
+            "recommendedActions": [
+              "Motor yağı ve yağ filtresi değişimi",
+              "Hava filtresi kontrolü"
+            ],
+            "reasonCodes": ["NO_SERVICE_HISTORY"],
+            "relatedServiceTypes": ["genel-bakim"]
           }
         ]
       }
@@ -147,7 +179,8 @@ Varsayılan davranış üretim ortamında flag’lerin açık olmasına bağlıd
 
 - **Yeni veri kaynağı ekleme:** `computeSummary` içinde ilgili veri `Promise.all` bloğuna eklenmeli ve skor/metrics hesapları güncellenmeli.
 - **Skor ağırlıklarını değiştirme:** `score` ve `addIssue` / `applyBonus` yardımıyla ceza-bonus katsayıları ayarlanabilir.
-- **UI üzerinde yeni metrikler gösterme:** `metrics` ve `details` alanlarına yeni alanlar ekleyip frontend’de tüketebilirsiniz.
+- **UI üzerinde yeni metrikler gösterme:** `metrics` ve `details.recommendations` alanlarına yeni öğeler ekleyip frontend’de tüketebilirsiniz.
+- **Telemetry:** `maintenance_recommendation_shown` olayı `AnalyticsEvent` kaydına düşer; ayrıntılar için `docs/maintenance-telemetry.md`.
 - **Persist davranışı:** `persist` parametresi varsayılan true. Sadece hesaplama yapmak istediğiniz (ör. ön tarafta test) senaryolarda `persist: false` geçebilirsiniz.
 
 ## Test / Doğrulama

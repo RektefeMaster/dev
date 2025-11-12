@@ -28,6 +28,7 @@ import schedule from 'node-schedule';
 import { PartsService } from './services/parts.service';
 import { AppointmentService } from './services/appointment.service';
 import { createFeatureFlagMiddleware } from './middleware/featureFlags';
+import { CRITICAL_FEATURE_FLAGS } from './config/featureFlags';
 
 // Config import (dependency olabilecek route'lardan önce)
 import { MONGODB_URI, MONGODB_OPTIONS, PORT as CONFIG_PORT, CORS_ORIGIN, JWT_SECRET } from './config';
@@ -98,7 +99,7 @@ app.use(securityHeaders);
 app.use(requestTimeout(30000)); // 🚀 STABILITY: 30 saniye request timeout
 app.use(monitoringMiddleware);
 app.use(requestLogger);
-app.use(createFeatureFlagMiddleware(['akilli_kilometre', 'akilli_kilometre_shadow']));
+app.use(createFeatureFlagMiddleware(CRITICAL_FEATURE_FLAGS));
 
 // Rate limiting (tüm API route'ları için)
 app.use('/api/', apiLimiter);

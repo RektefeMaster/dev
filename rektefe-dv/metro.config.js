@@ -20,6 +20,7 @@ config.resolver = {
   alias: {
     '@': path.resolve(__dirname, 'src'),
     '@/shared': path.resolve(__dirname, 'src/shared'),
+    '@shared': path.resolve(__dirname, '../shared'),
     '@/components': path.resolve(__dirname, 'src/shared/components'),
     '@/context': path.resolve(__dirname, 'src/context'),
     '@/theme': path.resolve(__dirname, 'src/theme'),

@@ -1,5 +1,14 @@
 import { apiClient } from '../http/client';
 
+export type OdometerEstimateSeverity = 'info' | 'warning' | 'critical';
+export type OdometerEstimateStatusCode = 'OK' | 'NO_BASELINE' | 'STALE' | 'LOW_CONFIDENCE';
+
+export interface OdometerEstimateStatus {
+  code: OdometerEstimateStatusCode;
+  severity: OdometerEstimateSeverity;
+  message: string;
+}
+
 export interface OdometerEstimate {
   vehicleId: string;
   estimateKm: number;
@@ -11,6 +20,8 @@ export interface OdometerEstimate {
   confidence: number;
   isApproximate: boolean;
   seriesId: string;
+  status: OdometerEstimateStatus;
+  warnings: string[];
 }
 
 export interface OdometerEventPayload {

@@ -4,21 +4,18 @@ import { Vehicle } from '../models/Vehicle';
 import { MileageModel } from '../models/MileageModel';
 import { FeatureFlag } from '../models/FeatureFlag';
 import { MONGODB_URI, MONGODB_OPTIONS } from '../config';
+import {
+  FEATURE_FLAG_SEED_DATA,
+  FeatureFlagKey,
+} from '../config/featureFlags';
 
 const DEFAULT_RATE = Number(process.env.MILEAGE_DEFAULT_RATE_KM_PER_DAY || 30);
 const DEFAULT_CONFIDENCE = Number(process.env.MILEAGE_DEFAULT_CONFIDENCE || 0.3);
-const FLAG_SEED_DATA = [
-  {
-    key: 'akilli_kilometre',
-    defaultOn: false,
-    description: 'Akıllı kilometre tahmini ana özelliği',
-  },
-  {
-    key: 'akilli_kilometre_shadow',
-    defaultOn: false,
-    description: 'Akıllı kilometre gölge modu; metrik toplar fakat UI göstermeden çalışır',
-  },
-];
+const normalizeFlagRecord = (flag: { key: FeatureFlagKey; defaultOn: boolean; description: string }) => ({
+  key: flag.key,
+  defaultOn: flag.defaultOn,
+  description: flag.description,
+});
 
 const ALLOW_SEED = process.env.ALLOW_SEED === 'true';
 
@@ -37,13 +34,20 @@ async function main() {
 
   try {
     console.log('🚩 Feature flag seed başlatılıyor...');
-    for (const flag of FLAG_SEED_DATA) {
-      await FeatureFlag.updateOne(
-        { key: flag.key },
-        { $setOnInsert: flag },
-        { upsert: true }
-      );
-    }
+    await Promise.all(
+      FEATURE_FLAG_SEED_DATA.map(async (flag) => {
+        const result = await FeatureFlag.updateOne(
+          { key: flag.key },
+          {
+            $setOnInsert: normalizeFlagRecord(flag),
+          },
+          { upsert: true }
+        );
+        if (result.upsertedCount) {
+          console.log(`   • Yeni flag eklendi: ${flag.key}`);
+        }
+      })
+    );
     console.log('✅ Feature flag seed tamamlandı.');
 
     console.log('🚗 Mileage model backfill başlatılıyor...');

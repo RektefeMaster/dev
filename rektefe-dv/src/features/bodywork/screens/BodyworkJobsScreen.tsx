@@ -9,11 +9,14 @@ import {
   SafeAreaView,
   RefreshControl,
   Image,
+  Alert,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { apiService } from '@/shared/services/api';
+import { RootStackParamList } from '@/navigation/AppNavigator';
 
 interface BodyworkJob {
   _id: string;
@@ -46,8 +49,10 @@ interface BodyworkJob {
   createdAt: string;
 }
 
+type BodyworkJobsNavigationProp = StackNavigationProp<RootStackParamList, 'BodyworkJobs'>;
+
 export default function BodyworkJobsScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<BodyworkJobsNavigationProp>();
   const { theme } = useTheme();
   const styles = createStyles(theme.colors);
 
@@ -157,7 +162,7 @@ export default function BodyworkJobsScreen() {
   const renderJobCard = ({ item }: { item: BodyworkJob }) => (
     <TouchableOpacity
       style={styles.jobCard}
-      onPress={() => navigation.navigate('BodyworkJobDetail' as never, { jobId: item._id } as never)}
+      onPress={() => navigation.navigate('BodyworkJobDetail', { jobId: item._id })}
       activeOpacity={0.7}
     >
       <View style={styles.jobHeader}>
@@ -252,7 +257,7 @@ export default function BodyworkJobsScreen() {
       {activeTab === 'active' && (
         <TouchableOpacity
           style={styles.createButton}
-          onPress={() => navigation.navigate('CreateBodyworkJob' as never)}
+          onPress={() => navigation.navigate('CreateBodyworkJob')}
         >
           <Ionicons name="add" size={20} color="#FFFFFF" />
           <Text style={styles.createButtonText}>Yeni İş Oluştur</Text>
@@ -280,7 +285,7 @@ export default function BodyworkJobsScreen() {
           <Ionicons name="arrow-back" size={24} color={theme.colors.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Kaporta İşleri</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('CreateBodyworkJob' as never)}>
+        <TouchableOpacity onPress={() => navigation.navigate('CreateBodyworkJob')}>
           <Ionicons name="add" size={24} color={theme.colors.primary.main} />
         </TouchableOpacity>
       </View>

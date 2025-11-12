@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import NodeCache from 'node-cache';
 import { FeatureFlag, IFeatureFlag, FeatureFlagScopeType } from '../models/FeatureFlag';
+import { FeatureFlagKey } from '../config/featureFlags';
 
 export interface FeatureFlagContext {
   env?: string;
@@ -58,7 +59,7 @@ const getCachedFlag = async (key: string): Promise<IFeatureFlag | null> => {
 };
 
 export class FeatureFlagService {
-  static async getFlag(key: string, context: FeatureFlagContext = {}): Promise<EvaluatedFeatureFlag> {
+  static async getFlag(key: FeatureFlagKey | string, context: FeatureFlagContext = {}): Promise<EvaluatedFeatureFlag> {
     const flag = await getCachedFlag(key);
     if (!flag) {
       return {

@@ -11,21 +11,35 @@ import { OdometerAuditLog } from '../models/OdometerAuditLog';
 import { UserType } from '../../../shared/types/enums';
 import { logger } from '../utils/monitoring';
 
-const DEFAULT_FORCED_FLAGS = new Set(['akilli_kilometre', 'akilli_kilometre_shadow']);
+import { CRITICAL_FEATURE_FLAGS, FeatureFlagKey } from '../config/featureFlags';
+
+const DEFAULT_FORCED_FLAGS = new Set(CRITICAL_FEATURE_FLAGS);
 const configuredForcedFlags = new Set(
   (process.env.FEATURE_FLAGS_FORCE_ON || '')
     .split(',')
     .map((key) => key.trim())
     .filter(Boolean)
 );
-const isNonProductionEnv = (process.env.NODE_ENV || 'development').toLowerCase() !== 'production';
 
-const shouldForceEnableFlag = (key: string) => {
-  if (configuredForcedFlags.has(key)) {
+const resolveRuntimeEnv = (): string => {
+  const candidates = [
+    process.env.RAILWAY_ENVIRONMENT,
+    process.env.APP_ENV,
+    process.env.VERCEL_ENV,
+    process.env.NODE_ENV,
+  ];
+  return (candidates.find((value) => typeof value === 'string' && value.trim().length > 0) || 'development').toLowerCase();
+};
+
+const runtimeEnv = resolveRuntimeEnv();
+const isNonProductionEnv = !['production', 'prod'].includes(runtimeEnv);
+
+const shouldForceEnableFlag = (key: FeatureFlagKey | string) => {
+  if (configuredForcedFlags.has(String(key))) {
     return true;
   }
 
-  const envOverride = process.env[`FORCE_FLAG_${key.toUpperCase()}`];
+  const envOverride = process.env[`FORCE_FLAG_${String(key).toUpperCase()}`];
   if (typeof envOverride === 'string') {
     const normalized = envOverride.trim().toLowerCase();
     if (normalized === 'true' || normalized === '1' || normalized === 'on' || normalized === 'enabled') {
@@ -36,7 +50,7 @@ const shouldForceEnableFlag = (key: string) => {
     }
   }
 
-  if (isNonProductionEnv && DEFAULT_FORCED_FLAGS.has(key)) {
+  if (isNonProductionEnv && DEFAULT_FORCED_FLAGS.has(key as FeatureFlagKey)) {
     return true;
   }
 
@@ -70,19 +84,19 @@ const decodeCursor = (cursor?: string) => {
 
 const resolveTenantId = (req: Request) => req.tenantId || (req.headers['x-tenant-id'] as string) || 'default';
 
-const ensureFlagEnabled = async (req: Request, key: string) => {
+const ensureFlagEnabled = async (req: Request, key: FeatureFlagKey | string) => {
   const tenantId = resolveTenantId(req);
   const userId = req.user?.userId;
-  const cached = req.featureFlags?.[key];
+  const cached = req.featureFlags?.[key as string];
   if (cached) {
     if (cached.enabled) {
       return true;
     }
     if (shouldForceEnableFlag(key)) {
-      logger.debug?.(`Feature flag ${key} dev ortamında zorla aktifleştirildi (cached).`);
+      logger.debug?.(`Feature flag ${String(key)} dev ortamında zorla aktifleştirildi (cached).`);
       req.featureFlags = {
         ...(req.featureFlags || {}),
-        [key]: {
+        [key as string]: {
           ...cached,
           enabled: true,
         },
@@ -95,13 +109,13 @@ const ensureFlagEnabled = async (req: Request, key: string) => {
   if (flag.enabled) {
     req.featureFlags = {
       ...(req.featureFlags || {}),
-      [key]: flag,
+        [key as string]: flag,
     };
     return true;
   }
 
   if (shouldForceEnableFlag(key)) {
-    logger.debug?.(`Feature flag ${key} dev ortamında zorla aktifleştirildi.`);
+    logger.debug?.(`Feature flag ${String(key)} dev ortamında zorla aktifleştirildi.`);
     const forcedFlag = {
       ...flag,
       enabled: true,
@@ -115,7 +129,7 @@ const ensureFlagEnabled = async (req: Request, key: string) => {
 
   req.featureFlags = {
     ...(req.featureFlags || {}),
-    [key]: flag,
+        [key as string]: flag,
   };
   return false;
 };
@@ -196,7 +210,7 @@ const enforceLimit = async (key: string, limit: number, windowSeconds: number): 
 export class OdometerController {
   static getEstimate = async (req: Request, res: Response) => {
     try {
-      const featureEnabled = await ensureFlagEnabled(req, 'akilli_kilometre');
+      const featureEnabled = await ensureFlagEnabled(req, FeatureFlagKey.AKILLI_KILOMETRE);
       if (!featureEnabled) {
         const error = createErrorResponse(ErrorCode.ERR_FEATURE_DISABLED, 'Akıllı kilometre özelliği devre dışı.', null, req.headers['x-request-id'] as string);
         return res.status(403).json(error);
@@ -271,8 +285,8 @@ export class OdometerController {
 
   static createEvent = async (req: Request, res: Response) => {
     try {
-      const featureEnabled = await ensureFlagEnabled(req, 'akilli_kilometre');
-      const shadowEnabled = await ensureFlagEnabled(req, 'akilli_kilometre_shadow');
+      const featureEnabled = await ensureFlagEnabled(req, FeatureFlagKey.AKILLI_KILOMETRE);
+      const shadowEnabled = await ensureFlagEnabled(req, FeatureFlagKey.AKILLI_KILOMETRE_SHADOW);
 
       if (!featureEnabled && !shadowEnabled) {
         const error = createErrorResponse(
@@ -440,8 +454,8 @@ export class OdometerController {
 
   static getTimeline = async (req: Request, res: Response) => {
     try {
-      const featureEnabled = await ensureFlagEnabled(req, 'akilli_kilometre');
-      const shadowEnabled = await ensureFlagEnabled(req, 'akilli_kilometre_shadow');
+      const featureEnabled = await ensureFlagEnabled(req, FeatureFlagKey.AKILLI_KILOMETRE);
+      const shadowEnabled = await ensureFlagEnabled(req, FeatureFlagKey.AKILLI_KILOMETRE_SHADOW);
       if (!featureEnabled && !shadowEnabled) {
         const error = createErrorResponse(
           ErrorCode.ERR_FEATURE_DISABLED,
@@ -559,8 +573,8 @@ export class OdometerController {
         return res.status(403).json(error);
       }
 
-      const featureEnabled = await ensureFlagEnabled(req, 'akilli_kilometre');
-      const shadowEnabled = await ensureFlagEnabled(req, 'akilli_kilometre_shadow');
+      const featureEnabled = await ensureFlagEnabled(req, FeatureFlagKey.AKILLI_KILOMETRE);
+      const shadowEnabled = await ensureFlagEnabled(req, FeatureFlagKey.AKILLI_KILOMETRE_SHADOW);
       if (!featureEnabled && !shadowEnabled) {
         const error = createErrorResponse(
           ErrorCode.ERR_FEATURE_DISABLED,

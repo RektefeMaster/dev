@@ -54,6 +54,8 @@ export class VehicleController {
               confidence: estimate.confidence,
               isApproximate: estimate.isApproximate,
               seriesId: estimate.sourceSeriesId,
+              status: estimate.status,
+              warnings: estimate.warnings,
             },
           };
         } catch (error) {
@@ -98,6 +100,8 @@ export class VehicleController {
         confidence: estimate.confidence,
         isApproximate: estimate.isApproximate,
         seriesId: estimate.sourceSeriesId,
+        status: estimate.status,
+        warnings: estimate.warnings,
       };
     } catch (error) {
       odometerEstimate = null;

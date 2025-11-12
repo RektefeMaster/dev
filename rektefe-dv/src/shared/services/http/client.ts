@@ -6,7 +6,7 @@ let isRefreshing = false;
 let failedQueue: Array<{ resolve: (value: unknown) => void; reject: (reason?: unknown) => void }> = [];
 let isRateLimited = false;
 let rateLimitResetTime: number | null = null;
-let rateLimitTimer: NodeJS.Timeout | null = null;
+let rateLimitTimer: ReturnType<typeof setTimeout> | null = null;
 
 const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000; // 15 dakika
 const TOKEN_REFRESH_BUFFER_MS = 60 * 1000; // 1 dakika önce yenile

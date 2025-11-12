@@ -10,21 +10,27 @@ import {
 import { OdometerAuditLog } from '../models/OdometerAuditLog';
 import { Vehicle } from '../models/Vehicle';
 import {
+  ABS_MAX_RATE_PER_DAY,
   BACKPRESSURE_MESSAGE,
   CACHE_TTL_SECONDS,
   CONFIDENCE_MAX,
   CONFIDENCE_MIN,
+  CRITICAL_CONFIDENCE_THRESHOLD,
+  CRITICAL_STALE_THRESHOLD_DAYS,
   DEFAULT_CONFIDENCE,
   DEFAULT_RATE_KM_PER_DAY,
   HARD_OUTLIER_THRESHOLD,
+  LOW_CONFIDENCE_THRESHOLD,
   PENDING_REVIEW_QUEUE,
   PENDING_REVIEW_WARNING_THRESHOLD,
   RATE_MAX,
   RATE_MIN,
   SOFT_OUTLIER_THRESHOLD,
+  STALE_THRESHOLD_DAYS,
   getAlphaForEvent,
   getConfidenceDeltaForEvent,
 } from '../config/mileage';
+import { FeatureFlagKey } from '../config/featureFlags';
 import { CacheManager, getRedisClient } from '../config/cache';
 import { DistributedLock } from '../utils/distributedLock';
 import { CustomError } from '../middleware/errorHandler';
@@ -68,6 +74,15 @@ export interface RecordEventInput {
   featureFlags?: Record<string, { enabled: boolean }>;
 }
 
+export type EstimateSeverity = 'info' | 'warning' | 'critical';
+export type EstimateHealthCode = 'OK' | 'NO_BASELINE' | 'STALE' | 'LOW_CONFIDENCE';
+
+export interface EstimateStatus {
+  code: EstimateHealthCode;
+  severity: EstimateSeverity;
+  message: string;
+}
+
 export interface EstimateResult {
   vehicleId: string;
   tenantId: string;
@@ -80,6 +95,8 @@ export interface EstimateResult {
   confidence: number;
   sourceSeriesId: string;
   cacheHit: boolean;
+  status: EstimateStatus;
+  warnings: string[];
 }
 
 export interface RecordEventResult {
@@ -115,13 +132,14 @@ const getUnitForEvent = (unit: OdometerUnit | undefined, mileageModel: IMileageM
 const getTenantDefault = (tenantId?: string) => tenantId || 'default';
 
 const getFeatureFlagEnabled = async (
-  key: string,
+  key: FeatureFlagKey,
   tenantId: string,
   userId?: string,
   contextFlags?: Record<string, { enabled: boolean }>
 ) => {
-  if (contextFlags && key in contextFlags) {
-    return contextFlags[key].enabled;
+  const keyString = key as string;
+  if (contextFlags && keyString in contextFlags) {
+    return contextFlags[keyString].enabled;
   }
   const flag = await FeatureFlagService.getFlag(key, { tenantId, userId });
   return flag.enabled;
@@ -163,6 +181,7 @@ const loadMileageModel = async (
     rateKmPerDay: DEFAULT_RATE_KM_PER_DAY,
     confidence: DEFAULT_CONFIDENCE,
     defaultUnit,
+    hasBaseline: false,
   });
 
   if (session) {
@@ -206,9 +225,80 @@ export class OdometerService {
     const vehicleObjectId = new mongoose.Types.ObjectId(context.vehicleId);
     const mileageModel = await loadMileageModel(tenantId, vehicleObjectId);
     const now = new Date();
+    const hasBaseline =
+      typeof mileageModel.hasBaseline === 'boolean'
+        ? mileageModel.hasBaseline
+        : mileageModel.lastTrueKm > 0;
     const sinceDays = computeSinceDays(mileageModel.lastTrueTsUtc, now);
     const estimateKm = mileageModel.lastTrueKm + mileageModel.rateKmPerDay * sinceDays;
+    const warnings: string[] = [];
+    const severityPriority: Record<EstimateSeverity, number> = { info: 0, warning: 1, critical: 2 };
+    let status: EstimateStatus = {
+      code: 'OK',
+      severity: 'info',
+      message: 'Kilometre tahmini güncel görünüyor.',
+    };
+    const setStatus = (next: EstimateStatus) => {
+      if (
+        severityPriority[next.severity] > severityPriority[status.severity] ||
+        (severityPriority[next.severity] === severityPriority[status.severity] && status.code === 'OK')
+      ) {
+        status = next;
+      }
+    };
 
+    if (!hasBaseline) {
+      warnings.push('Bu araç için henüz doğrulanmış bir kilometre kaydı bulunmuyor.');
+      setStatus({
+        code: 'NO_BASELINE',
+        severity: 'warning',
+        message: 'İlk kilometre değerini girerek tahmin modelini başlatabilirsiniz.',
+      });
+    }
+
+    if (hasBaseline) {
+      if (sinceDays >= CRITICAL_STALE_THRESHOLD_DAYS) {
+        warnings.push(
+          `Kilometre verisi ${Math.round(sinceDays)} gündür güncellenmemiş. Güncel değeri girmeniz önerilir.`
+        );
+        setStatus({
+          code: 'STALE',
+          severity: 'critical',
+          message: 'Kilometre verisi çok eski. Lütfen aracı güncel kilometreyle doğrulayın.',
+        });
+      } else if (sinceDays >= STALE_THRESHOLD_DAYS) {
+        warnings.push(
+          `Kilometre verisi ${Math.round(sinceDays)} gündür güncellenmemiş. Tahminler düşük hassasiyetli olabilir.`
+        );
+        setStatus({
+          code: 'STALE',
+          severity: 'warning',
+          message: 'Kilometre verisi beklenenden eski. Yakında güncelleme yapmanız önerilir.',
+        });
+      }
+    }
+
+    if (mileageModel.confidence <= CRITICAL_CONFIDENCE_THRESHOLD) {
+      warnings.push(
+        'Kilometre tahmininin güven değeri çok düşük. Bu değer doğrulanana kadar tahminler güvenilir olmayabilir.'
+      );
+      setStatus({
+        code: 'LOW_CONFIDENCE',
+        severity: 'critical',
+        message: 'Kilometre tahmininin güveni çok düşük. Lütfen kilometreyi doğrulayın.',
+      });
+    } else if (mileageModel.confidence <= LOW_CONFIDENCE_THRESHOLD) {
+      warnings.push(
+        'Kilometre tahmininin güveni düşük seviyede. Yakında bir servis kaydıyla doğrulamanız önerilir.'
+      );
+      setStatus({
+        code: 'LOW_CONFIDENCE',
+        severity: 'warning',
+        message: 'Kilometre tahmininin güveni sınırlı. Doğrulama yapmanız faydalı olur.',
+      });
+    }
+
+    const isApproximate = status.code !== 'OK' || mileageModel.confidence < 0.7;
     const cacheKey = getCacheKey(tenantId, context.vehicleId, mileageModel.seriesId);
 
     if (!context.forceRefresh) {
@@ -222,7 +312,7 @@ export class OdometerService {
       vehicleId: context.vehicleId,
       tenantId,
       estimateKm,
-      isApproximate: true,
+      isApproximate,
       lastTrueKm: mileageModel.lastTrueKm,
       lastTrueTsUtc: mileageModel.lastTrueTsUtc,
       sinceDays,
@@ -230,6 +320,8 @@ export class OdometerService {
       confidence: mileageModel.confidence,
       sourceSeriesId: mileageModel.seriesId,
       cacheHit: false,
+      status,
+      warnings,
     };
 
     await CacheManager.set(cacheKey, result, { ttl: CACHE_TTL_SECONDS });
@@ -264,13 +356,13 @@ export class OdometerService {
     const actorUserId = input.createdByUserId ? new mongoose.Types.ObjectId(input.createdByUserId) : undefined;
 
     const mainFlagEnabled = await getFeatureFlagEnabled(
-      'akilli_kilometre',
+      FeatureFlagKey.AKILLI_KILOMETRE,
       tenantId,
       actorUserId?.toString(),
       input.featureFlags
     );
     const shadowFlagEnabled = await getFeatureFlagEnabled(
-      'akilli_kilometre_shadow',
+      FeatureFlagKey.AKILLI_KILOMETRE_SHADOW,
       tenantId,
       actorUserId?.toString(),
       input.featureFlags
@@ -357,6 +449,7 @@ export class OdometerService {
         mileageModel.lastTrueTsUtc = timestamp;
         mileageModel.rateKmPerDay = DEFAULT_RATE_KM_PER_DAY;
         mileageModel.shadowRateKmPerDay = undefined;
+        mileageModel.hasBaseline = true;
         seriesId = newSeriesId;
       }
 
@@ -377,6 +470,13 @@ export class OdometerService {
       let outlierClass: 'soft' | 'hard' | undefined;
 
       if (!input.odometerReset && deltaDays > 0) {
+        if (observedRate > ABS_MAX_RATE_PER_DAY) {
+          throw new CustomError(
+            'Kilometre artışı olağan dışı derecede yüksek görünüyor. Lütfen değeri kontrol edin.',
+            400,
+            ErrorCode.ERR_ODO_RATE_TOO_HIGH
+          );
+        }
         if (observedRate > HARD_OUTLIER_THRESHOLD) {
           pendingReview = true;
           outlierClass = 'hard';
@@ -443,6 +543,7 @@ export class OdometerService {
         mileageModel.rateKmPerDay = nextRate;
         mileageModel.confidence = newConfidence;
         mileageModel.defaultUnit = unit;
+        mileageModel.hasBaseline = true;
         if (shadowFlagEnabled) {
           mileageModel.shadowRateKmPerDay = shadowNextRate;
         }

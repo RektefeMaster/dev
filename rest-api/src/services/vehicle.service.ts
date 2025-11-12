@@ -3,8 +3,18 @@ import { User } from '../models/User';
 import { Appointment } from '../models/Appointment';
 import mongoose from 'mongoose';
 import { CustomError } from '../middleware/errorHandler';
+import { MileageModel } from '../models/MileageModel';
+import { OdometerEvent, OdometerEventEvidenceType, OdometerEventSource } from '../models/OdometerEvent';
+import {
+  DEFAULT_CONFIDENCE,
+  DEFAULT_RATE_KM_PER_DAY,
+} from '../config/mileage';
 
 export class VehicleService {
+  private static readonly DEFAULT_TENANT_ID = 'default';
+  private static readonly DEFAULT_ODOMETER_SOURCE: OdometerEventSource = 'system_import';
+  private static readonly DEFAULT_ODOMETER_EVIDENCE: OdometerEventEvidenceType = 'none';
+
   /**
    * Yeni araç oluştur
    */
@@ -21,14 +31,92 @@ export class VehicleService {
         throw new CustomError('Kullanıcı bulunamadı', 404);
       }
 
-      // Araç verilerini hazırla
-      const vehicle = new Vehicle({
-        ...vehicleData,
-        userId: new mongoose.Types.ObjectId(userId)
-      });
+      const session = await mongoose.startSession();
+      session.startTransaction();
 
-      const savedVehicle = await vehicle.save();
-      return savedVehicle;
+      try {
+        // Araç verilerini hazırla
+        const vehicle = new Vehicle({
+          ...vehicleData,
+          userId: new mongoose.Types.ObjectId(userId),
+        });
+
+        const savedVehicle = await vehicle.save({ session });
+
+        const tenantId = VehicleService.DEFAULT_TENANT_ID;
+        const initialKm =
+          typeof vehicleData.mileage === 'number' && !Number.isNaN(vehicleData.mileage)
+            ? vehicleData.mileage
+            : null;
+        const now = new Date();
+
+        const mileageModel = await MileageModel.findOneAndUpdate(
+          { tenantId, vehicleId: savedVehicle._id },
+          {
+            $setOnInsert: {
+              seriesId: `series-${savedVehicle._id.toString()}`,
+              lastTrueKm: initialKm ?? 0,
+              lastTrueTsUtc: now,
+              rateKmPerDay: DEFAULT_RATE_KM_PER_DAY,
+              confidence: DEFAULT_CONFIDENCE,
+              defaultUnit: 'km',
+              hasBaseline: initialKm !== null,
+            },
+          },
+          {
+            upsert: true,
+            new: true,
+            setDefaultsOnInsert: true,
+            session,
+          }
+        );
+
+        if (initialKm !== null && !mileageModel.hasBaseline) {
+          mileageModel.hasBaseline = true;
+          mileageModel.lastTrueKm = initialKm;
+          mileageModel.lastTrueTsUtc = now;
+          await mileageModel.save({ session });
+        }
+
+        if (initialKm !== null) {
+          const existingInitialEvent = await OdometerEvent.findOne({
+            tenantId,
+            vehicleId: savedVehicle._id,
+            source: VehicleService.DEFAULT_ODOMETER_SOURCE,
+          }).session(session);
+
+          if (!existingInitialEvent) {
+            await OdometerEvent.create(
+              [
+                {
+                  tenantId,
+                  vehicleId: savedVehicle._id,
+                  seriesId: mileageModel.seriesId,
+                  km: initialKm,
+                  unit: mileageModel.defaultUnit,
+                  timestampUtc: now,
+                 source: VehicleService.DEFAULT_ODOMETER_SOURCE,
+                 evidenceType: VehicleService.DEFAULT_ODOMETER_EVIDENCE,
+                  createdByUserId: new mongoose.Types.ObjectId(userId),
+                  createdAtUtc: now,
+                  updatedAtUtc: now,
+                  pendingReview: false,
+                  odometerReset: false,
+                },
+              ],
+              { session }
+            );
+          }
+        }
+
+        await session.commitTransaction();
+        return savedVehicle;
+      } catch (error) {
+        await session.abortTransaction();
+        throw error;
+      } finally {
+        session.endSession();
+      }
     } catch (error) {
       if (error instanceof CustomError) throw error;
       throw new CustomError('Araç oluşturulurken hata oluştu', 500);

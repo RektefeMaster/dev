@@ -242,13 +242,19 @@ export interface RegisterRequest {
 export interface CreateAppointmentRequest {
   vehicleId: string;
   mechanicId: string;
-  serviceType: ServiceType;
-  appointmentDate: Date;
+  serviceType: ServiceType | string;
+  appointmentDate: Date | string;
   timeSlot: string;
   description?: string;
-  location: Location;
+  location?: Location;
   estimatedDuration?: number;
   specialInstructions?: string;
+  userId?: string;
+  faultReportId?: string;
+  quotedPrice?: number;
+  price?: number;
+  finalPrice?: number;
+  priceSource?: 'fault_report_quote' | 'manual' | 'system' | 'auto';
   odometer?: {
     km: number;
     timestampUtc: string;

@@ -388,9 +388,22 @@ export interface CreateAppointmentRequest {
   mechanicId: string;
   vehicleId: string;
   serviceType: string;
-  appointmentDate: string;
+  appointmentDate: string | Date;
   timeSlot: string;
   description?: string;
+  userId?: string;
+  faultReportId?: string;
+  location?: Location;
+  quotedPrice?: number;
+  price?: number;
+  finalPrice?: number;
+  priceSource?: 'fault_report_quote' | 'manual' | 'system' | 'auto';
+  odometer?: {
+    km: number;
+    timestampUtc: string;
+    source?: 'user_manual' | 'service' | 'inspection' | 'system_import';
+    evidenceType?: 'none' | 'photo' | 'document';
+  };
 }
 
 export interface UpdateAppointmentRequest {

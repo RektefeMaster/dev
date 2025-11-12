@@ -103,6 +103,7 @@ export enum ErrorCode {
   ERR_ODO_FUTURE_TS = 'ERR_ODO_FUTURE_TS',
   ERR_ODO_OUTLIER_SOFT = 'ERR_ODO_OUTLIER_SOFT',
   ERR_ODO_OUTLIER_HARD = 'ERR_ODO_OUTLIER_HARD',
+  ERR_ODO_RATE_TOO_HIGH = 'ERR_ODO_RATE_TOO_HIGH',
   ERR_FEATURE_DISABLED = 'ERR_FEATURE_DISABLED',
   
   // External Service Errors
@@ -169,6 +170,7 @@ export const ERROR_MESSAGES_TR: Record<ErrorCode, string> = {
   [ErrorCode.ERR_ODO_FUTURE_TS]: 'Gelecek tarihli kilometre kaydı kabul edilmez.',
   [ErrorCode.ERR_ODO_OUTLIER_SOFT]: 'Olağandışı kilometre artışı algılandı, değer düşük güvenle işlendi.',
   [ErrorCode.ERR_ODO_OUTLIER_HARD]: 'Olağandışı kilometre artışı incelemeye alındı.',
+  [ErrorCode.ERR_ODO_RATE_TOO_HIGH]: 'Kilometre artışı gerçekçi değil. Lütfen değeri kontrol edip tekrar deneyin.',
   [ErrorCode.ERR_FEATURE_DISABLED]: 'Bu özellik şu anda devre dışı.',
   
   // External Service Errors
@@ -225,6 +227,7 @@ export const ERROR_STATUS_MAPPING: Record<ErrorCode, number> = {
   [ErrorCode.PAYMENT_REQUIRED]: 400,
   [ErrorCode.ERR_ODO_NEGATIVE]: 400,
   [ErrorCode.ERR_ODO_FUTURE_TS]: 400,
+  [ErrorCode.ERR_ODO_RATE_TOO_HIGH]: 400,
   
   // 404 Not Found
   [ErrorCode.NOT_FOUND]: 404,

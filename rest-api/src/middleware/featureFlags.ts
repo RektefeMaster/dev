@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { FeatureFlagService, FeatureFlagContext, EvaluatedFeatureFlag } from '../services/featureFlag.service';
+import { FeatureFlagKey } from '../config/featureFlags';
 
 const FEATURE_FLAG_ENV = process.env.FEATURE_FLAG_ENV || process.env.NODE_ENV || 'development';
 
@@ -17,7 +18,7 @@ const parseCohorts = (headerValue?: string | string[]): string[] => {
 };
 
 export const createFeatureFlagMiddleware =
-  (flagKeys: string[] = []) =>
+  (flagKeys: Array<FeatureFlagKey | string> = []) =>
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const tenantIdFromHeader = (req.headers['x-tenant-id'] || req.headers['x-tenant']) as string | undefined;
@@ -40,8 +41,8 @@ export const createFeatureFlagMiddleware =
       const evaluatedFlags: Record<string, EvaluatedFeatureFlag> = {};
 
       for (const key of flagKeys) {
-        const flag = await FeatureFlagService.getFlag(key, context);
-        evaluatedFlags[key] = flag;
+        const flag = await FeatureFlagService.getFlag(key as FeatureFlagKey, context);
+        evaluatedFlags[String(key)] = flag;
       }
 
       req.featureFlags = {

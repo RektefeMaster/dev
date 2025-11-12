@@ -15,11 +15,12 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
-import type { ThemeMode } from '@/context/ThemeContext';
 import { RootStackParamList } from '@/navigation/AppNavigator';
 import ScreenHeader from '@/shared/components/ScreenHeader';
 
 type SettingsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Settings'>;
+
+type ThemeMode = 'light' | 'dark' | 'auto';
 
 type ThemeModeSwitchProps = {
   value: ThemeMode;

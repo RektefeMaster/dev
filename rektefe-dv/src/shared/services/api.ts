@@ -783,7 +783,7 @@ export const PartsService = {
   async confirmDelivery(
     reservationId: string,
     paymentData?: {
-      paymentMethod?: 'cash' | 'wallet' | 'card';
+    paymentMethod?: 'cash' | 'wallet' | 'card' | 'transfer';
       cardInfo?: {
         cardNumber: string;
         cardHolderName: string;
@@ -1991,22 +1991,6 @@ export const apiService = {
   confirmPartsDelivery: PartsService.confirmDelivery,
 
   // Campaigns/Ads
-  getAds: async () => {
-    try {
-      const response = await apiClient.get('/campaigns/ads');
-      return response.data;
-    } catch (error: any) {
-      if (__DEV__) {
-      console.error('Get ads error:', error);
-      }
-      return createErrorResponse(
-        ErrorCode.INTERNAL_SERVER_ERROR,
-        'Reklamlar alınamadı',
-        error.response?.data?.error?.details
-      );
-    }
-  },
-
   // Mechanic rating stats
   getMechanicRatingStats: async (mechanicId: string) => {
     try {

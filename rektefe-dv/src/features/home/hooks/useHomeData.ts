@@ -9,6 +9,19 @@ import { useAuth } from '@/context/AuthContext';
 
 type HomeOverview = HomeOverviewResponse extends { data: infer T } ? T : null;
 
+type HomeOverviewData =
+  HomeOverview extends Record<string, any>
+    ? HomeOverview
+    : {
+        maintenanceRecords?: any[];
+        insurancePolicy?: any;
+        vehicleStatus?: any;
+        tireStatus?: any;
+        campaigns?: any[];
+        ads?: any[];
+        odometerEstimate?: any;
+      };
+
 export const useHomeData = () => {
   const { userId, token } = useAuth();
   const { userProfile, loading: userLoading, fetchUserProfile } = useUserData();
@@ -16,7 +29,7 @@ export const useHomeData = () => {
   const { userLocation, locationAddress, loading: locationLoading, fetchUserLocation } = useLocationData();
   const { nearestMechanic, mechanics, loading: mechanicsLoading, fetchNearestMechanic } = useMechanicsData(userLocation);
 
-  const [overview, setOverview] = useState<HomeOverview | null>(null);
+  const [overview, setOverview] = useState<HomeOverviewData | null>(null);
   const [homeLoading, setHomeLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,7 +50,7 @@ export const useHomeData = () => {
     );
 
     if (data?.success && data.data) {
-      setOverview(data.data);
+      setOverview(data.data as HomeOverviewData);
     } else {
       setOverview(null);
       if (!error) {

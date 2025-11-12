@@ -120,6 +120,9 @@ export const createTheme = (isDark: boolean = false) => {
       
       // Kenarlık renkleri
       border: {
+        light: themeColors.border.light,
+        medium: themeColors.border.medium,
+        dark: themeColors.border.dark,
         primary: themeColors.border.light,
         secondary: themeColors.border.medium,
         tertiary: themeColors.border.dark,

@@ -62,6 +62,12 @@ interface Vehicle {
     confidence: number;
     isApproximate: boolean;
     seriesId: string;
+    status: {
+      code: 'OK' | 'NO_BASELINE' | 'STALE' | 'LOW_CONFIDENCE';
+      severity: 'info' | 'warning' | 'critical';
+      message: string;
+    };
+    warnings: string[];
   };
   odometerVerification?: {
     status?: 'verified' | 'missing' | 'failed';
@@ -76,7 +82,7 @@ type VehicleStatusPresentation = {
   badgeColor: string;
   cardBackgroundColor: string;
   cardBorderColor: string;
-  icon: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
 };
 
 const DEFAULT_VEHICLE_STATUS_PRESENTATION: VehicleStatusPresentation = {
@@ -434,6 +440,7 @@ const GarageScreen = () => {
               ERR_ODO_FUTURE_TS: 'odo_update_reject_future',
               ERR_ODO_OUTLIER_SOFT: 'odo_update_reject_outlier_soft',
               ERR_ODO_OUTLIER_HARD: 'odo_update_reject_outlier_hard',
+                ERR_ODO_RATE_TOO_HIGH: 'odo_update_reject_rate_limit',
             };
             const eventName = errorEventMap[errorCode];
             if (eventName) {

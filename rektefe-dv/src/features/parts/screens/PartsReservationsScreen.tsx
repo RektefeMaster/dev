@@ -68,7 +68,7 @@ interface Reservation {
     estimatedDelivery?: Date;
   };
   payment: {
-    method: 'cash' | 'card' | 'transfer';
+    method: 'cash' | 'card' | 'transfer' | 'wallet';
     status: 'pending' | 'paid' | 'completed' | 'refunded';
   };
   status: 'pending' | 'confirmed' | 'cancelled' | 'expired' | 'delivered' | 'completed';
@@ -260,7 +260,6 @@ const PartsReservationsScreen = () => {
     
     // Eğer cash ödeme ise direkt onayla
     if (reservation.payment.method === 'cash') {
-      setPaymentMethod('cash');
       Alert.alert(
         'Teslim Onayı',
         'Parçayı teslim aldığınızı onaylıyor musunuz?',

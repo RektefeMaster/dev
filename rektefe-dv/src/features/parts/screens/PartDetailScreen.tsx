@@ -56,6 +56,7 @@ interface Part {
     unitPrice: number;
     currency: string;
     isNegotiable: boolean;
+    oldPrice?: number;
   };
   condition: string;
   warranty?: {

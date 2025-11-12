@@ -77,7 +77,7 @@ const DeleteAccountScreen = () => {
       // API'ye hesap silme isteği gönder
       // Not: Backend'de delete account endpoint'i olmayabilir, bu durumda logout yapıp kullanıcıyı auth ekranına yönlendir
       // Şimdilik API endpoint'i olmadığı için direkt logout yapıyoruz
-      const response = null; // await apiService.deleteAccount?.(password);
+      const response: { success?: boolean } | null = null; // await apiService.deleteAccount?.(password);
 
       if (response?.success) {
         Alert.alert(
@@ -294,7 +294,7 @@ const DeleteAccountScreen = () => {
           <Button
             title={step === 1 ? 'Devam Et' : 'Hesabı Sil'}
             onPress={handleDeleteAccount}
-            variant="destructive"
+            variant="error"
             loading={loading}
             disabled={
               loading ||

@@ -13,9 +13,12 @@ import {
   TextInput,
 } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { apiService } from '@/shared/services/api';
+import { RootStackParamList } from '@/navigation/AppNavigator';
 
 interface BodyworkJob {
   _id: string;
@@ -87,9 +90,12 @@ interface BodyworkJob {
   createdAt: string;
 }
 
+type BodyworkJobDetailNavigationProp = StackNavigationProp<RootStackParamList, 'BodyworkJobDetail'>;
+type BodyworkJobDetailRouteProp = RouteProp<RootStackParamList, 'BodyworkJobDetail'>;
+
 export default function BodyworkJobDetailScreen() {
-  const navigation = useNavigation();
-  const route = useRoute();
+  const navigation = useNavigation<BodyworkJobDetailNavigationProp>();
+  const route = useRoute<BodyworkJobDetailRouteProp>();
   const { theme } = useTheme();
   const styles = createStyles(theme.colors);
 
@@ -262,7 +268,7 @@ export default function BodyworkJobDetailScreen() {
                     { text: 'İptal', style: 'cancel' },
                     {
                       text: 'Bakiye Yükle',
-                      onPress: () => navigation.navigate('AddBalance' as never)
+                      onPress: () => navigation.navigate('AddBalance')
                     }
                   ]
                 );
@@ -277,11 +283,11 @@ export default function BodyworkJobDetailScreen() {
   };
 
   const handleViewWorkflow = () => {
-    navigation.navigate('BodyworkWorkflow' as never, { jobId } as never);
+    navigation.navigate('BodyworkWorkflow', { jobId });
   };
 
   const handleViewQuote = () => {
-    navigation.navigate('BodyworkQuote' as never, { jobId } as never);
+    navigation.navigate('BodyworkQuote', { jobId });
   };
 
   const getStatusText = (status: string) => {

@@ -12,9 +12,11 @@ import {
   Alert,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { apiService } from '@/shared/services/api';
+import { RootStackParamList } from '@/navigation/AppNavigator';
 import {
   translateElectricalSystemType,
   translateElectricalProblemType,
@@ -57,8 +59,10 @@ interface ElectricalJob {
   createdAt: string;
 }
 
+type ElectricalJobsNavigationProp = StackNavigationProp<RootStackParamList, 'ElectricalJobs'>;
+
 export default function ElectricalJobsScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<ElectricalJobsNavigationProp>();
   const { theme } = useTheme();
   const styles = createStyles(theme.colors);
 
@@ -147,7 +151,7 @@ export default function ElectricalJobsScreen() {
     return (
       <TouchableOpacity
         style={styles.jobCard}
-        onPress={() => navigation.navigate('ElectricalJobDetail' as never, { jobId: item._id } as never)}
+        onPress={() => navigation.navigate('ElectricalJobDetail', { jobId: item._id })}
         activeOpacity={0.7}
       >
         <View style={styles.jobHeader}>

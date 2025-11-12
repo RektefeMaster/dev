@@ -1,24 +1,85 @@
 import { Types } from 'mongoose';
 import { Appointment } from '../models/Appointment';
 import { FaultReport } from '../models/FaultReport';
-import { Vehicle } from '../models/Vehicle';
+import { Vehicle, IVehicle } from '../models/Vehicle';
 import { VehicleStatusRecordModel } from '../models/HomeRecords';
-import { AppointmentStatus, ServiceType } from '../../../shared/types/enums';
+import { AppointmentStatus, ServiceType, ServiceCategory, SERVICE_CATEGORY_TURKISH_NAMES } from '../../../shared/types/enums';
 import { translateServiceType } from '../utils/serviceTypeTranslator';
 import { EstimateResult, OdometerService } from './odometer.service';
 import { logger } from '../utils/monitoring';
+import {
+  MaintenanceRecommendation,
+  MaintenanceRecommendationEngine,
+} from './maintenanceRecommendation.service';
+import { AnalyticsEvent } from '../models/AnalyticsEvent';
+import { DEFAULT_KM_PER_DAY } from '../../../shared/config/mileage';
+import { getFaultReportServiceCategory } from '../utils/serviceCategoryHelper';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
-
-type VehicleSnapshot = {
-  _id: Types.ObjectId | string;
-  userId: Types.ObjectId | string;
-  lastMaintenanceDate?: Date | null;
-  nextMaintenanceDate?: Date | null;
-  mileage?: number | null;
-  updatedAt?: Date;
-  createdAt?: Date;
+const KEYWORD_TAGS: Record<string, string[]> = {
+  yağ: ['yağ', 'motor', 'general_maintenance'],
+  motor: ['motor', 'general_maintenance'],
+  fren: ['fren', 'general_maintenance'],
+  balata: ['fren', 'general_maintenance'],
+  disk: ['fren'],
+  lastik: ['lastik', 'tire_service'],
+  şanzıman: ['şanzıman', 'vites', 'general_maintenance'],
+  vites: ['şanzıman', 'vites'],
+  batarya: ['batarya', 'electrical'],
+  akü: ['batarya', 'electrical'],
+  triger: ['triger', 'motor'],
 };
+
+const SERVICE_CATEGORY_TAGS: Record<string, string[]> = {
+  'Tamir ve Bakım': ['general_maintenance', 'motor', 'yağ'],
+  tamir_ve_bakım: ['general_maintenance', 'motor', 'yağ'],
+  'Genel Bakım': ['general_maintenance'],
+  genel_bakım: ['general_maintenance'],
+  'Ağır Bakım': ['general_maintenance'],
+  ağır_bakım: ['general_maintenance'],
+  'Üst Takım': ['general_maintenance'],
+  üst_takım: ['general_maintenance'],
+  'Alt Takım': ['general_maintenance'],
+  alt_takım: ['general_maintenance'],
+  Lastik: ['lastik', 'tire_service'],
+  lastik: ['lastik', 'tire_service'],
+  'Lastik & Parça': ['lastik', 'tire_service'],
+  'lastik_&_parça': ['lastik', 'tire_service'],
+  'Elektrik-Elektronik': ['electrical', 'batarya'],
+  elektrik_elektronik: ['electrical', 'batarya'],
+  Elektrik: ['electrical'],
+  elektrik: ['electrical'],
+  'Kaporta/Boya': ['bodywork'],
+  kaporta_boya: ['bodywork'],
+};
+
+const getServiceCategoryDisplayName = (raw?: string | null): string | null => {
+  if (!raw) {
+    return null;
+  }
+  const normalizedCategory = getFaultReportServiceCategory(raw);
+  const names = SERVICE_CATEGORY_TURKISH_NAMES[normalizedCategory as ServiceCategory];
+  if (names && names.length > 0) {
+    return names[0];
+  }
+  return raw;
+};
+
+type VehicleSnapshot = Pick<
+  IVehicle,
+  | '_id'
+  | 'userId'
+  | 'lastMaintenanceDate'
+  | 'nextMaintenanceDate'
+  | 'mileage'
+  | 'updatedAt'
+  | 'createdAt'
+  | 'brand'
+  | 'modelName'
+  | 'fuelType'
+  | 'transmission'
+  | 'year'
+>;
 
 type AppointmentLean = {
   _id: Types.ObjectId;
@@ -40,6 +101,7 @@ type FaultReportLean = {
   faultDescription: string;
   status: string;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
+  serviceCategory?: string;
   createdAt?: Date;
 };
 
@@ -51,6 +113,7 @@ export type VehicleStatusSummary = {
   nextServiceDate: Date | null;
   mileage: number | null;
   issues: string[];
+  recommendations: MaintenanceRecommendation[];
   metrics: {
     daysSinceLastCheck: number | null;
     upcomingServiceInDays: number | null;
@@ -72,6 +135,7 @@ export type VehicleStatusSummary = {
       createdAt: Date | null;
     }>;
     lastCompletedServiceId?: string;
+    recommendations: MaintenanceRecommendation[];
   };
 };
 
@@ -119,6 +183,12 @@ const truncateText = (value: string, maxLength = 80) => {
   return `${value.slice(0, maxLength - 1)}…`;
 };
 
+const normalizeTag = (value?: string | null) =>
+  value ? value.toLowerCase().replace(/[^a-z0-9ğüşöçı]+/g, '_').replace(/^_+|_+$/g, '') : '';
+
+const isServiceType = (value: string): value is ServiceType =>
+  Object.values(ServiceType).includes(value as ServiceType);
+
 export class VehicleStatusService {
   static async getStatusForUser({
     userId,
@@ -147,12 +217,23 @@ export class VehicleStatusService {
 
     const summary = await this.computeSummary({
       userId,
+      tenantId,
       vehicle: resolvedVehicle,
       odometerEstimate: estimate,
     });
 
     if (persist) {
       await this.persistSummary(userId, summary);
+    }
+
+    if (summary.recommendations.length > 0) {
+      await this.recordRecommendationTelemetry({
+        tenantId,
+        userId,
+        vehicleId: summary.vehicleId,
+        recommendations: summary.recommendations,
+        odometerStatus: estimate?.status?.code ?? 'UNKNOWN',
+      });
     }
 
     return summary;
@@ -195,16 +276,22 @@ export class VehicleStatusService {
 
   private static async computeSummary({
     userId,
+    tenantId,
     vehicle,
     odometerEstimate,
   }: {
     userId: string;
+    tenantId: string;
     vehicle: VehicleSnapshot;
     odometerEstimate?: EstimateResult | null;
   }): Promise<VehicleStatusSummary> {
     const now = new Date();
     const userObjectId = toObjectId(userId);
-    const vehicleObjectId = toObjectId(vehicle._id) ?? new Types.ObjectId(vehicle._id);
+    const vehicleIdValue = (vehicle as any)._id;
+    const vehicleObjectId = toObjectId(vehicleIdValue);
+    if (!vehicleObjectId) {
+      throw new Error('Araç ID geçersiz: kilometre özeti hesaplanamadı.');
+    }
 
     const appointmentMatch: Record<string, any> = {
       vehicleId: vehicleObjectId,
@@ -366,7 +453,11 @@ export class VehicleStatusService {
       const priority = fault.priority ?? 'medium';
       const penalty = PRIORITY_PENALTIES[priority] ?? PRIORITY_PENALTIES.medium;
       const label = PRIORITY_LABELS[priority] ?? PRIORITY_LABELS.medium;
-      addIssue(`Arıza (${label}): ${truncateText(fault.faultDescription)}`, penalty);
+      const categoryLabel = getServiceCategoryDisplayName(fault.serviceCategory) ?? 'Bilinmeyen kategori';
+      const description = fault.faultDescription?.trim()
+        ? truncateText(fault.faultDescription, 160)
+        : 'Açıklama bulunmuyor.';
+      addIssue(`Arıza (${label}) · ${categoryLabel}: ${description}`, penalty);
     });
 
     if (typeof odometerConfidence === 'number') {
@@ -394,6 +485,24 @@ export class VehicleStatusService {
       overallStatus = 'critical';
     }
 
+    const lastServiceByType = this.buildLastServiceMap(appointments);
+    const activeFaultTags = this.extractFaultTags(activeFaults);
+    const kmPerDay =
+      odometerEstimate && odometerEstimate.rateKmPerDay > 0
+        ? odometerEstimate.rateKmPerDay
+        : DEFAULT_KM_PER_DAY;
+    const recommendationsContext = MaintenanceRecommendationEngine.buildContext({
+      vehicleCreatedAt: vehicle.createdAt ?? vehicle.updatedAt,
+      vehicleUpdatedAt: vehicle.updatedAt,
+      fuelType: (vehicle as any).fuelType,
+      transmission: (vehicle as any).transmission,
+      currentKm: mileage ?? null,
+      kmPerDay,
+      lastServiceByType,
+      activeFaultCategories: activeFaultTags,
+    });
+    const recommendations = MaintenanceRecommendationEngine.generateRecommendations(recommendationsContext);
+
     const summary: VehicleStatusSummary = {
       vehicleId: vehicleObjectId.toHexString(),
       overallStatus,
@@ -402,6 +511,7 @@ export class VehicleStatusService {
       nextServiceDate,
       mileage,
       issues,
+      recommendations,
       metrics: {
         daysSinceLastCheck,
         upcomingServiceInDays,
@@ -420,11 +530,23 @@ export class VehicleStatusService {
           id: fault._id.toHexString(),
           description: truncateText(fault.faultDescription, 120),
           priority: PRIORITY_LABELS[fault.priority ?? 'medium'] ?? 'Orta',
+          serviceCategory: getServiceCategoryDisplayName(fault.serviceCategory),
           createdAt: fault.createdAt ?? null,
         })),
         lastCompletedServiceId: lastCompletedService?._id?.toHexString(),
+        recommendations,
       },
     };
+
+    if (recommendations.length > 0) {
+      await this.recordRecommendationTelemetry({
+        tenantId,
+        userId,
+        vehicleId: vehicleObjectId.toHexString(),
+        recommendations,
+        odometerStatus: odometerEstimate?.status?.code ?? 'UNKNOWN',
+      });
+    }
 
     return summary;
   }
@@ -439,6 +561,7 @@ export class VehicleStatusService {
           nextServiceDate: summary.nextServiceDate ?? null,
           mileage: summary.mileage ?? null,
           issues: summary.issues,
+          recommendations: summary.recommendations,
         },
         $setOnInsert: {
           userId,
@@ -446,6 +569,95 @@ export class VehicleStatusService {
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     ).exec();
+  }
+
+  private static buildLastServiceMap(appointments: AppointmentLean[]): Map<ServiceType, { date: Date; appointmentId: string }> {
+    const map = new Map<ServiceType, { date: Date; appointmentId: string }>();
+    for (const appointment of appointments) {
+      if (appointment.status !== AppointmentStatus.COMPLETED) {
+        continue;
+      }
+      const type = String(appointment.serviceType);
+      if (!isServiceType(type)) {
+        continue;
+      }
+      const referenceDate =
+        appointment.completionDate || appointment.appointmentDate || appointment.updatedAt || appointment.createdAt;
+      if (!referenceDate) {
+        continue;
+      }
+      const existing = map.get(type);
+      if (!existing || referenceDate > existing.date) {
+        map.set(type, { date: referenceDate, appointmentId: appointment._id.toHexString() });
+      }
+    }
+    return map;
+  }
+
+  private static extractFaultTags(faults: FaultReportLean[]): Set<string> {
+    const tags = new Set<string>();
+    for (const fault of faults) {
+      if (fault.serviceCategory) {
+        const normalized = normalizeTag(fault.serviceCategory);
+        if (normalized) {
+          tags.add(normalized);
+          SERVICE_CATEGORY_TAGS[normalized]?.forEach((tag) => tags.add(tag));
+        }
+        SERVICE_CATEGORY_TAGS[fault.serviceCategory]?.forEach((tag) => tags.add(tag));
+      }
+      if (fault.priority === 'high' || fault.priority === 'urgent') {
+        tags.add('critical');
+      }
+      if (fault.faultDescription) {
+        const words = fault.faultDescription.toLowerCase().split(/[\s,.;:/\\]+/);
+        for (const word of words) {
+          const mapped = KEYWORD_TAGS[word];
+          if (mapped) {
+            mapped.forEach((tag) => tags.add(tag));
+          }
+        }
+      }
+    }
+    return tags;
+  }
+
+  private static async recordRecommendationTelemetry(params: {
+    tenantId: string;
+    userId: string;
+    vehicleId: string;
+    recommendations: MaintenanceRecommendation[];
+    odometerStatus: string;
+  }): Promise<void> {
+    try {
+      const analyticsPayload: any = {
+        tenantId: params.tenantId,
+        event: 'maintenance_recommendation_shown',
+        timestamp: new Date(),
+        properties: {
+          vehicleId: params.vehicleId,
+          recommendationCount: params.recommendations.length,
+          severities: params.recommendations.reduce<Record<string, number>>((acc, item) => {
+            acc[item.severity] = (acc[item.severity] ?? 0) + 1;
+            return acc;
+          }, {}),
+          ruleIds: params.recommendations.map((item) => item.ruleId),
+          odometerStatus: params.odometerStatus,
+        },
+      };
+
+      if (Types.ObjectId.isValid(params.userId)) {
+        analyticsPayload.userId = new Types.ObjectId(params.userId);
+      }
+
+      await AnalyticsEvent.create(analyticsPayload);
+    } catch (error) {
+      logger.warn('Maintenance recommendation telemetry kaydedilemedi', {
+        tenantId: params.tenantId,
+        userId: params.userId,
+        vehicleId: params.vehicleId,
+        error,
+      });
+    }
   }
 }
 

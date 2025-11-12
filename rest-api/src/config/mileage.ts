@@ -1,8 +1,11 @@
 import { OdometerEventSource, OdometerEventEvidenceType } from '../models/OdometerEvent';
+import { MAX_OBSERVED_RATE_PER_DAY, DEFAULT_KM_PER_DAY } from '../../../shared/config/mileage';
 
 type SourceEvidenceKey = `${OdometerEventSource}:${OdometerEventEvidenceType}`;
 
-export const DEFAULT_RATE_KM_PER_DAY = Number(process.env.MILEAGE_DEFAULT_RATE_KM_PER_DAY || 30);
+export const DEFAULT_RATE_KM_PER_DAY = Number(
+  process.env.MILEAGE_DEFAULT_RATE_KM_PER_DAY || DEFAULT_KM_PER_DAY
+);
 export const DEFAULT_CONFIDENCE = Number(process.env.MILEAGE_DEFAULT_CONFIDENCE || 0.3);
 
 export const EWMA_ALPHA_MAP: Record<SourceEvidenceKey, number> = {
@@ -42,6 +45,14 @@ export const RATE_MIN = 0;
 export const RATE_MAX = 300;
 export const SOFT_OUTLIER_THRESHOLD = 300;
 export const HARD_OUTLIER_THRESHOLD = 500;
+
+export const ABS_MAX_RATE_PER_DAY = Number(
+  process.env.MILEAGE_MAX_RATE_PER_DAY || MAX_OBSERVED_RATE_PER_DAY
+);
+export const STALE_THRESHOLD_DAYS = Number(process.env.MILEAGE_STALE_THRESHOLD_DAYS || 90);
+export const CRITICAL_STALE_THRESHOLD_DAYS = Number(process.env.MILEAGE_CRITICAL_STALE_THRESHOLD_DAYS || 180);
+export const LOW_CONFIDENCE_THRESHOLD = Number(process.env.MILEAGE_LOW_CONFIDENCE_THRESHOLD || 0.55);
+export const CRITICAL_CONFIDENCE_THRESHOLD = Number(process.env.MILEAGE_CRITICAL_CONFIDENCE_THRESHOLD || 0.35);
 
 export const CACHE_TTL_SECONDS = Number(process.env.MILEAGE_CACHE_TTL_SECONDS || 60 * 60 * 24);
 

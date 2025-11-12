@@ -12,6 +12,12 @@ export interface OdometerSummaryProps {
     rateKmPerDay: number;
     confidence: number;
     isApproximate: boolean;
+    status?: {
+      code: 'OK' | 'NO_BASELINE' | 'STALE' | 'LOW_CONFIDENCE';
+      severity: 'info' | 'warning' | 'critical';
+      message: string;
+    };
+    warnings?: string[];
   };
   verification?: {
     status?: 'verified' | 'missing' | 'failed';
@@ -51,6 +57,34 @@ const formatDailyRate = (value?: number) => {
   return Math.round(value).toLocaleString('tr-TR');
 };
 
+const statusSeverityStyles: Record<
+  'info' | 'warning' | 'critical',
+  { container: { backgroundColor: string }; icon: string; text: string }
+> = {
+  info: {
+    container: { backgroundColor: '#E6F0FF' },
+    icon: '#1D4ED8',
+    text: '#1D4ED8',
+  },
+  warning: {
+    container: { backgroundColor: '#FFF6E6' },
+    icon: '#B15D00',
+    text: '#B15D00',
+  },
+  critical: {
+    container: { backgroundColor: '#FDECEC' },
+    icon: '#D7263D',
+    text: '#D7263D',
+  },
+};
+
+const statusIconMap: Record<'OK' | 'NO_BASELINE' | 'STALE' | 'LOW_CONFIDENCE', string> = {
+  OK: 'check-circle-outline',
+  NO_BASELINE: 'alert-circle-outline',
+  STALE: 'clock-alert',
+  LOW_CONFIDENCE: 'shield-alert',
+};
+
 export const OdometerSummary: React.FC<OdometerSummaryProps> = memo(
   ({ estimate, verification, loading, onUpdatePress, hasOfflineSubmission }) => {
     if (loading) {
@@ -79,16 +113,36 @@ export const OdometerSummary: React.FC<OdometerSummaryProps> = memo(
 
     const approxLabel = estimate.isApproximate ? 'yaklaşık' : 'doğrulanmış';
     const verificationStatus = verification?.status;
+    const estimateWarnings = estimate.warnings ?? [];
+    const combinedWarnings = Array.from(
+      new Set([...estimateWarnings, ...(verification?.warnings ?? [])])
+    );
+    const status = estimate.status;
+    const statusSeverity = status?.severity ?? 'info';
+    const statusStyles = statusSeverityStyles[statusSeverity];
+    const statusIcon = statusIconMap[status?.code ?? 'OK'];
 
     return (
       <View style={styles.container} accessible accessibilityRole="summary">
+        {status && status.code !== 'OK' && (
+          <View style={[styles.statusAlert, statusStyles.container]}>
+            <MaterialCommunityIcons
+              name={statusIcon as keyof typeof MaterialCommunityIcons.glyphMap}
+              size={18}
+              color={statusStyles.icon}
+            />
+            <Text style={[styles.statusAlertText, { color: statusStyles.text }]}>{status.message}</Text>
+          </View>
+        )}
         <View style={styles.headerRow}>
           <View>
             <Text
               style={styles.estimate}
               accessibilityLabel={`Araç kilometresi ${approxLabel} ${formatKm(estimate.displayKm)} kilometre`}
             >
-              <Text style={styles.approxSymbol}>≈</Text>
+              {(status?.code !== 'OK' || estimate.isApproximate) && (
+                <Text style={styles.approxSymbol}>≈</Text>
+              )}
               {formatKm(estimate.displayKm)} km
             </Text>
             <Text style={styles.metaText}>
@@ -148,9 +202,9 @@ export const OdometerSummary: React.FC<OdometerSummaryProps> = memo(
           </View>
         )}
 
-        {verification?.warnings && verification.warnings.length > 0 && (
+        {combinedWarnings.length > 0 && (
           <View style={styles.warningContainer}>
-            {verification.warnings.map((warning, index) => (
+            {combinedWarnings.map((warning, index) => (
               <Text key={warning + index} style={styles.warningText}>
                 • {warning}
               </Text>
@@ -254,6 +308,19 @@ const styles = StyleSheet.create({
   warningText: {
     color: '#8A4B08',
     fontSize: 12,
+  },
+  statusAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 10,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  statusAlertText: {
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
   },
   emptyState: {
     alignItems: 'flex-start',

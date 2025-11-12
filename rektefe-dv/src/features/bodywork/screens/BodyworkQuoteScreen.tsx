@@ -11,10 +11,12 @@ import {
   Modal,
   TextInput,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { apiService } from '@/shared/services/api';
+import { RootStackParamList } from '@/navigation/AppNavigator';
 
 interface QuoteBreakdown {
   partsToReplace: Array<{
@@ -56,9 +58,12 @@ interface BodyworkJob {
   status: string;
 }
 
+type BodyworkQuoteNavigationProp = StackNavigationProp<RootStackParamList, 'BodyworkQuote'>;
+type BodyworkQuoteRouteProp = RouteProp<RootStackParamList, 'BodyworkQuote'>;
+
 export default function BodyworkQuoteScreen() {
-  const navigation = useNavigation();
-  const route = useRoute();
+  const navigation = useNavigation<BodyworkQuoteNavigationProp>();
+  const route = useRoute<BodyworkQuoteRouteProp>();
   const { theme } = useTheme();
   const styles = createStyles(theme.colors);
 
@@ -117,7 +122,7 @@ export default function BodyworkQuoteScreen() {
                         navigation.goBack();
                         // İş detayına geri dön - oradan ödeme yapılacak
                         setTimeout(() => {
-                          navigation.navigate('BodyworkJobDetail' as never, { jobId } as never);
+                          navigation.navigate('BodyworkJobDetail', { jobId });
                         }, 500);
                       },
                     },

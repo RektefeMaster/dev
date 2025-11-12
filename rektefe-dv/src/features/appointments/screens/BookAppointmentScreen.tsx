@@ -332,15 +332,15 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
               quotedPrice: price,
               price: price,
               finalPrice: price,
-              priceSource: 'fault_report_quote'
+              priceSource: 'fault_report_quote' as const,
             }),
             ...(odometerInput
               ? {
                   odometer: {
                     km: Number(odometerInput),
                     timestampUtc: new Date().toISOString(),
-                    source: 'user_manual',
-                    evidenceType: 'none',
+                    source: 'user_manual' as const,
+                    evidenceType: 'none' as const,
                   },
                 }
               : {}),
@@ -371,8 +371,8 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
                 odometer: {
                   km: Number(odometerInput),
                   timestampUtc: new Date().toISOString(),
-                  source: 'user_manual',
-                  evidenceType: 'none',
+                  source: 'user_manual' as const,
+                  evidenceType: 'none' as const,
                 },
               }
             : {}),

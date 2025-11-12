@@ -62,6 +62,8 @@ router.get('/overview', auth, async (req: Request, res: Response) => {
           confidence: estimate.confidence,
           isApproximate: estimate.isApproximate,
           seriesId: estimate.sourceSeriesId,
+          status: estimate.status,
+          warnings: estimate.warnings,
         };
       } catch (estimateError) {
         const errorResponse = createErrorResponse(
