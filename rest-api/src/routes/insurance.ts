@@ -15,19 +15,18 @@ router.get('/:userId', auth, async (req: Request, res: Response) => {
       });
     }
 
-    let info = await InsurancePolicyModel.findOne({ userId: req.params.userId })
+    const insuranceDoc = await InsurancePolicyModel.findOne({ userId: req.params.userId })
       .sort({ endDate: -1 })
-      .lean()
       .exec();
 
-    if (!info) {
-      info = createSampleInsurancePolicy(req.params.userId);
-    }
+    const info = insuranceDoc
+      ? insuranceDoc.toObject()
+      : createSampleInsurancePolicy(req.params.userId);
 
     return res.json({
       success: true,
       data: info,
-      message: info ? 'Sigorta bilgisi getirildi.' : 'Sigorta kaydı bulunamadı.',
+      message: insuranceDoc ? 'Sigorta bilgisi getirildi.' : 'Sigorta kaydı bulunamadı.',
     });
   } catch (error: any) {
     return res.status(500).json({

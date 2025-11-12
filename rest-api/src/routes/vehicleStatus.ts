@@ -15,19 +15,20 @@ router.get('/:userId', auth, async (req: Request, res: Response) => {
       });
     }
 
-    let status = await VehicleStatusRecordModel.findOne({ userId: req.params.userId })
+    const vehicleStatusDoc = await VehicleStatusRecordModel.findOne({ userId: req.params.userId })
       .sort({ lastCheck: -1 })
-      .lean()
       .exec();
 
-    if (!status) {
-      status = createSampleVehicleStatus(req.params.userId);
-    }
+    const status = vehicleStatusDoc
+      ? vehicleStatusDoc.toObject()
+      : createSampleVehicleStatus(req.params.userId);
 
     return res.json({
       success: true,
       data: status,
-      message: status ? 'Araç durumu başarıyla getirildi.' : 'Araç durumu kaydı bulunamadı.',
+      message: vehicleStatusDoc
+        ? 'Araç durumu başarıyla getirildi.'
+        : 'Araç durumu kaydı bulunamadı.',
     });
   } catch (error: any) {
     return res.status(500).json({

@@ -15,19 +15,20 @@ router.get('/:userId', auth, async (req: Request, res: Response) => {
       });
     }
 
-    let status = await TireStatusRecordModel.findOne({ userId: req.params.userId })
+    const tireStatusDoc = await TireStatusRecordModel.findOne({ userId: req.params.userId })
       .sort({ lastCheck: -1 })
-      .lean()
       .exec();
 
-    if (!status) {
-      status = createSampleTireStatus(req.params.userId);
-    }
+    const status = tireStatusDoc
+      ? tireStatusDoc.toObject()
+      : createSampleTireStatus(req.params.userId);
 
     return res.json({
       success: true,
       data: status,
-      message: status ? 'Lastik durumu başarıyla getirildi.' : 'Lastik durumu kaydı bulunamadı.',
+      message: tireStatusDoc
+        ? 'Lastik durumu başarıyla getirildi.'
+        : 'Lastik durumu kaydı bulunamadı.',
     });
   } catch (error: any) {
     return res.status(500).json({

@@ -19,17 +19,22 @@ router.get('/', auth, async (req: Request, res: Response) => {
     let records = await MaintenanceRecordModel.find({ userId })
       .sort({ date: -1 })
       .limit(10)
-      .lean()
       .exec();
 
-    if (!records.length) {
-      records = createSampleMaintenanceRecords(userId);
+    const plainRecords = records.map((record) => record.toObject());
+
+    if (!plainRecords.length) {
+      return res.json({
+        success: true,
+        data: createSampleMaintenanceRecords(userId),
+        message: 'Kayıt bulunamadı.',
+      });
     }
 
     return res.json({
       success: true,
-      data: records,
-      message: records.length ? 'Bakım kayıtları başarıyla getirildi.' : 'Kayıt bulunamadı.',
+      data: plainRecords,
+      message: 'Bakım kayıtları başarıyla getirildi.',
     });
   } catch (error: any) {
     return res.status(500).json({

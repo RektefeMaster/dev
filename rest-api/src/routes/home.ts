@@ -28,25 +28,17 @@ router.get('/overview', auth, async (req: Request, res: Response) => {
 
     const userId = req.user.userId;
 
-    const [maintenance, insurance, vehicleStatus, tireStatus] = await Promise.all([
-      MaintenanceRecordModel.find({ userId })
-        .sort({ date: -1 })
-        .limit(10)
-        .lean()
-        .exec(),
-      InsurancePolicyModel.findOne({ userId })
-        .sort({ endDate: -1 })
-        .lean()
-        .exec(),
-      VehicleStatusRecordModel.findOne({ userId })
-        .sort({ lastCheck: -1 })
-        .lean()
-        .exec(),
-      TireStatusRecordModel.findOne({ userId })
-        .sort({ lastCheck: -1 })
-        .lean()
-        .exec(),
+    const [maintenanceDocs, insuranceDoc, vehicleStatusDoc, tireStatusDoc] = await Promise.all([
+      MaintenanceRecordModel.find({ userId }).sort({ date: -1 }).limit(10).exec(),
+      InsurancePolicyModel.findOne({ userId }).sort({ endDate: -1 }).exec(),
+      VehicleStatusRecordModel.findOne({ userId }).sort({ lastCheck: -1 }).exec(),
+      TireStatusRecordModel.findOne({ userId }).sort({ lastCheck: -1 }).exec(),
     ]);
+
+    const maintenance = maintenanceDocs?.map((doc) => doc.toObject()) ?? [];
+    const insurance = insuranceDoc ? insuranceDoc.toObject() : null;
+    const vehicleStatus = vehicleStatusDoc ? vehicleStatusDoc.toObject() : null;
+    const tireStatus = tireStatusDoc ? tireStatusDoc.toObject() : null;
 
     const maintenanceRecords =
       maintenance && maintenance.length ? maintenance : createSampleMaintenanceRecords(userId);
