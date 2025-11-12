@@ -98,13 +98,13 @@ const GarageScreen = () => {
     setStatusError(null);
 
     try {
-      const response = await axios.get(`${API_URL}/vehicle-status/${userId}`, {
+      const response = await axios.get(`${API_URL}/home/overview`, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 15000,
       });
 
-      if (response.data?.success && response.data.data) {
-        setVehicleStatus(response.data.data);
+      if (response.data?.success && response.data.data?.vehicleStatus) {
+        setVehicleStatus(response.data.data.vehicleStatus);
       } else {
         setVehicleStatus(null);
       }
