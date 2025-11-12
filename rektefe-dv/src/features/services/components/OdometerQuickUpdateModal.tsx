@@ -17,6 +17,7 @@ import { MAX_OBSERVED_RATE_PER_DAY } from '@shared/config/mileage';
 export interface OdometerQuickUpdatePayload {
   km: number;
   timestampUtc: string;
+  source: 'user_manual';
   notes?: string;
   evidenceType?: 'none' | 'photo' | 'document';
   odometerReset?: boolean;
@@ -119,6 +120,7 @@ export const OdometerQuickUpdateModal: React.FC<OdometerQuickUpdateModalProps> =
     const payload: OdometerQuickUpdatePayload = {
       km,
       timestampUtc: new Date().toISOString(),
+      source: 'user_manual',
       notes: notes?.trim()?.length ? notes.trim() : undefined,
       evidenceType: 'none',
       clientRequestId: `mobile:${Date.now()}`,

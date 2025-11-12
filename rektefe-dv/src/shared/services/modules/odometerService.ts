@@ -85,7 +85,14 @@ export const odometerService = {
   },
 
   async submitEvent(vehicleId: string, payload: OdometerEventPayload) {
-    const response = await apiClient.post(`/vehicles/${vehicleId}/odometer/events`, payload);
+    const normalizedPayload: OdometerEventPayload = {
+      ...payload,
+      timestampUtc: payload.timestampUtc ?? new Date().toISOString(),
+      source: payload.source ?? 'user_manual',
+      evidenceType: payload.evidenceType ?? 'none',
+    };
+
+    const response = await apiClient.post(`/vehicles/${vehicleId}/odometer/events`, normalizedPayload);
     return response.data?.data as OdometerEventResponse;
   },
 
