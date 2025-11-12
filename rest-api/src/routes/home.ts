@@ -20,26 +20,30 @@ router.get('/overview', auth, async (req: Request, res: Response) => {
     const userId = req.user.userId;
 
     const maintenanceDocs = await MaintenanceRecordModel.find({ userId })
-      .sort({ date: 'desc' })
+      .sort({ date: -1 })
       .limit(10)
+      .lean()
       .exec();
 
     const insuranceDoc = await InsurancePolicyModel.findOne({ userId })
-      .sort({ endDate: 'desc' })
+      .sort({ endDate: -1 })
+      .lean()
       .exec();
 
     const vehicleStatusDoc = await VehicleStatusRecordModel.findOne({ userId })
-      .sort({ lastCheck: 'desc' })
+      .sort({ lastCheck: -1 })
+      .lean()
       .exec();
 
     const tireStatusDoc = await TireStatusRecordModel.findOne({ userId })
-      .sort({ lastCheck: 'desc' })
+      .sort({ lastCheck: -1 })
+      .lean()
       .exec();
 
-    const maintenanceRecords = maintenanceDocs.map((doc) => doc.toObject());
-    const insurancePolicy = insuranceDoc ? insuranceDoc.toObject() : null;
-    const vehicleStatus = vehicleStatusDoc ? vehicleStatusDoc.toObject() : null;
-    const tireStatus = tireStatusDoc ? tireStatusDoc.toObject() : null;
+    const maintenanceRecords = maintenanceDocs ?? [];
+    const insurancePolicy = insuranceDoc ?? null;
+    const vehicleStatus = vehicleStatusDoc ?? null;
+    const tireStatus = tireStatusDoc ?? null;
 
     return res.json({
       success: true,

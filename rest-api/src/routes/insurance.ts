@@ -15,7 +15,8 @@ router.get('/:userId', auth, async (req: Request, res: Response) => {
     }
 
     const insuranceDoc = await InsurancePolicyModel.findOne({ userId: req.params.userId })
-      .sort({ endDate: 'desc' })
+      .sort({ endDate: -1 })
+      .lean()
       .exec();
 
     if (!insuranceDoc) {
@@ -24,8 +25,7 @@ router.get('/:userId', auth, async (req: Request, res: Response) => {
         message: 'Sigorta kaydı bulunamadı.',
       });
     }
-
-    const info = insuranceDoc.toObject();
+    const info = insuranceDoc;
 
     return res.json({
       success: true,

@@ -16,11 +16,12 @@ router.get('/', auth, async (req: Request, res: Response) => {
 
     const userId = req.user.userId;
     const records = await MaintenanceRecordModel.find({ userId })
-      .sort({ date: 'desc' })
+      .sort({ date: -1 })
       .limit(10)
+      .lean()
       .exec();
 
-    const plainRecords = records.map((record) => record.toObject());
+    const plainRecords = records ?? [];
     const message = plainRecords.length
       ? 'Bakım kayıtları başarıyla getirildi.'
       : 'Bakım kaydı bulunamadı.';
