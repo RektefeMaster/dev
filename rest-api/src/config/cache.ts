@@ -98,6 +98,8 @@ export class CacheManager {
   }
 }
 
+export const getRedisClient = () => redisClient;
+
 // Common cache keys and TTL configurations
 export const CacheKeys = {
   // User caches (short TTL due to frequent updates)

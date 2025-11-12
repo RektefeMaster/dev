@@ -17,7 +17,7 @@ import { securityHeaders, requestId } from './middleware/optimizedAuth';
 import Logger from './utils/logger';
 import { apiLimiter } from './middleware/rateLimiter';
 import { requestTimeout } from './middleware/requestTimeout';
-import { 
+import {
   initializeMonitoring, 
   requestLogger, 
   monitoringMiddleware,
@@ -27,6 +27,7 @@ import {
 import schedule from 'node-schedule';
 import { PartsService } from './services/parts.service';
 import { AppointmentService } from './services/appointment.service';
+import { createFeatureFlagMiddleware } from './middleware/featureFlags';
 
 // Config import (dependency olabilecek route'lardan önce)
 import { MONGODB_URI, MONGODB_OPTIONS, PORT as CONFIG_PORT, CORS_ORIGIN, JWT_SECRET } from './config';
@@ -41,6 +42,7 @@ import tireStatusRoutes from './routes/tireStatus';
 // import rekaiRoutes from './routes/rekai';
 import userRoutes from './routes/user';
 import vehiclesRoutes from './routes/vehicles';
+import odometerRoutes from './routes/odometer';
 import serviceCategoryRoutes from './routes/serviceCategory';
 import mechanicServiceRoutes from './routes/mechanicService';
 import supportRoutes from './routes/support';
@@ -79,6 +81,8 @@ import campaignsRoutes from './routes/campaigns';
 import adsRoutes from './routes/ads';
 import homeRoutes from './routes/home';
 import mechanicReportsRoutes from './routes/mechanicReports';
+import analyticsRoutes from './routes/analytics';
+import odometerRoutes from './routes/odometer';
 
 // .env dosyasını yükle
 dotenv.config();
@@ -95,6 +99,7 @@ app.use(securityHeaders);
 app.use(requestTimeout(30000)); // 🚀 STABILITY: 30 saniye request timeout
 app.use(monitoringMiddleware);
 app.use(requestLogger);
+app.use(createFeatureFlagMiddleware(['akilli_kilometre', 'akilli_kilometre_shadow']));
 
 // Rate limiting (tüm API route'ları için)
 app.use('/api/', apiLimiter);
@@ -121,7 +126,7 @@ app.use(cors({
   },
   credentials: true, // Always allow credentials for security
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'X-Tenant-Id', 'X-Tenant', 'X-User-Cohorts', 'X-Feature-Flags'],
 }));
 app.use(express.json());
 
@@ -171,6 +176,11 @@ import './models/WithdrawalRequest';
 import './models/Wallet';
 import './models/PartsInventory';
 import './models/PartsReservation';
+import './models/OdometerEvent';
+import './models/MileageModel';
+import './models/OdometerAuditLog';
+import './models/FeatureFlag';
+import './models/AnalyticsEvent';
 
 // HTTP sunucusu oluştur
 const httpServer = createServer(app);
@@ -342,6 +352,7 @@ app.use('/api/tire-status', tireStatusRoutes);
 
 app.use('/api/appointment-ratings', appointmentRatingRoutes);
 app.use('/api/ratings', appointmentRatingRoutes);
+app.use('/api/vehicles', odometerRoutes);
 app.use('/api/vehicles', vehiclesRoutes);
 app.use('/api/drivers', vehiclesRoutes); // Frontend uyumluluğu için
 app.use('/api/service-categories', serviceCategoryRoutes);
@@ -374,6 +385,7 @@ app.use('/api/upload', uploadRoutes); // Upload routes /api/upload prefix'i ile 
 app.use('/api/campaigns', campaignsRoutes);
 app.use('/api/ads', adsRoutes);
 app.use('/api/home', homeRoutes);
+app.use('/api/analytics', analyticsRoutes);
 app.use('/api/customers', customersRoutes);
 app.use('/api/suppliers', suppliersRoutes);
 app.use('/api/status-notifications', statusNotificationsRoutes);

@@ -8,6 +8,9 @@ let isRateLimited = false;
 let rateLimitResetTime: number | null = null;
 let rateLimitTimer: NodeJS.Timeout | null = null;
 
+const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000; // 15 dakika
+const TOKEN_REFRESH_BUFFER_MS = 60 * 1000; // 1 dakika önce yenile
+
 export const apiClient = axios.create({
   baseURL: API_CONFIG.BASE_URL,
   timeout: API_CONFIG.TIMEOUT,
@@ -99,6 +102,147 @@ const getRateLimitResetTime = (error: any): number => {
   return 15 * 60 * 1000;
 };
 
+const shouldRefreshTokenProactively = (issuedAt: number | null): boolean => {
+  if (!issuedAt) {
+    return false;
+  }
+
+  const tokenAge = Date.now() - issuedAt;
+  return tokenAge >= ACCESS_TOKEN_TTL_MS - TOKEN_REFRESH_BUFFER_MS;
+};
+
+const refreshAccessToken = async (): Promise<string> => {
+  if (isRefreshing) {
+    return new Promise((resolve, reject) => {
+      failedQueue.push({ resolve, reject });
+    }) as Promise<string>;
+  }
+
+  isRefreshing = true;
+
+  try {
+    const refreshToken = await authStorage.getRefreshToken();
+
+    if (!refreshToken) {
+      if (__DEV__) {
+        console.error('Refresh token bulunamadı');
+      }
+      throw new Error('No refresh token');
+    }
+
+    if (__DEV__) {
+      console.log('Token yenileniyor...');
+    }
+
+    const response = await axios.post(
+      `${API_CONFIG.BASE_URL}/auth/refresh-token`,
+      { refreshToken },
+      { timeout: 10000 }
+    );
+
+    if (response.data.success && response.data.data?.token) {
+      const newToken = response.data.data.token;
+      const newRefreshToken = response.data.data.refreshToken;
+      const userData = response.data.data.user;
+
+      await authStorage.setAuthData({
+        token: newToken,
+        refreshToken: newRefreshToken ?? undefined,
+        userId: userData?._id || userData?.id,
+        userData,
+        tokenIssuedAt: Date.now(),
+      });
+
+      apiClient.defaults.headers.common['Authorization'] = 'Bearer ' + newToken;
+
+      if (__DEV__) {
+        console.log('Token başarıyla yenilendi');
+      }
+
+      processQueue(null, newToken);
+      return newToken;
+    }
+
+    if (__DEV__) {
+      console.error('Refresh response başarısız:', response.data);
+    }
+    throw new Error('Token yenileme başarısız: Invalid response');
+  } catch (refreshError: any) {
+    processQueue(refreshError, null);
+
+    if (__DEV__) {
+      console.error('Token yenileme başarısız:', refreshError.message);
+      if (refreshError.response?.status >= 500) {
+        console.error('Error Response:', refreshError.response?.data);
+      }
+    }
+
+    if (refreshError.response?.status === 429 || isRateLimited) {
+      if (__DEV__) {
+        console.warn('Token refresh rate limit hatası (429), logout yapılmıyor');
+      }
+
+      if (refreshError.response?.status === 429) {
+        const resetTimeMs = getRateLimitResetTime(refreshError);
+        setRateLimitStatus(resetTimeMs);
+      }
+
+      throw refreshError;
+    }
+
+    if (!refreshError.response) {
+      if (__DEV__) {
+        console.warn('Token refresh network hatası, logout yapılmıyor');
+      }
+      throw refreshError;
+    }
+
+    if (refreshError.response?.status >= 500) {
+      if (__DEV__) {
+        console.warn('Token refresh sunucu hatası, logout yapılmıyor');
+      }
+      throw refreshError;
+    }
+
+    if (refreshError.response?.status === 401) {
+      const errorCode = refreshError.response?.data?.error?.code;
+      const errorMessage = refreshError.response?.data?.error?.message || '';
+
+      const isRealAuthError =
+        errorCode === 'INVALID_TOKEN' ||
+        errorCode === 'TOKEN_EXPIRED' ||
+        errorCode === 'USER_NOT_FOUND' ||
+        errorMessage.includes('Geçersiz refresh token') ||
+        errorMessage.includes('refresh token süresi dolmuş') ||
+        errorMessage.includes('Kullanıcı bulunamadı');
+
+      if (isRealAuthError) {
+        if (__DEV__) {
+          console.warn('Refresh token geçersiz, oturum sonlandırılıyor. Error Code:', errorCode);
+        }
+
+        await authStorage.clearAuthData();
+
+        const customError = new Error('Oturumunuz sonlandırıldı. Lütfen tekrar giriş yapın.');
+        (customError as any).isAuthError = true;
+        throw customError;
+      }
+
+      if (__DEV__) {
+        console.warn('401 hatası ama gerçek auth hatası değil. Error Code:', errorCode);
+      }
+      throw refreshError;
+    }
+
+    if (__DEV__) {
+      console.warn('Token refresh beklenmedik hata');
+    }
+    throw refreshError;
+  } finally {
+    isRefreshing = false;
+  }
+};
+
 apiClient.interceptors.request.use(
   async config => {
     try {
@@ -108,9 +252,34 @@ apiClient.interceptors.request.use(
         console.warn(`Rate limit aktif (${remainingMinutes} dakika kaldı): ${config.url}`);
       }
 
-      const token = await authStorage.getToken();
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+      const [storedToken, tokenIssuedAt] = await Promise.all([
+        authStorage.getToken(),
+        authStorage.getTokenIssuedAt(),
+      ]);
+
+      const requestUrl = config.url || '';
+      const skipProactiveRefresh =
+        requestUrl.includes('/auth/login') ||
+        requestUrl.includes('/auth/register') ||
+        requestUrl.includes('/auth/refresh-token');
+
+      let tokenToUse = storedToken;
+
+      if (tokenToUse && !skipProactiveRefresh && shouldRefreshTokenProactively(tokenIssuedAt)) {
+        try {
+          tokenToUse = await refreshAccessToken();
+        } catch (refreshError: any) {
+          if (__DEV__) {
+            console.warn(
+              'Proaktif token yenileme başarısız:',
+              refreshError?.message || refreshError?.toString() || refreshError
+            );
+          }
+        }
+      }
+
+      if (tokenToUse) {
+        config.headers.Authorization = `Bearer ${tokenToUse}`;
       }
 
       config.headers['X-Request-ID'] = `req-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -169,163 +338,29 @@ apiClient.interceptors.response.use(
     }
 
     if (error.response?.status === 401 && !originalRequest._retry && !isRateLimited) {
-      if (isRefreshing) {
-        if (__DEV__) {
-          console.log('Token yenileme devam ediyor, kuyrukta bekleniyor...');
-        }
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        })
-          .then(token => {
-            originalRequest.headers['Authorization'] = 'Bearer ' + token;
-            originalRequest.headers.common = originalRequest.headers.common || {};
-            originalRequest.headers.common['Authorization'] = 'Bearer ' + token;
-            return apiClient(originalRequest);
-          })
-          .catch(Promise.reject);
-      }
-
       originalRequest._retry = true;
-      isRefreshing = true;
 
       try {
-        const refreshToken = await authStorage.getRefreshToken();
+        const newToken = await refreshAccessToken();
 
-        if (!refreshToken) {
-          if (__DEV__) {
-            console.error('Refresh token bulunamadı');
-          }
-          throw new Error('No refresh token');
-        }
+        originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
+        originalRequest.headers.common = originalRequest.headers.common || {};
+        originalRequest.headers.common['Authorization'] = 'Bearer ' + newToken;
 
-        if (__DEV__) {
-          console.log('Token yenileniyor...');
-        }
-
-        const response = await axios.post(
-          `${API_CONFIG.BASE_URL}/auth/refresh-token`,
-          { refreshToken },
-          { timeout: 10000 }
-        );
-
-        if (response.data.success && response.data.data?.token) {
-          const newToken = response.data.data.token;
-          const newRefreshToken = response.data.data.refreshToken;
-          const userData = response.data.data.user;
-
-          if (__DEV__) {
-            console.log('Yeni token alındı');
-          }
-
-          await authStorage.setAuthData({
-            token: newToken,
-            refreshToken: newRefreshToken ?? undefined,
-            userId: userData?._id || userData?.id,
-            userData,
-          });
-
-          apiClient.defaults.headers.common['Authorization'] = 'Bearer ' + newToken;
-          originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
-          originalRequest.headers.common = originalRequest.headers.common || {};
-          originalRequest.headers.common['Authorization'] = 'Bearer ' + newToken;
-
-          const updatedConfig = {
-            ...originalRequest,
-            headers: {
-              ...originalRequest.headers,
+        const updatedConfig = {
+          ...originalRequest,
+          headers: {
+            ...originalRequest.headers,
+            Authorization: 'Bearer ' + newToken,
+            common: {
+              ...originalRequest.headers.common,
               Authorization: 'Bearer ' + newToken,
-              common: {
-                ...originalRequest.headers.common,
-                Authorization: 'Bearer ' + newToken,
-              },
             },
-          };
+          },
+        };
 
-          if (__DEV__) {
-            console.log('Token başarıyla yenilendi');
-          }
-
-          processQueue(null, newToken);
-          isRefreshing = false;
-
-          return apiClient(updatedConfig);
-        }
-
-        if (__DEV__) {
-          console.error('Refresh response başarısız:', response.data);
-        }
-        throw new Error('Token yenileme başarısız: Invalid response');
+        return apiClient(updatedConfig);
       } catch (refreshError: any) {
-        if (__DEV__) {
-          console.error('Token yenileme başarısız:', refreshError.message);
-          if (refreshError.response?.status >= 500) {
-            console.error('Error Response:', refreshError.response?.data);
-          }
-        }
-
-        processQueue(refreshError, null);
-        isRefreshing = false;
-
-        if (refreshError.response?.status === 429 || isRateLimited) {
-          if (__DEV__) {
-            console.warn('Token refresh rate limit hatası (429), logout yapılmıyor');
-          }
-
-          if (refreshError.response?.status === 429) {
-            const resetTimeMs = getRateLimitResetTime(refreshError);
-            setRateLimitStatus(resetTimeMs);
-          }
-
-          return Promise.reject(refreshError);
-        }
-
-        if (!refreshError.response) {
-          if (__DEV__) {
-            console.warn('Token refresh network hatası, logout yapılmıyor');
-          }
-          return Promise.reject(refreshError);
-        }
-
-        if (refreshError.response?.status >= 500) {
-          if (__DEV__) {
-            console.warn('Token refresh sunucu hatası, logout yapılmıyor');
-          }
-          return Promise.reject(refreshError);
-        }
-
-        if (refreshError.response?.status === 401) {
-          const errorCode = refreshError.response?.data?.error?.code;
-          const errorMessage = refreshError.response?.data?.error?.message || '';
-
-          const isRealAuthError =
-            errorCode === 'INVALID_TOKEN' ||
-            errorCode === 'TOKEN_EXPIRED' ||
-            errorCode === 'USER_NOT_FOUND' ||
-            errorMessage.includes('Geçersiz refresh token') ||
-            errorMessage.includes('refresh token süresi dolmuş') ||
-            errorMessage.includes('Kullanıcı bulunamadı');
-
-          if (isRealAuthError) {
-            if (__DEV__) {
-              console.warn('Refresh token geçersiz, oturum sonlandırılıyor. Error Code:', errorCode);
-            }
-
-            await authStorage.clearAuthData();
-
-            const customError = new Error('Oturumunuz sonlandırıldı. Lütfen tekrar giriş yapın.');
-            (customError as any).isAuthError = true;
-            return Promise.reject(customError);
-          }
-
-          if (__DEV__) {
-            console.warn('401 hatası ama gerçek auth hatası değil. Error Code:', errorCode);
-          }
-          return Promise.reject(refreshError);
-        }
-
-        if (__DEV__) {
-          console.warn('Token refresh beklenmedik hata');
-        }
         return Promise.reject(refreshError);
       }
     }

@@ -249,6 +249,12 @@ export interface CreateAppointmentRequest {
   location: Location;
   estimatedDuration?: number;
   specialInstructions?: string;
+  odometer?: {
+    km: number;
+    timestampUtc: string;
+    source?: 'user_manual' | 'service' | 'inspection' | 'system_import';
+    evidenceType?: 'none' | 'photo' | 'document';
+  };
 }
 
 export interface UpdateAppointmentRequest {

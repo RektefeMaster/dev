@@ -125,6 +125,12 @@ export interface IAppointment extends Document {
     reason: string;
     timestamp: Date;
   };
+  odometerVerification?: {
+    status: 'verified' | 'missing' | 'failed';
+    message?: string;
+    lastUpdated?: Date;
+    warnings?: string[];
+  };
   
   createdAt: Date;
   updatedAt: Date;
@@ -411,7 +417,18 @@ const AppointmentSchema: Schema = new Schema({
     reason: { type: String, required: true },
     date: { type: Date, default: Date.now },
     mechanicId: { type: String, required: true }
-  }]
+  }],
+  odometerVerification: {
+    status: {
+      type: String,
+      enum: ['verified', 'missing', 'failed'],
+    },
+    message: { type: String },
+    lastUpdated: { type: Date },
+    warnings: [{
+      type: String,
+    }],
+  }
 }, {
   timestamps: true
 });

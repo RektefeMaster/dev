@@ -12,6 +12,12 @@ import { sendAppointmentRequestNotification, sendAppointmentStatusNotification }
 import { CustomError } from '../utils/response';
 import pushNotificationService from '../services/pushNotification.service';
 import { NotificationTriggerService } from '../services/notificationTriggerService';
+import { OdometerService } from '../services/odometer.service';
+const resolveTenantId = (req: Request) =>
+  (req.tenantId as string) ||
+  (req.headers['x-tenant-id'] as string) ||
+  (req.headers['x-tenant'] as string) ||
+  'default';
 
 export class AppointmentController {
   /**
@@ -330,7 +336,7 @@ export class AppointmentController {
   static async updateAppointmentStatus(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { status, rejectionReason, mechanicNotes } = req.body;
+      const { status, rejectionReason, mechanicNotes, odometer } = req.body;
       const mechanicId = req.user?.userId;
 
       if (!mechanicId) {
@@ -343,6 +349,69 @@ export class AppointmentController {
         rejectionReason,
         mechanicNotes
       );
+
+      let odometerVerification = appointment.odometerVerification;
+
+      if (appointment.status === 'TAMAMLANDI') {
+        const verification = {
+          status: 'missing' as 'verified' | 'missing' | 'failed',
+          message: 'Servis kilometresi paylaşılmadı.',
+          lastUpdated: new Date(),
+          warnings: [] as string[],
+        };
+
+        if (!appointment.vehicleId) {
+          verification.status = 'failed';
+          verification.message = 'Randevuya bağlı araç bulunamadı.';
+          verification.warnings.push('Araç referansı eksik');
+        } else if (!odometer || typeof odometer.km !== 'number') {
+          verification.status = 'missing';
+          verification.message = 'Servis kilometresi gönderilmedi.';
+        } else {
+          try {
+            const tenantId = resolveTenantId(req);
+            const odometerResult = await OdometerService.recordEvent({
+              tenantId,
+              vehicleId: appointment.vehicleId.toString(),
+              km: Number(odometer.km),
+              unit: odometer.unit,
+              timestampUtc: odometer.timestampUtc || new Date(),
+              source: odometer.source || 'service',
+              evidenceType: odometer.evidenceType || 'none',
+              evidenceUrl: odometer.evidenceUrl,
+              notes: odometer.notes,
+              createdByUserId: req.user?.userId,
+              odometerReset: odometer.odometerReset,
+              clientRequestId: odometer.clientRequestId || `appointment:${appointment._id}:${Date.now()}`,
+              metadata: {
+                appointmentId: appointment._id.toString(),
+                context: 'appointment_completion',
+              },
+              featureFlags: req.featureFlags,
+            });
+
+            verification.status = odometerResult.pendingReview ? 'failed' : 'verified';
+            verification.message = odometerResult.pendingReview
+              ? 'Kilometre kaydı incelemeye alındı.'
+              : 'Kilometre başarıyla doğrulandı.';
+            verification.warnings = odometerResult.warnings ?? [];
+            verification.lastUpdated = new Date();
+          } catch (recordError: any) {
+            const message =
+              recordError?.error?.message ||
+              recordError?.message ||
+              'Kilometre kaydı oluşturulamadı.';
+            verification.status = 'failed';
+            verification.message = message;
+            verification.warnings = [message];
+            verification.lastUpdated = new Date();
+          }
+        }
+
+        appointment.odometerVerification = verification;
+        odometerVerification = verification;
+        await appointment.save();
+      }
 
       // Driver'a bildirim gönder
       await sendAppointmentStatusNotification(
@@ -389,7 +458,7 @@ export class AppointmentController {
       res.status(200).json({
         success: true,
         message: 'Randevu durumu başarıyla güncellendi',
-        data: { appointment }
+        data: { appointment, odometerVerification }
       });
     } catch (error) {
       if (error instanceof CustomError) {

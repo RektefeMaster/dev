@@ -9,11 +9,14 @@ import {
 import {
   createSampleMaintenanceRecords,
   createSampleInsurancePolicy,
-  createSampleVehicleStatus,
   createSampleTireStatus,
   getSampleCampaigns,
   getSampleAds,
 } from '../utils/homeFixtures';
+import { Vehicle } from '../models/Vehicle';
+import { OdometerService } from '../services/odometer.service';
+import { createErrorResponse, ErrorCode } from '../../../shared/types/apiResponse';
+import { logger } from '../utils/monitoring';
 const router = Router();
 
 router.get('/overview', auth, async (req: Request, res: Response) => {
@@ -26,6 +29,7 @@ router.get('/overview', auth, async (req: Request, res: Response) => {
     }
 
     const userId = req.user.userId;
+    const tenantId = req.tenantId || (req.headers['x-tenant-id'] as string) || 'default';
 
     const maintenanceDocs = await MaintenanceRecordModel.find({ userId })
       .sort({ date: -1 })
@@ -44,12 +48,47 @@ router.get('/overview', auth, async (req: Request, res: Response) => {
       .sort({ lastCheck: -1 })
       .lean();
 
+    let odometerEstimate: any = null;
+    const primaryVehicle = await Vehicle.findOne({ userId }).sort({ isFavorite: -1, createdAt: -1 }).lean();
+    if (primaryVehicle?._id) {
+      try {
+        const estimate = await OdometerService.getEstimate({
+          tenantId,
+          vehicleId: primaryVehicle._id.toString(),
+          featureFlags: req.featureFlags,
+        });
+        odometerEstimate = {
+          vehicleId: estimate.vehicleId,
+          estimateKm: estimate.estimateKm,
+          displayKm: Math.round(estimate.estimateKm),
+          lastTrueKm: estimate.lastTrueKm,
+          lastTrueTsUtc: estimate.lastTrueTsUtc,
+          sinceDays: estimate.sinceDays,
+          rateKmPerDay: estimate.rateKmPerDay,
+          confidence: estimate.confidence,
+          isApproximate: estimate.isApproximate,
+          seriesId: estimate.sourceSeriesId,
+        };
+      } catch (estimateError) {
+        const errorResponse = createErrorResponse(
+          ErrorCode.INTERNAL_SERVER_ERROR,
+          'Kilometre tahmini alınırken hata oluştu.',
+          process.env.NODE_ENV === 'development' ? { estimateError } : null,
+          req.headers['x-request-id'] as string
+        );
+        logger.warn('Home overview odometer estimate error', estimateError);
+        odometerEstimate = {
+          error: errorResponse.error,
+        };
+      }
+    }
+
     const maintenanceRecords =
       maintenanceDocs && maintenanceDocs.length > 0
         ? maintenanceDocs
         : createSampleMaintenanceRecords(userId);
     const insurancePolicy = insuranceDoc ?? createSampleInsurancePolicy(userId);
-    const vehicleStatus = vehicleStatusDoc ?? createSampleVehicleStatus(userId);
+    const vehicleStatus = vehicleStatusDoc ?? null;
     const tireStatus = tireStatusDoc ?? createSampleTireStatus(userId);
     const campaigns = getSampleCampaigns();
     const ads = getSampleAds();
@@ -63,6 +102,7 @@ router.get('/overview', auth, async (req: Request, res: Response) => {
         tireStatus,
         campaigns,
         ads,
+        odometerEstimate,
       },
       message: 'Sürücü ana sayfa verileri başarıyla getirildi.',
     });

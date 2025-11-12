@@ -45,6 +45,7 @@ export interface AuthConfig {
     REFRESH_TOKEN: string;
     USER_ID: string;
     USER_DATA: string;
+    TOKEN_ISSUED_AT: string;
     ERROR_LOGS: string;
     ONBOARDING_COMPLETED?: string;
   };
@@ -122,6 +123,7 @@ export const SharedAuthProvider = ({
         config.storageKeys.REFRESH_TOKEN,
         config.storageKeys.USER_ID,
         config.storageKeys.USER_DATA,
+        config.storageKeys.TOKEN_ISSUED_AT,
         ...(config.storageKeys.ONBOARDING_COMPLETED ? [config.storageKeys.ONBOARDING_COMPLETED] : [])
       ]);
       setToken(null);
@@ -470,6 +472,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     REFRESH_TOKEN: 'refresh_token',
     USER_ID: 'user_id',
     USER_DATA: 'user_data',
+    TOKEN_ISSUED_AT: 'token_issued_at',
     ERROR_LOGS: 'error_logs',
     ONBOARDING_COMPLETED: 'onboarding_completed'
   };

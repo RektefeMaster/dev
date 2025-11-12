@@ -82,7 +82,7 @@ const TirePartsScreen = () => {
       id: 'tire_change',
       name: 'Lastik Değişimi',
       description: 'Yeni lastik montajı',
-      icon: 'car-tire-alert',
+      icon: 'car-wrench',
       color: '#F59E0B',
     },
     {

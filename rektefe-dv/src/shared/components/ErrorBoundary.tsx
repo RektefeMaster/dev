@@ -113,6 +113,8 @@ class ErrorBoundary extends Component<Props, State> {
       // Clear sensitive data but keep error logs for debugging
       await AsyncStorage.multiRemove([
         STORAGE_KEYS.AUTH_TOKEN,
+        STORAGE_KEYS.REFRESH_TOKEN,
+        STORAGE_KEYS.TOKEN_ISSUED_AT,
         STORAGE_KEYS.USER_ID,
         STORAGE_KEYS.USER_DATA_LEGACY,
         STORAGE_KEYS.ONBOARDING_COMPLETED,

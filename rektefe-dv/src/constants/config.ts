@@ -42,6 +42,7 @@ export const STORAGE_KEYS = {
   REFRESH_TOKEN: 'refreshToken',
   USER_ID: 'userId',
   USER_DATA: 'userData',
+  TOKEN_ISSUED_AT: 'tokenIssuedAt',
   USER_DATA_LEGACY: 'user_data_legacy', // Legacy support
   THEME: 'app_theme',
   ONBOARDING_COMPLETED: 'onboarding_completed',

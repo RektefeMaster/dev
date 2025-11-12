@@ -6,6 +6,7 @@ type AuthSnapshot = {
   refreshToken: string | null;
   userId: string | null;
   userData: any | null;
+  tokenIssuedAt: number | null;
 };
 
 type AuthEvent = 'authUpdate' | 'authClear';
@@ -31,6 +32,7 @@ const storageKeys = [
   STORAGE_KEYS.REFRESH_TOKEN,
   STORAGE_KEYS.USER_ID,
   STORAGE_KEYS.USER_DATA,
+  STORAGE_KEYS.TOKEN_ISSUED_AT,
 ] as const;
 
 const parseUserData = (raw: string | null): any | null => {
@@ -58,6 +60,9 @@ export const authStorage = {
       refreshToken: map[STORAGE_KEYS.REFRESH_TOKEN] ?? null,
       userId: map[STORAGE_KEYS.USER_ID] ?? null,
       userData: parseUserData(map[STORAGE_KEYS.USER_DATA] ?? null),
+      tokenIssuedAt: map[STORAGE_KEYS.TOKEN_ISSUED_AT]
+        ? Number(map[STORAGE_KEYS.TOKEN_ISSUED_AT])
+        : null,
     };
   },
 
@@ -66,6 +71,7 @@ export const authStorage = {
     refreshToken,
     userId,
     userData,
+    tokenIssuedAt,
   }: Partial<AuthSnapshot>): Promise<void> {
     const operations: Array<[string, string]> = [];
 
@@ -81,10 +87,13 @@ export const authStorage = {
     if (userData !== undefined && userData !== null) {
       operations.push([STORAGE_KEYS.USER_DATA, JSON.stringify(userData)]);
     }
+    if (tokenIssuedAt !== undefined && tokenIssuedAt !== null) {
+      operations.push([STORAGE_KEYS.TOKEN_ISSUED_AT, String(tokenIssuedAt)]);
+    }
 
     if (operations.length) {
       await AsyncStorage.multiSet(operations);
-      notify('authUpdate', { token, refreshToken, userId, userData });
+      notify('authUpdate', { token, refreshToken, userId, userData, tokenIssuedAt });
     }
   },
 
@@ -94,6 +103,7 @@ export const authStorage = {
       STORAGE_KEYS.REFRESH_TOKEN,
       STORAGE_KEYS.USER_ID,
       STORAGE_KEYS.USER_DATA,
+      STORAGE_KEYS.TOKEN_ISSUED_AT,
     ]);
 
     if (options.clearOnboarding) {
@@ -115,6 +125,16 @@ export const authStorage = {
 
   async getRefreshToken(): Promise<string | null> {
     return AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+  },
+
+  async getTokenIssuedAt(): Promise<number | null> {
+    const value = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN_ISSUED_AT);
+    return value ? Number(value) : null;
+  },
+
+  async setTokenIssuedAt(timestamp: number) {
+    await AsyncStorage.setItem(STORAGE_KEYS.TOKEN_ISSUED_AT, String(timestamp));
+    notify('authUpdate', { tokenIssuedAt: timestamp });
   },
 };
 

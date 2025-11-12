@@ -48,6 +48,12 @@ export interface IFaultReport extends Document {
   appointmentId?: mongoose.Types.ObjectId; // Seçilen teklif için oluşturulan randevu
   bodyworkJobId?: mongoose.Types.ObjectId; // Kaporta/Boya kategorisinde oluşturulan bodywork job
   electricalJobId?: mongoose.Types.ObjectId; // Elektrik-Elektronik kategorisinde oluşturulan electrical job
+  odometerVerification?: {
+    status: 'verified' | 'missing' | 'failed';
+    message?: string;
+    lastUpdated?: Date;
+    warnings?: string[];
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -123,7 +129,16 @@ const FaultReportSchema: Schema = new Schema({
   },
   appointmentId: { type: Schema.Types.ObjectId, ref: 'Appointment' },
   bodyworkJobId: { type: Schema.Types.ObjectId, ref: 'BodyworkJob' },
-  electricalJobId: { type: Schema.Types.ObjectId, ref: 'ElectricalJob' }
+  electricalJobId: { type: Schema.Types.ObjectId, ref: 'ElectricalJob' },
+  odometerVerification: {
+    status: {
+      type: String,
+      enum: ['verified', 'missing', 'failed'],
+    },
+    message: { type: String },
+    lastUpdated: { type: Date },
+    warnings: [{ type: String }],
+  }
 }, {
   timestamps: true
 });

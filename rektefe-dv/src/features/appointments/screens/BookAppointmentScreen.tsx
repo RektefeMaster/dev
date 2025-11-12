@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import { API_URL } from '@/constants/config';
 import { apiService } from '@/shared/services/api';
 import { withErrorHandling } from '@/shared/utils/errorHandler';
 import { ServiceType } from '@/shared/types/common';
+import { analytics } from '@/shared/utils/analytics';
 
 const { width } = Dimensions.get('window');
 
@@ -90,12 +91,32 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedTimeSlot, setSelectedTimeSlot] = useState('');
   const [description, setDescription] = useState(preselectedDescription || '');
+  const [odometerInput, setOdometerInput] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+
+  const selectedVehicleData = useMemo(
+    () => vehicles.find((vehicle: any) => vehicle._id === selectedVehicle),
+    [vehicles, selectedVehicle]
+  );
 
   useEffect(() => {
     loadInitialData();
   }, []);
+
+  useEffect(() => {
+    if (currentStep === 4) {
+      analytics.track('odo_view', { screen: 'appointment_form', mechanicId });
+    }
+  }, [currentStep, mechanicId]);
+
+  useEffect(() => {
+    if (selectedVehicleData?.odometerEstimate?.displayKm) {
+      setOdometerInput(String(Math.round(selectedVehicleData.odometerEstimate.displayKm)));
+    } else if (!selectedVehicleData) {
+      setOdometerInput('');
+    }
+  }, [selectedVehicleData]);
 
   const loadInitialData = async () => {
     setLoading(true);
@@ -258,6 +279,10 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
       }
     }
 
+    if (!odometerInput) {
+      Alert.alert('Hata', 'Kilometre bilgisi zorunludur.');
+      return;
+    }
     try {
       setSubmitting(true);
       
@@ -268,7 +293,17 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
         const appointmentData = {
           faultReportId: faultReportId,
           appointmentDate: selectedDate.toISOString(),
-          timeSlot: selectedTimeSlot
+          timeSlot: selectedTimeSlot,
+          ...(odometerInput
+            ? {
+                odometer: {
+                  km: Number(odometerInput),
+                  timestampUtc: new Date().toISOString(),
+                  source: 'user_manual',
+                  evidenceType: 'none',
+                },
+              }
+            : {}),
         };
 
         try {
@@ -298,7 +333,17 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
               price: price,
               finalPrice: price,
               priceSource: 'fault_report_quote'
-            })
+            }),
+            ...(odometerInput
+              ? {
+                  odometer: {
+                    km: Number(odometerInput),
+                    timestampUtc: new Date().toISOString(),
+                    source: 'user_manual',
+                    evidenceType: 'none',
+                  },
+                }
+              : {}),
           };
 
           response = await withErrorHandling(
@@ -320,7 +365,17 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
             latitude: 0, // TODO: Gerçek konum bilgisi ekle
             longitude: 0,
             address: 'Konum belirtilmemiş'
-          }
+          },
+          ...(odometerInput
+            ? {
+                odometer: {
+                  km: Number(odometerInput),
+                  timestampUtc: new Date().toISOString(),
+                  source: 'user_manual',
+                  evidenceType: 'none',
+                },
+              }
+            : {}),
         };
 
         response = await withErrorHandling(
@@ -332,6 +387,12 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
       const { data } = response;
 
       if (data && (data as any).success) {
+        analytics.track('odo_update_submit', {
+          vehicleId: selectedVehicle || preselectedVehicleId,
+          offline: false,
+          source: 'appointment_booking',
+          km: Number(odometerInput) || undefined,
+        });
         Alert.alert(
           'Başarılı!',
           'Randevu talebiniz başarıyla gönderildi. Usta onayı bekleniyor.',
@@ -348,6 +409,10 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
     } catch (error) {
       console.error('Appointment creation error:', error);
       Alert.alert('Hata', 'Randevu oluşturulurken bir hata oluştu');
+      analytics.track('odo_update_reject_general', {
+        vehicleId: selectedVehicle || preselectedVehicleId,
+        context: 'appointment_booking',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -362,7 +427,7 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
       case 3:
         return selectedTimeSlot;
       case 4:
-        return description.trim().length >= 10;
+        return description.trim().length >= 10 && !!odometerInput;
       default:
         return false;
     }
@@ -653,6 +718,21 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
                 </TouchableOpacity>
               ))}
             </ScrollView>
+
+            {selectedVehicleData?.odometerEstimate && (
+              <View style={[styles.odometerPreviewCard, { backgroundColor: theme.colors.background.card }]}>
+                <Text style={[styles.odometerPreviewLabel, { color: theme.colors.text.secondary }]}>
+                  Tahmini Kilometre
+                </Text>
+                <Text style={[styles.odometerPreviewValue, { color: theme.colors.text.primary }]}>
+                  ≈ {Math.round(selectedVehicleData.odometerEstimate.displayKm).toLocaleString('tr-TR')} km
+                </Text>
+                <Text style={[styles.odometerPreviewMeta, { color: theme.colors.text.secondary }]}>
+                  Son doğrulama:{' '}
+                  {new Date(selectedVehicleData.odometerEstimate.lastTrueTsUtc).toLocaleDateString('tr-TR')}
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -724,6 +804,38 @@ const BookAppointmentScreen = ({ route, navigation }: BookAppointmentScreenProps
             <Text style={[styles.stepDescription, { color: theme.colors.text.secondary }]}>
               Randevunuz hakkında detayları belirtin
             </Text>
+
+            <View style={styles.odometerInputContainer}>
+              <Text style={[styles.sectionLabel, { color: theme.colors.text.primary }]}>
+                Gösterge Kilometresi
+              </Text>
+              <View
+                style={[
+                  styles.odometerInputWrapper,
+                  {
+                    backgroundColor: theme.colors.background.card,
+                    borderColor: theme.colors.border.primary,
+                  },
+                ]}
+              >
+                <TextInput
+                  style={[styles.odometerInput, { color: theme.colors.text.primary }]}
+                  keyboardType="number-pad"
+                  value={odometerInput}
+                  onChangeText={(text) => setOdometerInput(text.replace(/[^\d]/g, ''))}
+                  placeholder="Örn. 128450"
+                  placeholderTextColor={theme.colors.text.secondary}
+                />
+                <Text style={[styles.odometerUnit, { color: theme.colors.text.secondary }]}>km</Text>
+              </View>
+              <Text style={[styles.odometerHelper, { color: theme.colors.text.secondary }]}>
+                Tahmini değer: ≈{' '}
+                {selectedVehicleData?.odometerEstimate
+                  ? Math.round(selectedVehicleData.odometerEstimate.displayKm).toLocaleString('tr-TR')
+                  : '-'}{' '}
+                km
+              </Text>
+            </View>
             
             <View style={styles.descriptionSection}>
               <Text style={[styles.sectionLabel, { color: theme.colors.text.primary }]}>
@@ -978,6 +1090,26 @@ const styles = StyleSheet.create({
     marginHorizontal: -20,
     paddingHorizontal: 20,
   },
+  odometerPreviewCard: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  odometerPreviewLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  odometerPreviewValue: {
+    marginTop: 4,
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  odometerPreviewMeta: {
+    marginTop: 4,
+    fontSize: 12,
+  },
   vehicleCard: {
     width: 160,
     padding: 20,
@@ -1127,6 +1259,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     minHeight: 120,
     textAlignVertical: 'top',
+  },
+  odometerInputContainer: {
+    marginTop: 20,
+    marginBottom: 12,
+  },
+  odometerInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 8,
+  },
+  odometerInput: {
+    flex: 1,
+    fontSize: 16,
+  },
+  odometerUnit: {
+    marginLeft: 8,
+    fontWeight: '600',
+  },
+  odometerHelper: {
+    marginTop: 8,
+    fontSize: 12,
   },
   characterCount: {
     flexDirection: 'row',

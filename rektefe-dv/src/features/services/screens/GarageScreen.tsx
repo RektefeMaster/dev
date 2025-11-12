@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,12 @@ import { useTheme } from '@/context/ThemeContext';
 import carData from '@/constants/carData.json';
 import { validateForm, validationRules } from '@/shared/utils/validation';
 import toastService from '@/shared/services/toastService';
+import { odometerService, OdometerEventResponse } from '@/shared/services/modules/odometerService';
+import OdometerSummary from '../components/OdometerSummary';
+import OdometerQuickUpdateModal, { OdometerQuickUpdatePayload } from '../components/OdometerQuickUpdateModal';
+import { odometerQueue } from '@/shared/utils/odometerQueue';
+import { useNetworkStatus } from '@/shared/hooks/useNetworkStatus';
+import { analytics } from '@/shared/utils/analytics';
 import ErrorState from '@/shared/components/ErrorState';
 import LoadingSkeleton from '@/shared/components/LoadingSkeleton';
 import EmptyState from '@/shared/components/NoDataCard';
@@ -46,7 +52,101 @@ interface Vehicle {
   image?: string;
   createdAt: string;
   isFavorite?: boolean;
+  odometerEstimate?: {
+    estimateKm: number;
+    displayKm: number;
+    lastTrueKm: number;
+    lastTrueTsUtc: string;
+    sinceDays: number;
+    rateKmPerDay: number;
+    confidence: number;
+    isApproximate: boolean;
+    seriesId: string;
+  };
+  odometerVerification?: {
+    status?: 'verified' | 'missing' | 'failed';
+    message?: string;
+    warnings?: string[];
+    lastUpdated?: string;
+  };
 }
+
+type VehicleStatusPresentation = {
+  label: string;
+  badgeColor: string;
+  cardBackgroundColor: string;
+  cardBorderColor: string;
+  icon: string;
+};
+
+const DEFAULT_VEHICLE_STATUS_PRESENTATION: VehicleStatusPresentation = {
+  label: 'Bilinmiyor',
+  badgeColor: '#6B7280',
+  cardBackgroundColor: '#FFFFFF',
+  cardBorderColor: '#E5E7EB',
+  icon: 'shield-outline',
+};
+
+const VEHICLE_STATUS_MAP: Record<string, VehicleStatusPresentation> = {
+  excellent: {
+    label: 'Mükemmel',
+    badgeColor: '#2563EB',
+    cardBackgroundColor: '#EEF2FF',
+    cardBorderColor: '#C7D2FE',
+    icon: 'shield-star',
+  },
+  good: {
+    label: 'İyi',
+    badgeColor: '#0A8754',
+    cardBackgroundColor: '#F0FFF4',
+    cardBorderColor: '#BBF7D0',
+    icon: 'shield-check',
+  },
+  warning: {
+    label: 'Uyarı',
+    badgeColor: '#FF9F1C',
+    cardBackgroundColor: '#FFF8EB',
+    cardBorderColor: '#FFE5B4',
+    icon: 'shield-alert',
+  },
+  critical: {
+    label: 'Kritik',
+    badgeColor: '#D7263D',
+    cardBackgroundColor: '#FFF5F5',
+    cardBorderColor: '#F8B4B4',
+    icon: 'shield-alert-outline',
+  },
+};
+
+const formatFallbackStatusLabel = (raw: string) =>
+  raw
+    .toString()
+    .trim()
+    .replace(/[_-]+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toLocaleUpperCase('tr-TR') + word.slice(1).toLocaleLowerCase('tr-TR'))
+    .join(' ');
+
+const getVehicleStatusPresentation = (status?: string): VehicleStatusPresentation => {
+  if (!status) {
+    return DEFAULT_VEHICLE_STATUS_PRESENTATION;
+  }
+
+  const normalized = status.toString().trim().toLowerCase();
+  const mapped = VEHICLE_STATUS_MAP[normalized];
+
+  if (mapped) {
+    return { ...mapped };
+  }
+
+  const fallbackLabel = formatFallbackStatusLabel(status);
+
+  return {
+    ...DEFAULT_VEHICLE_STATUS_PRESENTATION,
+    label: fallbackLabel || DEFAULT_VEHICLE_STATUS_PRESENTATION.label,
+  };
+};
 
 const GarageScreen = () => {
   const { token, userId } = useAuth();
@@ -60,7 +160,100 @@ const GarageScreen = () => {
   const [statusError, setStatusError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [odometerModalVisible, setOdometerModalVisible] = useState(false);
+  const [odometerSubmitting, setOdometerSubmitting] = useState(false);
+  const [odometerError, setOdometerError] = useState<string | null>(null);
+  const [pendingQueue, setPendingQueue] = useState<Record<string, boolean>>({});
+  const { isConnected } = useNetworkStatus();
   const hasFetchedRef = useRef(false);
+  const viewTrackedRef = useRef(false);
+
+  const vehicleStatusPresentation = useMemo(
+    () => getVehicleStatusPresentation(vehicleStatus?.overallStatus),
+    [vehicleStatus?.overallStatus]
+  );
+
+  const applyOdometerResult = useCallback(
+    (vehicleId: string, response: OdometerEventResponse) => {
+      setVehicles((prev) =>
+        prev.map((vehicle) =>
+          vehicle._id === vehicleId
+            ? {
+                ...vehicle,
+                mileage: response.event.km,
+                odometerEstimate: response.estimate,
+                odometerVerification: {
+                  status: response.pendingReview ? 'failed' : 'verified',
+                  message: response.pendingReview
+                    ? 'Kilometre kaydı incelemeye alındı.'
+                    : 'Kilometre başarıyla güncellendi.',
+                  warnings: response.warnings,
+                  lastUpdated: new Date().toISOString(),
+                },
+              }
+            : vehicle
+        )
+      );
+      analytics.track(response.pendingReview ? 'odo_update_reject_outlier' : 'odo_calibrated', {
+        vehicleId,
+        pendingReview: response.pendingReview,
+        outlierClass: response.outlierClass,
+      });
+    },
+    []
+  );
+
+  useEffect(() => {
+    (async () => {
+      const queued = await odometerQueue.list();
+      const map = queued.reduce<Record<string, boolean>>((acc, item) => {
+        acc[item.vehicleId] = true;
+        return acc;
+      }, {});
+      setPendingQueue(map);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!isConnected) {
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      const remaining = await odometerQueue.flush(async (event) => {
+        const response = await odometerService.submitEvent(event.vehicleId, event.payload);
+        if (cancelled) {
+          return;
+        }
+        applyOdometerResult(event.vehicleId, response);
+        setPendingQueue((prev) => {
+          const next = { ...prev };
+          delete next[event.vehicleId];
+          return next;
+        });
+        analytics.track('odo_update_submit', {
+          vehicleId: event.vehicleId,
+          offline: false,
+          source: 'flush',
+        });
+      });
+
+      if (!cancelled) {
+        const map = remaining.reduce<Record<string, boolean>>((acc, item) => {
+          acc[item.vehicleId] = true;
+          return acc;
+        }, {});
+        setPendingQueue(map);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, applyOdometerResult]);
 
   // Refs for scroll
   const scrollViewRef = useRef<ScrollView>(null);
@@ -168,6 +361,96 @@ const GarageScreen = () => {
     }
   }, [token, fetchVehicleStatus]);
 
+  const handleOpenOdometerModal = useCallback((vehicleId: string) => {
+    setSelectedVehicleId(vehicleId);
+    setOdometerError(null);
+    setOdometerModalVisible(true);
+    analytics.track('odo_update_open', { vehicleId });
+  }, []);
+
+  const handleCloseOdometerModal = useCallback(() => {
+    setOdometerModalVisible(false);
+    setSelectedVehicleId(null);
+    setOdometerError(null);
+  }, []);
+
+  const handleSubmitOdometer = useCallback(
+    async (payload: OdometerQuickUpdatePayload, options?: { offline?: boolean }) => {
+      if (!selectedVehicleId) {
+        return;
+      }
+
+      const offline = options?.offline;
+      setOdometerSubmitting(true);
+      setOdometerError(null);
+
+      analytics.track('odo_update_submit', {
+        vehicleId: selectedVehicleId,
+        offline,
+        km: payload.km,
+      });
+
+      if (offline) {
+        await odometerQueue.enqueue(selectedVehicleId, payload);
+        setPendingQueue((prev) => ({ ...prev, [selectedVehicleId]: true }));
+        toastService.info('Kilometre güncellemesi sıraya alındı.');
+        setOdometerSubmitting(false);
+        setOdometerModalVisible(false);
+        setSelectedVehicleId(null);
+        return;
+      }
+
+      try {
+        const response = await odometerService.submitEvent(selectedVehicleId, payload);
+        applyOdometerResult(selectedVehicleId, response);
+        toastService.success('Kilometre güncellendi.');
+        if (response.backPressureWarning) {
+          toastService.info(response.backPressureWarning);
+        }
+        if (response.warnings && response.warnings.length > 0) {
+          response.warnings.forEach((warning) => toastService.info(warning));
+        }
+        setOdometerModalVisible(false);
+        setSelectedVehicleId(null);
+      } catch (error: any) {
+        if (!isConnected) {
+          await odometerQueue.enqueue(selectedVehicleId, payload);
+          setPendingQueue((prev) => ({ ...prev, [selectedVehicleId]: true }));
+          toastService.info('Bağlantı yok, güncelleme sıraya alındı.');
+          setOdometerModalVisible(false);
+          setSelectedVehicleId(null);
+        } else {
+          const errorCode = error?.response?.data?.error?.code;
+          const message =
+            error?.response?.data?.error?.message ||
+            error?.message ||
+            'Kilometre güncellenemedi.';
+          setOdometerError(message);
+          toastService.error(message);
+          if (errorCode) {
+            const errorEventMap: Record<string, string> = {
+              ERR_ODO_DECREASING: 'odo_update_reject_decreasing',
+              ERR_ODO_NEGATIVE: 'odo_update_reject_negative',
+              ERR_ODO_FUTURE_TS: 'odo_update_reject_future',
+              ERR_ODO_OUTLIER_SOFT: 'odo_update_reject_outlier_soft',
+              ERR_ODO_OUTLIER_HARD: 'odo_update_reject_outlier_hard',
+            };
+            const eventName = errorEventMap[errorCode];
+            if (eventName) {
+              analytics.track(eventName, {
+                vehicleId: selectedVehicleId,
+                errorCode,
+              });
+            }
+          }
+        }
+      } finally {
+        setOdometerSubmitting(false);
+      }
+    },
+    [selectedVehicleId, isConnected, applyOdometerResult]
+  );
+
   useFocusEffect(
     React.useCallback(() => {
       if (userId && !hasFetchedRef.current) {
@@ -176,6 +459,17 @@ const GarageScreen = () => {
       }
     }, [userId, fetchVehicles])
   );
+
+  const selectedVehicle = selectedVehicleId
+    ? vehicles.find((vehicle) => vehicle._id === selectedVehicleId)
+    : undefined;
+
+  useEffect(() => {
+    if (vehicles.length > 0 && !viewTrackedRef.current) {
+      analytics.track('odo_view', { screen: 'garage', vehicleCount: vehicles.length });
+      viewTrackedRef.current = true;
+    }
+  }, [vehicles]);
 
   // Brand seçildiğinde modelleri güncelle ve model seçimine geç
   const handleBrandChange = (brand: string) => {
@@ -467,18 +761,17 @@ const GarageScreen = () => {
         </View>
         <View style={styles.detailRow}>
           <View style={styles.detailLabelContainer}>
-            <MaterialCommunityIcons name="speedometer" size={16} color="#666" />
-            <Text style={styles.detailLabel}>Kilometre</Text>
-          </View>
-          <Text style={styles.detailValue}>{vehicle.mileage ? vehicle.mileage.toLocaleString('tr-TR') : '0'} km</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <View style={styles.detailLabelContainer}>
             <MaterialCommunityIcons name="car-shift-pattern" size={16} color="#666" />
             <Text style={styles.detailLabel}>Vites</Text>
           </View>
           <Text style={styles.detailValue}>{vehicle.transmission}</Text>
         </View>
+        <OdometerSummary
+          estimate={vehicle.odometerEstimate}
+          verification={vehicle.odometerVerification}
+          onUpdatePress={() => handleOpenOdometerModal(vehicle._id)}
+          hasOfflineSubmission={Boolean(pendingQueue[vehicle._id])}
+        />
       </View>
     </View>
   );
@@ -557,14 +850,27 @@ const GarageScreen = () => {
                   />
                 </TouchableOpacity>
               ) : vehicleStatus ? (
-                <View style={styles.statusCard}>
+                <View
+                  style={[
+                    styles.statusCard,
+                    {
+                      backgroundColor: vehicleStatusPresentation.cardBackgroundColor,
+                      borderColor: vehicleStatusPresentation.cardBorderColor,
+                    },
+                  ]}
+                >
                   <View style={styles.statusCardHeader}>
                     <View>
                       <Text style={styles.statusLabel}>Genel Durum</Text>
-                      <Text style={styles.statusValue}>{vehicleStatus.overallStatus || 'Bilgi yok'}</Text>
+                      <Text style={styles.statusValue}>{vehicleStatusPresentation.label}</Text>
                     </View>
-                    <View style={styles.statusBadge}>
-                      <MaterialCommunityIcons name="shield-check" size={20} color="#fff" />
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        { backgroundColor: vehicleStatusPresentation.badgeColor },
+                      ]}
+                    >
+                      <MaterialCommunityIcons name={vehicleStatusPresentation.icon} size={20} color="#fff" />
                     </View>
                   </View>
 
@@ -1079,6 +1385,20 @@ const GarageScreen = () => {
             </TouchableWithoutFeedback>
           </Modal>
         </ScrollView>
+        <OdometerQuickUpdateModal
+          visible={odometerModalVisible}
+          onClose={handleCloseOdometerModal}
+          onSubmit={handleSubmitOdometer}
+          submitting={odometerSubmitting}
+          errorMessage={odometerError}
+          initialKm={
+            selectedVehicle?.odometerEstimate?.displayKm ??
+            selectedVehicle?.odometerEstimate?.lastTrueKm ??
+            selectedVehicle?.mileage
+          }
+          defaultUnit="km"
+          lastVerifiedAt={selectedVehicle?.odometerEstimate?.lastTrueTsUtc}
+        />
       </Background>
     </SafeAreaView>
   );

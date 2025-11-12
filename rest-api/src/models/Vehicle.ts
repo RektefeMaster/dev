@@ -22,6 +22,7 @@ export interface IVehicle extends Document {
     mileage?: number;
   }>;
   isFavorite?: boolean;
+  defaultUnit?: 'km' | 'mi';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -51,7 +52,12 @@ const VehicleSchema: Schema = new Schema({
     cost: { type: Number },
     mileage: { type: Number }
   }],
-  isFavorite: { type: Boolean, default: false }
+  isFavorite: { type: Boolean, default: false },
+  defaultUnit: {
+    type: String,
+    enum: ['km', 'mi'],
+    default: 'km'
+  }
 }, {
   timestamps: true
 });

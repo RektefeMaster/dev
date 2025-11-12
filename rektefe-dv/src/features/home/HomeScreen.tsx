@@ -18,6 +18,8 @@ import { RootStackParamList } from '@/navigation/AppNavigator';
 import { formatWorkingHours } from '@/shared/utils/workingHoursFormatter';
 import { useTheme } from '@/context/ThemeContext';
 import { spacing } from '@/theme/theme';
+import OdometerSummary from '@/features/services/components/OdometerSummary';
+import { analytics } from '@/shared/utils/analytics';
 
 const HomeScreen = () => {
   const { theme } = useTheme();
@@ -60,6 +62,7 @@ const HomeScreen = () => {
     nearestMechanic,
     userLocation,
     userId,
+    odometerEstimate,
   } = useHomeData();
 
 
@@ -74,6 +77,12 @@ const HomeScreen = () => {
     await refreshData();
     setRefreshing(false);
   };
+
+  useEffect(() => {
+    if (odometerEstimate) {
+      analytics.track('odo_view', { screen: 'home', vehicleId: odometerEstimate.vehicleId });
+    }
+  }, [odometerEstimate]);
 
   const handleCardPress = (card: any) => {
     if (card.title === 'Usta Ara') {
@@ -141,7 +150,7 @@ const HomeScreen = () => {
 
   const getServiceTypeIcon = (serviceType: string) => {
     const iconMap: { [key: string]: string } = {
-      'Lastik Değişimi': 'car-tire',
+      'Lastik Değişimi': 'car-wrench',
       'Motor Bakımı': 'engine',
       'Fren Bakımı': 'car-brake-abs',
       'Klima Bakımı': 'air-conditioner',
@@ -351,6 +360,23 @@ const HomeScreen = () => {
           <View style={[styles.section, styles.headerSection]}>
             <GreetingHeader userName={userName} favoriteCar={favoriteCar} userId={userId} />
             {renderCampaigns()}
+            {odometerEstimate && (
+              <View style={styles.homeOdometerWrapper}>
+                <OdometerSummary
+                  estimate={{
+                    displayKm: odometerEstimate.displayKm,
+                    lastTrueKm: odometerEstimate.lastTrueKm,
+                    lastTrueTsUtc: odometerEstimate.lastTrueTsUtc,
+                    sinceDays: odometerEstimate.sinceDays,
+                    rateKmPerDay: odometerEstimate.rateKmPerDay,
+                    confidence: odometerEstimate.confidence,
+                    isApproximate: odometerEstimate.isApproximate,
+                  }}
+                  verification={favoriteCar?.odometerVerification}
+                  onUpdatePress={() => navigation.navigate('Garage' as never)}
+                />
+              </View>
+            )}
           </View>
 
           {/* Hızlı İşlemler */}
@@ -621,6 +647,9 @@ const styles = StyleSheet.create({
   headerSection: {
     marginBottom: 16,
     paddingTop: 8,
+  },
+  homeOdometerWrapper: {
+    marginTop: spacing.md,
   },
   sectionTitle: {
     fontSize: 18,

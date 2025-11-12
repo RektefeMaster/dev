@@ -97,6 +97,14 @@ export enum ErrorCode {
   APPOINTMENT_CONFLICT = 'APPOINTMENT_CONFLICT',
   PAYMENT_REQUIRED = 'PAYMENT_REQUIRED',
   
+  // Odometer Specific Errors
+  ERR_ODO_NEGATIVE = 'ERR_ODO_NEGATIVE',
+  ERR_ODO_DECREASING = 'ERR_ODO_DECREASING',
+  ERR_ODO_FUTURE_TS = 'ERR_ODO_FUTURE_TS',
+  ERR_ODO_OUTLIER_SOFT = 'ERR_ODO_OUTLIER_SOFT',
+  ERR_ODO_OUTLIER_HARD = 'ERR_ODO_OUTLIER_HARD',
+  ERR_FEATURE_DISABLED = 'ERR_FEATURE_DISABLED',
+  
   // External Service Errors
   EXTERNAL_SERVICE_ERROR = 'EXTERNAL_SERVICE_ERROR',
   PAYMENT_FAILED = 'PAYMENT_FAILED',
@@ -156,6 +164,12 @@ export const ERROR_MESSAGES_TR: Record<ErrorCode, string> = {
   [ErrorCode.BUSINESS_RULE_VIOLATION]: 'İş kuralları ihlali.',
   [ErrorCode.APPOINTMENT_CONFLICT]: 'Randevu çakışması oluştu.',
   [ErrorCode.PAYMENT_REQUIRED]: 'Ödeme gerekli.',
+  [ErrorCode.ERR_ODO_NEGATIVE]: 'Kilometre değeri negatif olamaz.',
+  [ErrorCode.ERR_ODO_DECREASING]: 'Yeni kilometre, son doğrulama değerinin altında olamaz.',
+  [ErrorCode.ERR_ODO_FUTURE_TS]: 'Gelecek tarihli kilometre kaydı kabul edilmez.',
+  [ErrorCode.ERR_ODO_OUTLIER_SOFT]: 'Olağandışı kilometre artışı algılandı, değer düşük güvenle işlendi.',
+  [ErrorCode.ERR_ODO_OUTLIER_HARD]: 'Olağandışı kilometre artışı incelemeye alındı.',
+  [ErrorCode.ERR_FEATURE_DISABLED]: 'Bu özellik şu anda devre dışı.',
   
   // External Service Errors
   [ErrorCode.EXTERNAL_SERVICE_ERROR]: 'Harici servis hatası.',
@@ -196,6 +210,7 @@ export const ERROR_STATUS_MAPPING: Record<ErrorCode, number> = {
   // 403 Forbidden
   [ErrorCode.FORBIDDEN]: 403,
   [ErrorCode.INSUFFICIENT_PERMISSIONS]: 403,
+  [ErrorCode.ERR_FEATURE_DISABLED]: 403,
   
   // 400 Bad Request
   [ErrorCode.VALIDATION_FAILED]: 400,
@@ -208,6 +223,8 @@ export const ERROR_STATUS_MAPPING: Record<ErrorCode, number> = {
   [ErrorCode.BUSINESS_RULE_VIOLATION]: 400,
   [ErrorCode.OPERATION_NOT_ALLOWED]: 400,
   [ErrorCode.PAYMENT_REQUIRED]: 400,
+  [ErrorCode.ERR_ODO_NEGATIVE]: 400,
+  [ErrorCode.ERR_ODO_FUTURE_TS]: 400,
   
   // 404 Not Found
   [ErrorCode.NOT_FOUND]: 404,
@@ -218,6 +235,7 @@ export const ERROR_STATUS_MAPPING: Record<ErrorCode, number> = {
   [ErrorCode.ALREADY_EXISTS]: 409,
   [ErrorCode.RESOURCE_CONFLICT]: 409,
   [ErrorCode.APPOINTMENT_CONFLICT]: 409,
+  [ErrorCode.ERR_ODO_DECREASING]: 409,
   
   // 423 Locked
   [ErrorCode.RESOURCE_LOCKED]: 423,
@@ -248,6 +266,10 @@ export const ERROR_STATUS_MAPPING: Record<ErrorCode, number> = {
   [ErrorCode.QUERY_TIMEOUT]: 503,
   
   // 500 Internal Server Error
+  // 202 Accepted (business process pending)
+  [ErrorCode.ERR_ODO_OUTLIER_SOFT]: 202,
+  [ErrorCode.ERR_ODO_OUTLIER_HARD]: 202,
+
   [ErrorCode.DATABASE_ERROR]: 500,
   [ErrorCode.TRANSACTION_FAILED]: 500,
   [ErrorCode.INTERNAL_SERVER_ERROR]: 500,

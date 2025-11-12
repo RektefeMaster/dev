@@ -45,6 +45,7 @@ export const AuthService = {
         
         if (token) {
           await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+          await AsyncStorage.setItem(STORAGE_KEYS.TOKEN_ISSUED_AT, Date.now().toString());
         }
         
         if (refreshToken) {
@@ -103,6 +104,7 @@ export const AuthService = {
         
         if (token) {
           await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+          await AsyncStorage.setItem(STORAGE_KEYS.TOKEN_ISSUED_AT, Date.now().toString());
         }
         
         if (refreshToken) {
@@ -168,6 +170,7 @@ export const AuthService = {
         
         if (token) {
           await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+          await AsyncStorage.setItem(STORAGE_KEYS.TOKEN_ISSUED_AT, Date.now().toString());
         }
         
         if (newRefreshToken) {
@@ -220,7 +223,8 @@ export const AuthService = {
         STORAGE_KEYS.AUTH_TOKEN,
         STORAGE_KEYS.REFRESH_TOKEN,
         STORAGE_KEYS.USER_ID,
-        STORAGE_KEYS.USER_DATA
+        STORAGE_KEYS.USER_DATA,
+        STORAGE_KEYS.TOKEN_ISSUED_AT
       ]);
       if (__DEV__) {
         console.log('Logout tamamlandı');

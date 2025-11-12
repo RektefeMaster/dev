@@ -3,6 +3,7 @@ import { VehicleService } from '../services/vehicle.service';
 import { ResponseHandler } from '../utils/response';
 import { asyncHandler } from '../middleware/errorHandler';
 import { AuthRequest } from '../types/express';
+import { OdometerService } from '../services/odometer.service';
 
 export class VehicleController {
   /**
@@ -32,9 +33,40 @@ export class VehicleController {
     }
 
     const vehicles = await VehicleService.getUserVehicles(userId);
+    const tenantId = req.tenantId || (req.headers['x-tenant-id'] as string) || 'default';
+    const vehiclesWithOdometer = await Promise.all(
+      vehicles.map(async (vehicle: any) => {
+        try {
+          const estimate = await OdometerService.getEstimate({
+            tenantId,
+            vehicleId: vehicle._id.toString(),
+            featureFlags: req.featureFlags,
+          });
+          return {
+            ...vehicle,
+            odometerEstimate: {
+              estimateKm: estimate.estimateKm,
+              displayKm: Math.round(estimate.estimateKm),
+              lastTrueKm: estimate.lastTrueKm,
+              lastTrueTsUtc: estimate.lastTrueTsUtc,
+              sinceDays: estimate.sinceDays,
+              rateKmPerDay: estimate.rateKmPerDay,
+              confidence: estimate.confidence,
+              isApproximate: estimate.isApproximate,
+              seriesId: estimate.sourceSeriesId,
+            },
+          };
+        } catch (error) {
+          return {
+            ...vehicle,
+            odometerEstimate: null,
+          };
+        }
+      })
+    );
     console.log('🔍 DEBUG: getUserVehicles - Found vehicles:', vehicles.length);
-    console.log('🔍 DEBUG: getUserVehicles - Vehicles:', vehicles);
-    return ResponseHandler.success(res, vehicles, 'Araçlar başarıyla getirildi');
+    console.log('🔍 DEBUG: getUserVehicles - Vehicles:', vehiclesWithOdometer);
+    return ResponseHandler.success(res, vehiclesWithOdometer, 'Araçlar başarıyla getirildi');
   });
 
   /**
@@ -48,7 +80,32 @@ export class VehicleController {
 
     const { id } = req.params;
     const vehicle = await VehicleService.getVehicleById(id, userId);
-    return ResponseHandler.success(res, vehicle, 'Araç başarıyla getirildi');
+    const tenantId = req.tenantId || (req.headers['x-tenant-id'] as string) || 'default';
+    let odometerEstimate = null;
+    try {
+      const estimate = await OdometerService.getEstimate({
+        tenantId,
+        vehicleId: vehicle._id.toString(),
+        featureFlags: req.featureFlags,
+      });
+      odometerEstimate = {
+        estimateKm: estimate.estimateKm,
+        displayKm: Math.round(estimate.estimateKm),
+        lastTrueKm: estimate.lastTrueKm,
+        lastTrueTsUtc: estimate.lastTrueTsUtc,
+        sinceDays: estimate.sinceDays,
+        rateKmPerDay: estimate.rateKmPerDay,
+        confidence: estimate.confidence,
+        isApproximate: estimate.isApproximate,
+        seriesId: estimate.sourceSeriesId,
+      };
+    } catch (error) {
+      odometerEstimate = null;
+    }
+    const vehicleWithEstimate = (vehicle as any).toObject
+      ? { ...(vehicle as any).toObject(), odometerEstimate }
+      : { ...vehicle, odometerEstimate };
+    return ResponseHandler.success(res, vehicleWithEstimate, 'Araç başarıyla getirildi');
   });
 
   /**

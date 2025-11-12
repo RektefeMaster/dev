@@ -107,6 +107,42 @@ const cpuUsageGauge = new client.Gauge({
   registers: [register]
 });
 
+// Odometer metrics
+const odometerEventsTotal = new client.Counter({
+  name: 'odometer_events_total',
+  help: 'Number of odometer events processed',
+  labelNames: ['source', 'outcome'],
+  registers: [register],
+});
+
+const odometerOutlierRatio = new client.Gauge({
+  name: 'odometer_outlier_ratio',
+  help: 'Outlier ratio for odometer events',
+  registers: [register],
+});
+
+const odometerCalibrationDuration = new client.Histogram({
+  name: 'odometer_calibration_duration_seconds',
+  help: 'Duration of odometer calibration operations',
+  labelNames: ['source'],
+  buckets: [0.01, 0.05, 0.1, 0.2, 0.5, 1, 2],
+  registers: [register],
+});
+
+const odometerEstimateAbsError = new client.Histogram({
+  name: 'odometer_estimate_abs_error_km',
+  help: 'Absolute error between estimate and next true reading',
+  buckets: [1, 5, 10, 20, 50, 100, 200, 500],
+  registers: [register],
+});
+
+const odometerFeatureShadowError = new client.Histogram({
+  name: 'odometer_feature_shadow_abs_error_km',
+  help: 'Absolute error distribution in shadow mode',
+  buckets: [1, 5, 10, 20, 50, 100, 200, 500],
+  registers: [register],
+});
+
 // ===== MONITORING FUNCTIONS =====
 
 export const initializeMonitoring = () => {
@@ -138,6 +174,26 @@ export const initializeMonitoring = () => {
   }, 5000);
   
   logger.info('✅ Monitoring sistemi başlatıldı');
+};
+
+export const recordOdometerEvent = (source: string, outcome: string) => {
+  odometerEventsTotal.labels(source, outcome).inc();
+};
+
+export const recordOdometerCalibrationDuration = (source: string, durationSeconds: number) => {
+  odometerCalibrationDuration.labels(source).observe(durationSeconds);
+};
+
+export const recordOdometerOutlierRatio = (ratio: number) => {
+  odometerOutlierRatio.set(ratio);
+};
+
+export const observeOdometerEstimateAbsError = (valueKm: number) => {
+  odometerEstimateAbsError.observe(valueKm);
+};
+
+export const observeOdometerShadowError = (valueKm: number) => {
+  odometerFeatureShadowError.observe(valueKm);
 };
 
 export const requestLogger = (req: Request, res: Response, next: NextFunction) => {

@@ -10,6 +10,7 @@
     "dev": "ts-node-dev --respawn --transpile-only -r dotenv/config src/index.ts",
     "render-postbuild": "npm run build",
     "seed:wash-packages": "ts-node -r dotenv/config src/scripts/seedWashPackages.ts",
+    "seed:odometer-defaults": "ts-node -r dotenv/config src/scripts/seedOdometerDefaults.ts",
     "create:test-users": "ts-node -r dotenv/config scripts/createTestUsers.ts",
     "clean": "rm -rf dist node_modules/.cache",
     "prebuild": "rm -rf dist"

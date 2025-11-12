@@ -16,6 +16,13 @@ import {
 import { BodyworkService } from '../services/bodywork.service';
 import { ElectricalService } from '../services/electrical.service';
 import { FAULT_CATEGORY_TO_SERVICE_CATEGORY } from '../../../shared/types/enums';
+import { OdometerService } from '../services/odometer.service';
+
+const resolveTenantId = (req: Request) =>
+  (req.tenantId as string) ||
+  (req.headers['x-tenant-id'] as string) ||
+  (req.headers['x-tenant'] as string) ||
+  'default';
 
 // Arıza bildirimi oluştur
 export const createFaultReport = async (req: Request, res: Response) => {
@@ -2177,7 +2184,7 @@ export const confirmPayment = async (req: Request, res: Response) => {
 export const finalizeWork = async (req: Request, res: Response) => {
   try {
     const { faultReportId } = req.params;
-    const { notes } = req.body;
+    const { notes, odometer } = req.body;
     const mechanicId = (req as any).user?.userId;
 
     if (!mechanicId) {
@@ -2215,6 +2222,61 @@ export const finalizeWork = async (req: Request, res: Response) => {
       });
     }
 
+    const verification = {
+      status: 'missing' as 'verified' | 'missing' | 'failed',
+      message: 'Teslim kilometresi paylaşılmadı.',
+      warnings: [] as string[],
+      lastUpdated: new Date(),
+    };
+
+    if (!faultReport.vehicleId) {
+      verification.status = 'failed';
+      verification.message = 'Arıza bildirimi için araç bilgisi bulunamadı.';
+      verification.warnings.push('Araç referansı eksik');
+    } else if (!odometer || typeof odometer.km !== 'number') {
+      verification.status = 'missing';
+      verification.message = 'Teslim kilometresi gönderilmedi.';
+    } else {
+      try {
+        const tenantId = resolveTenantId(req);
+        const odometerResult = await OdometerService.recordEvent({
+          tenantId,
+          vehicleId: faultReport.vehicleId.toString(),
+          km: Number(odometer.km),
+          unit: odometer.unit,
+          timestampUtc: odometer.timestampUtc || new Date(),
+          source: odometer.source || 'service',
+          evidenceType: odometer.evidenceType || 'none',
+          evidenceUrl: odometer.evidenceUrl,
+          notes: odometer.notes,
+          createdByUserId: mechanicId,
+          odometerReset: odometer.odometerReset,
+          clientRequestId: odometer.clientRequestId || `faultReport:${faultReportId}:${Date.now()}`,
+          metadata: {
+            faultReportId,
+            context: 'fault_report_completion',
+          },
+          featureFlags: req.featureFlags,
+        });
+
+        verification.status = odometerResult.pendingReview ? 'failed' : 'verified';
+        verification.message = odometerResult.pendingReview
+          ? 'Kilometre kaydı incelemeye alındı.'
+          : 'Kilometre başarıyla doğrulandı.';
+        verification.warnings = odometerResult.warnings ?? [];
+        verification.lastUpdated = new Date();
+      } catch (recordError: any) {
+        const message =
+          recordError?.error?.message ||
+          recordError?.message ||
+          'Kilometre kaydı oluşturulamadı.';
+        verification.status = 'failed';
+        verification.message = message;
+        verification.warnings = [message];
+        verification.lastUpdated = new Date();
+      }
+    }
+
     // Durumu completed yap
     faultReport.status = 'completed';
 
@@ -2223,6 +2285,7 @@ export const finalizeWork = async (req: Request, res: Response) => {
       faultReport.faultDescription += `\n\nUsta Notları: ${notes}`;
     }
 
+    faultReport.odometerVerification = verification;
     await faultReport.save();
 
     // Müşteriye bildirim gönder
@@ -2245,7 +2308,8 @@ export const finalizeWork = async (req: Request, res: Response) => {
       data: {
         faultReportId: faultReport._id,
         status: 'completed',
-        completedAt: new Date()
+        completedAt: new Date(),
+        odometerVerification: verification
       }
     });
 

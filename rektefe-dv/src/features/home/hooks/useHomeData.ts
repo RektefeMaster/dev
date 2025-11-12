@@ -81,6 +81,7 @@ export const useHomeData = () => {
     tireStatus: overview?.tireStatus ?? null,
     campaigns: overview?.campaigns ?? [],
     ads: overview?.ads ?? [],
+    odometerEstimate: overview?.odometerEstimate ?? null,
     userLocation,
     locationAddress,
     nearestMechanic,

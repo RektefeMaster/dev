@@ -2,8 +2,74 @@ import { Router, Request, Response } from 'express';
 import { auth } from '../middleware/optimizedAuth';
 import { Appointment } from '../models/Appointment';
 import { Types } from 'mongoose';
+import { AnalyticsEvent } from '../models/AnalyticsEvent';
+import Logger from '../utils/logger';
 
 const router = Router();
+
+router.post('/events', auth, async (req: Request, res: Response) => {
+  try {
+    const { event, properties, timestamp } = req.body as {
+      event?: string;
+      properties?: Record<string, any>;
+      timestamp?: string;
+    };
+
+    if (!event || typeof event !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Geçerli bir event alanı gereklidir.',
+      });
+    }
+
+    const tenantId = (req.headers['x-tenant-id'] as string) || req.tenantId || 'default';
+    const createdAt = new Date();
+    const eventTimestamp = timestamp ? new Date(timestamp) : createdAt;
+
+    if (Number.isNaN(eventTimestamp.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: 'timestamp geçerli bir tarih olmalıdır.',
+      });
+    }
+
+    let userId: Types.ObjectId | undefined;
+    if (req.user?.userId && Types.ObjectId.isValid(req.user.userId)) {
+      userId = new Types.ObjectId(req.user.userId);
+    }
+
+    await AnalyticsEvent.create({
+      tenantId,
+      userId,
+      userType: req.user?.userType,
+      event,
+      properties,
+      timestamp: eventTimestamp,
+      createdAt,
+      requestId: req.headers['x-request-id'] as string,
+      platform: properties?.platform || (req.headers['x-client-platform'] as string),
+      appVersion: properties?.appVersion || (req.headers['x-app-version'] as string),
+      userAgent: req.headers['user-agent'],
+    });
+
+    Logger.info('Analytics event kaydedildi', {
+      tenantId,
+      userId: userId?.toHexString(),
+      event,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Analytics event kaydedildi.',
+    });
+  } catch (error: any) {
+    Logger.error('Analytics event kaydedilirken hata', { error });
+    return res.status(500).json({
+      success: false,
+      message: 'Analytics event kaydedilemedi.',
+    });
+  }
+});
 
 /**
  * @swagger

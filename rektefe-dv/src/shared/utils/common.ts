@@ -63,6 +63,7 @@ export const STORAGE_KEYS = {
   REFRESH_TOKEN: 'refreshToken',
   USER_ID: 'userId',
   USER_DATA: 'userData',
+  TOKEN_ISSUED_AT: 'tokenIssuedAt',
   THEME: 'app_theme',
 } as const;
 
@@ -93,7 +94,7 @@ export const clearAsyncStorage = async () => {
 // Token ve userId'yi temizle
 export const clearAuthData = async () => {
   try {
-    await AsyncStorage.multiRemove(['token', 'userId', 'refreshToken']);
+    await AsyncStorage.multiRemove(['token', 'userId', 'refreshToken', 'tokenIssuedAt']);
   } catch (error) {
     }
 };

@@ -14,6 +14,23 @@ export interface Vehicle {
   plateNumber: string;
   image?: string;
   createdAt: string;
+  odometerEstimate?: {
+    estimateKm: number;
+    displayKm: number;
+    lastTrueKm: number;
+    lastTrueTsUtc: string;
+    sinceDays: number;
+    rateKmPerDay: number;
+    confidence: number;
+    isApproximate: boolean;
+    seriesId: string;
+  };
+  odometerVerification?: {
+    status: 'verified' | 'missing' | 'failed';
+    message?: string;
+    warnings?: string[];
+    lastUpdated?: string;
+  };
 }
 
 export interface AddVehicleData {

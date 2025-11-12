@@ -53,7 +53,7 @@ router.get('/main-categories', async (req: Request, res: Response) => {
         id: 'tire',
         name: 'Lastik & Parça',
         description: 'Lastik ve yedek parça',
-        icon: 'car-tire',
+        icon: 'car-wrench',
         color: '#F59E0B',
         subServices: ['Lastik', 'Jant', 'Fren balata', 'Filtre', 'Yağ']
       }
