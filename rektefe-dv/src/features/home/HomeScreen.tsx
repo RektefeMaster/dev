@@ -302,46 +302,6 @@ const HomeScreen = () => {
             <GreetingHeader userName={userName} favoriteCar={favoriteCar} userId={userId} />
           </View>
 
-          {/* Hızlı İşlemler - Kampanyaların üstüne taşındı */}
-          <View style={styles.quickActionsSection}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>Hızlı İşlemler</Text>
-            
-            <View style={styles.faultReportSection}>
-              <TouchableOpacity 
-                style={[styles.faultReportButton, { backgroundColor: theme.colors.error.main }]}
-                onPress={handleFaultReport}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons name="alert-circle" size={20} color="white" />
-                <Text style={styles.faultReportButtonText}>Arıza Bildir</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.faultReportListButton, { backgroundColor: theme.colors.background.card, borderColor: theme.colors.border.primary }]}
-                onPress={handleFaultReportList}
-              >
-                <MaterialCommunityIcons name="format-list-bulleted" size={24} color={theme.colors.primary.main} />
-                <Text style={[styles.faultReportListButtonText, { color: theme.colors.text.primary }]}>Arıza Bildirimlerim</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <TouchableOpacity 
-              style={[styles.bodyworkJobButton, { backgroundColor: '#FF6B35' }]}
-              onPress={handleCreateBodyworkJob}
-              activeOpacity={0.8}
-            >
-              <MaterialCommunityIcons name="car-wrench" size={20} color="white" />
-              <Text style={styles.bodyworkJobButtonText}>Kaporta İşi Oluştur</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.maintenanceButton, { backgroundColor: theme.colors.primary.main }]}
-              onPress={handleMaintenancePlan}
-            >
-              <Text style={[styles.maintenanceButtonText, { color: theme.colors.text.inverse }]}>Bakım Planı Oluştur</Text>
-            </TouchableOpacity>
-          </View>
-
           {/* Campaigns Section - Hızlı işlemlerden sonra */}
           <View style={[styles.section, styles.campaignSection]}>
             <View style={styles.campaignHeader}>
@@ -383,6 +343,46 @@ const HomeScreen = () => {
                 {campaigns.map(renderCampaignCard)}
               </ScrollView>
             )}
+          </View>
+
+          {/* Hızlı İşlemler */}
+          <View style={styles.quickActionsSection}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>Hızlı İşlemler</Text>
+            
+            <View style={styles.faultReportSection}>
+              <TouchableOpacity 
+                style={[styles.faultReportButton, { backgroundColor: theme.colors.error.main }]}
+                onPress={handleFaultReport}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="alert-circle" size={20} color="white" />
+                <Text style={styles.faultReportButtonText}>Arıza Bildir</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.faultReportListButton, { backgroundColor: theme.colors.background.card, borderColor: theme.colors.border.primary }]}
+                onPress={handleFaultReportList}
+              >
+                <MaterialCommunityIcons name="format-list-bulleted" size={24} color={theme.colors.primary.main} />
+                <Text style={[styles.faultReportListButtonText, { color: theme.colors.text.primary }]}>Arıza Bildirimlerim</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <TouchableOpacity 
+              style={[styles.bodyworkJobButton, { backgroundColor: '#FF6B35' }]}
+              onPress={handleCreateBodyworkJob}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="car-wrench" size={20} color="white" />
+              <Text style={styles.bodyworkJobButtonText}>Kaporta İşi Oluştur</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.maintenanceButton, { backgroundColor: theme.colors.primary.main }]}
+              onPress={handleMaintenancePlan}
+            >
+              <Text style={[styles.maintenanceButtonText, { color: theme.colors.text.inverse }]}>Bakım Planı Oluştur</Text>
+            </TouchableOpacity>
           </View>
 
           {/* En Yakın Usta Kartı */}
