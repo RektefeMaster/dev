@@ -29,10 +29,23 @@ router.get('/overview', auth, async (req: Request, res: Response) => {
     const userId = req.user.userId;
 
     const [maintenance, insurance, vehicleStatus, tireStatus] = await Promise.all([
-      MaintenanceRecordModel.find({ userId }).sort({ date: -1 }).limit(10).lean(),
-      InsurancePolicyModel.findOne({ userId }).sort({ endDate: -1 }).lean(),
-      VehicleStatusRecordModel.findOne({ userId }).sort({ lastCheck: -1 }).lean(),
-      TireStatusRecordModel.findOne({ userId }).sort({ lastCheck: -1 }).lean(),
+      MaintenanceRecordModel.find({ userId })
+        .sort({ date: -1 })
+        .limit(10)
+        .lean()
+        .exec(),
+      InsurancePolicyModel.findOne({ userId })
+        .sort({ endDate: -1 })
+        .lean()
+        .exec(),
+      VehicleStatusRecordModel.findOne({ userId })
+        .sort({ lastCheck: -1 })
+        .lean()
+        .exec(),
+      TireStatusRecordModel.findOne({ userId })
+        .sort({ lastCheck: -1 })
+        .lean()
+        .exec(),
     ]);
 
     const maintenanceRecords =

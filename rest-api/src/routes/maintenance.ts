@@ -19,7 +19,8 @@ router.get('/', auth, async (req: Request, res: Response) => {
     let records = await MaintenanceRecordModel.find({ userId })
       .sort({ date: -1 })
       .limit(10)
-      .lean();
+      .lean()
+      .exec();
 
     if (!records.length) {
       records = createSampleMaintenanceRecords(userId);

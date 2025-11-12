@@ -17,7 +17,8 @@ router.get('/:userId', auth, async (req: Request, res: Response) => {
 
     let info = await InsurancePolicyModel.findOne({ userId: req.params.userId })
       .sort({ endDate: -1 })
-      .lean();
+      .lean()
+      .exec();
 
     if (!info) {
       info = createSampleInsurancePolicy(req.params.userId);

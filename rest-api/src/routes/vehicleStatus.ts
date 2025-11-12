@@ -17,7 +17,8 @@ router.get('/:userId', auth, async (req: Request, res: Response) => {
 
     let status = await VehicleStatusRecordModel.findOne({ userId: req.params.userId })
       .sort({ lastCheck: -1 })
-      .lean();
+      .lean()
+      .exec();
 
     if (!status) {
       status = createSampleVehicleStatus(req.params.userId);
