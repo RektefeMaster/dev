@@ -17,7 +17,8 @@ router.get('/', auth, async (req: Request, res: Response) => {
     const userId = req.user.userId;
     const records = await MaintenanceRecordModel.find({ userId })
       .sort({ date: -1 })
-      .limit(10);
+      .limit(10)
+      .exec();
 
     const plainRecords = records.map((record) => record.toObject());
     const message = plainRecords.length
