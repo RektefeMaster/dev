@@ -24,6 +24,7 @@ import io from 'socket.io-client';
 import { translateServiceName } from '@/shared/utils/serviceTranslator';
 import { RootStackParamList } from '@/navigation/AppNavigator';
 import { BackButton } from '@/shared/components';
+import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import {
   translateElectricalSystemType,
@@ -39,7 +40,6 @@ type AppointmentsScreenNavigationProp = NativeStackNavigationProp<RootStackParam
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_PADDING = 20;
 const CARD_MARGIN = 16;
-const CARD_WIDTH = SCREEN_WIDTH - (CARD_MARGIN * 2);
 
 interface AppointmentItem {
   _id: string;
@@ -66,8 +66,20 @@ interface AppointmentItem {
   timeSlot?: string;
 }
 
+const getTintedColor = (hexColor: string, isDarkMode: boolean, fallback: string) => {
+  if (!hexColor || !hexColor.startsWith('#')) {
+    return fallback;
+  }
+
+  const alpha = isDarkMode ? '33' : '1A';
+  return `${hexColor}${alpha}`;
+};
+
 const AppointmentsScreen = () => {
   const navigation = useNavigation<AppointmentsScreenNavigationProp>();
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+  const themeColors = theme.colors;
   const { user } = useAuth();
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
   const [washOrders, setWashOrders] = useState<any[]>([]);
@@ -528,43 +540,54 @@ const AppointmentsScreen = () => {
     return serviceIcons[type] || 'wrench';
   };
 
-  const getStatusInfo = (status: string, paymentStatus?: string, appointmentDate?: Date, autoCancelled?: boolean) => {
+  const getStatusInfo = (
+    status: string,
+    paymentStatus?: string,
+    appointmentDate?: Date,
+    autoCancelled?: boolean
+  ) => {
+    const palette = theme.colors;
     if (status === 'completed' && paymentStatus === 'pending') {
-      return { color: '#FF9500', text: 'Ödeme Bekleniyor', icon: 'currency-try' as any };
+      return { color: palette.warning.main, text: 'Ödeme Bekleniyor', icon: 'currency-try' as any };
     }
-    
+
     if (status === 'completed' && paymentStatus === 'paid') {
-      return { color: '#34C759', text: 'Tamamlandı', icon: 'check-circle' as any };
+      return { color: palette.success.main, text: 'Tamamlandı', icon: 'check-circle' as any };
     }
 
     if (autoCancelled && (status === 'cancelled' || status === 'IPTAL_EDILDI')) {
-      return { color: '#6B7280', text: 'İşlem Yok', icon: 'minus-circle-outline' as any };
+      return {
+        color: palette.neutral[500],
+        text: 'İşlem Yok',
+        icon: 'minus-circle-outline' as any,
+      };
     }
-    
+
     if ((status === 'pending' || status === 'TALEP_EDILDI') && appointmentDate) {
       const now = new Date();
       if (appointmentDate.getTime() < now.getTime()) {
-        return { color: '#EF4444', text: 'Onaylanmadı', icon: 'close-circle' as any };
+        return { color: palette.error.main, text: 'Onaylanmadı', icon: 'close-circle' as any };
       }
-      return { color: '#FF9500', text: 'Onay Bekleniyor', icon: 'clock-outline' as any };
+      return { color: palette.warning.main, text: 'Onay Bekleniyor', icon: 'clock-outline' as any };
     }
-    
+
     switch (status) {
       case 'pending':
       case 'TALEP_EDILDI':
-        return { color: '#FF9500', text: 'Onay Bekleniyor', icon: 'clock-outline' as any };
+        return { color: palette.warning.main, text: 'Onay Bekleniyor', icon: 'clock-outline' as any };
       case 'confirmed':
-        return { color: '#34C759', text: 'Onaylandı', icon: 'check-circle' as any };
+        return { color: palette.success.main, text: 'Onaylandı', icon: 'check-circle' as any };
       case 'in-progress':
-        return { color: '#007AFF', text: 'İşlemde', icon: 'wrench' as any };
+        return { color: palette.info.main, text: 'İşlemde', icon: 'wrench' as any };
       case 'completed':
-        return { color: '#FF9500', text: 'Ödeme Bekleniyor', icon: 'currency-try' as any };
+        return { color: palette.warning.main, text: 'Ödeme Bekleniyor', icon: 'currency-try' as any };
       case 'cancelled':
-        return { color: '#FF3B30', text: 'İptal Edildi', icon: 'close-circle' as any };
+      case 'IPTAL_EDILDI':
+        return { color: palette.error.main, text: 'İptal Edildi', icon: 'close-circle' as any };
       case 'rejected':
-        return { color: '#FF3B30', text: 'Reddedildi', icon: 'close-circle' as any };
+        return { color: palette.error.main, text: 'Reddedildi', icon: 'close-circle' as any };
       default:
-        return { color: '#8E8E93', text: 'Bilinmiyor', icon: 'help-circle' as any };
+        return { color: palette.text.secondary, text: 'Bilinmiyor', icon: 'help-circle' as any };
     }
   };
 
@@ -592,11 +615,22 @@ const AppointmentsScreen = () => {
       <View style={styles.appointmentCard}>
         <View style={styles.cardHeader}>
           <View style={styles.cardHeaderLeft}>
-            <View style={[styles.serviceIconContainer, { backgroundColor: statusInfo.color + '20' }]}>
-              <MaterialCommunityIcons 
-                name={getServiceTypeIcon(item.serviceType) as any} 
-                size={24} 
-                color={statusInfo.color} 
+            <View
+              style={[
+                styles.serviceIconContainer,
+                {
+                  backgroundColor: getTintedColor(
+                    statusInfo.color,
+                    isDark,
+                    themeColors.background.secondary
+                  ),
+                },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={getServiceTypeIcon(item.serviceType) as any}
+                size={24}
+                color={statusInfo.color}
               />
             </View>
             <View style={styles.serviceInfo}>
@@ -609,7 +643,7 @@ const AppointmentsScreen = () => {
             </View>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: statusInfo.color }]}>
-            <MaterialCommunityIcons name={statusInfo.icon} size={14} color="#FFFFFF" />
+            <MaterialCommunityIcons name={statusInfo.icon} size={14} color={themeColors.text.inverse} />
             <Text style={styles.statusText}>{statusInfo.text}</Text>
           </View>
         </View>
@@ -618,7 +652,7 @@ const AppointmentsScreen = () => {
           <View style={styles.dateTimeSection}>
             <View style={styles.dateTimeItem}>
               <View style={styles.dateTimeIcon}>
-                <MaterialCommunityIcons name="calendar" size={18} color="#1A1A1A" />
+                <MaterialCommunityIcons name="calendar" size={18} color={theme.colors.text.primary} />
               </View>
               <View style={styles.dateTimeContent}>
                 <Text style={styles.dateTimeLabel}>Tarih</Text>
@@ -630,7 +664,7 @@ const AppointmentsScreen = () => {
             <View style={styles.dateTimeDivider} />
             <View style={styles.dateTimeItem}>
               <View style={styles.dateTimeIcon}>
-                <MaterialCommunityIcons name="clock-outline" size={18} color="#1A1A1A" />
+                <MaterialCommunityIcons name="clock-outline" size={18} color={theme.colors.text.primary} />
               </View>
               <View style={styles.dateTimeContent}>
                 <Text style={styles.dateTimeLabel}>Saat</Text>
@@ -644,7 +678,7 @@ const AppointmentsScreen = () => {
           {!!item.vehicleId && typeof item.vehicleId === 'object' && (
             <View style={styles.infoRow}>
               <View style={styles.infoIcon}>
-                <MaterialCommunityIcons name="car" size={18} color="#1A1A1A" />
+                <MaterialCommunityIcons name="car" size={18} color={theme.colors.text.primary} />
               </View>
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Araç</Text>
@@ -658,7 +692,7 @@ const AppointmentsScreen = () => {
           {!!item.mechanicId && typeof item.mechanicId === 'object' && (
             <View style={styles.infoRow}>
               <View style={styles.infoIcon}>
-                <MaterialCommunityIcons name="account-wrench" size={18} color="#1A1A1A" />
+                <MaterialCommunityIcons name="account-wrench" size={18} color={theme.colors.text.primary} />
               </View>
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Usta / Dükkan</Text>
@@ -678,7 +712,7 @@ const AppointmentsScreen = () => {
           {!!item.price && typeof item.price === 'number' && item.price > 0 && (
             <View style={styles.priceSection}>
               <View style={styles.priceIcon}>
-                <MaterialCommunityIcons name="currency-try" size={20} color="#10B981" />
+                <MaterialCommunityIcons name="currency-try" size={20} color={theme.colors.success.main} />
               </View>
               <View style={styles.priceContent}>
                 <Text style={styles.priceLabel}>Fiyat</Text>
@@ -692,7 +726,7 @@ const AppointmentsScreen = () => {
           {!!item.estimatedDuration && typeof item.estimatedDuration === 'number' && item.estimatedDuration > 0 && !!item.status && item.status === 'completed' && (
             <View style={styles.infoRow}>
               <View style={styles.infoIcon}>
-                <MaterialCommunityIcons name="timer" size={18} color="#1A1A1A" />
+                <MaterialCommunityIcons name="timer" size={18} color={theme.colors.text.primary} />
               </View>
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>İş Süresi</Text>
@@ -707,13 +741,13 @@ const AppointmentsScreen = () => {
                 <MaterialCommunityIcons 
                   name={item.paymentStatus === 'paid' ? 'check-circle' : 'clock-outline'} 
                   size={18} 
-                  color={item.paymentStatus === 'paid' ? '#10B981' : '#F59E0B'} 
+                  color={item.paymentStatus === 'paid' ? theme.colors.success.main : theme.colors.warning.main} 
                 />
               </View>
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Ödeme Durumu</Text>
                 <Text style={[styles.infoValue, { 
-                  color: item.paymentStatus === 'paid' ? '#10B981' : '#F59E0B' 
+                  color: item.paymentStatus === 'paid' ? theme.colors.success.main : theme.colors.warning.main 
                 }]}>
                   {item.paymentStatus === 'paid' ? 'Ödendi' : 'Bekleniyor'}
                 </Text>
@@ -729,7 +763,7 @@ const AppointmentsScreen = () => {
               return (
                 <View style={styles.infoRow}>
                   <View style={styles.infoIcon}>
-                    <MaterialCommunityIcons name="calendar-plus" size={18} color="#6B7280" />
+                    <MaterialCommunityIcons name="calendar-plus" size={18} color={theme.colors.text.secondary} />
                   </View>
                   <View style={styles.infoContent}>
                     <Text style={styles.infoLabel}>Oluşturulma</Text>
@@ -748,7 +782,7 @@ const AppointmentsScreen = () => {
            !!(item.electricalSystemType || item.electricalProblemType || item.electricalUrgencyLevel || item.isRecurring) && (
             <View style={styles.electricalSection}>
               <View style={styles.electricalHeader}>
-                <MaterialCommunityIcons name="lightning-bolt" size={18} color="#F97316" />
+                <MaterialCommunityIcons name="lightning-bolt" size={18} color={themeColors.warning.main} />
                 <Text style={styles.electricalHeaderText}>Elektrik Detayları</Text>
                 {!!item.electricalUrgencyLevel && item.electricalUrgencyLevel === 'acil' && (
                   <View style={[styles.urgencyBadge, { 
@@ -781,7 +815,7 @@ const AppointmentsScreen = () => {
               </View>
               {!!item.electricalSystemType && (
                 <View style={styles.electricalDetailRow}>
-                  <MaterialCommunityIcons name="flash" size={16} color="#666" />
+                  <MaterialCommunityIcons name="flash" size={16} color={themeColors.text.secondary} />
                   <Text style={styles.electricalDetailText}>
                     {`Sistem: ${translateElectricalSystemType(item.electricalSystemType) || item.electricalSystemType || ''}`}
                   </Text>
@@ -789,7 +823,7 @@ const AppointmentsScreen = () => {
               )}
               {!!item.electricalProblemType && (
                 <View style={styles.electricalDetailRow}>
-                  <MaterialCommunityIcons name="alert-circle" size={16} color="#666" />
+                  <MaterialCommunityIcons name="alert-circle" size={16} color={themeColors.text.secondary} />
                   <Text style={styles.electricalDetailText}>
                     {`Problem: ${translateElectricalProblemType(item.electricalProblemType) || item.electricalProblemType || ''}`}
                   </Text>
@@ -801,7 +835,7 @@ const AppointmentsScreen = () => {
           {!!item.notes && item.notes.trim() !== '' && (
             <View style={styles.infoRow}>
               <View style={styles.infoIcon}>
-                <MaterialCommunityIcons name="note-text" size={18} color="#6B7280" />
+                <MaterialCommunityIcons name="note-text" size={18} color={themeColors.text.secondary} />
               </View>
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Notlar</Text>
@@ -813,11 +847,11 @@ const AppointmentsScreen = () => {
           {!!item.rejectionReason && item.rejectionReason.trim() !== '' && (
             <View style={styles.infoRow}>
               <View style={styles.infoIcon}>
-                <MaterialCommunityIcons name="close-circle" size={18} color="#EF4444" />
+                <MaterialCommunityIcons name="close-circle" size={18} color={themeColors.error.main} />
               </View>
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Red Sebebi</Text>
-                <Text style={[styles.infoValue, { color: '#EF4444' }]}>
+                <Text style={[styles.infoValue, { color: themeColors.error.main }]}>
                   {item.rejectionReason}
                 </Text>
               </View>
@@ -827,7 +861,7 @@ const AppointmentsScreen = () => {
           {!!item.description && item.description.trim() !== '' && (
             <View style={styles.infoRow}>
               <View style={styles.infoIcon}>
-                <MaterialCommunityIcons name="note-text" size={18} color="#6B7280" />
+                <MaterialCommunityIcons name="note-text" size={18} color={themeColors.text.secondary} />
               </View>
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Açıklama</Text>
@@ -839,11 +873,11 @@ const AppointmentsScreen = () => {
           {!!item.mechanicNotes && item.mechanicNotes.trim() !== '' && (
             <View style={styles.infoRow}>
               <View style={styles.infoIcon}>
-                <MaterialCommunityIcons name="account-wrench" size={18} color="#007AFF" />
+                <MaterialCommunityIcons name="account-wrench" size={18} color={themeColors.primary.main} />
               </View>
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Usta Notu</Text>
-                <Text style={[styles.infoValue, { color: '#007AFF' }]}>
+                <Text style={[styles.infoValue, { color: themeColors.primary.main }]}>
                   {item.mechanicNotes}
                 </Text>
               </View>
@@ -853,7 +887,7 @@ const AppointmentsScreen = () => {
           {activeTab === 'current' && !!item.status && (item.status === 'pending' || item.status === 'TALEP_EDILDI') && !isPast && (
             <View style={styles.timeRemainingSection}>
               <View style={styles.timeRemainingIcon}>
-                <MaterialCommunityIcons name="clock-alert" size={18} color="#F59E0B" />
+                <MaterialCommunityIcons name="clock-alert" size={18} color={themeColors.warning.main} />
               </View>
               <View style={styles.timeRemainingContent}>
                 <Text style={styles.timeRemainingLabel}>Kalan Süre</Text>
@@ -866,7 +900,7 @@ const AppointmentsScreen = () => {
 
           {activeTab === 'past' && isNotApproved && (
             <View style={styles.notApprovedSection}>
-              <MaterialCommunityIcons name="close-circle" size={20} color="#EF4444" />
+              <MaterialCommunityIcons name="close-circle" size={20} color={themeColors.error.main} />
               <Text style={styles.notApprovedText}>
                 Randevu tarihi geçti ancak onaylanmadı. Lütfen yeni bir randevu oluşturun.
               </Text>
@@ -875,7 +909,7 @@ const AppointmentsScreen = () => {
 
           {activeTab === 'past' && isPast && !isNotApproved && !!item.status && item.status === 'completed' && !!item.paymentStatus && item.paymentStatus === 'paid' && (
             <View style={styles.completedSection}>
-              <MaterialCommunityIcons name="check-circle" size={20} color="#34C759" />
+              <MaterialCommunityIcons name="check-circle" size={20} color={themeColors.success.main} />
               <Text style={styles.completedText}>Tamamlanmış Randevu</Text>
             </View>
           )}
@@ -888,14 +922,14 @@ const AppointmentsScreen = () => {
               onPress={() => handleCancelAppointment(item._id, item.appointmentDate)}
               activeOpacity={0.7}
             >
-              <MaterialCommunityIcons name="close-circle" size={18} color="#EF4444" />
+            <MaterialCommunityIcons name="close-circle" size={18} color={themeColors.error.main} />
               <Text style={styles.cancelButtonText}>İptal Et</Text>
             </TouchableOpacity>
           )}
 
           {activeTab === 'current' && !!item.status && (item.status === 'pending' || item.status === 'TALEP_EDILDI') && !canCancel && !isPast && (
             <View style={styles.cannotCancelSection}>
-              <MaterialCommunityIcons name="alert-circle" size={18} color="#F59E0B" />
+            <MaterialCommunityIcons name="alert-circle" size={18} color={themeColors.warning.main} />
               <Text style={styles.cannotCancelText}>
                 Randevuya 1 saatten az kaldığı için iptal edilemez
               </Text>
@@ -910,14 +944,14 @@ const AppointmentsScreen = () => {
                   onPress={() => handlePayment(item._id, item.mechanicId, item.serviceType, item)}
                   activeOpacity={0.8}
                 >
-                  <MaterialCommunityIcons name="credit-card" size={20} color="#FFFFFF" />
+                  <MaterialCommunityIcons name="credit-card" size={20} color={themeColors.text.inverse} />
                   <Text style={styles.paymentButtonText}>Ödeme Yap</Text>
                 </TouchableOpacity>
               )}
 
               {!!item.status && item.status === 'completed' && !!item.paymentStatus && item.paymentStatus === 'paid' && (
                 <View style={styles.paymentSuccessSection}>
-                  <MaterialCommunityIcons name="check-circle" size={20} color="#10B981" />
+                  <MaterialCommunityIcons name="check-circle" size={20} color={themeColors.success.main} />
                   <View style={styles.paymentSuccessContent}>
                     <Text style={styles.paymentSuccessText}>Ödeme Tamamlandı</Text>
                     {!!item.paymentDate && (() => {
@@ -943,7 +977,7 @@ const AppointmentsScreen = () => {
                 onPress={() => handleViewDetails(item)}
                 activeOpacity={0.7}
               >
-                <MaterialCommunityIcons name="eye-outline" size={18} color="#1A1A1A" />
+                <MaterialCommunityIcons name="eye-outline" size={18} color={themeColors.text.primary} />
                 <Text style={styles.detailButtonText}>Detayları Görüntüle</Text>
               </TouchableOpacity>
             </>
@@ -956,7 +990,7 @@ const AppointmentsScreen = () => {
                 onPress={() => handleViewDetails(item)}
                 activeOpacity={0.7}
               >
-                <MaterialCommunityIcons name="eye-outline" size={18} color="#1A1A1A" />
+                <MaterialCommunityIcons name="eye-outline" size={18} color={themeColors.text.primary} />
                 <Text style={styles.detailButtonText}>Detayları Görüntüle</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -964,7 +998,7 @@ const AppointmentsScreen = () => {
                 onPress={() => handleDeleteAppointment(item._id)}
                 activeOpacity={0.7}
               >
-                <MaterialCommunityIcons name="delete-outline" size={18} color="#EF4444" />
+                <MaterialCommunityIcons name="delete-outline" size={18} color={themeColors.error.main} />
                 <Text style={styles.deleteButtonText}>Randevuyu Sil</Text>
               </TouchableOpacity>
             </>
@@ -997,22 +1031,22 @@ const AppointmentsScreen = () => {
     };
 
     const getStatusColor = (status: string | undefined) => {
-      if (!status) return '#666';
+      if (!status) return themeColors.text.secondary;
       const lowerStatus = status.toLowerCase();
-      
+
       if (['created', 'priced', 'driver_confirmed', 'provider_accepted'].includes(lowerStatus)) {
-        return '#FF9500';
+        return themeColors.warning.main;
       }
       if (['en_route', 'check_in', 'in_progress', 'qa_pending'].includes(lowerStatus)) {
-        return '#007AFF';
+        return themeColors.primary.main;
       }
       if (['completed', 'paid', 'reviewed'].includes(lowerStatus)) {
-        return '#34C759';
+        return themeColors.success.main;
       }
       if (['cancelled_by_driver', 'cancelled_by_provider', 'disputed'].includes(lowerStatus)) {
-        return '#FF3B30';
+        return themeColors.error.main;
       }
-      return '#666';
+      return themeColors.text.secondary;
     };
 
     const getTypeText = (type: string): string => {
@@ -1021,11 +1055,11 @@ const AppointmentsScreen = () => {
     };
 
     return (
-      <View style={styles.washCard}>
+        <View style={styles.washCard}>
         <View style={styles.washCardHeader}>
           <View style={styles.washCardTitleRow}>
             <View style={styles.washIcon}>
-              <MaterialCommunityIcons name="car-wash" size={20} color="#FFF" />
+                <MaterialCommunityIcons name="car-wash" size={20} color={themeColors.text.inverse} />
             </View>
             <View style={styles.washTitleContainer}>
               <Text style={styles.washCardTitle}>
@@ -1053,7 +1087,7 @@ const AppointmentsScreen = () => {
 
         <View style={styles.washCardContent}>
           <View style={styles.washInfoRow}>
-            <MaterialCommunityIcons name="barcode" size={16} color="#666" />
+              <MaterialCommunityIcons name="barcode" size={16} color={themeColors.text.secondary} />
             <Text style={styles.washInfoText}>
               #{item._id ? String(item._id).slice(-8).toUpperCase() : ''}
             </Text>
@@ -1061,7 +1095,7 @@ const AppointmentsScreen = () => {
 
           {!!item.vehicle && typeof item.vehicle === 'object' && (
             <View style={styles.washInfoRow}>
-              <MaterialCommunityIcons name="car" size={16} color="#007AFF" />
+                <MaterialCommunityIcons name="car" size={16} color={themeColors.primary.main} />
               <Text style={styles.washInfoText}>
                 {`${item.vehicle?.brand || ''} ${item.vehicle?.model || ''} - ${item.vehicle?.plateNumber || ''}`.trim()}
               </Text>
@@ -1070,7 +1104,7 @@ const AppointmentsScreen = () => {
 
           {!!item.type && item.type === 'mobile' && !!item.location?.address && (
             <View style={styles.washInfoRow}>
-              <MaterialCommunityIcons name="map-marker" size={16} color="#E63946" />
+                <MaterialCommunityIcons name="map-marker" size={16} color={themeColors.error.main} />
               <Text style={styles.washInfoText} numberOfLines={1}>
                 {item.location.address}
               </Text>
@@ -1084,7 +1118,7 @@ const AppointmentsScreen = () => {
             if (!providerName) return null;
             return (
               <View style={styles.washInfoRow}>
-                <MaterialCommunityIcons name="store" size={16} color="#10B981" />
+                  <MaterialCommunityIcons name="store" size={16} color={themeColors.success.main} />
                 <Text style={styles.washInfoText}>
                   {providerName}
                 </Text>
@@ -1100,7 +1134,7 @@ const AppointmentsScreen = () => {
               if (!formattedDate) return null;
               return (
                 <View style={styles.washInfoRow}>
-                  <MaterialCommunityIcons name="calendar" size={16} color="#FF9500" />
+                    <MaterialCommunityIcons name="calendar" size={16} color={themeColors.warning.main} />
                   <Text style={styles.washInfoText}>
                     {formattedDate}
                   </Text>
@@ -1129,7 +1163,7 @@ const AppointmentsScreen = () => {
 
         <View style={styles.washCardFooter}>
           <View style={styles.washCardMeta}>
-            <MaterialCommunityIcons name="clock-outline" size={14} color="#999" />
+            <MaterialCommunityIcons name="clock-outline" size={14} color={themeColors.text.tertiary} />
             {!!item.createdAt && (() => {
               try {
                 const date = new Date(item.createdAt);
@@ -1157,7 +1191,7 @@ const AppointmentsScreen = () => {
                 return isActive ? 'Takip Et' : 'Detay Gör';
               })()}
             </Text>
-            <MaterialCommunityIcons name="chevron-right" size={16} color="#007AFF" />
+            <MaterialCommunityIcons name="chevron-right" size={16} color={themeColors.text.inverse} />
           </TouchableOpacity>
         </View>
       </View>
@@ -1172,7 +1206,7 @@ const AppointmentsScreen = () => {
           <Text style={styles.headerTitle}>Randevularım</Text>
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+          <ActivityIndicator size="large" color={themeColors.primary.main} />
           <Text style={styles.loadingText}>Randevular yükleniyor...</Text>
         </View>
       </SafeAreaView>
@@ -1214,7 +1248,7 @@ const AppointmentsScreen = () => {
             <MaterialCommunityIcons 
               name="calendar-check" 
               size={18} 
-              color={viewMode === 'appointments' ? '#FFFFFF' : '#1A1A1A'} 
+              color={viewMode === 'appointments' ? themeColors.text.inverse : themeColors.text.primary} 
             />
             <Text style={[styles.segmentText, viewMode === 'appointments' && styles.segmentTextActive]}>
               Randevular
@@ -1232,7 +1266,7 @@ const AppointmentsScreen = () => {
             <MaterialCommunityIcons 
               name="car-wash" 
               size={18} 
-              color={viewMode === 'wash' ? '#FFFFFF' : '#1A1A1A'} 
+              color={viewMode === 'wash' ? themeColors.text.inverse : themeColors.text.primary} 
             />
             <Text style={[styles.segmentText, viewMode === 'wash' && styles.segmentTextActive]}>
               Yıkama
@@ -1261,7 +1295,7 @@ const AppointmentsScreen = () => {
                   <MaterialCommunityIcons 
                     name={service.icon as any} 
                     size={18} 
-                    color={isActive ? '#FFFFFF' : '#6B7280'} 
+                    color={isActive ? themeColors.text.inverse : themeColors.text.secondary} 
                   />
                   <Text style={[styles.serviceTypeTabText, isActive && styles.serviceTypeTabTextActive]}>
                     {service.name}
@@ -1294,7 +1328,7 @@ const AppointmentsScreen = () => {
             <MaterialCommunityIcons 
               name={viewMode === 'appointments' ? 'calendar-clock' : 'timer-sand'} 
               size={20} 
-              color={activeTab === 'current' ? '#1A1A1A' : '#6B7280'} 
+              color={activeTab === 'current' ? themeColors.text.inverse : themeColors.text.secondary} 
             />
             <Text style={[styles.tabLabel, activeTab === 'current' && styles.tabLabelActive]}>
               {viewMode === 'appointments' ? 'Güncel' : 'Aktif'}
@@ -1314,7 +1348,7 @@ const AppointmentsScreen = () => {
             <MaterialCommunityIcons 
               name={viewMode === 'appointments' ? 'credit-card' : 'check-circle'} 
               size={20} 
-              color={activeTab === 'completed' ? '#1A1A1A' : '#6B7280'} 
+              color={activeTab === 'completed' ? themeColors.text.inverse : themeColors.text.secondary} 
             />
             <Text style={[styles.tabLabel, activeTab === 'completed' && styles.tabLabelActive]}>
               {viewMode === 'appointments' ? 'Ödeme' : 'Tamamlanan'}
@@ -1334,7 +1368,7 @@ const AppointmentsScreen = () => {
             <MaterialCommunityIcons 
               name={viewMode === 'appointments' ? 'history' : 'close-circle'} 
               size={20} 
-              color={activeTab === 'past' ? '#1A1A1A' : '#6B7280'} 
+              color={activeTab === 'past' ? themeColors.text.inverse : themeColors.text.secondary} 
             />
             <Text style={[styles.tabLabel, activeTab === 'past' && styles.tabLabelActive]}>
               {viewMode === 'appointments' ? 'Geçmiş' : 'İptal'}
@@ -1363,7 +1397,7 @@ const AppointmentsScreen = () => {
                    activeTab === 'completed' ? 'check-circle' : 'close-circle')
               } 
               size={64} 
-              color="#CCC" 
+              color={themeColors.text.tertiary} 
             />
             <Text style={styles.emptyTitle}>
               {viewMode === 'appointments'
@@ -1400,778 +1434,773 @@ const AppointmentsScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: CARD_PADDING,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  headerContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    letterSpacing: -0.5,
-    marginBottom: 2,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  viewModeContainer: {
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    paddingVertical: 16,
-    paddingHorizontal: CARD_PADDING,
-  },
-  segmentedControl: {
-    flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    padding: 4,
-    gap: 4,
-    marginBottom: 12,
-  },
-  segmentButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    gap: 8,
-  },
-  segmentButtonActive: {
-    backgroundColor: '#1A1A1A',
-  },
-  segmentText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1A1A1A',
-  },
-  segmentTextActive: {
-    color: '#FFFFFF',
-  },
-  serviceTypeScrollView: {
-    flexGrow: 0,
-  },
-  serviceTypeScrollContent: {
-    gap: 8,
-  },
-  serviceTypeTab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    gap: 6,
-    minWidth: 100,
-    height: 44,
-    justifyContent: 'center',
-  },
-  serviceTypeTabActive: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
-  },
-  serviceTypeTabText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  serviceTypeTabTextActive: {
-    color: '#FFFFFF',
-  },
-  serviceTypeTabBadge: {
-    backgroundColor: '#E5E7EB',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    minWidth: 20,
-    alignItems: 'center',
-  },
-  serviceTypeTabBadgeActive: {
-    backgroundColor: '#FFFFFF',
-  },
-  serviceTypeTabBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#6B7280',
-  },
-  serviceTypeTabBadgeTextActive: {
-    color: '#007AFF',
-  },
-  tabContainer: {
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    paddingVertical: 12,
-  },
-  tabScrollContent: {
-    paddingHorizontal: CARD_PADDING,
-    gap: 12,
-  },
-  tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    gap: 8,
-    minWidth: 120,
-  },
-  tabActive: {
-    backgroundColor: '#1A1A1A',
-    borderColor: '#1A1A1A',
-  },
-  tabLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  tabLabelActive: {
-    color: '#FFFFFF',
-  },
-  tabBadge: {
-    backgroundColor: '#E5E7EB',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    minWidth: 24,
-    alignItems: 'center',
-  },
-  tabBadgeActive: {
-    backgroundColor: '#FFFFFF',
-  },
-  tabBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#6B7280',
-  },
-  tabBadgeTextActive: {
-    color: '#1A1A1A',
-  },
-  listContainer: {
-    paddingTop: 20,
-    paddingBottom: 40,
-  },
-  appointmentCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    marginHorizontal: CARD_MARGIN,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-    overflow: 'hidden',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: CARD_PADDING,
-    backgroundColor: '#FAFBFC',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  cardHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: 12,
-  },
-  serviceIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  serviceInfo: {
-    flex: 1,
-  },
-  serviceTypeText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    marginBottom: 4,
-    letterSpacing: -0.3,
-  },
-  serviceDateText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#6B7280',
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    gap: 6,
-  },
-  statusText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  cardContent: {
-    padding: CARD_PADDING,
-  },
-  dateTimeSection: {
-    flexDirection: 'row',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    gap: 16,
-  },
-  dateTimeItem: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  dateTimeIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dateTimeContent: {
-    flex: 1,
-  },
-  dateTimeLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  dateTimeValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1A1A1A',
-  },
-  dateTimeDivider: {
-    width: 1,
-    backgroundColor: '#E5E7EB',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-    gap: 12,
-  },
-  infoIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: '#F9FAFB',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  infoContent: {
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  infoValue: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    lineHeight: 22,
-  },
-  priceSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0FDF4',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 8,
-    marginBottom: 16,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: '#D1FAE5',
-  },
-  priceIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  priceContent: {
-    flex: 1,
-  },
-  priceLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#059669',
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  priceValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#10B981',
-    letterSpacing: -0.5,
-  },
-  electricalSection: {
-    backgroundColor: '#FEF9E7',
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 8,
-    marginBottom: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: '#F97316',
-  },
-  electricalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  electricalHeaderText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1E293B',
-    flex: 1,
-  },
-  urgencyBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-  },
-  urgencyBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  recurringBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-  },
-  recurringBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  electricalDetailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-    gap: 8,
-  },
-  electricalDetailText: {
-    fontSize: 13,
-    color: '#1E293B',
-    flex: 1,
-  },
-  timeRemainingSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFBEB',
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 12,
-    marginBottom: 4,
-    borderWidth: 1,
-    borderColor: '#FEF3C7',
-    gap: 12,
-  },
-  timeRemainingIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  timeRemainingContent: {
-    flex: 1,
-  },
-  timeRemainingLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#92400E',
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  timeRemainingValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#F59E0B',
-  },
-  notApprovedSection: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#FEF2F2',
-    padding: 12,
-    borderRadius: 12,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#FEE2E2',
-    gap: 10,
-  },
-  notApprovedText: {
-    color: '#EF4444',
-    fontSize: 14,
-    fontWeight: '600',
-    flex: 1,
-    lineHeight: 20,
-  },
-  completedSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    padding: 12,
-    borderRadius: 12,
-    marginTop: 12,
-    gap: 10,
-  },
-  completedText: {
-    color: '#34C759',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  cardActions: {
-    paddingHorizontal: CARD_PADDING,
-    paddingBottom: CARD_PADDING,
-    gap: 12,
-  },
-  cancelButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FEF2F2',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FEE2E2',
-    gap: 8,
-  },
-  cancelButtonText: {
-    color: '#EF4444',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  cannotCancelSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFBEB',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FEF3C7',
-    gap: 10,
-  },
-  cannotCancelText: {
-    color: '#F59E0B',
-    fontSize: 14,
-    fontWeight: '600',
-    flex: 1,
-  },
-  paymentButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#10B981',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    gap: 10,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  paymentButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  paymentSuccessSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0FDF4',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#D1FAE5',
-    gap: 12,
-  },
-  paymentSuccessContent: {
-    flex: 1,
-  },
-  paymentSuccessText: {
-    color: '#065F46',
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  paymentSuccessDate: {
-    color: '#059669',
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  detailButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    gap: 8,
-  },
-  detailButtonText: {
-    color: '#1A1A1A',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  deleteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FEF2F2',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FEE2E2',
-    gap: 8,
-  },
-  deleteButtonText: {
-    color: '#EF4444',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  washCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    marginHorizontal: CARD_MARGIN,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-    overflow: 'hidden',
-  },
-  washCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: CARD_PADDING,
-    backgroundColor: '#F8F9FA',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E9ECEF',
-  },
-  washCardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    flex: 1,
-    marginRight: 12,
-  },
-  washIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    flexShrink: 0,
-  },
-  washTitleContainer: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  washCardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    marginBottom: 2,
-    lineHeight: 20,
-  },
-  washCardSubtitle: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
-    lineHeight: 16,
-  },
-  washStatusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    minWidth: 70,
-    maxWidth: 120,
-    alignItems: 'center',
-    flexShrink: 0,
-  },
-  washStatusText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '600',
-    textAlign: 'center',
-    lineHeight: 14,
-  },
-  washCardContent: {
-    padding: CARD_PADDING,
-  },
-  washInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 10,
-  },
-  washInfoText: {
-    fontSize: 14,
-    color: '#333',
-    marginLeft: 10,
-    flex: 1,
-    fontWeight: '500',
-    lineHeight: 18,
-  },
-  washPriceContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  washPriceLabel: {
-    fontSize: 13,
-    color: '#666',
-    fontWeight: '500',
-    flex: 1,
-  },
-  washPriceAmount: {
-    fontSize: 16,
-    color: '#10B981',
-    fontWeight: '700',
-    flexShrink: 0,
-  },
-  washCardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#F8F9FA',
-    borderTopWidth: 1,
-    borderTopColor: '#E9ECEF',
-  },
-  washCardMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  washCardMetaText: {
-    fontSize: 11,
-    color: '#999',
-    marginLeft: 6,
-    fontWeight: '500',
-    flex: 1,
-  },
-  washTrackButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    flexShrink: 0,
-  },
-  washTrackButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-    marginRight: 4,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#666',
-    fontWeight: '500',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-  },
-  emptyTitle: {
-    marginTop: 16,
-    fontSize: 18,
-    color: '#666',
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-});
+const createStyles = (theme: any, isDark: boolean) => {
+  const colors = theme.colors;
+  const spacing = theme.spacing;
+  const borderRadius = theme.borderRadius;
+  const shadows = theme.shadows;
+
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.primary,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: CARD_PADDING,
+      paddingVertical: spacing.md,
+      backgroundColor: colors.background.card,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border.primary,
+    },
+    headerContent: {
+      flex: 1,
+      marginLeft: spacing.sm,
+    },
+    headerTitle: {
+      fontSize: theme.typography.h3.fontSize,
+      fontWeight: theme.typography.h3.fontWeight,
+      color: colors.text.primary,
+      letterSpacing: -0.5,
+      marginBottom: 2,
+    },
+    headerSubtitle: {
+      fontSize: theme.typography.caption.large.fontSize,
+      fontWeight: theme.typography.caption.large.fontWeight,
+      color: colors.text.secondary,
+      marginTop: 2,
+    },
+    viewModeContainer: {
+      backgroundColor: colors.background.card,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border.primary,
+      paddingVertical: spacing.md,
+      paddingHorizontal: CARD_PADDING,
+    },
+    segmentedControl: {
+      flexDirection: 'row',
+      backgroundColor: isDark ? colors.background.tertiary : colors.background.secondary,
+      borderRadius: borderRadius.lg,
+      padding: spacing.xs,
+      gap: spacing.xs,
+      marginBottom: spacing.sm,
+    },
+    segmentButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.sm + 4,
+      paddingHorizontal: spacing.md,
+      borderRadius: borderRadius.md,
+      gap: spacing.xs,
+    },
+    segmentButtonActive: {
+      backgroundColor: colors.background.inverse ?? colors.text.primary,
+    },
+    segmentText: {
+      fontSize: theme.typography.body2.fontSize,
+      fontWeight: theme.typography.body2.fontWeight,
+      color: colors.text.primary,
+    },
+    segmentTextActive: {
+      color: colors.text.inverse,
+    },
+    serviceTypeScrollView: {
+      flexGrow: 0,
+    },
+    serviceTypeScrollContent: {
+      gap: spacing.xs,
+    },
+    serviceTypeTab: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md - 2,
+      borderRadius: borderRadius.md,
+      backgroundColor: colors.background.secondary,
+      borderWidth: 1,
+      borderColor: colors.border.primary,
+      gap: spacing.xs,
+      minWidth: 100,
+      height: 44,
+      justifyContent: 'center',
+    },
+    serviceTypeTabActive: {
+      backgroundColor: colors.primary.main,
+      borderColor: colors.primary.main,
+    },
+    serviceTypeTabText: {
+      fontSize: theme.typography.caption.large.fontSize,
+      fontWeight: theme.typography.caption.large.fontWeight,
+      color: colors.text.secondary,
+    },
+    serviceTypeTabTextActive: {
+      color: colors.text.inverse,
+    },
+    serviceTypeTabBadge: {
+      backgroundColor: colors.background.quaternary,
+      paddingHorizontal: spacing.xs,
+      paddingVertical: 2,
+      borderRadius: borderRadius.md,
+      minWidth: 20,
+      alignItems: 'center',
+    },
+    serviceTypeTabBadgeActive: {
+      backgroundColor: colors.text.inverse,
+    },
+    serviceTypeTabBadgeText: {
+      fontSize: theme.typography.caption.large.fontSize,
+      fontWeight: '700',
+      color: colors.text.secondary,
+    },
+    serviceTypeTabBadgeTextActive: {
+      color: colors.primary.main,
+    },
+    tabContainer: {
+      backgroundColor: colors.background.card,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border.primary,
+      paddingVertical: spacing.sm,
+    },
+    tabScrollContent: {
+      paddingHorizontal: CARD_PADDING,
+      gap: spacing.sm,
+    },
+    tab: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderRadius: borderRadius.lg,
+      backgroundColor: colors.background.secondary,
+      borderWidth: 1,
+      borderColor: colors.border.primary,
+      gap: spacing.sm,
+      minWidth: 120,
+    },
+    tabActive: {
+      backgroundColor: colors.primary.main,
+      borderColor: colors.primary.main,
+    },
+    tabLabel: {
+      fontSize: theme.typography.caption.large.fontSize + 1,
+      fontWeight: theme.typography.caption.large.fontWeight,
+      color: colors.text.secondary,
+    },
+    tabLabelActive: {
+      color: colors.text.inverse,
+    },
+    tabBadge: {
+      backgroundColor: colors.background.quaternary,
+      paddingHorizontal: spacing.xs + 2,
+      paddingVertical: 4,
+      borderRadius: borderRadius.md,
+      minWidth: 24,
+      alignItems: 'center',
+    },
+    tabBadgeActive: {
+      backgroundColor: colors.text.inverse,
+    },
+    tabBadgeText: {
+      fontSize: theme.typography.caption.large.fontSize,
+      fontWeight: '700',
+      color: colors.text.secondary,
+    },
+    tabBadgeTextActive: {
+      color: isDark ? colors.text.primary : colors.primary.main,
+    },
+    listContainer: {
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.xl + spacing.md,
+    },
+    appointmentCard: {
+      backgroundColor: colors.background.card,
+      borderRadius: borderRadius.card,
+      marginHorizontal: CARD_MARGIN,
+      marginBottom: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border.primary,
+      overflow: 'hidden',
+      ...shadows.card,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: CARD_PADDING,
+      backgroundColor: colors.background.secondary,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border.primary,
+    },
+    cardHeaderLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+      gap: spacing.sm,
+    },
+    serviceIconContainer: {
+      width: 48,
+      height: 48,
+      borderRadius: borderRadius.lg,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    serviceInfo: {
+      flex: 1,
+    },
+    serviceTypeText: {
+      fontSize: theme.typography.body1.fontSize + 1,
+      fontWeight: '700',
+      color: colors.text.primary,
+      marginBottom: 4,
+      letterSpacing: -0.3,
+    },
+    serviceDateText: {
+      fontSize: theme.typography.caption.large.fontSize,
+      fontWeight: '500',
+      color: colors.text.secondary,
+    },
+    statusBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: borderRadius.round,
+      gap: spacing.xs,
+    },
+    statusText: {
+      color: colors.text.inverse,
+      fontSize: theme.typography.caption.large.fontSize,
+      fontWeight: '700',
+      letterSpacing: 0.3,
+    },
+    cardContent: {
+      padding: CARD_PADDING,
+    },
+    dateTimeSection: {
+      flexDirection: 'row',
+      backgroundColor: colors.background.secondary,
+      borderRadius: borderRadius.card,
+      padding: spacing.md,
+      marginBottom: spacing.lg,
+      gap: spacing.md,
+    },
+    dateTimeItem: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    dateTimeIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: borderRadius.md,
+      backgroundColor: colors.background.card,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    dateTimeContent: {
+      flex: 1,
+    },
+    dateTimeLabel: {
+      fontSize: theme.typography.caption.large.fontSize,
+      fontWeight: '600',
+      color: colors.text.secondary,
+      marginBottom: 4,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    dateTimeValue: {
+      fontSize: theme.typography.body1.fontSize,
+      fontWeight: '700',
+      color: colors.text.primary,
+    },
+    dateTimeDivider: {
+      width: 1,
+      backgroundColor: colors.border.primary,
+    },
+    infoRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      marginBottom: spacing.md,
+      gap: spacing.sm,
+    },
+    infoIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: borderRadius.md,
+      backgroundColor: colors.background.secondary,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    infoContent: {
+      flex: 1,
+    },
+    infoLabel: {
+      fontSize: theme.typography.caption.large.fontSize,
+      fontWeight: '600',
+      color: colors.text.secondary,
+      marginBottom: 4,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    infoValue: {
+      fontSize: theme.typography.body2.fontSize + 1,
+      fontWeight: '600',
+      color: colors.text.primary,
+      lineHeight: 22,
+    },
+    priceSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.success.ultraLight,
+      borderRadius: borderRadius.card,
+      padding: spacing.md,
+      marginTop: spacing.xs,
+      marginBottom: spacing.md,
+      gap: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.success.light,
+    },
+    priceIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: borderRadius.md,
+      backgroundColor: colors.background.card,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    priceContent: {
+      flex: 1,
+    },
+    priceLabel: {
+      fontSize: theme.typography.caption.large.fontSize,
+      fontWeight: '600',
+      color: colors.success.dark,
+      marginBottom: 4,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    priceValue: {
+      fontSize: theme.typography.h4.fontSize,
+      fontWeight: '700',
+      color: colors.success.main,
+      letterSpacing: -0.5,
+    },
+    electricalSection: {
+      backgroundColor: colors.warning.ultraLight,
+      borderRadius: borderRadius.card,
+      padding: spacing.sm,
+      marginTop: spacing.xs,
+      marginBottom: spacing.sm,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.warning.main,
+    },
+    electricalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: spacing.xs,
+      gap: spacing.xs,
+      flexWrap: 'wrap',
+    },
+    electricalHeaderText: {
+      fontSize: theme.typography.body2.fontSize,
+      fontWeight: '700',
+      color: colors.text.primary,
+      flex: 1,
+    },
+    urgencyBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: spacing.xs,
+      paddingVertical: 4,
+      borderRadius: borderRadius.md,
+      gap: 4,
+    },
+    urgencyBadgeText: {
+      fontSize: theme.typography.caption.large.fontSize,
+      fontWeight: '600',
+    },
+    recurringBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: spacing.xs,
+      paddingVertical: 4,
+      borderRadius: borderRadius.md,
+      gap: 4,
+    },
+    recurringBadgeText: {
+      fontSize: theme.typography.caption.large.fontSize,
+      fontWeight: '600',
+    },
+    electricalDetailRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: spacing.xs,
+      gap: spacing.xs,
+    },
+    electricalDetailText: {
+      fontSize: theme.typography.caption.large.fontSize + 1,
+      color: colors.text.primary,
+      flex: 1,
+    },
+    timeRemainingSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.warning.ultraLight,
+      borderRadius: borderRadius.card,
+      padding: spacing.md - 2,
+      marginTop: spacing.sm,
+      marginBottom: spacing.xs,
+      borderWidth: 1,
+      borderColor: colors.warning.light,
+      gap: spacing.sm,
+    },
+    timeRemainingIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: borderRadius.md,
+      backgroundColor: colors.background.card,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    timeRemainingContent: {
+      flex: 1,
+    },
+    timeRemainingLabel: {
+      fontSize: theme.typography.caption.large.fontSize,
+      fontWeight: '600',
+      color: colors.warning.dark,
+      marginBottom: 4,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    timeRemainingValue: {
+      fontSize: theme.typography.body2.fontSize + 1,
+      fontWeight: '700',
+      color: colors.warning.main,
+    },
+    notApprovedSection: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      backgroundColor: colors.error.ultraLight,
+      padding: spacing.sm,
+      borderRadius: borderRadius.card,
+      marginTop: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.error.light,
+      gap: spacing.sm,
+    },
+    notApprovedText: {
+      color: colors.error.main,
+      fontSize: theme.typography.body2.fontSize,
+      fontWeight: '600',
+      flex: 1,
+      lineHeight: 20,
+    },
+    completedSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.success.ultraLight,
+      padding: spacing.sm,
+      borderRadius: borderRadius.card,
+      marginTop: spacing.sm,
+      gap: spacing.sm,
+    },
+    completedText: {
+      color: colors.success.main,
+      fontSize: theme.typography.body2.fontSize,
+      fontWeight: '600',
+    },
+    cardActions: {
+      paddingHorizontal: CARD_PADDING,
+      paddingBottom: CARD_PADDING,
+      gap: spacing.sm,
+    },
+    cancelButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.error.ultraLight,
+      paddingVertical: spacing.md - 2,
+      paddingHorizontal: spacing.lg,
+      borderRadius: borderRadius.card,
+      borderWidth: 1,
+      borderColor: colors.error.light,
+      gap: spacing.xs,
+    },
+    cancelButtonText: {
+      color: colors.error.main,
+      fontSize: theme.typography.body2.fontSize + 1,
+      fontWeight: '700',
+    },
+    cannotCancelSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.warning.ultraLight,
+      paddingVertical: spacing.md - 4,
+      paddingHorizontal: spacing.md,
+      borderRadius: borderRadius.card,
+      borderWidth: 1,
+      borderColor: colors.warning.light,
+      gap: spacing.sm,
+    },
+    cannotCancelText: {
+      color: colors.warning.main,
+      fontSize: theme.typography.body2.fontSize,
+      fontWeight: '600',
+      flex: 1,
+    },
+    paymentButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.success.main,
+      paddingVertical: spacing.md + 2,
+      paddingHorizontal: spacing.lg + 4,
+      borderRadius: borderRadius.card,
+      gap: spacing.sm,
+      ...shadows.button,
+    },
+    paymentButtonText: {
+      color: colors.text.inverse,
+      fontSize: theme.typography.body1.fontSize,
+      fontWeight: '700',
+      letterSpacing: 0.3,
+    },
+    paymentSuccessSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.success.ultraLight,
+      paddingVertical: spacing.md - 2,
+      paddingHorizontal: spacing.md,
+      borderRadius: borderRadius.card,
+      borderWidth: 1,
+      borderColor: colors.success.light,
+      gap: spacing.sm,
+    },
+    paymentSuccessContent: {
+      flex: 1,
+    },
+    paymentSuccessText: {
+      color: colors.success.dark,
+      fontSize: theme.typography.body2.fontSize + 1,
+      fontWeight: '700',
+      marginBottom: 2,
+    },
+    paymentSuccessDate: {
+      color: colors.success.main,
+      fontSize: theme.typography.caption.large.fontSize + 1,
+      fontWeight: '500',
+    },
+    detailButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.background.card,
+      paddingVertical: spacing.md - 2,
+      paddingHorizontal: spacing.lg,
+      borderRadius: borderRadius.card,
+      borderWidth: 1,
+      borderColor: colors.border.primary,
+      gap: spacing.xs,
+    },
+    detailButtonText: {
+      color: colors.text.primary,
+      fontSize: theme.typography.body2.fontSize + 1,
+      fontWeight: '600',
+    },
+    deleteButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.error.ultraLight,
+      paddingVertical: spacing.md - 2,
+      paddingHorizontal: spacing.lg,
+      borderRadius: borderRadius.card,
+      borderWidth: 1,
+      borderColor: colors.error.light,
+      gap: spacing.xs,
+    },
+    deleteButtonText: {
+      color: colors.error.main,
+      fontSize: theme.typography.body2.fontSize + 1,
+      fontWeight: '700',
+    },
+    washCard: {
+      backgroundColor: colors.background.card,
+      borderRadius: borderRadius.card,
+      marginHorizontal: CARD_MARGIN,
+      marginBottom: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border.primary,
+      overflow: 'hidden',
+      ...shadows.card,
+    },
+    washCardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      padding: CARD_PADDING,
+      backgroundColor: colors.background.secondary,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border.primary,
+    },
+    washCardTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      flex: 1,
+      marginRight: spacing.sm,
+    },
+    washIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: borderRadius.round,
+      backgroundColor: colors.primary.main,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: spacing.sm,
+      flexShrink: 0,
+    },
+    washTitleContainer: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+    washCardTitle: {
+      fontSize: theme.typography.body2.fontSize + 1,
+      fontWeight: '700',
+      color: colors.text.primary,
+      marginBottom: 2,
+      lineHeight: 20,
+    },
+    washCardSubtitle: {
+      fontSize: theme.typography.caption.large.fontSize,
+      color: colors.text.secondary,
+      fontWeight: '500',
+      lineHeight: 16,
+    },
+    washStatusBadge: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: borderRadius.md,
+      minWidth: 70,
+      maxWidth: 120,
+      alignItems: 'center',
+      flexShrink: 0,
+    },
+    washStatusText: {
+      color: colors.text.inverse,
+      fontSize: theme.typography.caption.large.fontSize,
+      fontWeight: '600',
+      textAlign: 'center',
+      lineHeight: 14,
+    },
+    washCardContent: {
+      padding: CARD_PADDING,
+    },
+    washInfoRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      marginBottom: spacing.sm,
+    },
+    washInfoText: {
+      fontSize: theme.typography.body3.fontSize + 1,
+      color: colors.text.primary,
+      marginLeft: spacing.sm,
+      flex: 1,
+      fontWeight: '500',
+      lineHeight: 18,
+    },
+    washPriceContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+      padding: spacing.sm,
+      borderRadius: borderRadius.md,
+      marginTop: spacing.xs,
+    },
+    washPriceLabel: {
+      fontSize: theme.typography.caption.large.fontSize + 1,
+      color: colors.text.secondary,
+      fontWeight: '500',
+      flex: 1,
+    },
+    washPriceAmount: {
+      fontSize: theme.typography.body2.fontSize + 1,
+      color: colors.success.main,
+      fontWeight: '700',
+      flexShrink: 0,
+    },
+    washCardFooter: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: spacing.sm,
+      backgroundColor: colors.background.secondary,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border.primary,
+    },
+    washCardMeta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    washCardMetaText: {
+      fontSize: theme.typography.caption.large.fontSize,
+      color: colors.text.tertiary,
+      marginLeft: spacing.xs,
+      fontWeight: '500',
+      flex: 1,
+    },
+    washTrackButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.primary.main,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs + 2,
+      borderRadius: borderRadius.button,
+      flexShrink: 0,
+    },
+    washTrackButtonText: {
+      color: colors.text.inverse,
+      fontSize: theme.typography.caption.large.fontSize,
+      fontWeight: '600',
+      marginRight: spacing.xs,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    loadingText: {
+      marginTop: spacing.md,
+      fontSize: theme.typography.body2.fontSize,
+      color: colors.text.secondary,
+      fontWeight: '500',
+    },
+    emptyContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: spacing.lg,
+    },
+    emptyTitle: {
+      marginTop: spacing.md,
+      fontSize: theme.typography.body1.fontSize,
+      color: colors.text.secondary,
+      fontWeight: '600',
+      textAlign: 'center',
+      marginBottom: spacing.xs,
+    },
+    emptyText: {
+      fontSize: theme.typography.body3.fontSize + 1,
+      color: colors.text.tertiary,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+  });
+};
 
 export default AppointmentsScreen;

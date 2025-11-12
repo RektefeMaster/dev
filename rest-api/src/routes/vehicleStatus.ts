@@ -1,29 +1,40 @@
 import { Router, Request, Response } from 'express';
-import mongoose from 'mongoose';
 import { auth } from '../middleware/optimizedAuth';
+import { VehicleStatusRecordModel } from '../models/HomeRecords';
+import { createSampleVehicleStatus } from '../utils/homeFixtures';
 
 const router = Router();
 
-const vehicleStatusSchema = new mongoose.Schema({
-  userId: String,
-  overallStatus: String,
-  lastCheck: String,
-  issues: [String],
-});
-
-const VehicleStatus = mongoose.models.VehicleStatus || mongoose.model('VehicleStatus', vehicleStatusSchema);
-
 // Kullanıcıya ait araç durumunu getir
-router.get('/:userId', async (req: Request, res: Response) => {
+router.get('/:userId', auth, async (req: Request, res: Response) => {
   try {
-    const status = await (VehicleStatus as any).findOne({ userId: req.params.userId });
-    if (!status) {
-      return res.status(200).json(null);
+    if (!req.user?.userId || req.user.userId !== req.params.userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Araç durumunu görüntülemek için yetkiniz yok.',
+      });
     }
-    res.json(status);
+
+    let status = await VehicleStatusRecordModel.findOne({ userId: req.params.userId })
+      .sort({ lastCheck: -1 })
+      .lean();
+
+    if (!status) {
+      status = createSampleVehicleStatus(req.params.userId);
+    }
+
+    return res.json({
+      success: true,
+      data: status,
+      message: status ? 'Araç durumu başarıyla getirildi.' : 'Araç durumu kaydı bulunamadı.',
+    });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({
+      success: false,
+      message: 'Araç durumu getirilirken bir hata oluştu.',
+      error: error.message,
+    });
   }
 });
 
-export default router; 
+export default router;

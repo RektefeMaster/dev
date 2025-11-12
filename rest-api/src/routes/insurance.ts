@@ -1,31 +1,40 @@
 import { Router, Request, Response } from 'express';
-import mongoose from 'mongoose';
 import { auth } from '../middleware/optimizedAuth';
+import { InsurancePolicyModel } from '../models/HomeRecords';
+import { createSampleInsurancePolicy } from '../utils/homeFixtures';
 
 const router = Router();
 
-const insuranceSchema = new mongoose.Schema({
-  userId: String,
-  company: String,
-  type: String,
-  startDate: String,
-  endDate: String,
-  policyNumber: String,
-});
-
-const Insurance = mongoose.models.Insurance || mongoose.model('Insurance', insuranceSchema);
-
 // Kullanıcıya ait sigorta bilgisini getir
-router.get('/:userId', async (req: Request, res: Response) => {
+router.get('/:userId', auth, async (req: Request, res: Response) => {
   try {
-    const info = await (Insurance as any).findOne({ userId: req.params.userId });
-    if (!info) {
-      return res.status(200).json(null);
+    if (!req.user?.userId || req.user.userId !== req.params.userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Sigorta bilgilerini görüntülemek için yetkiniz yok.',
+      });
     }
-    res.json(info);
+
+    let info = await InsurancePolicyModel.findOne({ userId: req.params.userId })
+      .sort({ endDate: -1 })
+      .lean();
+
+    if (!info) {
+      info = createSampleInsurancePolicy(req.params.userId);
+    }
+
+    return res.json({
+      success: true,
+      data: info,
+      message: info ? 'Sigorta bilgisi getirildi.' : 'Sigorta kaydı bulunamadı.',
+    });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({
+      success: false,
+      message: 'Sigorta bilgisi getirilirken bir hata oluştu.',
+      error: error.message,
+    });
   }
 });
 
-export default router; 
+export default router;

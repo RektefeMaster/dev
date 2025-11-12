@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Modal, TextInput, Switch, Alert, Platform, Animated, ScrollView, KeyboardAvoidingView, Keyboard, TouchableWithoutFeedback, SafeAreaView, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,7 +7,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
 import { useAuth } from '@/context/AuthContext';
-import { colors as themeColors, typography, spacing, borderRadius, shadows, dimensions } from '@/theme/theme';
 import { useTheme } from '@/context/ThemeContext';
 import * as ImagePicker from 'expo-image-picker';
 import LoadingSkeleton from '@/shared/components/LoadingSkeleton';
@@ -18,6 +17,8 @@ const defaultAvatar = require('../../../../assets/default_avatar.png');
 const ProfileScreen = () => {
   const navigation = useNavigation();
   const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+  const themeColors = theme.colors;
   const { logout, token, userId } = useAuth();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -856,7 +857,14 @@ const ProfileScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any, isDark: boolean) => {
+  const themeColors = theme.colors;
+  const spacing = theme.spacing;
+  const borderRadius = theme.borderRadius;
+  const typography = theme.typography;
+  const shadows = theme.shadows;
+
+  return StyleSheet.create({
   // Container
   container: {
     flex: 1,
@@ -1478,6 +1486,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     textAlign: 'center',
   },
-});
+  });
+};
 
 export default ProfileScreen; 

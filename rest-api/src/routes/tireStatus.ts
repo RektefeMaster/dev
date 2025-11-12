@@ -1,29 +1,40 @@
 import { Router, Request, Response } from 'express';
-import mongoose from 'mongoose';
 import { auth } from '../middleware/optimizedAuth';
+import { TireStatusRecordModel } from '../models/HomeRecords';
+import { createSampleTireStatus } from '../utils/homeFixtures';
 
 const router = Router();
 
-const tireStatusSchema = new mongoose.Schema({
-  userId: String,
-  status: String, // İyi, Orta, Değişmeli vb.
-  lastCheck: String,
-  issues: [String],
-});
-
-const TireStatus = mongoose.models.TireStatus || mongoose.model('TireStatus', tireStatusSchema);
-
-// Kullanıcıya ait lastik servisi durumunu getir
-router.get('/:userId', async (req: Request, res: Response) => {
+// Kullanıcıya ait lastik durumu getir
+router.get('/:userId', auth, async (req: Request, res: Response) => {
   try {
-    const status = await (TireStatus as any).findOne({ userId: req.params.userId });
-    if (!status) {
-      return res.status(200).json(null);
+    if (!req.user?.userId || req.user.userId !== req.params.userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Lastik durumunu görüntülemek için yetkiniz yok.',
+      });
     }
-    res.json(status);
+
+    let status = await TireStatusRecordModel.findOne({ userId: req.params.userId })
+      .sort({ lastCheck: -1 })
+      .lean();
+
+    if (!status) {
+      status = createSampleTireStatus(req.params.userId);
+    }
+
+    return res.json({
+      success: true,
+      data: status,
+      message: status ? 'Lastik durumu başarıyla getirildi.' : 'Lastik durumu kaydı bulunamadı.',
+    });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({
+      success: false,
+      message: 'Lastik durumu getirilirken bir hata oluştu.',
+      error: error.message,
+    });
   }
 });
 
-export default router; 
+export default router;

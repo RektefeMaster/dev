@@ -75,6 +75,9 @@ import reportsRoutes from './routes/reports';
 import loyalCustomersRoutes from './routes/loyalCustomers';
 import vehicleHistoryRoutes from './routes/vehicleHistory';
 import jobReferralsRoutes from './routes/jobReferrals';
+import campaignsRoutes from './routes/campaigns';
+import adsRoutes from './routes/ads';
+import homeRoutes from './routes/home';
 import mechanicReportsRoutes from './routes/mechanicReports';
 
 // .env dosyasını yükle
@@ -368,6 +371,9 @@ app.use('/api/carwash', carWashRoutes);
 app.use('/api/wash', washRoutes); // Yeni araç yıkama modülü
 app.use('/api/parts', partsRoutes); // Yedek parça marketplace modülü
 app.use('/api/upload', uploadRoutes); // Upload routes /api/upload prefix'i ile mount edilmeli (parts'tan SONRA)
+app.use('/api/campaigns', campaignsRoutes);
+app.use('/api/ads', adsRoutes);
+app.use('/api/home', homeRoutes);
 app.use('/api/customers', customersRoutes);
 app.use('/api/suppliers', suppliersRoutes);
 app.use('/api/status-notifications', statusNotificationsRoutes);

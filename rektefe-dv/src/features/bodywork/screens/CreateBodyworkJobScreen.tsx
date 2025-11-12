@@ -203,31 +203,41 @@ export default function CreateBodyworkJobScreen() {
     }
   };
 
-  const canProceedToNextStep = () => {
+  const canProceedToNextStep = (shouldAlert = false) => {
     switch (currentStep) {
       case 1:
         return selectedVehicle !== '' && vehicles.length > 0;
       case 2:
         if (!damageType) {
-          Alert.alert('Eksik Bilgi', 'Lütfen hasar türünü seçin');
+          if (shouldAlert) {
+            Alert.alert('Eksik Bilgi', 'Lütfen hasar türünü seçin');
+          }
           return false;
         }
         if (!severity) {
-          Alert.alert('Eksik Bilgi', 'Lütfen hasar şiddetini seçin');
+          if (shouldAlert) {
+            Alert.alert('Eksik Bilgi', 'Lütfen hasar şiddetini seçin');
+          }
           return false;
         }
         if (affectedAreas.length === 0) {
-          Alert.alert('Eksik Bilgi', 'Lütfen en az bir etkilenen alan seçin');
+          if (shouldAlert) {
+            Alert.alert('Eksik Bilgi', 'Lütfen en az bir etkilenen alan seçin');
+          }
           return false;
         }
         return true;
       case 3:
         if (description.trim().length < 10) {
-          Alert.alert('Eksik Bilgi', 'Hasar açıklaması en az 10 karakter olmalıdır');
+          if (shouldAlert) {
+            Alert.alert('Eksik Bilgi', 'Hasar açıklaması en az 10 karakter olmalıdır');
+          }
           return false;
         }
         if (photos.length === 0) {
-          Alert.alert('Eksik Bilgi', 'Lütfen en az bir fotoğraf ekleyin');
+          if (shouldAlert) {
+            Alert.alert('Eksik Bilgi', 'Lütfen en az bir fotoğraf ekleyin');
+          }
           return false;
         }
         return true;
@@ -240,7 +250,7 @@ export default function CreateBodyworkJobScreen() {
 
   const handleNext = () => {
     if (currentStep < 4) {
-      if (canProceedToNextStep()) {
+      if (canProceedToNextStep(true)) {
         setCurrentStep(currentStep + 1);
       }
       // canProceedToNextStep içinde zaten Alert gösteriliyor
@@ -265,7 +275,7 @@ export default function CreateBodyworkJobScreen() {
       Alert.alert('Eksik Bilgi', 'Önce bir araç eklemeniz gerekiyor');
       return;
     }
-    if (!canProceedToNextStep()) {
+    if (!canProceedToNextStep(true)) {
       return; // canProceedToNextStep zaten Alert gösteriyor
     }
 
@@ -757,10 +767,10 @@ export default function CreateBodyworkJobScreen() {
               styles.navButton,
               styles.nextButton,
               { backgroundColor: theme.colors.primary.main },
-              (!canProceedToNextStep() || submitting) && styles.buttonDisabled,
+              (!canProceedToNextStep(false) || submitting) && styles.buttonDisabled,
             ]}
             onPress={handleNext}
-            disabled={!canProceedToNextStep() || submitting}
+            disabled={!canProceedToNextStep(false) || submitting}
           >
             {submitting ? (
               <ActivityIndicator size="small" color="#FFFFFF" />

@@ -1,69 +1,105 @@
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useUserData } from './useUserData';
 import { useVehicleData } from './useVehicleData';
 import { useMechanicsData } from './useMechanicsData';
 import { useLocationData } from './useLocationData';
+import { HomeService, HomeOverviewResponse } from '@/shared/services/modules/homeService';
+import { withErrorHandling } from '@/shared/utils/errorHandler';
+import { useAuth } from '@/context/AuthContext';
+
+type HomeOverview = HomeOverviewResponse extends { data: infer T } ? T : null;
 
 export const useHomeData = () => {
-  // Separate hooks for different data types
+  const { userId, token } = useAuth();
   const { userProfile, loading: userLoading, fetchUserProfile } = useUserData();
   const { vehicles, favoriteCar, loading: vehicleLoading, fetchVehicles } = useVehicleData();
   const { userLocation, locationAddress, loading: locationLoading, fetchUserLocation } = useLocationData();
   const { nearestMechanic, mechanics, loading: mechanicsLoading, fetchNearestMechanic } = useMechanicsData(userLocation);
 
-  // Combined loading state
-  const loading = userLoading || vehicleLoading || locationLoading || mechanicsLoading;
+  const [overview, setOverview] = useState<HomeOverview | null>(null);
+  const [homeLoading, setHomeLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Refresh all data
-  const refreshAllData = async () => {
+  const fetchHomeOverview = useCallback(async () => {
+    if (!token) {
+      return;
+    }
+
+    setHomeLoading(true);
+    setError(null);
+
+    const { data, error } = await withErrorHandling(
+      () => HomeService.getOverview(),
+      {
+        showErrorAlert: false,
+        onError: err => setError(err?.message ?? 'Ana sayfa verileri yüklenemedi.'),
+      }
+    );
+
+    if (data?.success && data.data) {
+      setOverview(data.data);
+    } else {
+      setOverview(null);
+      if (!error) {
+        setError('Ana sayfa verileri yüklenemedi.');
+      }
+    }
+
+    setHomeLoading(false);
+  }, [token]);
+
+  const refreshAllData = useCallback(async () => {
     await Promise.all([
       fetchUserProfile(),
       fetchVehicles(),
       fetchUserLocation(),
       fetchNearestMechanic(),
+      fetchHomeOverview(),
     ]);
-  };
+  }, [fetchUserProfile, fetchVehicles, fetchUserLocation, fetchNearestMechanic, fetchHomeOverview]);
+
+  useEffect(() => {
+    if (token) {
+      fetchHomeOverview();
+    }
+  }, [token, fetchHomeOverview]);
+
+  const loading = useMemo(
+    () => userLoading || vehicleLoading || locationLoading || mechanicsLoading || homeLoading,
+    [userLoading, vehicleLoading, locationLoading, mechanicsLoading, homeLoading]
+  );
 
   return {
-    // User data
     userProfile,
     userName: userProfile?.name || '',
-    userId: userProfile?._id || '',
-    
-    // Vehicle data
+    userId: userProfile?._id || userId || '',
     vehicles,
     favoriteCar,
-    maintenanceRecord: null as any, // TODO: Implement maintenance record
-    insuranceInfo: null as any, // TODO: Implement insurance info
-    vehicleStatus: null as any, // TODO: Implement vehicle status
-    tireStatus: null as any, // TODO: Implement tire status
-    
-    // Location data
+    maintenanceRecords: overview?.maintenanceRecords ?? [],
+    maintenanceRecord: overview?.maintenanceRecords?.[0] ?? null,
+    insuranceInfo: overview?.insurancePolicy ?? null,
+    vehicleStatus: overview?.vehicleStatus ?? null,
+    tireStatus: overview?.tireStatus ?? null,
+    campaigns: overview?.campaigns ?? [],
+    ads: overview?.ads ?? [],
     userLocation,
     locationAddress,
-    
-    // Mechanics data
     nearestMechanic,
     mechanics,
-    serviceProviders: mechanics, // Use mechanics as service providers
-    
-    // Campaigns and ads
-    campaigns: [] as any[], // TODO: Implement campaigns
-    ads: [] as any[], // TODO: Implement ads
-    
-    // Loading states
+    serviceProviders: mechanics,
     loading,
     userLoading,
     vehicleLoading,
     locationLoading,
     mechanicsLoading,
-    error: null as any, // TODO: Implement error handling
-    
-    // Actions
+    overviewLoading: homeLoading,
+    error,
     refreshAllData,
-    refreshData: refreshAllData, // Alias for refreshData
+    refreshData: refreshAllData,
     fetchUserProfile,
     fetchVehicles,
     fetchUserLocation,
     fetchNearestMechanic,
+    fetchHomeOverview,
   };
 };
