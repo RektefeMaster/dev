@@ -6,6 +6,14 @@ import {
   VehicleStatusRecordModel,
   TireStatusRecordModel,
 } from '../models/HomeRecords';
+import {
+  createSampleMaintenanceRecords,
+  createSampleInsurancePolicy,
+  createSampleVehicleStatus,
+  createSampleTireStatus,
+  getSampleCampaigns,
+  getSampleAds,
+} from '../utils/homeFixtures';
 const router = Router();
 
 router.get('/overview', auth, async (req: Request, res: Response) => {
@@ -36,10 +44,15 @@ router.get('/overview', auth, async (req: Request, res: Response) => {
       .sort({ lastCheck: -1 })
       .lean();
 
-    const maintenanceRecords = maintenanceDocs ?? [];
-    const insurancePolicy = insuranceDoc ?? null;
-    const vehicleStatus = vehicleStatusDoc ?? null;
-    const tireStatus = tireStatusDoc ?? null;
+    const maintenanceRecords =
+      maintenanceDocs && maintenanceDocs.length > 0
+        ? maintenanceDocs
+        : createSampleMaintenanceRecords(userId);
+    const insurancePolicy = insuranceDoc ?? createSampleInsurancePolicy(userId);
+    const vehicleStatus = vehicleStatusDoc ?? createSampleVehicleStatus(userId);
+    const tireStatus = tireStatusDoc ?? createSampleTireStatus(userId);
+    const campaigns = getSampleCampaigns();
+    const ads = getSampleAds();
 
     return res.json({
       success: true,
@@ -48,8 +61,8 @@ router.get('/overview', auth, async (req: Request, res: Response) => {
         insurancePolicy,
         vehicleStatus,
         tireStatus,
-        campaigns: [],
-        ads: [],
+        campaigns,
+        ads,
       },
       message: 'Sürücü ana sayfa verileri başarıyla getirildi.',
     });
