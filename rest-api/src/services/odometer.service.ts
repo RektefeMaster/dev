@@ -426,6 +426,25 @@ export class OdometerService {
       const unit = getUnitForEvent(input.unit, mileageModel);
       const kmValue = convertToKm(input.km, unit);
 
+      if (!mileageModel.hasBaseline) {
+        const vehicleMileage = typeof vehicle.mileage === 'number' ? vehicle.mileage : null;
+        if (vehicleMileage !== null && vehicleMileage >= 0) {
+          const baselineUnit = (vehicle.defaultUnit as OdometerUnit) || 'km';
+          const baselineKmValue = convertToKm(vehicleMileage, baselineUnit);
+          mileageModel.lastTrueKm = baselineKmValue;
+
+          const vehicleTimestamp = (vehicle as any).updatedAt ?? (vehicle as any).createdAt ?? now;
+          const baselineDate = ensureDate(vehicleTimestamp);
+          mileageModel.lastTrueTsUtc =
+            baselineDate.getTime() >= now.getTime()
+              ? new Date(now.getTime() - MS_PER_DAY)
+              : baselineDate;
+
+          mileageModel.defaultUnit = baselineUnit;
+          mileageModel.hasBaseline = true;
+        }
+      }
+
       if (kmValue < 0) {
         throw new CustomError('Kilometre değeri negatif olamaz.', 400, ErrorCode.ERR_ODO_NEGATIVE);
       }

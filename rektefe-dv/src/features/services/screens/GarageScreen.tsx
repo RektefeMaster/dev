@@ -181,7 +181,15 @@ const GarageScreen = () => {
   );
 
   const applyOdometerResult = useCallback(
-    (vehicleId: string, response: OdometerEventResponse) => {
+    (vehicleId: string, response?: OdometerEventResponse) => {
+      if (!response || !response.event || !response.estimate) {
+        console.warn('[odo] Geçersiz yanıt alındı, güncelleme atlandı.', {
+          vehicleId,
+          hasResponse: Boolean(response),
+        });
+        return;
+      }
+
       setVehicles((prev) =>
         prev.map((vehicle) =>
           vehicle._id === vehicleId
@@ -230,11 +238,16 @@ const GarageScreen = () => {
 
     (async () => {
       const remaining = await odometerQueue.flush(async (event) => {
-        const response = await odometerService.submitEvent(event.vehicleId, event.payload);
+        const apiResponse = await odometerService.submitEvent(event.vehicleId, event.payload);
         if (cancelled) {
           return;
         }
-        applyOdometerResult(event.vehicleId, response);
+        if (!apiResponse?.success || !apiResponse.data) {
+          throw new Error(
+            apiResponse?.error?.message || apiResponse?.message || 'Kilometre güncellenemedi.'
+          );
+        }
+        applyOdometerResult(event.vehicleId, apiResponse.data);
         setPendingQueue((prev) => {
           const next = { ...prev };
           delete next[event.vehicleId];
@@ -407,18 +420,43 @@ const GarageScreen = () => {
       }
 
       try {
-        const response = await odometerService.submitEvent(selectedVehicleId, payload);
-        applyOdometerResult(selectedVehicleId, response);
-        toastService.success('Kilometre güncellendi.');
-        if (response.backPressureWarning) {
-          toastService.info(response.backPressureWarning);
+        const apiResponse = await odometerService.submitEvent(selectedVehicleId, payload);
+        if (!apiResponse?.success || !apiResponse.data) {
+          const errorMessage =
+            apiResponse?.error?.message ||
+            apiResponse?.message ||
+            'Kilometre güncellenemedi.';
+          throw {
+            response: {
+              data: {
+                error: {
+                  message: errorMessage,
+                  code: apiResponse?.error?.code,
+                  backPressureWarning: apiResponse?.error?.details?.backPressureWarning,
+                },
+              },
+            },
+          };
         }
-        if (response.warnings && response.warnings.length > 0) {
-          response.warnings.forEach((warning) => toastService.info(warning));
+
+        applyOdometerResult(selectedVehicleId, apiResponse.data);
+        toastService.success('Kilometre güncellendi.');
+        if (apiResponse.data.backPressureWarning) {
+          toastService.info(apiResponse.data.backPressureWarning);
+        }
+        if (apiResponse.data.warnings && apiResponse.data.warnings.length > 0) {
+          apiResponse.data.warnings.forEach((warning) => toastService.info(warning));
         }
         setOdometerModalVisible(false);
         setSelectedVehicleId(null);
       } catch (error: any) {
+        const backPressureWarning =
+          error?.response?.data?.error?.backPressureWarning ||
+          error?.response?.data?.error?.details?.backPressureWarning ||
+          error?.backPressureWarning;
+        if (backPressureWarning) {
+          toastService.info(backPressureWarning);
+        }
         if (!isConnected) {
           await odometerQueue.enqueue(selectedVehicleId, payload);
           setPendingQueue((prev) => ({ ...prev, [selectedVehicleId]: true }));

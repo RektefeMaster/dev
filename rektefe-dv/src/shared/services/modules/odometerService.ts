@@ -58,6 +58,17 @@ export interface OdometerEventResponse {
   outlierClass?: 'soft' | 'hard';
 }
 
+export interface OdometerSubmitResponse {
+  success: boolean;
+  data?: OdometerEventResponse;
+  error?: {
+    code?: string;
+    message?: string;
+    details?: Record<string, any>;
+  };
+  message?: string;
+}
+
 export interface OdometerTimelineItem {
   id: string;
   km: number;
@@ -93,7 +104,7 @@ export const odometerService = {
     };
 
     const response = await apiClient.post(`/vehicles/${vehicleId}/odometer/events`, normalizedPayload);
-    return response.data?.data as OdometerEventResponse;
+    return response.data as OdometerSubmitResponse;
   },
 
   async getTimeline(vehicleId: string, params?: { cursor?: string; limit?: number; source?: string; evidenceType?: string }) {
