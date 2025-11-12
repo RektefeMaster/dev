@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Platform,
   Keyboard,
   TouchableWithoutFeedback,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import axios from 'axios';
@@ -28,6 +29,7 @@ import toastService from '@/shared/services/toastService';
 import ErrorState from '@/shared/components/ErrorState';
 import LoadingSkeleton from '@/shared/components/LoadingSkeleton';
 import EmptyState from '@/shared/components/NoDataCard';
+import { formatDateValue } from '../../home/utils/dateHelpers';
 
 interface Vehicle {
   _id: string;
@@ -53,6 +55,9 @@ const GarageScreen = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [vehicleStatus, setVehicleStatus] = useState<any | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const hasFetchedRef = useRef(false);
@@ -82,6 +87,36 @@ const GarageScreen = () => {
   const [availableFuelTypes, setAvailableFuelTypes] = useState<string[]>([]);
   const [availableTransmissions, setAvailableTransmissions] = useState<string[]>([]);
 
+  const fetchVehicleStatus = useCallback(async () => {
+    if (!token || !userId) {
+      setVehicleStatus(null);
+      setStatusError(null);
+      return;
+    }
+
+    setStatusLoading(true);
+    setStatusError(null);
+
+    try {
+      const response = await axios.get(`${API_URL}/vehicle-status/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 15000,
+      });
+
+      if (response.data?.success && response.data.data) {
+        setVehicleStatus(response.data.data);
+      } else {
+        setVehicleStatus(null);
+      }
+    } catch (err: any) {
+      const message = err?.response?.data?.message || 'Araç durumu alınırken bir hata oluştu.';
+      setStatusError(message);
+      setVehicleStatus(null);
+    } finally {
+      setStatusLoading(false);
+    }
+  }, [token, userId]);
+
   // Filtered brands based on search
   const filteredBrands = carData.filter(brand => 
     brand.brand.toLowerCase().includes(brandSearch.toLowerCase())
@@ -92,49 +127,55 @@ const GarageScreen = () => {
     model.name.toLowerCase().includes(modelSearch.toLowerCase())
   );
 
+  const fetchVehicles = useCallback(async () => {
+    if (!token) {
+      setVehicles([]);
+      setVehicleStatus(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [vehiclesRes, userRes] = await Promise.all([
+        axios.get(`${API_URL}/vehicles`, {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 15000,
+        }),
+        axios.get(`${API_URL}/users/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 15000,
+        }),
+      ]);
+
+      const favoriteVehicleId = userRes.data.data?.favoriteVehicle;
+      if (vehiclesRes.data && vehiclesRes.data.success && vehiclesRes.data.data) {
+        setVehicles(
+          vehiclesRes.data.data.map((v: any) => ({ ...v, isFavorite: v._id === favoriteVehicleId })),
+        );
+      } else {
+        setVehicles([]);
+      }
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Araçlar yüklenirken bir hata oluştu.');
+      setVehicles([]);
+    } finally {
+      setLoading(false);
+      await fetchVehicleStatus();
+    }
+  }, [token, fetchVehicleStatus]);
+
   useFocusEffect(
     React.useCallback(() => {
       if (userId && !hasFetchedRef.current) {
         hasFetchedRef.current = true;
         fetchVehicles();
       }
-    }, [userId])
+    }, [userId, fetchVehicles])
   );
-
-  const fetchVehicles = async () => {
-    try {
-      if (!token) {
-        setVehicles([]);
-        setLoading(false);
-        return;
-      }
-      
-      setLoading(true);
-      setError(null);
-      const [vehiclesRes, userRes] = await Promise.all([
-        axios.get(`${API_URL}/vehicles`, { 
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 15000
-        }),
-        axios.get(`${API_URL}/users/profile`, { 
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 15000
-        }),
-      ]);
-
-      const favoriteVehicleId = userRes.data.data?.favoriteVehicle;
-      if (vehiclesRes.data && vehiclesRes.data.success && vehiclesRes.data.data) {
-        setVehicles(vehiclesRes.data.data.map((v: any) => ({ ...v, isFavorite: v._id === favoriteVehicleId })));
-      } else {
-        setVehicles([]);
-      }
-    } catch (error: any) {
-      setError(error.response?.data?.message || 'Araçlar yüklenirken bir hata oluştu.');
-      setVehicles([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Brand seçildiğinde modelleri güncelle ve model seçimine geç
   const handleBrandChange = (brand: string) => {
@@ -485,6 +526,157 @@ const GarageScreen = () => {
               <Text style={[styles.addButtonText, !token && styles.disabledButtonText]}>Yeni Araç Ekle</Text>
             </TouchableOpacity>
           </View>
+
+          {token && (
+            <View style={styles.statusSection}>
+              <Text style={styles.statusSectionTitle}>Araç Durumu Özeti</Text>
+              {statusLoading ? (
+                <View style={[styles.statusCard, styles.statusCardCentered]}>
+                  <ActivityIndicator color="#007AFF" />
+                  <Text style={[styles.statusLoadingText, { marginLeft: 12 }]}>
+                    Araç durumu yükleniyor...
+                  </Text>
+                </View>
+              ) : statusError ? (
+                <TouchableOpacity style={[styles.statusCard, styles.statusCardError]} onPress={fetchVehicleStatus}>
+                  <MaterialCommunityIcons
+                    name="alert-circle"
+                    size={22}
+                    color="#FF3B30"
+                    style={{ marginRight: 12 }}
+                  />
+                  <View style={styles.statusErrorContent}>
+                    <Text style={styles.statusErrorText}>{statusError}</Text>
+                    <Text style={styles.statusHintText}>Tekrar denemek için dokunun</Text>
+                  </View>
+                  <MaterialCommunityIcons
+                    name="refresh"
+                    size={22}
+                    color="#FF3B30"
+                    style={{ marginLeft: 12 }}
+                  />
+                </TouchableOpacity>
+              ) : vehicleStatus ? (
+                <View style={styles.statusCard}>
+                  <View style={styles.statusCardHeader}>
+                    <View>
+                      <Text style={styles.statusLabel}>Genel Durum</Text>
+                      <Text style={styles.statusValue}>{vehicleStatus.overallStatus || 'Bilgi yok'}</Text>
+                    </View>
+                    <View style={styles.statusBadge}>
+                      <MaterialCommunityIcons name="shield-check" size={20} color="#fff" />
+                    </View>
+                  </View>
+
+                  <View style={styles.statusInfoRow}>
+                    <View style={styles.statusInfoItem}>
+                      <MaterialCommunityIcons
+                        name="calendar-check"
+                        size={18}
+                        color="#666"
+                        style={styles.statusInfoIcon}
+                      />
+                      <View style={styles.statusInfoText}>
+                        <Text style={styles.statusInfoLabel}>Son Kontrol</Text>
+                        <Text style={styles.statusInfoValue}>
+                          {formatDateValue(vehicleStatus.lastCheck ?? null) ?? '—'}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={[styles.statusInfoItem, styles.statusInfoItemLast]}>
+                      <MaterialCommunityIcons
+                        name="calendar-plus"
+                        size={18}
+                        color="#666"
+                        style={styles.statusInfoIcon}
+                      />
+                      <View style={styles.statusInfoText}>
+                        <Text style={styles.statusInfoLabel}>Sonraki Servis</Text>
+                        <Text style={styles.statusInfoValue}>
+                          {formatDateValue(vehicleStatus.nextServiceDate ?? null) ?? '—'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={styles.statusInfoRow}>
+                    <View style={styles.statusInfoItem}>
+                      <MaterialCommunityIcons
+                        name="speedometer"
+                        size={18}
+                        color="#666"
+                        style={styles.statusInfoIcon}
+                      />
+                      <View style={styles.statusInfoText}>
+                        <Text style={styles.statusInfoLabel}>Kilometre</Text>
+                        <Text style={styles.statusInfoValue}>
+                          {typeof vehicleStatus.mileage === 'number'
+                            ? `${vehicleStatus.mileage.toLocaleString('tr-TR')} km`
+                            : '—'}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={[styles.statusInfoItem, styles.statusInfoItemLast]}>
+                      <MaterialCommunityIcons
+                        name="wrench"
+                        size={18}
+                        color="#666"
+                        style={styles.statusInfoIcon}
+                      />
+                      <View style={styles.statusInfoText}>
+                        <Text style={styles.statusInfoLabel}>Kontroller</Text>
+                        <Text style={styles.statusInfoValue}>
+                          {Array.isArray(vehicleStatus.issues) && vehicleStatus.issues.length > 0
+                            ? `${vehicleStatus.issues.length} madde`
+                            : 'Sorun yok'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {Array.isArray(vehicleStatus.issues) && vehicleStatus.issues.length > 0 && (
+                    <View style={styles.statusIssues}>
+                      {vehicleStatus.issues.slice(0, 4).map((issue: string, index: number) => (
+                        <View key={`${issue}-${index}`} style={styles.statusIssueChip}>
+                          <MaterialCommunityIcons
+                            name="alert-circle-outline"
+                            size={16}
+                            color="#FF9500"
+                            style={styles.statusIssueIcon}
+                          />
+                          <Text style={styles.statusIssueText}>{issue}</Text>
+                        </View>
+                      ))}
+                      {vehicleStatus.issues.length > 4 && (
+                        <Text style={styles.statusIssueMoreText}>
+                          +{vehicleStatus.issues.length - 4} daha
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <TouchableOpacity style={[styles.statusCard, styles.statusCardEmpty]} onPress={fetchVehicleStatus}>
+                  <MaterialCommunityIcons
+                    name="information-outline"
+                    size={22}
+                    color="#007AFF"
+                    style={{ marginRight: 12 }}
+                  />
+                  <View style={styles.statusErrorContent}>
+                    <Text style={styles.statusErrorText}>Araç durumu bilgisi bulunamadı.</Text>
+                    <Text style={styles.statusHintText}>Verileri yenilemek için dokunun</Text>
+                  </View>
+                  <MaterialCommunityIcons
+                    name="refresh"
+                    size={22}
+                    color="#007AFF"
+                    style={{ marginLeft: 12 }}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
           {vehicles.length === 0 ? (
             <EmptyState
@@ -965,6 +1157,157 @@ const styles = StyleSheet.create({
   vehiclesContainer: {
     paddingHorizontal: 20,
     paddingTop: 8,
+  },
+  statusSection: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  statusSectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginBottom: 12,
+  },
+  statusCard: {
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#fff',
+    padding: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  statusCardCentered: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusLoadingText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  statusCardError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderColor: '#ffd6d6',
+    backgroundColor: '#fff5f5',
+    borderWidth: 1.5,
+  },
+  statusCardEmpty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f9ff',
+    borderColor: '#d6e4ff',
+    borderWidth: 1.5,
+  },
+  statusErrorContent: {
+    flex: 1,
+  },
+  statusErrorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  statusHintText: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#666',
+  },
+  statusCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  statusLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  statusValue: {
+    marginTop: 6,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1a1a1a',
+  },
+  statusBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#34C759',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statusInfoItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f7fa',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginRight: 12,
+  },
+  statusInfoItemLast: {
+    marginRight: 0,
+  },
+  statusInfoIcon: {
+    marginRight: 10,
+  },
+  statusInfoText: {
+    flex: 1,
+  },
+  statusInfoLabel: {
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
+    color: '#666',
+  },
+  statusInfoValue: {
+    marginTop: 4,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  statusIssues: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 4,
+  },
+  statusIssueChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff1e6',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  statusIssueIcon: {
+    marginRight: 6,
+  },
+  statusIssueText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#b45b00',
+  },
+  statusIssueMoreText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#007AFF',
+    alignSelf: 'center',
+    marginBottom: 8,
   },
   vehicleCard: {
     backgroundColor: '#fff',

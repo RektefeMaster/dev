@@ -55,7 +55,6 @@ const HomeScreen = () => {
     maintenanceRecords,
     maintenanceRecord,
     insuranceInfo,
-    vehicleStatus,
     serviceProviders,
     campaigns,
     ads,
@@ -96,16 +95,6 @@ const HomeScreen = () => {
     const company = insuranceInfo.company ?? 'Sigorta';
     return expiry ? `${company} • ${expiry}` : company;
   }, [insuranceInfo]);
-
-  const vehicleStatusSummary = useMemo(() => {
-    if (!vehicleStatus?.overallStatus) {
-      return 'Bilgi bulunamadı';
-    }
-
-    const status = vehicleStatus.overallStatus;
-    const nextService = formatDateValue(vehicleStatus.nextServiceDate ?? null);
-    return nextService ? `${status} • ${nextService}` : status;
-  }, [vehicleStatus]);
 
   const tireStatusSummary = useMemo(() => {
     if (!tireStatus?.status) {
@@ -290,18 +279,6 @@ const HomeScreen = () => {
                   <Text style={[styles.snapshotLabel, { color: theme.colors.text.secondary }]}>Sigorta</Text>
                   <Text style={[styles.snapshotValue, { color: theme.colors.text.primary }]} numberOfLines={1}>
                     {insuranceSummary}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={[styles.snapshotDivider, { backgroundColor: theme.colors.border.secondary }]} />
-
-              <View style={styles.snapshotRow}>
-                <MaterialCommunityIcons name="car-info" size={20} color={theme.colors.warning.main} />
-                <View style={styles.snapshotContent}>
-                  <Text style={[styles.snapshotLabel, { color: theme.colors.text.secondary }]}>Araç Durumu</Text>
-                  <Text style={[styles.snapshotValue, { color: theme.colors.text.primary }]} numberOfLines={1}>
-                    {vehicleStatusSummary}
                   </Text>
                 </View>
               </View>

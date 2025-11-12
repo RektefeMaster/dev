@@ -78,7 +78,6 @@ export const useHomeData = () => {
     maintenanceRecords: overview?.maintenanceRecords ?? [],
     maintenanceRecord: overview?.maintenanceRecords?.[0] ?? null,
     insuranceInfo: overview?.insurancePolicy ?? null,
-    vehicleStatus: overview?.vehicleStatus ?? null,
     tireStatus: overview?.tireStatus ?? null,
     campaigns: overview?.campaigns ?? [],
     ads: overview?.ads ?? [],
