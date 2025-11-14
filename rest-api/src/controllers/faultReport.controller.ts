@@ -1338,6 +1338,9 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
 
     // Randevu oluştur
     console.log('🔍 Appointment oluşturuluyor...');
+    console.log('🔍 [DEBUG] finalMechanicId:', finalMechanicId.toString());
+    console.log('🔍 [DEBUG] finalMechanicId type:', finalMechanicId.constructor.name);
+    
     const appointment = new Appointment({
       userId: new mongoose.Types.ObjectId(userId),
       mechanicId: finalMechanicId,
@@ -1364,8 +1367,16 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
     });
 
     console.log('🔍 Appointment kaydediliyor...');
+    console.log('🔍 [DEBUG] Appointment mechanicId before save:', appointment.mechanicId);
+    console.log('🔍 [DEBUG] Appointment mechanicId type:', appointment.mechanicId?.constructor?.name);
     await appointment.save();
     console.log('✅ Appointment kaydedildi:', appointment._id);
+    console.log('🔍 [DEBUG] Appointment mechanicId after save (from instance):', appointment.mechanicId);
+    
+    // Kayıt sonrası kontrol - lean() kullanarak populate olmadan al
+    const savedAppointment = await Appointment.findById(appointment._id).lean();
+    console.log('🔍 [DEBUG] Appointment mechanicId after save (from DB):', savedAppointment?.mechanicId);
+    console.log('🔍 [DEBUG] Full saved appointment (mechanicId field):', JSON.stringify({ mechanicId: savedAppointment?.mechanicId }, null, 2));
 
     // FaultReport'u güncelle
     console.log('🔍 FaultReport güncelleniyor...');

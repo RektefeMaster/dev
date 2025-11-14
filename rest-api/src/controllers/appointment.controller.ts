@@ -1015,12 +1015,9 @@ export class AppointmentController {
         });
       }
 
-      // Randevuyu bul
-      const appointment = await Appointment.findById(appointmentId)
-        .populate('userId', 'name surname email')
-        .populate('mechanicId', 'name surname email phone');
-
-      if (!appointment) {
+      // Randevuyu bul - önce populate etmeden mechanicId'yi al
+      const rawAppointment = await Appointment.findById(appointmentId).lean();
+      if (!rawAppointment) {
         console.error(`❌ Randevu bulunamadı: ${appointmentId}`);
         return res.status(404).json({
           success: false,
@@ -1028,26 +1025,33 @@ export class AppointmentController {
         });
       }
 
-      // mechanicId'yi güvenli bir şekilde al
-      let mechanicId: mongoose.Types.ObjectId;
-      if (Array.isArray(appointment.mechanicId)) {
-        if (appointment.mechanicId.length === 0) {
-          console.error(`❌ Randevuda usta bilgisi bulunamadı: ${appointmentId}`);
-          return res.status(400).json({
-            success: false,
-            message: 'Randevuda usta bilgisi bulunamadı'
-          });
-        }
-        mechanicId = (appointment.mechanicId[0] as any)._id || appointment.mechanicId[0];
-      } else if (appointment.mechanicId && typeof appointment.mechanicId === 'object' && '_id' in appointment.mechanicId) {
-        mechanicId = (appointment.mechanicId as any)._id;
-      } else if (appointment.mechanicId) {
-        mechanicId = appointment.mechanicId as any;
-      } else {
+      // mechanicId'yi doğrudan database'den al (populate etmeden)
+      console.log('🔍 [DEBUG] Raw appointment mechanicId:', rawAppointment.mechanicId);
+      console.log('🔍 [DEBUG] Raw appointment keys:', Object.keys(rawAppointment));
+      
+      const rawMechanicId = rawAppointment.mechanicId;
+      if (!rawMechanicId) {
         console.error(`❌ Randevuda usta bilgisi bulunamadı: ${appointmentId}`);
+        console.error(`❌ [DEBUG] Full raw appointment:`, JSON.stringify(rawAppointment, null, 2));
         return res.status(400).json({
           success: false,
           message: 'Randevuda usta bilgisi bulunamadı'
+        });
+      }
+
+      const mechanicId = new mongoose.Types.ObjectId(rawMechanicId.toString());
+      console.log('🔍 [DEBUG] Extracted mechanicId:', mechanicId.toString());
+
+      // Şimdi populate edilmiş appointment'ı al
+      const appointment = await Appointment.findById(appointmentId)
+        .populate('userId', 'name surname email')
+        .populate('mechanicId', 'name surname email phone');
+
+      if (!appointment) {
+        console.error(`❌ Randevu bulunamadı (populate sonrası): ${appointmentId}`);
+        return res.status(404).json({
+          success: false,
+          message: 'Randevu bulunamadı'
         });
       }
 
