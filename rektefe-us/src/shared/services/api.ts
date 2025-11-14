@@ -164,21 +164,36 @@ const getRateLimitResetTime = (error: any): number => {
     }
   }
   
-  // RateLimit-Reset header'ı (Unix timestamp - saniye) - case-insensitive
+  // RateLimit-Reset header'ı - case-insensitive
   const rateLimitReset = headers['ratelimit-reset'] || 
                          headers['RateLimit-Reset'] || 
                          headers['rate-limit-reset'] ||
                          headers['x-ratelimit-reset'];
   if (rateLimitReset) {
-    const resetTimestamp = parseInt(rateLimitReset, 10);
-    if (!isNaN(resetTimestamp) && resetTimestamp > 0) {
-      const resetTimeMs = resetTimestamp * 1000; // timestamp'i ms'ye çevir
-      const remainingMs = resetTimeMs - Date.now();
+    const resetValue = parseInt(rateLimitReset, 10);
+    if (!isNaN(resetValue) && resetValue > 0) {
+      // Eğer değer 1 milyondan küçükse, relative time (saniye) olarak kabul et
+      // Eğer 1 milyondan büyükse, Unix timestamp (saniye) olarak kabul et
+      const THRESHOLD = 1000000;
+      let remainingMs: number;
+      
+      if (resetValue < THRESHOLD) {
+        // Relative time (saniye cinsinden kalan süre)
+        remainingMs = resetValue * 1000;
+        if (__DEV__) {
+          console.log(`✅ RateLimit-Reset (relative): ${resetValue} saniye (${Math.ceil(remainingMs / 60000)} dakika)`);
+        }
+      } else {
+        // Unix timestamp (saniye)
+        const resetTimeMs = resetValue * 1000;
+        remainingMs = resetTimeMs - Date.now();
+        if (__DEV__) {
+          console.log(`✅ RateLimit-Reset (timestamp): ${Math.ceil(remainingMs / 60000)} dakika kaldı`);
+        }
+      }
+      
       // Eğer geçmiş bir zaman değilse ve makul bir süre ise (1 saatten az)
       if (remainingMs > 0 && remainingMs < 60 * 60 * 1000) {
-        if (__DEV__) {
-          console.log(`✅ RateLimit-Reset bulundu: ${Math.ceil(remainingMs / 60000)} dakika kaldı`);
-        }
         return remainingMs;
       } else if (remainingMs > 0) {
         // Eğer 1 saatten fazla ise, backend window süresini kullan (15 dakika)

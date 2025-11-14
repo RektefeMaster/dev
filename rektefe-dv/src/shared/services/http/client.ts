@@ -80,14 +80,29 @@ const getRateLimitResetTime = (error: any): number => {
     headers['rate-limit-reset'] ||
     headers['x-ratelimit-reset'];
   if (rateLimitReset) {
-    const resetTimestamp = parseInt(rateLimitReset, 10);
-    if (!isNaN(resetTimestamp) && resetTimestamp > 0) {
-      const resetTimeMs = resetTimestamp * 1000;
-      const remainingMs = resetTimeMs - Date.now();
-      if (remainingMs > 0 && remainingMs < 60 * 60 * 1000) {
+    const resetValue = parseInt(rateLimitReset, 10);
+    if (!isNaN(resetValue) && resetValue > 0) {
+      // Eğer değer 1 milyondan küçükse, relative time (saniye) olarak kabul et
+      // Eğer 1 milyondan büyükse, Unix timestamp (saniye) olarak kabul et
+      const THRESHOLD = 1000000;
+      let remainingMs: number;
+      
+      if (resetValue < THRESHOLD) {
+        // Relative time (saniye cinsinden kalan süre)
+        remainingMs = resetValue * 1000;
         if (__DEV__) {
-          console.log(`✅ RateLimit-Reset bulundu: ${Math.ceil(remainingMs / 60000)} dakika kaldı`);
+          console.log(`✅ RateLimit-Reset (relative): ${resetValue} saniye (${Math.ceil(remainingMs / 60000)} dakika)`);
         }
+      } else {
+        // Unix timestamp (saniye)
+        const resetTimeMs = resetValue * 1000;
+        remainingMs = resetTimeMs - Date.now();
+        if (__DEV__) {
+          console.log(`✅ RateLimit-Reset (timestamp): ${Math.ceil(remainingMs / 60000)} dakika kaldı`);
+        }
+      }
+      
+      if (remainingMs > 0 && remainingMs < 60 * 60 * 1000) {
         return remainingMs;
       }
       if (remainingMs > 0 && __DEV__) {

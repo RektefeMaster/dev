@@ -198,9 +198,9 @@ const GarageScreen = () => {
                 mileage: response.event.km,
                 odometerEstimate: response.estimate,
                 odometerVerification: {
-                  status: response.pendingReview ? 'failed' : 'verified',
-                  message: response.pendingReview
-                    ? 'Kilometre kaydı incelemeye alındı.'
+                  status: 'verified',
+                  message: response.warnings?.length
+                    ? 'Kilometre güncellendi. Uyarıları kontrol edin.'
                     : 'Kilometre başarıyla güncellendi.',
                   warnings: response.warnings,
                   lastUpdated: new Date().toISOString(),
@@ -209,11 +209,14 @@ const GarageScreen = () => {
             : vehicle
         )
       );
-      analytics.track(response.pendingReview ? 'odo_update_reject_outlier' : 'odo_calibrated', {
-        vehicleId,
-        pendingReview: response.pendingReview,
-        outlierClass: response.outlierClass,
-      });
+      analytics.track(
+        response.outlierClass === 'hard' ? 'odo_update_reject_outlier' : 'odo_calibrated',
+        {
+          vehicleId,
+          pendingReview: response.pendingReview,
+          outlierClass: response.outlierClass,
+        }
+      );
     },
     []
   );

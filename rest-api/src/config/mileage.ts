@@ -6,7 +6,7 @@ type SourceEvidenceKey = `${OdometerEventSource}:${OdometerEventEvidenceType}`;
 export const DEFAULT_RATE_KM_PER_DAY = Number(
   process.env.MILEAGE_DEFAULT_RATE_KM_PER_DAY || DEFAULT_KM_PER_DAY
 );
-export const DEFAULT_CONFIDENCE = Number(process.env.MILEAGE_DEFAULT_CONFIDENCE || 0.3);
+export const DEFAULT_CONFIDENCE = Number(process.env.MILEAGE_DEFAULT_CONFIDENCE || 0.5);
 
 export const EWMA_ALPHA_MAP: Record<SourceEvidenceKey, number> = {
   'service:none': 0.5,
@@ -30,9 +30,9 @@ export const CONFIDENCE_DELTA_MAP: Record<SourceEvidenceKey, number> = {
   'inspection:none': 0.05,
   'inspection:photo': 0.1,
   'inspection:document': 0.12,
-  'user_manual:none': 0.02,
-  'user_manual:photo': 0.04,
-  'user_manual:document': 0.04,
+  'user_manual:none': 0.06, // Artırıldı: 0.02 -> 0.06 (3x)
+  'user_manual:photo': 0.08, // Artırıldı: 0.04 -> 0.08 (2x)
+  'user_manual:document': 0.1, // Artırıldı: 0.04 -> 0.1 (2.5x)
   'system_import:none': 0.06,
   'system_import:photo': 0.08,
   'system_import:document': 0.08,

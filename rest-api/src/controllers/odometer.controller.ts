@@ -303,18 +303,7 @@ export class OdometerController {
       const vehicle = await ensureVehicleAccess(req, vehicleId);
 
       const tenantId = resolveTenantId(req);
-      const rateLimitKey = `${tenantId}:${req.user?.userId || req.ip || 'anon'}`;
-      const isAllowed = await enforceLimit(rateLimitKey, 5, 60);
-      if (!isAllowed) {
-        const errorResponse = createErrorResponse(
-          ErrorCode.RATE_LIMIT_EXCEEDED,
-          'Çok sık kilometre güncellemesi yapmaya çalışıyorsunuz. Lütfen kısa bir süre sonra tekrar deneyin.',
-          null,
-          req.headers['x-request-id'] as string
-        );
-        return res.status(ERROR_STATUS_MAPPING[ErrorCode.RATE_LIMIT_EXCEEDED]).json(errorResponse);
-      }
-
+      // Gereksiz rate limit kontrolü kaldırıldı - hard outlier kontrolü yeterli
       const hardClusterKey = `hard:${tenantId}:${req.user?.userId || req.ip || 'anon'}`;
       const hardCount = await getCounterValue(hardClusterKey);
       if (hardCount >= 3) {
@@ -376,12 +365,6 @@ export class OdometerController {
         featureFlags: req.featureFlags,
       });
 
-      const responseStatus = result.pendingReview
-        ? ErrorCode.ERR_ODO_OUTLIER_HARD
-        : result.outlierClass === 'soft'
-          ? ErrorCode.ERR_ODO_OUTLIER_SOFT
-          : undefined;
-
       const payload = {
         event: {
           id: result.event._id,
@@ -409,30 +392,13 @@ export class OdometerController {
         backPressureWarning: result.backPressureWarning,
       };
 
-      if (responseStatus === ErrorCode.ERR_ODO_OUTLIER_HARD || responseStatus === ErrorCode.ERR_ODO_OUTLIER_SOFT) {
-        if (responseStatus === ErrorCode.ERR_ODO_OUTLIER_HARD) {
-          await incrementCounter(hardClusterKey, 600);
-        }
-        const statusMessage =
-          responseStatus === ErrorCode.ERR_ODO_OUTLIER_HARD
-            ? 'Kilometre kaydı incelemeye alındı.'
-            : 'Kilometre kaydı düşük güvenle işlendi.';
-        const errorResponse = createErrorResponse(
-          responseStatus,
-          statusMessage,
-          payload,
-          req.headers['x-request-id'] as string
-        );
-        return res.status(202).json(errorResponse);
-      }
-
       const response = createSuccessResponse(
         payload,
         'Kilometre kaydı başarıyla işlendi.',
         req.headers['x-request-id'] as string
       );
 
-      if (!responseStatus && result.outlierClass === 'hard') {
+      if (result.outlierClass === 'hard') {
         await incrementCounter(hardClusterKey, 600);
       }
       return res.status(201).json(response);

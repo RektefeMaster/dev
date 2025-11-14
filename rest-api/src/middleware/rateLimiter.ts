@@ -12,6 +12,8 @@ import { Request, Response } from 'express';
  * Genel API rate limiter
  * 15 dakikada 500 request (normal mobil uygulama kullanımı için yeterli)
  * Önceki limit (100) çok düşüktü ve normal kullanımda aşılıyordu
+ * 
+ * Kilometre güncelleme endpoint'leri muaf tutuldu - controller içinde hard outlier kontrolü var
  */
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 dakika
@@ -29,6 +31,35 @@ export const apiLimiter = rateLimit({
   skipSuccessfulRequests: false,
   // Skip failed requests
   skipFailedRequests: false,
+  // Kilometre güncelleme endpoint'lerini muaf tut (controller içinde hard outlier kontrolü var)
+  skip: (req: Request) => {
+    // Odometer endpoint'lerini rate limiter'dan muaf tut
+    // req.path veya req.originalUrl kontrolü - middleware sırasında path formatı değişebilir
+    const checkPath = (p: string | undefined) => {
+      if (!p) return false;
+      const lower = p.toLowerCase();
+      // /vehicles/:id/odometer/events veya benzeri pattern'leri yakala
+      return lower.includes('odometer');
+    };
+    
+    // Tüm olası path formatlarını kontrol et
+    const shouldSkip = checkPath(req.path) || 
+                       checkPath(req.originalUrl) || 
+                       checkPath(req.url) ||
+                       checkPath(req.baseUrl + req.path);
+    
+    // Debug log (sadece odometer istekleri için)
+    if (shouldSkip && process.env.NODE_ENV === 'development') {
+      console.log('[RATE LIMITER SKIP] Odometer endpoint muaf tutuldu:', {
+        path: req.path,
+        originalUrl: req.originalUrl,
+        url: req.url,
+        method: req.method
+      });
+    }
+    
+    return shouldSkip;
+  },
   // Key generator (IP based)
   keyGenerator: (req: Request) => {
     return req.ip || req.headers['x-forwarded-for'] as string || 'unknown';

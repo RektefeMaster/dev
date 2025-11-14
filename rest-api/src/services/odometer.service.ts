@@ -307,27 +307,10 @@ export class OdometerService {
       }
     }
 
-    if (mileageModel.confidence <= CRITICAL_CONFIDENCE_THRESHOLD) {
-      warnings.push(
-        'Kilometre tahmininin güven değeri çok düşük. Bu değer doğrulanana kadar tahminler güvenilir olmayabilir.'
-      );
-      setStatus({
-        code: 'LOW_CONFIDENCE',
-        severity: 'critical',
-        message: 'Kilometre tahmininin güveni çok düşük. Lütfen kilometreyi doğrulayın.',
-      });
-    } else if (mileageModel.confidence <= LOW_CONFIDENCE_THRESHOLD) {
-      warnings.push(
-        'Kilometre tahmininin güveni düşük seviyede. Yakında bir servis kaydıyla doğrulamanız önerilir.'
-      );
-      setStatus({
-        code: 'LOW_CONFIDENCE',
-        severity: 'warning',
-        message: 'Kilometre tahmininin güveni sınırlı. Doğrulama yapmanız faydalı olur.',
-      });
-    }
+    // Confidence uyarıları kaldırıldı - Kullanıcı girdiği kilometre doğru kabul edilir
 
-    const isApproximate = status.code !== 'OK' || mileageModel.confidence < 0.7;
+    // Confidence her zaman yüksek (0.85), bu yüzden approximate değil
+    const isApproximate = status.code !== 'OK';
     const cacheKey = getCacheKey(tenantId, context.vehicleId, mileageModel.seriesId);
 
     if (!context.forceRefresh) {
@@ -456,6 +439,10 @@ export class OdometerService {
           clientRequestId: input.clientRequestId,
         }).session(session);
         if (existing) {
+          if (existing.pendingReview) {
+            existing.pendingReview = false;
+            await existing.save({ session });
+          }
           await session.commitTransaction();
           const estimate = await this.getEstimate({
             tenantId,
@@ -505,60 +492,86 @@ export class OdometerService {
       let deltaDays = computeSinceDays(mileageModel.lastTrueTsUtc, timestamp);
       const hasBaseline = mileageModel.hasBaseline;
 
+      // İlk baseline için: Eğer deltaDays <= 0 ise (aynı gün veya geçmiş), 1 gün kabul et (rate hesaplama için)
       if (!hasBaseline && deltaDays <= 0) {
         deltaDays = 1;
       }
 
-      if (!input.odometerReset && deltaKm < 0) {
-        throw new CustomError('Yeni kilometre, son doğrulamanın altında olamaz.', 409, ErrorCode.ERR_ODO_DECREASING);
-      }
-
-      if (!input.odometerReset && hasBaseline && deltaDays <= 0) {
-        throw new CustomError('Kilometre güncellemesi için zaman farkı bulunamadı.', 400, ErrorCode.BUSINESS_RULE_VIOLATION);
-      }
-
       let observedRate = deltaDays > 0 ? deltaKm / deltaDays : 0;
       const warnings: string[] = [];
+
+      // deltaKm < 0 kontrolü kaldırıldı - Kullanıcı yanlış girip düzeltmek isteyebilir
+      // Sadece odometerReset değilse uyarı ver (ama yine de güncelle)
+      if (!input.odometerReset && deltaKm < 0 && hasBaseline) {
+        warnings.push('Yeni kilometre değeri, önceki değerden düşük. Eğer bu bir düzeltme ise sorun yok.');
+      }
+
+      // deltaDays <= 0 kontrolü kaldırıldı - Kullanıcı aynı gün içinde birden fazla kez güncelleme yapabilir
+      // Basit mantık: Kullanıcı girdiği kilometre doğru kabul edilir, kontroller kaldırıldı
       let pendingReview = false;
       let outlierClass: 'soft' | 'hard' | undefined;
 
-      if (!input.odometerReset && deltaDays > 0) {
-        if (Number.isFinite(ABS_MAX_RATE_PER_DAY) && observedRate > ABS_MAX_RATE_PER_DAY) {
-          throw new CustomError(
-            'Kilometre artışı olağan dışı derecede yüksek görünüyor. Lütfen değeri kontrol edin.',
-            400,
-            ErrorCode.ERR_ODO_RATE_TOO_HIGH
+      // Günde kaç kez kilometre güncellemesi yapıldığını kontrol et (odometerReset hariç)
+      if (!input.odometerReset) {
+        // Bugünün başlangıcı ve bitişi (UTC timezone'unda)
+        const timestampDate = new Date(timestamp);
+        const todayStart = new Date(Date.UTC(
+          timestampDate.getUTCFullYear(),
+          timestampDate.getUTCMonth(),
+          timestampDate.getUTCDate(),
+          0, 0, 0, 0
+        ));
+        const todayEnd = new Date(Date.UTC(
+          timestampDate.getUTCFullYear(),
+          timestampDate.getUTCMonth(),
+          timestampDate.getUTCDate(),
+          23, 59, 59, 999
+        ));
+        
+        // Bugün oluşturulmuş event sayısını kontrol et (bu event henüz oluşturulmamış)
+        const todayUpdateCount = await OdometerEvent.countDocuments({
+          tenantId,
+          vehicleId: vehicleObjectId,
+          timestampUtc: {
+            $gte: todayStart,
+            $lte: todayEnd,
+          },
+        }).session(session);
+
+        // Günde 2 kez sınırsız (1. ve 2. güncelleme), 3. kez uyarı ver (ama yine de güncellemeyi yap)
+        // todayUpdateCount: Bugün oluşturulmuş event sayısı (bu event hariç)
+        // 1. güncelleme: count = 0, uyarı yok
+        // 2. güncelleme: count = 1, uyarı yok  
+        // 3. güncelleme: count = 2, uyarı var
+        if (todayUpdateCount >= 2) {
+          warnings.push(
+            'Günde 2 kez kilometre düzeltme hakkınızı kullandınız. Daha fazla düzeltme yapmak için lütfen destek ile iletişime geçin.'
           );
-        }
-        if (observedRate > HARD_OUTLIER_THRESHOLD) {
-          pendingReview = true;
-          outlierClass = 'hard';
-          warnings.push('Olağandışı km artışı tespit edildi. Kayıt inceleme kuyruğuna alındı.');
-        } else if (observedRate > SOFT_OUTLIER_THRESHOLD) {
-          outlierClass = 'soft';
-          warnings.push('Olağandışı km artışı algılandı. α değeri düşürüldü.');
         }
       }
 
+      // Basit mantık: Kullanıcı girdiği kilometre doğru kabul edilir
       const alphaBase = getAlphaForEvent(input.source, input.evidenceType);
-      const alpha = outlierClass === 'soft' ? alphaBase / 2 : alphaBase;
+      const alpha = alphaBase; // Outlier kontrolü kaldırıldı, her zaman normal alpha
 
+      // Confidence her zaman yüksek: Kullanıcı girdiği için doğru kabul ediyoruz
+      let newConfidence = 0.85; // Her zaman yüksek confidence
+      
+      // Rate hesaplaması (basit)
+      // deltaDays > 0 ise rate hesapla, aksi halde rate'i değiştirme (aynı gün veya geçmiş güncelleme)
       let nextRate = mileageModel.rateKmPerDay;
-      let newConfidence = mileageModel.confidence;
       let shadowNextRate = mileageModel.shadowRateKmPerDay ?? mileageModel.rateKmPerDay;
-      const confidenceDelta = getConfidenceDeltaForEvent(input.source, input.evidenceType);
-
-      if (!pendingReview && deltaDays > 0) {
+      
+      if (deltaDays > 0) {
+        // Farklı günler arası güncelleme: Rate hesapla
         const calibrationStart = process.hrtime.bigint();
         observedRate = clamp(observedRate, RATE_MIN, RATE_MAX);
         nextRate = clamp((1 - alpha) * mileageModel.rateKmPerDay + alpha * observedRate, RATE_MIN, RATE_MAX);
         shadowNextRate = clamp((1 - alpha) * shadowNextRate + alpha * observedRate, RATE_MIN, RATE_MAX);
-        newConfidence = clamp(mileageModel.confidence + confidenceDelta, CONFIDENCE_MIN, CONFIDENCE_MAX);
         const calibrationDuration = Number(process.hrtime.bigint() - calibrationStart) / 1_000_000_000;
         recordOdometerCalibrationDuration(input.source, calibrationDuration);
-      } else if (pendingReview) {
-        newConfidence = clamp(mileageModel.confidence - confidenceDelta, CONFIDENCE_MIN, CONFIDENCE_MAX);
       }
+      // deltaDays = 0 veya < 0 durumunda: Rate'i değiştirme (zaten başlangıç değerlerinde)
 
       const previousRate = mileageModel.rateKmPerDay;
       const previousConfidence = mileageModel.confidence;
@@ -578,9 +591,9 @@ export class OdometerService {
             evidenceUrl: input.evidenceUrl,
             notes: input.notes,
             createdByUserId: actorUserId,
-            pendingReview,
+            pendingReview: false, // Her zaman false - kullanıcı girdiği için doğru kabul edilir
             odometerReset: Boolean(input.odometerReset),
-            outlierClass,
+            outlierClass: undefined, // Outlier kontrolü kaldırıldı
             clientRequestId: input.clientRequestId,
             metadata: input.metadata,
           },
@@ -590,16 +603,15 @@ export class OdometerService {
 
       const createdEvent = event[0] as IOdometerEvent;
 
-      if (!pendingReview) {
-        mileageModel.lastTrueKm = kmValue;
-        mileageModel.lastTrueTsUtc = timestamp;
-        mileageModel.rateKmPerDay = nextRate;
-        mileageModel.confidence = newConfidence;
-        mileageModel.defaultUnit = unit;
-        mileageModel.hasBaseline = true;
-        if (shadowFlagEnabled) {
-          mileageModel.shadowRateKmPerDay = shadowNextRate;
-        }
+      // Basit mantık: Her zaman güncelle (kullanıcı girdiği için doğru)
+      mileageModel.lastTrueKm = kmValue;
+      mileageModel.lastTrueTsUtc = timestamp;
+      mileageModel.rateKmPerDay = nextRate;
+      mileageModel.confidence = newConfidence;
+      mileageModel.defaultUnit = unit;
+      mileageModel.hasBaseline = true;
+      if (shadowFlagEnabled) {
+        mileageModel.shadowRateKmPerDay = shadowNextRate;
       }
 
       await mileageModel.save({ session });
@@ -608,7 +620,7 @@ export class OdometerService {
         tenantId,
         vehicleObjectId,
         seriesId,
-        pendingReview ? 'outlier' : 'calibrated',
+        'calibrated', // Her zaman calibrated
         {
           deltaKm,
           deltaDays,
@@ -620,8 +632,8 @@ export class OdometerService {
           nextConfidence: newConfidence,
           previousShadowRate,
           nextShadowRate: shadowFlagEnabled ? shadowNextRate : undefined,
-          pendingReview,
-          outlierClass,
+          pendingReview: false,
+          outlierClass: undefined,
           source: input.source,
           evidenceType: input.evidenceType,
         },
@@ -630,16 +642,8 @@ export class OdometerService {
         session
       );
 
+      // Pending review kaldırıldı - kullanıcı girdiği için doğru kabul edilir
       let backPressureWarning: string | undefined;
-      if (pendingReview) {
-        const queueResult = await queuePendingReview({
-          tenantId,
-          vehicleId: input.vehicleId,
-          eventId: createdEvent._id.toString(),
-          timestamp: now.toISOString(),
-        });
-        backPressureWarning = queueResult.warning;
-      }
 
       await session.commitTransaction();
 
@@ -654,27 +658,19 @@ export class OdometerService {
         forceRefresh: true,
       });
 
-      if (pendingReview && backPressureWarning) {
-        warnings.push(backPressureWarning);
+      // Monitoring (basit)
+      const absError = Math.abs(estimate.estimateKm - kmValue);
+      observeOdometerEstimateAbsError(absError);
+      if (shadowFlagEnabled && mileageModel.shadowRateKmPerDay) {
+        const shadowEstimate =
+          mileageModel.lastTrueKm +
+          (mileageModel.shadowRateKmPerDay ?? mileageModel.rateKmPerDay) *
+            computeSinceDays(mileageModel.lastTrueTsUtc, new Date());
+        observeOdometerShadowError(Math.abs(shadowEstimate - kmValue));
       }
 
-      if (!pendingReview) {
-        const absError = Math.abs(estimate.estimateKm - kmValue);
-        observeOdometerEstimateAbsError(absError);
-        if (shadowFlagEnabled && mileageModel.shadowRateKmPerDay) {
-          const shadowEstimate =
-            mileageModel.lastTrueKm +
-            (mileageModel.shadowRateKmPerDay ?? mileageModel.rateKmPerDay) *
-              computeSinceDays(mileageModel.lastTrueTsUtc, new Date());
-          observeOdometerShadowError(Math.abs(shadowEstimate - kmValue));
-        }
-      }
-
-      recordOdometerEvent(input.source, pendingReview ? 'pending' : 'accepted');
+      recordOdometerEvent(input.source, 'accepted'); // Her zaman accepted
       totalEventsProcessed += 1;
-      if (pendingReview || outlierClass) {
-        totalOutliersDetected += 1;
-      }
       if (totalEventsProcessed > 0) {
         recordOdometerOutlierRatio(totalOutliersDetected / totalEventsProcessed);
       }
@@ -683,9 +679,9 @@ export class OdometerService {
         event: createdEvent,
         estimate,
         warnings,
-        backPressureWarning,
-        pendingReview,
-        outlierClass,
+        backPressureWarning: undefined,
+        pendingReview: false, // Her zaman false
+        outlierClass: undefined, // Her zaman undefined
       };
     } catch (error) {
       await session.abortTransaction();

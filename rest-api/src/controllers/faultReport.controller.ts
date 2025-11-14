@@ -2259,9 +2259,9 @@ export const finalizeWork = async (req: Request, res: Response) => {
           featureFlags: req.featureFlags,
         });
 
-        verification.status = odometerResult.pendingReview ? 'failed' : 'verified';
-        verification.message = odometerResult.pendingReview
-          ? 'Kilometre kaydı incelemeye alındı.'
+        verification.status = 'verified';
+        verification.message = odometerResult.warnings?.length
+          ? 'Kilometre doğrulandı. Uyarıları kontrol edin.'
           : 'Kilometre başarıyla doğrulandı.';
         verification.warnings = odometerResult.warnings ?? [];
         verification.lastUpdated = new Date();

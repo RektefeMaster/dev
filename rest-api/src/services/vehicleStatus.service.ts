@@ -460,12 +460,10 @@ export class VehicleStatusService {
       addIssue(`Arıza (${label}) · ${categoryLabel}: ${description}`, penalty);
     });
 
+    // Confidence uyarıları kaldırıldı - Kullanıcı girdiği kilometre doğru kabul edilir
+    // Sadece pozitif bonus korundu
     if (typeof odometerConfidence === 'number') {
-      if (odometerConfidence < 0.35) {
-        addIssue('Kilometre verisinin güveni çok düşük. Doğrulama gerekli.', 14);
-      } else if (odometerConfidence < 0.55) {
-        addIssue('Kilometre verisinin güveni düşük. Yakında doğrulama yapın.', 7);
-      } else if (odometerConfidence >= 0.75 && (daysSinceLastCheck ?? Infinity) <= 90) {
+      if (odometerConfidence >= 0.75 && (daysSinceLastCheck ?? Infinity) <= 90) {
         applyBonus(3);
       }
     }
