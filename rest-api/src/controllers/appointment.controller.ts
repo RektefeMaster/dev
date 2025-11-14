@@ -1106,12 +1106,11 @@ export class AppointmentController {
       }
 
       // CRITICAL FIX: Tüm işlemleri MongoDB transaction içine al - atomicity garantisi
+      const walletAmount = appointment.finalPrice || appointment.price || 0;
       const session = await mongoose.startSession();
       
       try {
         session.startTransaction();
-        
-        const walletAmount = appointment.finalPrice || appointment.price || 0;
 
         // 1. Ödeme bilgilerini güncelle - BACKEND finalPrice'ı kullan, frontend'i ignore et
         appointment.paymentStatus = PaymentStatus.COMPLETED;
