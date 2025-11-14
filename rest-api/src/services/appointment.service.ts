@@ -825,6 +825,32 @@ export class AppointmentService {
         await this.updateRelatedFaultReportStatus(appointment.faultReportId.toString(), status);
       }
 
+      // SERVISTE durumuna geçildiğinde driver'a bildirim gönder
+      if (status === 'SERVISTE') {
+        try {
+          const mechanicName = (appointment.mechanicId as any)?.name || 'Usta';
+          const { translateServiceType } = require('../utils/serviceTypeTranslator');
+          const serviceTypeName = translateServiceType(appointment.serviceType) || 'Hizmet';
+          
+          await sendNotification(
+            appointment.userId,
+            'driver',
+            'İş Başladı',
+            `${mechanicName} usta işinize başladı. ${serviceTypeName} hizmetiniz devam ediyor.`,
+            'appointment_confirmed',
+            {
+              appointmentId: appointment._id,
+              mechanicName,
+              serviceType: serviceTypeName,
+              status: 'SERVISTE'
+            }
+          );
+          console.log(`✅ Driver'a iş başladı bildirimi gönderildi: ${appointment.userId}`);
+        } catch (notificationError) {
+          console.error('❌ İş başladı bildirimi gönderme hatası:', notificationError);
+        }
+      }
+
       return appointment;
     } catch (error) {
       throw error;
@@ -905,6 +931,27 @@ export class AppointmentService {
       });
 
       await appointment.save();
+
+      // Driver'a ek ücret bildirimi gönder
+      try {
+        const mechanicName = (appointment.mechanicId as any)?.name || 'Usta';
+        await sendNotification(
+          appointment.userId,
+          'driver',
+          'Ek Ücret Talebi',
+          `${mechanicName} usta ek ücret talebinde bulundu: ${description} - ${extraAmount}₺. Lütfen onaylayın veya reddedin.`,
+          'payment_pending',
+          {
+            appointmentId: appointment._id,
+            extraChargeAmount: extraAmount,
+            extraChargeDescription: description,
+            mechanicName
+          }
+        );
+        console.log(`✅ Driver'a ek ücret bildirimi gönderildi: ${appointment.userId}`);
+      } catch (notificationError) {
+        console.error('❌ Ek ücret bildirimi gönderme hatası:', notificationError);
+      }
 
       // Eğer appointment bir FaultReport'a bağlıysa, FaultReport'u da güncelle
       if (appointment.faultReportId) {
@@ -999,6 +1046,21 @@ export class AppointmentService {
       appointment.finalPrice = basePrice + approvedExtraCharges;
       appointment.paymentStatus = PaymentStatus.PENDING; // Ödeme bekleniyor
       
+      // Eğer indirim isteği yoksa, priceApproval'ı otomatik olarak APPROVED yap (direkt ödeme yapılabilir)
+      if (!appointment.discountRequest || appointment.discountRequest.status === 'NONE' || !appointment.discountRequest.status) {
+        if (!appointment.priceApproval) {
+          appointment.priceApproval = {
+            status: 'APPROVED',
+            approvedAt: new Date()
+          };
+        } else if (appointment.priceApproval.status !== 'PENDING') {
+          // Eğer zaten APPROVED veya REJECTED ise, tekrar APPROVED yap
+          appointment.priceApproval.status = 'APPROVED';
+          appointment.priceApproval.approvedAt = new Date();
+        }
+      }
+      // Eğer indirim isteği REJECTED ise, priceApproval zaten APPROVED olarak set edilmiş olmalı (respondToDiscountRequest'te)
+      
       // Usta tahmini süreyi belirler
       if (estimatedDuration && estimatedDuration > 0) {
         appointment.estimatedDuration = estimatedDuration;
@@ -1008,6 +1070,30 @@ export class AppointmentService {
       appointment.completionDate = new Date();
 
       await appointment.save();
+
+      // Driver'a bildirim gönder - İş tamamlandı, ödeme yapabilir
+      try {
+        const mechanicName = (appointment.mechanicId as any)?.name || 'Usta';
+        const { translateServiceType } = require('../utils/serviceTypeTranslator');
+        const serviceTypeName = translateServiceType(appointment.serviceType) || 'Hizmet';
+        
+        await sendNotification(
+          appointment.userId,
+          'driver',
+          'İş Tamamlandı',
+          `${mechanicName} usta işinizi tamamladı. Toplam ${appointment.finalPrice || appointment.price || 0}₺ tutarında ödeme yapabilirsiniz.`,
+          'payment_pending',
+          {
+            appointmentId: appointment._id,
+            amount: appointment.finalPrice || appointment.price || 0,
+            mechanicName,
+            serviceType: serviceTypeName
+          }
+        );
+        console.log(`✅ Driver'a iş tamamlandı bildirimi gönderildi: ${appointment.userId}`);
+      } catch (notificationError) {
+        console.error('❌ İş tamamlandı bildirimi gönderme hatası:', notificationError);
+      }
 
       // FaultReport durumunu ve payment bilgisini güncelle
       if (appointment.faultReportId) {
@@ -1455,5 +1541,151 @@ export class AppointmentService {
       cancelled,
       notified
     };
+  }
+
+  /**
+   * Driver indirim ister
+   */
+  static async requestDiscount(appointmentId: string, userId: string) {
+    try {
+      const appointment = await Appointment.findById(appointmentId);
+      if (!appointment) {
+        throw new CustomError('Randevu bulunamadı', 404);
+      }
+
+      // Sadece randevu sahibi indirim isteyebilir
+      if (appointment.userId.toString() !== userId) {
+        throw new CustomError('Bu randevu için indirim isteği yapma yetkiniz yok', 403);
+      }
+
+      // Sadece ODEME_BEKLIYOR durumunda indirim istenebilir
+      if (appointment.status !== 'ODEME_BEKLIYOR') {
+        throw new CustomError('Sadece ödeme bekleyen randevular için indirim istenebilir', 400);
+      }
+
+      // Eğer zaten pending bir istek varsa hata ver
+      if (appointment.discountRequest?.status === 'PENDING') {
+        throw new CustomError('Zaten bekleyen bir indirim isteğiniz var', 400);
+      }
+
+      // İndirim isteğini oluştur
+      if (!appointment.discountRequest) {
+        appointment.discountRequest = {
+          status: 'PENDING',
+          requestedAt: new Date(),
+          requestedBy: userId
+        };
+      } else {
+        appointment.discountRequest.status = 'PENDING';
+        appointment.discountRequest.requestedAt = new Date();
+        appointment.discountRequest.requestedBy = userId;
+      }
+
+      await appointment.save();
+
+      return appointment;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Usta indirim isteğine yanıt verir (yeni fiyat teklif eder veya reddeder)
+   */
+  static async respondToDiscountRequest(
+    appointmentId: string,
+    mechanicId: string,
+    newPrice?: number,
+    approve: boolean = true
+  ) {
+    try {
+      const appointment = await Appointment.findById(appointmentId);
+      if (!appointment) {
+        throw new CustomError('Randevu bulunamadı', 404);
+      }
+
+      // Sadece randevu ustası yanıt verebilir
+      if (appointment.mechanicId?.toString() !== mechanicId) {
+        throw new CustomError('Bu randevu için yanıt verme yetkiniz yok', 403);
+      }
+
+      // İndirim isteği olmalı ve pending olmalı
+      if (!appointment.discountRequest || appointment.discountRequest.status !== 'PENDING') {
+        throw new CustomError('Bekleyen bir indirim isteği bulunamadı', 400);
+      }
+
+      if (approve && newPrice !== undefined && newPrice > 0) {
+        // İndirim onaylandı, yeni fiyat teklif edildi
+        appointment.discountRequest.status = 'APPROVED';
+        appointment.negotiatedPrice = newPrice;
+        
+        // Driver'ın onayı bekleniyor
+        if (!appointment.priceApproval) {
+          appointment.priceApproval = {
+            status: 'PENDING',
+            approvedAt: undefined
+          };
+        } else {
+          appointment.priceApproval.status = 'PENDING';
+          appointment.priceApproval.approvedAt = undefined;
+        }
+      } else {
+        // İndirim reddedildi
+        appointment.discountRequest.status = 'REJECTED';
+        // Orijinal fiyat geçerli, driver direkt ödeme yapabilir
+        if (!appointment.priceApproval) {
+          appointment.priceApproval = {
+            status: 'APPROVED', // Reddedildiğinde orijinal fiyatı kabul etmiş sayılır
+            approvedAt: new Date()
+          };
+        } else {
+          appointment.priceApproval.status = 'APPROVED';
+          appointment.priceApproval.approvedAt = new Date();
+        }
+      }
+
+      await appointment.save();
+
+      return appointment;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Driver son fiyatı onaylar
+   */
+  static async approveFinalPrice(appointmentId: string, userId: string) {
+    try {
+      const appointment = await Appointment.findById(appointmentId);
+      if (!appointment) {
+        throw new CustomError('Randevu bulunamadı', 404);
+      }
+
+      // Sadece randevu sahibi onaylayabilir
+      if (appointment.userId.toString() !== userId) {
+        throw new CustomError('Bu randevu için fiyat onaylama yetkiniz yok', 403);
+      }
+
+      // Fiyat onayı pending olmalı
+      if (!appointment.priceApproval || appointment.priceApproval.status !== 'PENDING') {
+        throw new CustomError('Onay bekleyen bir fiyat bulunamadı', 400);
+      }
+
+      // Fiyatı onayla
+      appointment.priceApproval.status = 'APPROVED';
+      appointment.priceApproval.approvedAt = new Date();
+
+      // Eğer negotiatedPrice varsa, finalPrice'ı güncelle
+      if (appointment.negotiatedPrice && appointment.negotiatedPrice > 0) {
+        appointment.finalPrice = appointment.negotiatedPrice;
+      }
+
+      await appointment.save();
+
+      return appointment;
+    } catch (error) {
+      throw error;
+    }
   }
 }

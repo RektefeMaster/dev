@@ -21,6 +21,8 @@ import {
   DEFAULT_RATE_KM_PER_DAY,
   HARD_OUTLIER_THRESHOLD,
   LOW_CONFIDENCE_THRESHOLD,
+  MAX_RATE_CHANGE_PERCENT,
+  MIN_DAYS_FOR_RATE_CALCULATION,
   PENDING_REVIEW_QUEUE,
   PENDING_REVIEW_WARNING_THRESHOLD,
   RATE_MAX,
@@ -538,14 +540,15 @@ export class OdometerService {
           },
         }).session(session);
 
-        // Günde 2 kez sınırsız (1. ve 2. güncelleme), 3. kez uyarı ver (ama yine de güncellemeyi yap)
+        // Günde 3 kez sınırsız (1., 2. ve 3. güncelleme), 4. kez uyarı ver (ama yine de güncellemeyi yap)
         // todayUpdateCount: Bugün oluşturulmuş event sayısı (bu event hariç)
         // 1. güncelleme: count = 0, uyarı yok
         // 2. güncelleme: count = 1, uyarı yok  
-        // 3. güncelleme: count = 2, uyarı var
-        if (todayUpdateCount >= 2) {
+        // 3. güncelleme: count = 2, uyarı yok
+        // 4. güncelleme: count = 3, uyarı var
+        if (todayUpdateCount >= 3) {
           warnings.push(
-            'Günde 2 kez kilometre düzeltme hakkınızı kullandınız. Daha fazla düzeltme yapmak için lütfen destek ile iletişime geçin.'
+            'Günde 3 kez kilometre düzeltme hakkınızı kullandınız. Daha fazla düzeltme yapmak için lütfen destek ile iletişime geçin.'
           );
         }
       }
@@ -557,21 +560,126 @@ export class OdometerService {
       // Confidence her zaman yüksek: Kullanıcı girdiği için doğru kabul ediyoruz
       let newConfidence = 0.85; // Her zaman yüksek confidence
       
-      // Rate hesaplaması (basit)
-      // deltaDays > 0 ise rate hesapla, aksi halde rate'i değiştirme (aynı gün veya geçmiş güncelleme)
+      // Rate hesaplaması: İlk 3 güncelleme sonrasına kadar beklenir, sonra ortalama hesaplanır
       let nextRate = mileageModel.rateKmPerDay;
       let shadowNextRate = mileageModel.shadowRateKmPerDay ?? mileageModel.rateKmPerDay;
       
-      if (deltaDays > 0) {
-        // Farklı günler arası güncelleme: Rate hesapla
+      // Toplam event sayısını kontrol et (odometerReset hariç, bu event henüz oluşturulmadı)
+      const totalEventCount = await OdometerEvent.countDocuments({
+        tenantId,
+        vehicleId: vehicleObjectId,
+        odometerReset: { $ne: true },
+      }).session(session);
+      
+      // Minimum gün aralığı kontrolü: Aynı gün veya çok yakın günlerdeki güncellemeler rate hesaplamasına dahil edilmez
+      const hasMinimumDaysInterval = deltaDays >= MIN_DAYS_FOR_RATE_CALCULATION;
+      
+      // İlk 3 güncelleme sonrasına kadar rate hesaplama yapma (30 km/gün sabit kalır)
+      // 4. güncellemede (totalEventCount = 3, bu event sonrası 4 olacak) ortalama hesaplanmaya başlar
+      if (hasMinimumDaysInterval && totalEventCount >= 3) {
+        // 4. veya daha sonraki güncelleme: Ortalama hesapla
         const calibrationStart = process.hrtime.bigint();
-        observedRate = clamp(observedRate, RATE_MIN, RATE_MAX);
-        nextRate = clamp((1 - alpha) * mileageModel.rateKmPerDay + alpha * observedRate, RATE_MIN, RATE_MAX);
-        shadowNextRate = clamp((1 - alpha) * shadowNextRate + alpha * observedRate, RATE_MIN, RATE_MAX);
+        
+        // User manual için konservatif alpha (daha yavaş öğrenme)
+        let effectiveAlpha = alpha;
+        if (input.source === 'user_manual') {
+          effectiveAlpha = alpha * 0.5; // Alpha'yı %50 azalt
+        }
+        
+        if (totalEventCount === 3) {
+          // 4. güncelleme: İlk 4 eventin ortalamasını hesapla (sadece minimum gün aralığı olanlar)
+          const allEvents = await OdometerEvent.find({
+            tenantId,
+            vehicleId: vehicleObjectId,
+            odometerReset: { $ne: true },
+          })
+            .sort({ timestampUtc: 1 })
+            .limit(4)
+            .lean()
+            .session(session);
+          
+          // Bu event'i de dahil et (henüz kaydedilmemiş ama km değeri belli)
+          const eventsWithCurrent = [
+            ...allEvents.map(e => ({ km: e.km, timestamp: e.timestampUtc })),
+            { km: kmValue, timestamp },
+          ].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+          
+          // Tüm güncellemeler arası ortalama günlük artış hesapla (sadece minimum gün aralığı olanlar)
+          let totalRateSum = 0;
+          let rateCount = 0;
+          
+          for (let i = 1; i < eventsWithCurrent.length; i++) {
+            const prev = eventsWithCurrent[i - 1];
+            const curr = eventsWithCurrent[i];
+            const daysDiff = computeSinceDays(prev.timestamp, curr.timestamp);
+            // Sadece minimum gün aralığı olan çiftleri dahil et
+            if (daysDiff >= MIN_DAYS_FOR_RATE_CALCULATION) {
+              const rate = (curr.km - prev.km) / daysDiff;
+              totalRateSum += rate;
+              rateCount++;
+            }
+          }
+          
+          if (rateCount > 0) {
+            const avgRate = totalRateSum / rateCount;
+            observedRate = clamp(avgRate, RATE_MIN, RATE_MAX);
+            // İlk 4 event ortalaması ile başlat (rate değişim limiti uygulanmaz - başlangıç için)
+            nextRate = clamp(observedRate, RATE_MIN, RATE_MAX);
+            shadowNextRate = clamp(observedRate, RATE_MIN, RATE_MAX);
+            
+            // Debug logging
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[ODOMETER RATE] İlk 4 event ortalaması hesaplandı:', {
+                vehicleId: vehicleObjectId.toString(),
+                eventCount: rateCount,
+                avgRate: avgRate.toFixed(2),
+                newRate: nextRate.toFixed(2),
+                previousRate: mileageModel.rateKmPerDay.toFixed(2),
+              });
+            }
+          } else {
+            // Yeterli veri yok (tüm güncellemeler çok kısa süreli), rate 30 km/gün sabit kalır
+            nextRate = mileageModel.rateKmPerDay;
+            shadowNextRate = mileageModel.shadowRateKmPerDay ?? mileageModel.rateKmPerDay;
+          }
+        } else {
+          // 5. ve sonraki güncelleme: Normal EWMA ile devam et
+          observedRate = clamp(observedRate, RATE_MIN, RATE_MAX);
+          let calculatedRate = (1 - effectiveAlpha) * mileageModel.rateKmPerDay + effectiveAlpha * observedRate;
+          
+          // Rate değişim limiti: Tek seferde maksimum %50 değişim
+          const minAllowedRate = mileageModel.rateKmPerDay * (1 - MAX_RATE_CHANGE_PERCENT);
+          const maxAllowedRate = mileageModel.rateKmPerDay * (1 + MAX_RATE_CHANGE_PERCENT);
+          calculatedRate = clamp(calculatedRate, minAllowedRate, maxAllowedRate);
+          
+          nextRate = clamp(calculatedRate, RATE_MIN, RATE_MAX);
+          
+          // Shadow rate için de aynı limitleri uygula
+          let calculatedShadowRate = (1 - effectiveAlpha) * shadowNextRate + effectiveAlpha * observedRate;
+          const minAllowedShadowRate = shadowNextRate * (1 - MAX_RATE_CHANGE_PERCENT);
+          const maxAllowedShadowRate = shadowNextRate * (1 + MAX_RATE_CHANGE_PERCENT);
+          calculatedShadowRate = clamp(calculatedShadowRate, minAllowedShadowRate, maxAllowedShadowRate);
+          shadowNextRate = clamp(calculatedShadowRate, RATE_MIN, RATE_MAX);
+          
+          // Debug logging
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[ODOMETER RATE] EWMA ile güncellendi:', {
+              vehicleId: vehicleObjectId.toString(),
+              previousRate: mileageModel.rateKmPerDay.toFixed(2),
+              observedRate: observedRate.toFixed(2),
+              calculatedRate: calculatedRate.toFixed(2),
+              newRate: nextRate.toFixed(2),
+              alpha: effectiveAlpha.toFixed(3),
+              rateChangePercent: (((nextRate - mileageModel.rateKmPerDay) / mileageModel.rateKmPerDay) * 100).toFixed(2) + '%',
+            });
+          }
+        }
+        
         const calibrationDuration = Number(process.hrtime.bigint() - calibrationStart) / 1_000_000_000;
         recordOdometerCalibrationDuration(input.source, calibrationDuration);
       }
-      // deltaDays = 0 veya < 0 durumunda: Rate'i değiştirme (zaten başlangıç değerlerinde)
+      // deltaDays < MIN_DAYS_FOR_RATE_CALCULATION durumunda: Rate'i değiştirme (çok kısa süreli güncelleme)
+      // totalEventCount < 3 durumunda: İlk 3 güncelleme bekleniyor, rate 30 km/gün kalır
 
       const previousRate = mileageModel.rateKmPerDay;
       const previousConfidence = mileageModel.confidence;

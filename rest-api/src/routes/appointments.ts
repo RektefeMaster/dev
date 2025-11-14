@@ -769,4 +769,9 @@ router.put('/:id/extra-charges/approve', auth, AppointmentController.approveExtr
 router.post('/:appointmentId/payment', auth, (req, res) => AppointmentController.createPayment(req, res));
 router.post('/:appointmentId/confirm-payment', auth, (req, res) => AppointmentController.confirmPayment(req, res));
 
+// İndirim isteği ve fiyat onayı endpoint'leri
+router.post('/:appointmentId/request-discount', auth, (req, res) => AppointmentController.requestDiscount(req, res));
+router.post('/:appointmentId/respond-discount', auth, (req, res) => AppointmentController.respondToDiscountRequest(req, res));
+router.post('/:appointmentId/approve-price', auth, (req, res) => AppointmentController.approveFinalPrice(req, res));
+
 export default router;

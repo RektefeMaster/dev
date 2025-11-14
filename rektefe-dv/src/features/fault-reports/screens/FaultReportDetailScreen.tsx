@@ -76,6 +76,7 @@ const FaultReportDetailScreen = () => {
   const [selectedQuoteIndex, setSelectedQuoteIndex] = useState<number | null>(null);
   const [appointmentStatus, setAppointmentStatus] = useState<'none' | 'created' | 'paid'>('none');
   const [appointmentId, setAppointmentId] = useState<string | null>(null);
+  const [appointment, setAppointment] = useState<any>(null);
 
   useEffect(() => {
     fetchFaultReportDetail();
@@ -128,21 +129,69 @@ const FaultReportDetailScreen = () => {
       });
       
       if (response.data.success && response.data.data) {
-        const appointment = response.data.data;
-        setAppointmentId(appointment._id);
+        const appointmentData = response.data.data;
+        setAppointmentId(appointmentData._id);
+        setAppointment(appointmentData);
         
-        if (appointment.paymentStatus === 'completed') {
+        // Ödeme tamamlandıysa
+        if (appointmentData.paymentStatus === 'completed' || appointmentData.paymentStatus === 'COMPLETED') {
           setAppointmentStatus('paid');
-        } else if (appointment._id) {
-          setAppointmentStatus('created');
+        } 
+        // İş tamamlandı ve ödeme bekliyor durumundaysa (ODEME_BEKLIYOR)
+        else if (appointmentData.status === 'ODEME_BEKLIYOR' || appointmentData.status === 'PAYMENT_PENDING') {
+          setAppointmentStatus('created'); // Ödeme yapılabilir durum
+        } 
+        // Randevu var ama henüz ödeme zamanı değil
+        else if (appointmentData._id) {
+          setAppointmentStatus('none'); // Ödeme butonu gösterilmez
         } else {
           setAppointmentStatus('none');
         }
       } else {
         setAppointmentStatus('none');
+        setAppointment(null);
       }
     } catch (error) {
       setAppointmentStatus('none');
+      setAppointment(null);
+    }
+  };
+
+  const handleRequestDiscount = async () => {
+    if (!appointmentId) return;
+    
+    try {
+      const response = await axios.post(
+        `${API_URL}/appointments/${appointmentId}/request-discount`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (response.data.success) {
+        Alert.alert('Başarılı', 'İndirim isteğiniz usta\'ya iletildi. Yanıt bekleniyor...');
+        checkAppointmentStatus();
+      }
+    } catch (error: any) {
+      Alert.alert('Hata', error.response?.data?.message || 'İndirim isteği gönderilirken bir hata oluştu');
+    }
+  };
+
+  const handleApprovePrice = async () => {
+    if (!appointmentId) return;
+    
+    try {
+      const response = await axios.post(
+        `${API_URL}/appointments/${appointmentId}/approve-price`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (response.data.success) {
+        Alert.alert('Başarılı', 'Fiyat onaylandı. Ödeme yapabilirsiniz.');
+        checkAppointmentStatus();
+      }
+    } catch (error: any) {
+      Alert.alert('Hata', error.response?.data?.message || 'Fiyat onaylanırken bir hata oluştu');
     }
   };
 
@@ -837,17 +886,94 @@ const FaultReportDetailScreen = () => {
               </View>
             )}
 
-            {/* Ödeme Butonları */}
-            {appointmentStatus === 'created' && (
-              <TouchableOpacity
-                style={[styles.paymentButton, { backgroundColor: theme.colors.success.main }]}
-                onPress={goToPayment}
-              >
-                <Ionicons name="card" size={20} color="#fff" />
-                <Text style={styles.paymentButtonText}>
-                  Ödeme Yap ({faultReport.selectedQuote.quoteAmount}₺)
-                </Text>
-              </TouchableOpacity>
+            {/* Ödeme Butonları ve İndirim İsteği */}
+            {appointmentStatus === 'created' && appointment && (
+              <>
+                {/* İndirim isteği pending ise */}
+                {appointment.discountRequest?.status === 'PENDING' && (
+                  <View style={[styles.discountRequestCard, { backgroundColor: theme.colors.warning.light, borderColor: theme.colors.warning.main }]}>
+                    <Ionicons name="time-outline" size={24} color={theme.colors.warning.main} />
+                    <Text style={[styles.discountRequestText, { color: theme.colors.warning.main }]}>
+                      İndirim isteğiniz usta'ya iletildi. Yanıt bekleniyor...
+                    </Text>
+                  </View>
+                )}
+
+                {/* Fiyat onayı pending ise */}
+                {appointment.priceApproval?.status === 'PENDING' && appointment.negotiatedPrice && (
+                  <View style={[styles.priceApprovalCard, { backgroundColor: theme.colors.background.card }]}>
+                    <Text style={[styles.priceApprovalTitle, { color: theme.colors.text.primary }]}>
+                      Yeni Fiyat Teklifi
+                    </Text>
+                    <View style={styles.priceComparison}>
+                      <View style={styles.priceRow}>
+                        <Text style={[styles.priceLabel, { color: theme.colors.text.secondary }]}>
+                          Eski Fiyat:
+                        </Text>
+                        <Text style={[styles.priceValue, { color: theme.colors.text.secondary }]}>
+                          {formatPrice(appointment.finalPrice || appointment.price || 0)}
+                        </Text>
+                      </View>
+                      <View style={styles.priceRow}>
+                        <Text style={[styles.priceLabel, { color: theme.colors.text.primary }]}>
+                          Yeni Fiyat:
+                        </Text>
+                        <Text style={[styles.newPriceValue, { color: theme.colors.success.main }]}>
+                          {formatPrice(appointment.negotiatedPrice)}
+                        </Text>
+                      </View>
+                      <View style={[styles.priceDivider, { borderBottomColor: theme.colors.border.primary }]} />
+                      <View style={styles.priceRow}>
+                        <Text style={[styles.priceLabel, { color: theme.colors.text.primary }]}>
+                          İndirim:
+                        </Text>
+                        <Text style={[styles.discountValue, { color: theme.colors.success.main }]}>
+                          -{formatPrice((appointment.finalPrice || appointment.price || 0) - appointment.negotiatedPrice)}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.priceApprovalButtons}>
+                      <TouchableOpacity
+                        style={[styles.approveButton, { backgroundColor: theme.colors.success.main }]}
+                        onPress={handleApprovePrice}
+                      >
+                        <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                        <Text style={styles.approveButtonText}>Fiyatı Kabul Et</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.requestDiscountButton, { backgroundColor: theme.colors.warning.main }]}
+                        onPress={handleRequestDiscount}
+                      >
+                        <Ionicons name="pricetag-outline" size={20} color="#fff" />
+                        <Text style={styles.requestDiscountButtonText}>Tekrar İndirim İste</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {/* İndirim reddedildi veya onay yoksa direkt ödeme */}
+                {appointment.priceApproval?.status !== 'PENDING' && 
+                 appointment.discountRequest?.status !== 'PENDING' && (
+                  <View style={styles.paymentActions}>
+                    <TouchableOpacity
+                      style={[styles.paymentButton, { backgroundColor: theme.colors.success.main }]}
+                      onPress={goToPayment}
+                    >
+                      <Ionicons name="card" size={20} color="#fff" />
+                      <Text style={styles.paymentButtonText}>
+                        Ödeme Yap ({formatPrice(appointment.finalPrice || appointment.price || faultReport.selectedQuote?.quoteAmount || 0)})
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.discountButton, { backgroundColor: theme.colors.warning.main }]}
+                      onPress={handleRequestDiscount}
+                    >
+                      <Ionicons name="pricetag-outline" size={20} color="#fff" />
+                      <Text style={styles.discountButtonText}>İndirim İste</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
             )}
 
             {faultReport.status === 'payment_pending' && (
@@ -1278,6 +1404,115 @@ const styles = StyleSheet.create({
     borderColor: '#e0f2fe',
   },
   paymentStatusText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  // İndirim isteği ve fiyat onayı stilleri
+  discountRequestCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  discountRequestText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 12,
+    flex: 1,
+  },
+  priceApprovalCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  priceApprovalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  priceComparison: {
+    marginBottom: 16,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  priceLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  priceValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    textDecorationLine: 'line-through',
+  },
+  newPriceValue: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  discountValue: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  priceDivider: {
+    borderBottomWidth: 1,
+    marginVertical: 12,
+  },
+  priceApprovalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  approveButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+  },
+  approveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  requestDiscountButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+  },
+  requestDiscountButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  paymentActions: {
+    gap: 12,
+  },
+  discountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 12,
+  },
+  discountButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,

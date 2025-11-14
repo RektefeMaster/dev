@@ -48,6 +48,7 @@ interface AppointmentItem {
   paymentStatus?: string;
   serviceType: string;
   price?: number;
+  finalPrice?: number;
   vehicleId?: any;
   mechanicId?: any;
   notes?: string;
@@ -64,6 +65,16 @@ interface AppointmentItem {
   faultReportId?: string;
   autoCancelled?: boolean;
   timeSlot?: string;
+  discountRequest?: {
+    status: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED';
+    requestedAt?: string;
+    requestedBy?: string;
+  };
+  negotiatedPrice?: number;
+  priceApproval?: {
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    approvedAt?: string;
+  };
 }
 
 const getTintedColor = (hexColor: string, isDarkMode: boolean, fallback: string) => {
@@ -547,11 +558,15 @@ const AppointmentsScreen = () => {
     autoCancelled?: boolean
   ) => {
     const palette = theme.colors;
-    if (status === 'completed' && paymentStatus === 'pending') {
+    // Ödeme bekliyor durumu (ODEME_BEKLIYOR)
+    if ((status === 'ODEME_BEKLIYOR' || status === 'PAYMENT_PENDING') && 
+        (paymentStatus === 'pending' || paymentStatus === 'PENDING')) {
       return { color: palette.warning.main, text: 'Ödeme Bekleniyor', icon: 'currency-try' as any };
     }
 
-    if (status === 'completed' && paymentStatus === 'paid') {
+    // Ödeme tamamlandı (TAMAMLANDI veya COMPLETED)
+    if ((status === 'TAMAMLANDI' || status === 'COMPLETED' || status === 'completed') && 
+        (paymentStatus === 'paid' || paymentStatus === 'COMPLETED')) {
       return { color: palette.success.main, text: 'Tamamlandı', icon: 'check-circle' as any };
     }
 
@@ -574,15 +589,26 @@ const AppointmentsScreen = () => {
     switch (status) {
       case 'pending':
       case 'TALEP_EDILDI':
+      case 'REQUESTED':
         return { color: palette.warning.main, text: 'Onay Bekleniyor', icon: 'clock-outline' as any };
       case 'confirmed':
+      case 'PLANLANDI':
+      case 'SCHEDULED':
         return { color: palette.success.main, text: 'Onaylandı', icon: 'check-circle' as any };
       case 'in-progress':
+      case 'SERVISTE':
+      case 'IN_SERVICE':
         return { color: palette.info.main, text: 'İşlemde', icon: 'wrench' as any };
-      case 'completed':
+      case 'ODEME_BEKLIYOR':
+      case 'PAYMENT_PENDING':
         return { color: palette.warning.main, text: 'Ödeme Bekleniyor', icon: 'currency-try' as any };
+      case 'TAMAMLANDI':
+      case 'COMPLETED':
+      case 'completed':
+        return { color: palette.success.main, text: 'Tamamlandı', icon: 'check-circle' as any };
       case 'cancelled':
       case 'IPTAL_EDILDI':
+      case 'CANCELLED':
         return { color: palette.error.main, text: 'İptal Edildi', icon: 'close-circle' as any };
       case 'rejected':
         return { color: palette.error.main, text: 'Reddedildi', icon: 'close-circle' as any };
@@ -938,15 +964,69 @@ const AppointmentsScreen = () => {
 
           {activeTab === 'completed' && (
             <>
-              {!!item.status && item.status === 'completed' && !!item.paymentStatus && item.paymentStatus === 'pending' && (
-                <TouchableOpacity
-                  style={styles.paymentButton}
-                  onPress={() => handlePayment(item._id, item.mechanicId, item.serviceType, item)}
-                  activeOpacity={0.8}
-                >
-                  <MaterialCommunityIcons name="credit-card" size={20} color={themeColors.text.inverse} />
-                  <Text style={styles.paymentButtonText}>Ödeme Yap</Text>
-                </TouchableOpacity>
+              {/* İndirim isteği ve fiyat onayı durumları */}
+              {!!item.status && 
+               (item.status === 'ODEME_BEKLIYOR' || item.status === 'PAYMENT_PENDING') && 
+               !!item.paymentStatus && 
+               (item.paymentStatus === 'pending' || item.paymentStatus === 'PENDING') && (
+                <>
+                  {/* İndirim isteği pending ise */}
+                  {item.discountRequest?.status === 'PENDING' && (
+                    <View style={[styles.discountBadge, { backgroundColor: themeColors.warning.light }]}>
+                      <MaterialCommunityIcons name="clock-outline" size={18} color={themeColors.warning.main} />
+                      <Text style={[styles.discountBadgeText, { color: themeColors.warning.main }]}>
+                        İndirim Bekleniyor
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Fiyat onayı pending ise */}
+                  {item.priceApproval?.status === 'PENDING' && item.negotiatedPrice && (
+                    <View style={styles.priceApprovalSection}>
+                      <View style={[styles.priceApprovalBadge, { backgroundColor: themeColors.info.light }]}>
+                        <MaterialCommunityIcons name="tag-outline" size={18} color={themeColors.info.main} />
+                        <Text style={[styles.priceApprovalBadgeText, { color: themeColors.info.main }]}>
+                          Yeni Fiyat: {item.negotiatedPrice}₺
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[styles.approvePriceButton, { backgroundColor: themeColors.success.main }]}
+                        onPress={async () => {
+                          try {
+                            const response = await axios.post(
+                              `${API_URL}/appointments/${item._id}/approve-price`,
+                              {},
+                              { headers: { Authorization: `Bearer ${await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)}` } }
+                            );
+                            if (response.data.success) {
+                              Alert.alert('Başarılı', 'Fiyat onaylandı. Ödeme yapabilirsiniz.');
+                              fetchAppointments();
+                            }
+                          } catch (error: any) {
+                            Alert.alert('Hata', error.response?.data?.message || 'Fiyat onaylanırken bir hata oluştu');
+                          }
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <MaterialCommunityIcons name="check-circle" size={18} color={themeColors.text.inverse} />
+                        <Text style={styles.approvePriceButtonText}>Fiyatı Onayla</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {/* Ödeme butonu - sadece indirim isteği ve fiyat onayı yoksa veya onaylandıysa */}
+                  {item.discountRequest?.status !== 'PENDING' && 
+                   item.priceApproval?.status !== 'PENDING' && (
+                    <TouchableOpacity
+                      style={styles.paymentButton}
+                      onPress={() => handlePayment(item._id, item.mechanicId, item.serviceType, item)}
+                      activeOpacity={0.8}
+                    >
+                      <MaterialCommunityIcons name="credit-card" size={20} color={themeColors.text.inverse} />
+                      <Text style={styles.paymentButtonText}>Ödeme Yap</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
 
               {!!item.status && item.status === 'completed' && !!item.paymentStatus && item.paymentStatus === 'paid' && (
@@ -1994,6 +2074,50 @@ const createStyles = (theme: any, isDark: boolean) => {
       color: colors.success.main,
       fontSize: theme.typography.caption.large.fontSize + 1,
       fontWeight: '500',
+    },
+    // İndirim isteği ve fiyat onayı stilleri
+    discountBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.sm - 2,
+      paddingHorizontal: spacing.md,
+      borderRadius: borderRadius.card,
+      gap: spacing.xs,
+      marginBottom: spacing.sm,
+    },
+    discountBadgeText: {
+      fontSize: theme.typography.body2.fontSize,
+      fontWeight: '600',
+    },
+    priceApprovalSection: {
+      marginBottom: spacing.sm,
+      gap: spacing.sm,
+    },
+    priceApprovalBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.sm - 2,
+      paddingHorizontal: spacing.md,
+      borderRadius: borderRadius.card,
+      gap: spacing.xs,
+    },
+    priceApprovalBadgeText: {
+      fontSize: theme.typography.body2.fontSize,
+      fontWeight: '600',
+    },
+    approvePriceButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.md - 2,
+      paddingHorizontal: spacing.lg,
+      borderRadius: borderRadius.card,
+      gap: spacing.xs,
+    },
+    approvePriceButtonText: {
+      color: colors.text.inverse,
+      fontSize: theme.typography.body2.fontSize + 1,
+      fontWeight: '700',
     },
     detailButton: {
       flexDirection: 'row',

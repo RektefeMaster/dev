@@ -46,6 +46,16 @@ export const RATE_MAX = 300;
 export const SOFT_OUTLIER_THRESHOLD = 300;
 export const HARD_OUTLIER_THRESHOLD = 500;
 
+// Rate hesaplaması için minimum gün aralığı (12 saat = 0.5 gün)
+export const MIN_DAYS_FOR_RATE_CALCULATION = Number(
+  process.env.MILEAGE_MIN_DAYS_FOR_RATE_CALCULATION || 0.5
+);
+
+// Tek seferde maksimum rate değişim yüzdesi (%50 = 0.5)
+export const MAX_RATE_CHANGE_PERCENT = Number(
+  process.env.MILEAGE_MAX_RATE_CHANGE_PERCENT || 0.5
+);
+
 export const ABS_MAX_RATE_PER_DAY = Number(
   process.env.MILEAGE_MAX_RATE_PER_DAY || MAX_OBSERVED_RATE_PER_DAY
 );

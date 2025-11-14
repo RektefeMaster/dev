@@ -64,6 +64,8 @@ export default function AppointmentDetailScreen() {
   const [showAddPhotoModal, setShowAddPhotoModal] = useState(false);
   const [newPhotoDescription, setNewPhotoDescription] = useState('');
   const [newPhotoStage, setNewPhotoStage] = useState('Başlangıç');
+  const [showDiscountResponseModal, setShowDiscountResponseModal] = useState(false);
+  const [newPrice, setNewPrice] = useState('');
 
   useEffect(() => {
     fetchAppointmentDetails();
@@ -926,17 +928,55 @@ export default function AppointmentDetailScreen() {
         {/* Ödeme Bekliyor Info - ODEME_BEKLIYOR durumu için */}
         {appointment.status === 'ODEME_BEKLIYOR' && (
           <View style={styles.actionSection}>
-            <View style={[styles.actionButton, { 
-              backgroundColor: '#F59E0B',
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }]}>
-              <Ionicons name="time" size={22} color="white" style={{ marginRight: 10 }} />
-              <Text style={[styles.actionButtonText, { color: 'white' }]}>
-                Müşteri Ödeme Yapıyor...
-              </Text>
-            </View>
+            {/* İndirim isteği pending ise */}
+            {(appointment as any).discountRequest?.status === 'PENDING' && (
+              <View style={[styles.actionButton, { 
+                backgroundColor: '#F59E0B',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 12,
+              }]}>
+                <Ionicons name="pricetag" size={22} color="white" style={{ marginRight: 10 }} />
+                <Text style={[styles.actionButtonText, { color: 'white', flex: 1 }]}>
+                  Müşteri İndirim İstiyor
+                </Text>
+              </View>
+            )}
+            
+            {/* İndirim isteği varsa yanıt butonu */}
+            {(appointment as any).discountRequest?.status === 'PENDING' && (
+              <TouchableOpacity
+                style={[styles.actionButton, { 
+                  backgroundColor: '#3B82F6',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }]}
+                onPress={() => setShowDiscountResponseModal(true)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="pricetag-outline" size={22} color="white" style={{ marginRight: 10 }} />
+                <Text style={[styles.actionButtonText, { color: 'white' }]}>
+                  Yeni Fiyat Teklif Et
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* İndirim isteği yoksa normal ödeme bekliyor mesajı */}
+            {(!(appointment as any).discountRequest || (appointment as any).discountRequest?.status !== 'PENDING') && (
+              <View style={[styles.actionButton, { 
+                backgroundColor: '#F59E0B',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }]}>
+                <Ionicons name="time" size={22} color="white" style={{ marginRight: 10 }} />
+                <Text style={[styles.actionButtonText, { color: 'white' }]}>
+                  Müşteri Ödeme Yapıyor...
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -1441,6 +1481,107 @@ export default function AppointmentDetailScreen() {
               >
                 <Text style={styles.modalButtonPrimaryText}>
                   {processing ? 'Ekleniyor...' : 'Fotoğraf Seç'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Discount Response Modal */}
+      <Modal
+        visible={showDiscountResponseModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          setShowDiscountResponseModal(false);
+          setNewPrice('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>İndirim İsteğine Yanıt Ver</Text>
+            <Text style={[styles.modalSubtitle, { marginBottom: 20 }]}>
+              Müşteri indirim istiyor. Yeni bir fiyat teklif edebilir veya isteği reddedebilirsiniz.
+            </Text>
+
+            <View style={styles.priceInputContainer}>
+              <Text style={styles.priceLabel}>Mevcut Fiyat:</Text>
+              <Text style={styles.currentPrice}>
+                {appointment?.finalPrice || appointment?.price || 0}₺
+              </Text>
+            </View>
+
+            <View style={styles.priceInputContainer}>
+              <Text style={styles.priceLabel}>Yeni Fiyat (₺):</Text>
+              <TextInput
+                style={styles.priceInput}
+                placeholder="Yeni fiyat girin"
+                placeholderTextColor={colors.text.tertiary}
+                value={newPrice}
+                onChangeText={setNewPrice}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.error }]}
+                onPress={async () => {
+                  try {
+                    setProcessing(true);
+                    const response = await apiService.post(`/appointments/${appointmentId}/respond-discount`, {
+                      approve: false
+                    });
+                    if (response.success) {
+                      Alert.alert('Başarılı', 'İndirim isteği reddedildi.');
+                      setShowDiscountResponseModal(false);
+                      setNewPrice('');
+                      fetchAppointmentDetails();
+                    } else {
+                      Alert.alert('Hata', response.message || 'İşlem başarısız oldu.');
+                    }
+                  } catch (error: any) {
+                    Alert.alert('Hata', error.response?.data?.message || 'İşlem sırasında bir hata oluştu.');
+                  } finally {
+                    setProcessing(false);
+                  }
+                }}
+                disabled={processing}
+              >
+                <Text style={styles.modalButtonText}>Reddet</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.success }]}
+                onPress={async () => {
+                  if (!newPrice || parseFloat(newPrice) <= 0) {
+                    Alert.alert('Hata', 'Lütfen geçerli bir fiyat girin.');
+                    return;
+                  }
+                  try {
+                    setProcessing(true);
+                    const response = await apiService.post(`/appointments/${appointmentId}/respond-discount`, {
+                      approve: true,
+                      newPrice: parseFloat(newPrice)
+                    });
+                    if (response.success) {
+                      Alert.alert('Başarılı', 'Yeni fiyat teklif edildi.');
+                      setShowDiscountResponseModal(false);
+                      setNewPrice('');
+                      fetchAppointmentDetails();
+                    } else {
+                      Alert.alert('Hata', response.message || 'İşlem başarısız oldu.');
+                    }
+                  } catch (error: any) {
+                    Alert.alert('Hata', error.response?.data?.message || 'İşlem sırasında bir hata oluştu.');
+                  } finally {
+                    setProcessing(false);
+                  }
+                }}
+                disabled={processing || !newPrice}
+              >
+                <Text style={styles.modalButtonText}>
+                  {processing ? 'Gönderiliyor...' : 'Yeni Fiyat Teklif Et'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -2028,6 +2169,29 @@ const createStyles = (colors: any) => StyleSheet.create({
   textArea: {
     minHeight: 80,
     textAlignVertical: 'top',
+  },
+  priceInputContainer: {
+    marginBottom: spacing.md,
+  },
+  priceLabel: {
+    fontSize: typography.body2.fontSize,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  currentPrice: {
+    fontSize: typography.h3.fontSize,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  priceInput: {
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    fontSize: typography.body2.fontSize,
+    color: colors.text.primary,
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
   },
 });
 

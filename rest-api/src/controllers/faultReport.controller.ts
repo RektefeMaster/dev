@@ -1568,6 +1568,35 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
       });
     }
 
+    // Usta'ya randevu oluşturuldu bildirimi gönder
+    if (finalMechanicId) {
+      try {
+        const NotificationTriggerService = require('../services/notificationTriggerService').NotificationTriggerService;
+        const driverName = (faultReport.userId as any)?.name || (faultReport.userId as any)?.surname 
+          ? `${(faultReport.userId as any)?.name || ''} ${(faultReport.userId as any)?.surname || ''}`.trim()
+          : 'Müşteri';
+        
+        await NotificationTriggerService.createAndSendNotification({
+          recipientId: finalMechanicId.toString(),
+          recipientType: 'mechanic',
+          type: 'appointment_request',
+          title: 'Yeni Randevu Talebi',
+          message: `${driverName} size randevu talebi oluşturdu. ${appointmentDate} tarihinde ${timeSlot} saatinde.`,
+          data: {
+            appointmentId: appointment._id,
+            faultReportId: faultReport._id,
+            appointmentDate: appointmentDate,
+            timeSlot: timeSlot,
+            customerName: driverName,
+            price: appointment.price || 0
+          }
+        });
+        console.log(`✅ Usta'ya randevu bildirimi gönderildi: ${finalMechanicId}`);
+      } catch (notificationError) {
+        console.error('❌ Usta bildirimi gönderme hatası:', notificationError);
+      }
+    }
+
     res.json({
       success: true,
       message: 'Randevu başarıyla oluşturuldu' + 

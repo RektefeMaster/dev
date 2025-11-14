@@ -192,32 +192,9 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
             tefePointAmount = Math.floor(safeAmount * 0.01); // Fallback %1 TefePuan
           }
 
-          // Cüzdana ödeme işlemini ekle
-          try {
-            // Backend'e transaction gönder
-            const transactionResponse = await axios.post(
-              `${API_URL}/wallet/transactions`,
-              {
-                type: 'debit',
-                amount: safeAmount,
-                description: `${safeMechanicName} - ${safeServiceCategory} hizmeti ödemesi`,
-                appointmentId: finalAppointmentId,
-                serviceCategory: safeServiceCategory
-              },
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
-            
-            if (transactionResponse.data.success) {
-              // Local state'i de güncelle
-              await addTransaction({
-                type: 'debit',
-                amount: safeAmount,
-                description: `${safeMechanicName} - ${safeServiceCategory} hizmeti ödemesi`
-              });
-            }
-            
-          // Cüzdan verilerini yenile
+          // Cüzdan verilerini yenile (backend zaten transaction oluşturdu)
           await refreshWalletData();
+          
           // 1 saat sonra puanlama bildirimi planla
           try {
             const notificationService = NotificationService.getInstance();
@@ -227,22 +204,8 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
               safeServiceCategory,
               new Date().toISOString()
             );
-            // Transaction recorded successfully
           } catch (error) {
-            // Transaction error - handled silently
-          }
-        } catch (error) {
-            // Backend hatası durumunda sadece local state'i güncelle
-            try {
-              await addTransaction({
-                type: 'debit',
-                amount: safeAmount,
-                description: `${safeMechanicName} - ${safeServiceCategory} hizmeti ödemesi`
-              });
-              // Local transaction added successfully
-            } catch (localError) {
-              // Local transaction error - handled silently
-            }
+            // Notification error - handled silently
           }
 
           // Usta bildirimi gönder (yerel bildirim)
@@ -250,7 +213,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
             const notificationService = NotificationService.getInstance();
             await notificationService.scheduleLocalNotification(
               'Ödeme Onaylandı',
-              `${safeMechanicName} ile ${safeServiceCategory} hizmeti için ödeme alındı. İşe başlayabilirsiniz.`,
+              `${safeMechanicName} ile ${safeServiceCategory} hizmeti için ödeme tamamlandı.`,
               {
                 type: 'payment_confirmed',
                 appointmentId: finalAppointmentId,
@@ -258,16 +221,9 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
                 serviceCategory: safeServiceCategory
               }
             );
-            // Test için ek bildirim
-            setTimeout(() => {
-              notificationService.scheduleLocalNotification(
-                'Test Bildirimi',
-                'Bildirim sistemi çalışıyor!',
-                { type: 'test' }
-              );
-            }, 2000);
           } catch (error) {
-            }
+            // Notification error - handled silently
+          }
 
           // Backend'e bildirim gönder (usta için)
           try {
@@ -292,17 +248,19 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
 
           Alert.alert(
             'Ödeme Başarılı',
-            `Ödemeniz başarıyla tamamlandı. Usta işe başlayabilir.\n\n🎉 ${tefePointAmount} TefePuan kazandınız!`,
+            `Ödemeniz başarıyla tamamlandı.\n\n${tefePointAmount > 0 ? `🎉 ${tefePointAmount} TefePuan kazandınız!` : ''}`,
             [
               {
                 text: 'Tamam',
                 onPress: () => {
-                  // Önce bir önceki ekrana git, sonra tekrar FaultReportDetail'e git
+                  // Önce bir önceki ekrana git
                   navigation.goBack();
-                  // Kısa bir gecikme sonra durumu güncelle
-                  setTimeout(() => {
-                    (navigation as any).navigate('FaultReportDetail', { faultReportId });
-                  }, 100);
+                  // Eğer faultReportId varsa FaultReportDetail'e, yoksa AppointmentsScreen'e git
+                  if (faultReportId) {
+                    setTimeout(() => {
+                      (navigation as any).navigate('FaultReportDetail', { faultReportId });
+                    }, 100);
+                  }
                 }
               }
             ]
@@ -314,7 +272,16 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
         throw new Error(paymentResponse.data.message || 'Ödeme oluşturulamadı');
       }
     } catch (error: any) {
+      console.error('❌ Ödeme hatası:', {
+        error: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        appointmentId: finalAppointmentId,
+        faultReportId
+      });
+      
       let errorMessage = 'Ödeme işlemi sırasında bir hata oluştu';
+      let errorDetails = '';
       
       if (error.response?.status === 404) {
         errorMessage = 'Ödeme endpoint\'i bulunamadı. Lütfen backend servisinin çalıştığından emin olun.';
@@ -322,15 +289,27 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
         errorMessage = 'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.';
       } else if (error.response?.status === 403) {
         errorMessage = 'Bu işlem için yetkiniz bulunmuyor.';
+      } else if (error.response?.status === 400) {
+        // Backend'den gelen detaylı hata mesajını göster
+        errorMessage = error.response.data?.message || 'Geçersiz istek. Lütfen bilgilerinizi kontrol edin.';
+        if (error.response.data?.currentStatus) {
+          errorDetails = `Randevu durumu: ${error.response.data.currentStatus}`;
+        }
+        if (error.response.data?.expectedStatus) {
+          errorDetails += `\nBeklenen durum: ${error.response.data.expectedStatus}`;
+        }
       } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
+        if (error.response.data?.currentStatus) {
+          errorDetails = `Randevu durumu: ${error.response.data.currentStatus}`;
+        }
       } else if (error.message) {
         errorMessage = error.message;
       }
       
       Alert.alert(
         'Ödeme Hatası',
-        errorMessage,
+        errorDetails ? `${errorMessage}\n\n${errorDetails}` : errorMessage,
         [
           {
             text: 'Tekrar Dene',

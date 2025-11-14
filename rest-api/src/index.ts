@@ -513,7 +513,10 @@ async function startServer() {
     const maskedUri = MONGODB_URI?.replace(/:([^:@]+)@/, ':*****@');
     Logger.error(`MongoDB URI (masked): ${maskedUri}`);
     
-    process.exit(1);
+    // Test ortamında process.exit yapma
+    if (process.env.NODE_ENV !== 'test' && !process.env.JEST_WORKER_ID) {
+      process.exit(1);
+    }
   }
 }
 
@@ -629,5 +632,7 @@ mongoose.connection.on('reconnected', () => {
 // Server'ı başlat
 export { app };
 
-// Start server
-startServer();
+// Start server (test ortamında çalıştırma)
+if (process.env.NODE_ENV !== 'test' && !process.env.JEST_WORKER_ID) {
+  startServer();
+}

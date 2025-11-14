@@ -3,7 +3,8 @@ import mongoose from 'mongoose';
 
 dotenv.config();
 
-if (!process.env.JWT_SECRET) {
+// Test ortamında JWT_SECRET kontrolünü atla
+if (!process.env.JWT_SECRET && process.env.NODE_ENV !== 'test') {
   throw new Error('JWT_SECRET environment variable is required');
 }
 

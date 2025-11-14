@@ -33,7 +33,7 @@ interface FaultReport {
     brand: string;
     modelName: string;
     plateNumber: string;
-  };
+  } | null;
   serviceCategory: string;
   faultDescription: string;
   photos: string[];
@@ -263,11 +263,13 @@ const FaultReportsScreen: React.FC = () => {
         <Text style={styles.customerPhone}>{report.userId.phone}</Text>
       </View>
 
-      <View style={styles.vehicleInfo}>
-        <Text style={styles.vehicleText}>
-          {report.vehicleId.brand} {report.vehicleId.modelName} - {report.vehicleId.plateNumber}
-        </Text>
-      </View>
+      {report.vehicleId && (
+        <View style={styles.vehicleInfo}>
+          <Text style={styles.vehicleText}>
+            {report.vehicleId.brand} {report.vehicleId.modelName} - {report.vehicleId.plateNumber}
+          </Text>
+        </View>
+      )}
 
       <View style={styles.serviceInfo}>
         <Text style={styles.serviceCategory}>{report.serviceCategory}</Text>
@@ -437,9 +439,11 @@ const FaultReportsScreen: React.FC = () => {
               <View style={styles.modalContent}>
                 <View style={styles.faultInfo}>
                   <Text style={styles.faultInfoTitle}>Arıza Detayları</Text>
-                  <Text style={styles.faultInfoText}>
-                    {selectedFaultReport.vehicleId.brand} {selectedFaultReport.vehicleId.modelName}
-                  </Text>
+                  {selectedFaultReport.vehicleId && (
+                    <Text style={styles.faultInfoText}>
+                      {selectedFaultReport.vehicleId.brand} {selectedFaultReport.vehicleId.modelName}
+                    </Text>
+                  )}
                   <Text style={styles.faultInfoText}>
                     {selectedFaultReport.serviceCategory}
                   </Text>

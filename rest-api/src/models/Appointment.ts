@@ -132,6 +132,18 @@ export interface IAppointment extends Document {
     warnings?: string[];
   };
   
+  // İndirim isteği ve fiyat onayı alanları
+  discountRequest?: {
+    status: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED';
+    requestedAt?: Date;
+    requestedBy?: string;
+  };
+  negotiatedPrice?: number; // Ustanın teklif ettiği yeni fiyat
+  priceApproval?: {
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    approvedAt?: Date;
+  };
+  
   createdAt: Date;
   updatedAt: Date;
 }
@@ -428,6 +440,26 @@ const AppointmentSchema: Schema = new Schema({
     warnings: [{
       type: String,
     }],
+  },
+  // İndirim isteği ve fiyat onayı
+  discountRequest: {
+    status: {
+      type: String,
+      enum: ['NONE', 'PENDING', 'APPROVED', 'REJECTED'],
+      default: 'NONE'
+    },
+    requestedAt: { type: Date },
+    requestedBy: { type: String }
+  },
+  negotiatedPrice: {
+    type: Number
+  },
+  priceApproval: {
+    status: {
+      type: String,
+      enum: ['PENDING', 'APPROVED', 'REJECTED']
+    },
+    approvedAt: { type: Date }
   }
 }, {
   timestamps: true

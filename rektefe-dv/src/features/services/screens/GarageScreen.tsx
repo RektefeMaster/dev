@@ -14,7 +14,10 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   ActivityIndicator,
+  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import { API_URL } from '@/constants/config';
@@ -156,7 +159,31 @@ const getVehicleStatusPresentation = (status?: string): VehicleStatusPresentatio
 
 const GarageScreen = () => {
   const { token, userId } = useAuth();
-  const { theme } = useTheme();
+  const { theme, isDark, colors } = useTheme();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  
+  // Adaptif değerler
+  const isSmallScreen = screenWidth < 375;
+  const isMediumScreen = screenWidth >= 375 && screenWidth < 414;
+  const isLargeScreen = screenWidth >= 414;
+  
+  // Responsive font boyutları
+  const scaleFont = (size: number) => {
+    if (isSmallScreen) return size * 0.9;
+    if (isLargeScreen) return size * 1.1;
+    return size;
+  };
+  
+  // Responsive spacing
+  const scaleSpacing = (size: number) => {
+    if (isSmallScreen) return size * 0.85;
+    if (isLargeScreen) return size * 1.15;
+    return size;
+  };
+  
+  // Minimum touch target size (44x44pt - Apple HIG standard)
+  const MIN_TOUCH_TARGET = 44;
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -768,18 +795,24 @@ const GarageScreen = () => {
             style={[
               styles.iconAction,
               vehicle.isFavorite && styles.iconActionActive,
+              { minWidth: MIN_TOUCH_TARGET, minHeight: MIN_TOUCH_TARGET },
             ]}
             onPress={() => handleSetFavorite(vehicle._id)}
             accessibilityLabel={vehicle.isFavorite ? 'Favoriden çıkar' : 'Favoriye ekle'}
+            accessibilityHint={vehicle.isFavorite ? 'Bu aracı favorilerden çıkarmak için dokunun' : 'Bu aracı favorilere eklemek için dokunun'}
+            accessibilityRole="button"
           >
             <MaterialCommunityIcons
               name={vehicle.isFavorite ? 'star' : 'star-outline'}
-              size={18}
-              color={vehicle.isFavorite ? '#FFD233' : '#4B5563'}
+              size={scaleFont(18)}
+              color={vehicle.isFavorite ? '#FFD233' : (isDark ? colors?.text?.secondary : '#4B5563')}
             />
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.iconAction}
+            style={[
+              styles.iconAction,
+              { minWidth: MIN_TOUCH_TARGET, minHeight: MIN_TOUCH_TARGET },
+            ]}
             onPress={() => {
               Alert.alert(
                 'Araç Sil',
@@ -791,8 +824,14 @@ const GarageScreen = () => {
               );
             }}
             accessibilityLabel="Aracı sil"
+            accessibilityHint="Bu aracı silmek için dokunun"
+            accessibilityRole="button"
           >
-            <MaterialCommunityIcons name="trash-can-outline" size={18} color="#D7263D" />
+            <MaterialCommunityIcons 
+              name="trash-can-outline" 
+              size={scaleFont(18)} 
+              color={isDark ? colors?.error?.main || '#D7263D' : '#D7263D'} 
+            />
           </TouchableOpacity>
         </View>
       </View>
@@ -831,9 +870,50 @@ const GarageScreen = () => {
     </View>
   );
 
+  // Dinamik style'lar theme'e göre
+  const dynamicStyles = useMemo(() => ({
+    safeArea: {
+      flex: 1,
+      backgroundColor: isDark ? colors?.background?.primary : colors?.background?.secondary,
+    },
+    scrollContent: {
+      paddingBottom: scaleSpacing(100) + insets.bottom,
+      paddingTop: insets.top > 0 ? scaleSpacing(8) : scaleSpacing(16),
+    },
+    headerContainer: {
+      paddingHorizontal: scaleSpacing(20),
+      paddingTop: scaleSpacing(16),
+      paddingBottom: scaleSpacing(24),
+    },
+    title: {
+      fontSize: scaleFont(28),
+      fontWeight: '800' as const,
+      color: isDark ? colors?.text?.primary : '#fff',
+      flex: 1,
+      textAlign: 'center' as const,
+      letterSpacing: 0.5,
+    },
+    addButton: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      backgroundColor: colors?.primary?.main || '#007AFF',
+      paddingHorizontal: scaleSpacing(24),
+      paddingVertical: scaleSpacing(14),
+      borderRadius: scaleSpacing(16),
+      minHeight: MIN_TOUCH_TARGET,
+      minWidth: MIN_TOUCH_TARGET,
+      shadowColor: colors?.primary?.main || '#007AFF',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.4,
+      shadowRadius: 12,
+      elevation: 10,
+    },
+  }), [isDark, colors, scaleFont, scaleSpacing, insets.bottom, insets.top]);
+
   if (loading && vehicles.length === 0) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={dynamicStyles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         <Background>
           <LoadingSkeleton variant="list" count={3} />
         </Background>
@@ -843,7 +923,7 @@ const GarageScreen = () => {
 
   if (error && vehicles.length === 0) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={dynamicStyles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         <Background>
           <ErrorState
             message={error}
@@ -856,21 +936,33 @@ const GarageScreen = () => {
   }
 
   return (
-    <SafeAreaView style={{flex:1}}>
+    <SafeAreaView style={dynamicStyles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <Background>
-        <ScrollView style={{flex:1}} contentContainerStyle={{paddingBottom: 100}} showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
+        <ScrollView 
+          style={{ flex: 1 }} 
+          contentContainerStyle={dynamicStyles.scrollContent} 
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={[styles.header, dynamicStyles.headerContainer]}>
             <View style={styles.headerTop}>
               <BackButton />
-              <Text style={styles.title}>Garajım</Text>
-              <View style={{ width: 40 }} />
+              <Text style={dynamicStyles.title}>Garajım</Text>
+              <View style={{ width: scaleSpacing(40) }} />
             </View>
             <TouchableOpacity
-              style={[styles.addButton, !token && styles.disabledButton]}
+              style={[dynamicStyles.addButton, !token && styles.disabledButton]}
               onPress={() => setShowAddModal(true)}
               disabled={!token}
+              accessibilityLabel="Yeni araç ekle"
+              accessibilityHint="Yeni bir araç eklemek için dokunun"
+              accessibilityRole="button"
             >
-              <MaterialCommunityIcons name="plus" size={24} color={token ? "#fff" : "#ccc"} />
+              <MaterialCommunityIcons 
+                name="plus" 
+                size={scaleFont(24)} 
+                color={token ? "#fff" : (isDark ? colors?.text?.disabled : "#ccc")} 
+              />
               <Text style={[styles.addButtonText, !token && styles.disabledButtonText]}>Yeni Araç Ekle</Text>
             </TouchableOpacity>
           </View>
@@ -1066,12 +1158,23 @@ const GarageScreen = () => {
                   <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     style={styles.keyboardAvoidingView}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
                   >
-                    <View style={styles.modalContainer}>
+                    <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
                       <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>Yeni Araç Ekle</Text>
-                        <TouchableOpacity onPress={handleCloseModal} style={styles.closeButton}>
-                          <MaterialCommunityIcons name="close" size={24} color="#1a1a1a" />
+                        <Text style={[styles.modalTitle, { fontSize: scaleFont(22) }]}>Yeni Araç Ekle</Text>
+                        <TouchableOpacity 
+                          onPress={handleCloseModal} 
+                          style={[styles.closeButton, { minWidth: MIN_TOUCH_TARGET, minHeight: MIN_TOUCH_TARGET }]}
+                          accessibilityLabel="Modal'ı kapat"
+                          accessibilityHint="Yeni araç ekleme formunu kapatmak için dokunun"
+                          accessibilityRole="button"
+                        >
+                          <MaterialCommunityIcons 
+                            name="close" 
+                            size={scaleFont(24)} 
+                            color={isDark ? colors?.text?.primary : '#1a1a1a'} 
+                          />
                         </TouchableOpacity>
                       </View>
 
@@ -1419,16 +1522,26 @@ const GarageScreen = () => {
                   </View>
                 </ScrollView>
                 
-                <View style={styles.modalFooter}>
-                  <TouchableOpacity style={styles.cancelButton} onPress={handleCloseModal}>
-                    <Text style={styles.cancelButtonText}>İptal</Text>
+                <View style={[styles.modalFooter, { paddingBottom: Math.max(insets.bottom, scaleSpacing(20)) }]}>
+                  <TouchableOpacity 
+                    style={[styles.cancelButton, { minHeight: MIN_TOUCH_TARGET }]} 
+                    onPress={handleCloseModal}
+                    accessibilityLabel="İptal"
+                    accessibilityHint="Formu kapatmak ve değişiklikleri kaydetmemek için dokunun"
+                    accessibilityRole="button"
+                  >
+                    <Text style={[styles.cancelButtonText, { fontSize: scaleFont(17) }]}>İptal</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.saveButton, submitting && styles.saveButtonDisabled]}
+                    style={[styles.saveButton, submitting && styles.saveButtonDisabled, { minHeight: MIN_TOUCH_TARGET }]}
                     onPress={handleAddVehicle}
                     disabled={submitting}
+                    accessibilityLabel={submitting ? 'Araç ekleniyor' : 'Araç ekle'}
+                    accessibilityHint={submitting ? 'Araç ekleniyor, lütfen bekleyin' : 'Araç bilgilerini kaydetmek için dokunun'}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: submitting }}
                   >
-                    <Text style={styles.saveButtonText}>
+                    <Text style={[styles.saveButtonText, { fontSize: scaleFont(17) }]}>
                       {submitting ? 'Ekleniyor...' : 'Araç Ekle'}
                     </Text>
                   </TouchableOpacity>

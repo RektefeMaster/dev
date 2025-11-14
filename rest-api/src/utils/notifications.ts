@@ -13,7 +13,7 @@ export const sendNotification = async (
   recipientType: 'mechanic' | 'driver',
   title: string,
   message: string,
-  type: 'appointment_request' | 'appointment_confirmed' | 'appointment_rejected' | 'reminder' | 'system' | 'fault_report' | 'towing_request' | 'payment_received' | 'payment_pending' | 'new_message' | 'quote_received' | 'quote_selected' | 'quote_accepted' | 'quote_rejected' | 'bodywork_quote_sent' | 'bodywork_quote_accepted' | 'bodywork_quote_rejected' | 'bodywork_stage_update' | 'bodywork_approval_request' | 'bodywork_job_completed' | 'electrical_quote_sent' | 'electrical_quote_accepted' | 'electrical_quote_rejected' | 'electrical_stage_approval' | 'electrical_stage_updated' | 'electrical_approval_requested' | 'electrical_job_completed',
+  type: 'appointment_request' | 'appointment_confirmed' | 'appointment_rejected' | 'reminder' | 'system' | 'fault_report' | 'towing_request' | 'payment_received' | 'payment_pending' | 'new_message' | 'quote_received' | 'quote_selected' | 'quote_accepted' | 'quote_rejected' | 'bodywork_quote_sent' | 'bodywork_quote_accepted' | 'bodywork_quote_rejected' | 'bodywork_stage_update' | 'bodywork_approval_request' | 'bodywork_job_completed' | 'electrical_quote_sent' | 'electrical_quote_accepted' | 'electrical_quote_rejected' | 'electrical_stage_approval' | 'electrical_stage_updated' | 'electrical_approval_requested' | 'electrical_job_completed' | 'discount_requested' | 'discount_response' | 'price_approved',
   data?: Record<string, any>,
   scheduledTime?: Date
 ) => {

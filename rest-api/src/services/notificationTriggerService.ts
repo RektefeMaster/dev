@@ -77,6 +77,9 @@ export class NotificationTriggerService {
       
       case 'payment_received':
       case 'payment_pending':
+      case 'discount_requested':
+      case 'discount_response':
+      case 'price_approved':
         return settings.paymentNotifications;
       
       case 'new_message':
