@@ -82,31 +82,9 @@ WalletSchema.pre('save', function(next) {
   next();
 });
 
-// Pre-update middleware ile balance kontrolü
-WalletSchema.pre(['updateOne', 'findOneAndUpdate'], function(next) {
-  const update = this.getUpdate() as any;
-  if (update.$inc && update.$inc.balance) {
-    // Balance değişikliğini kontrol et
-    this.findOne().then((doc: any) => {
-      if (doc) {
-        const newBalance = doc.balance + update.$inc.balance;
-        if (newBalance < 0) {
-          const error = new Error('Balance cannot be negative');
-          error.name = 'ValidationError';
-          return next(error);
-        }
-        if (newBalance > 999999999) {
-          const error = new Error('Balance cannot exceed 999,999,999');
-          error.name = 'ValidationError';
-          return next(error);
-        }
-      }
-      next();
-    }).catch(next);
-  } else {
-    next();
-  }
-});
+// Pre-update middleware kaldırıldı
+// Balance kontrolü business logic katmanında (confirmPayment) yapılıyor
+// Bu middleware findOneAndUpdate ile çakışıyor ve "Query was already executed" hatasına neden oluyor
 
 // Index'ler - userId zaten unique: true ile tanımlı
 // WalletSchema.index({ userId: 1 }); // Bu satırı kaldırdım

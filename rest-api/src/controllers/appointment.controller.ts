@@ -1160,26 +1160,30 @@ export class AppointmentController {
           transactionId: transactionId
         };
         
-        const customerWallet = await Wallet.findOne({ userId }).session(session);
-        
-        if (!customerWallet) {
-          await session.abortTransaction();
-          throw new CustomError('Müşteri cüzdanı bulunamadı', 404);
-        }
-        
-        if (customerWallet.balance < walletAmount) {
-          await session.abortTransaction();
-          throw new CustomError('Cüzdan bakiyeniz yetersiz', 400);
-        }
-        
-        await Wallet.findOneAndUpdate(
-          { userId },
+        // updateOne kullanarak çakışmayı önle - findOneAndUpdate içinde findOne çağrısı yapıyor
+        // Balance kontrolü için $gte kullanarak atomik bir şekilde kontrol et
+        const updateResult = await Wallet.updateOne(
+          { 
+            userId,
+            balance: { $gte: walletAmount } // Balance yeterli olmalı
+          },
           {
             $inc: { balance: -walletAmount },
             $push: { transactions: customerTransaction },
           },
-          { new: true, session }
+          { session }
         );
+        
+        if (updateResult.matchedCount === 0) {
+          await session.abortTransaction();
+          // updateOne başarısız oldu - muhtemelen balance yetersiz veya wallet bulunamadı
+          throw new CustomError('Cüzdan bakiyeniz yetersiz veya cüzdan bulunamadı', 400);
+        }
+        
+        if (updateResult.modifiedCount === 0) {
+          await session.abortTransaction();
+          throw new CustomError('Cüzdan güncellenemedi', 500);
+        }
         
         // 4. Wallet transaction - Ustaya para ekle
         const customerName = Array.isArray(appointment.userId) 
@@ -1196,23 +1200,38 @@ export class AppointmentController {
           transactionId: transactionId
         };
         
-        await Wallet.findOneAndUpdate(
+        // updateOne kullanarak çakışmayı önle - upsert için önce kontrol et
+        const mechanicUpdateResult = await Wallet.updateOne(
           { userId: mechanicId },
           {
             $inc: { balance: walletAmount },
             $push: { transactions: mechanicTransaction },
             $setOnInsert: { userId: mechanicId, createdAt: new Date() }
           },
-          { new: true, upsert: true, session }
+          { upsert: true, session }
         );
+        
+        // Eğer wallet yoksa ve upsert başarısız olduysa hata ver
+        if (mechanicUpdateResult.matchedCount === 0 && mechanicUpdateResult.upsertedCount === 0) {
+          await session.abortTransaction();
+          throw new CustomError('Usta cüzdanı oluşturulamadı', 500);
+        }
         
         // 5. Transaction commit
         await session.commitTransaction();
         console.log('✅ Payment transaction başarıyla tamamlandı');
         
-      } catch (transactionError) {
+      } catch (transactionError: any) {
         await session.abortTransaction();
-        console.error('❌ Payment transaction hatası:', transactionError);
+        console.error('❌ Payment transaction hatası:', {
+          error: transactionError.message,
+          stack: transactionError.stack,
+          errorName: transactionError.name,
+          errorType: transactionError.constructor?.name,
+          appointmentId: appointmentId,
+          mechanicId: mechanicId?.toString(),
+          walletAmount: walletAmount
+        });
         throw transactionError;
       } finally {
         session.endSession();
@@ -1300,7 +1319,9 @@ export class AppointmentController {
         error: error.message,
         stack: error.stack,
         appointmentId: req.params.appointmentId,
-        transactionId: req.body?.transactionId
+        transactionId: req.body?.transactionId,
+        errorName: error.name,
+        errorType: error.constructor?.name
       });
       
       // CustomError ise, mesajını kullan
@@ -1311,10 +1332,19 @@ export class AppointmentController {
         });
       }
       
+      // Development, test veya production ortamında detaylı hata mesajı göster (debug için)
+      const showDetails = true; // Geçici olarak her zaman göster
+      
       res.status(500).json({
         success: false,
         message: 'Ödeme onaylanırken bir hata oluştu',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error: showDetails ? error.message : undefined,
+        errorType: showDetails ? error.name : undefined,
+        details: showDetails ? {
+          stack: error.stack?.split('\n').slice(0, 5),
+          appointmentId: req.params.appointmentId,
+          transactionId: req.body?.transactionId
+        } : undefined
       });
     }
   }
