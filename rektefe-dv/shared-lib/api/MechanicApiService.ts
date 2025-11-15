@@ -1,4 +1,4 @@
-import { BaseApiService, ApiResponse, ApiConfig } from './BaseApiService';
+import { BaseApiService, ApiResponse, ApiConfig } from '@shared/api/BaseApiService';
 
 // ===== MECHANIC-SPECIFIC INTERFACES =====
 

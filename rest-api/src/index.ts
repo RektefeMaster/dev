@@ -17,6 +17,8 @@ import { securityHeaders, requestId } from './middleware/optimizedAuth';
 import Logger from './utils/logger';
 import { apiLimiter } from './middleware/rateLimiter';
 import { requestTimeout } from './middleware/requestTimeout';
+import { sanitizeInput, mongoSanitization } from './middleware/security';
+import { responseFormatter } from './middleware/responseFormatter';
 import {
   initializeMonitoring, 
   requestLogger, 
@@ -128,7 +130,19 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'X-Tenant-Id', 'X-Tenant', 'X-User-Cohorts', 'X-Feature-Flags'],
 }));
+
+// ===== SECURITY MIDDLEWARE (express.json()'dan ÖNCE) =====
+// Input sanitization - XSS ve NoSQL injection koruması
+app.use(sanitizeInput);
+// MongoDB operator sanitization
+app.use(mongoSanitization);
+
+// ===== BODY PARSER =====
 app.use(express.json());
+
+// ===== RESPONSE FORMATTER MIDDLEWARE =====
+// Standardize API responses (res.success, res.error, res.paginated, etc.)
+app.use(responseFormatter);
 
 // Sadece önemli istekleri logla (development modunda)
 // Production'da requestLogger kullanılıyor (monitoring.ts'den)

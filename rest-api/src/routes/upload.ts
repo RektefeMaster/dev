@@ -6,6 +6,7 @@ import { Request, Response } from 'express';
 import { auth } from '../middleware/optimizedAuth';
 import cloudinary, { isCloudinaryConfigured } from '../utils/cloudinary';
 import { Readable } from 'stream';
+import Logger from '../utils/logger';
 
 const router = express.Router();
 
@@ -139,8 +140,8 @@ router.post('/upload', auth, uploadDisk.single('image'), async (req, res) => {
  * Parça fotoğraflarını yükle (Cloudinary)
  */
 router.post('/parts', auth, uploadMemory.single('image'), async (req: Request, res: Response) => {
-  console.log('🔍 [UPLOAD ROUTE] POST /api/upload/parts çağrıldı');
-  console.log('🔍 [UPLOAD ROUTE] Has file:', !!req.file);
+  Logger.debug('[UPLOAD ROUTE] POST /api/upload/parts çağrıldı');
+  Logger.debug('[UPLOAD ROUTE] Has file:', !!req.file);
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -151,7 +152,7 @@ router.post('/parts', auth, uploadMemory.single('image'), async (req: Request, r
 
     // Cloudinary konfigürasyon kontrolü
     if (!isCloudinaryConfigured()) {
-      console.error('❌ Cloudinary credentials eksik - parça fotoğrafı yüklenemedi');
+      Logger.error('Cloudinary credentials eksik - parça fotoğrafı yüklenemedi');
       return res.status(500).json({
         success: false,
         message: 'Fotoğraf yükleme servisi yapılandırılmamış'
@@ -159,9 +160,9 @@ router.post('/parts', auth, uploadMemory.single('image'), async (req: Request, r
     }
 
     // Cloudinary'ye yükle
-    console.log('📸 Parça fotoğrafı yükleniyor...');
+    Logger.debug('Parça fotoğrafı yükleniyor...');
     const result = await uploadToCloudinary(req.file.buffer, 'parts');
-    console.log('✅ Cloudinary upload başarılı:', result.secure_url);
+    Logger.info('Cloudinary upload başarılı:', result.secure_url);
 
     return res.json({
       success: true,
@@ -175,7 +176,7 @@ router.post('/parts', auth, uploadMemory.single('image'), async (req: Request, r
     });
 
   } catch (error: any) {
-    console.error('❌ Parça fotoğrafı yükleme hatası:', error);
+    Logger.error('Parça fotoğrafı yükleme hatası:', error);
     return res.status(500).json({
       success: false,
       message: error.message || 'Fotoğraf yüklenemedi'

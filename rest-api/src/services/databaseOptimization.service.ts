@@ -13,6 +13,7 @@ import { Mechanic } from '../models/Mechanic';
 import { Vehicle } from '../models/Vehicle';
 import { Notification } from '../models/Notification';
 import { Message } from '../models/Message';
+import Logger from '../utils/logger';
 
 // ===== INDEX CREATION SERVICE =====
 
@@ -21,7 +22,7 @@ export class DatabaseOptimizationService {
    * Tüm koleksiyonlar için optimize edilmiş index'leri oluşturur
    */
   static async createOptimizedIndexes(): Promise<void> {
-    console.log('🚀 Database optimization başlatılıyor...');
+    Logger.info('Database optimization başlatılıyor...');
 
     // Her koleksiyon için index'leri ayrı ayrı oluştur
     // Hata olursa devam et (idempotent operation)
@@ -36,7 +37,7 @@ export class DatabaseOptimizationService {
         { key: { createdAt: -1 }, background: true }
       ]);
     } catch (error) {
-      console.warn('⚠️ User index hatası (devam ediliyor)');
+      Logger.warn('User index hatası (devam ediliyor)');
     }
 
     try {
@@ -50,7 +51,7 @@ export class DatabaseOptimizationService {
         { key: { rating: -1 }, background: true }
       ]);
     } catch (error) {
-      console.warn('⚠️ Mechanic index hatası (devam ediliyor)');
+      Logger.warn('Mechanic index hatası (devam ediliyor)');
     }
 
     try {
@@ -71,7 +72,7 @@ export class DatabaseOptimizationService {
         { key: { mechanicId: 1, appointmentDate: -1, status: 1 }, background: true }
       ]);
     } catch (error) {
-      console.warn('⚠️ Appointment index hatası (devam ediliyor)');
+      Logger.warn('Appointment index hatası (devam ediliyor)');
     }
 
     try {
@@ -91,7 +92,7 @@ export class DatabaseOptimizationService {
         { key: { userId: 1, isActive: 1 }, background: true }
       ]);
     } catch (error) {
-      console.warn('⚠️ Vehicle index hatası (devam ediliyor)');
+      Logger.warn('Vehicle index hatası (devam ediliyor)');
     }
 
     try {
@@ -107,7 +108,7 @@ export class DatabaseOptimizationService {
         { key: { recipientId: 1, type: 1, isRead: 1 }, background: true }
       ]);
     } catch (error) {
-      console.warn('⚠️ Notification index hatası (devam ediliyor)');
+      Logger.warn('Notification index hatası (devam ediliyor)');
     }
 
     try {
@@ -123,10 +124,10 @@ export class DatabaseOptimizationService {
         { key: { createdAt: -1 }, background: true }
       ]);
     } catch (error) {
-      console.warn('⚠️ Message index hatası (devam ediliyor)');
+      Logger.warn('Message index hatası (devam ediliyor)');
     }
 
-    console.log('✅ Index oluşturma işlemi tamamlandı');
+    Logger.info('Index oluşturma işlemi tamamlandı');
   }
 
   /**
@@ -148,7 +149,7 @@ export class DatabaseOptimizationService {
         // Index zaten varsa veya conflict varsa
         if (error.code === 85 || error.code === 86) {
           // 85: IndexOptionsConflict, 86: IndexKeySpecsConflict
-          console.log(`ℹ️ Index conflict (${collectionName}), eski index drop ediliyor...`);
+          Logger.info(`Index conflict (${collectionName}), eski index drop ediliyor...`);
           try {
             // Eski index'i drop et
             const indexName = indexSpec.name || Object.keys(indexSpec.key).map(k => `${k}_1`).join('_');
@@ -159,9 +160,9 @@ export class DatabaseOptimizationService {
             
             if (indexExists) {
               await collection.dropIndex(indexName);
-              console.log(`✅ Eski index drop edildi: ${indexName}`);
+              Logger.info(`Eski index drop edildi: ${indexName}`);
             } else {
-              console.log(`ℹ️ Index bulunamadı, drop edilmedi: ${indexName}`);
+              Logger.info(`Index bulunamadı, drop edilmedi: ${indexName}`);
             }
             
             // Yeniden oluştur
@@ -169,16 +170,16 @@ export class DatabaseOptimizationService {
               ...indexSpec,
               key: undefined
             });
-            console.log(`✅ Yeni index oluşturuldu: ${indexName}`);
+            Logger.info(`Yeni index oluşturuldu: ${indexName}`);
           } catch (dropError: any) {
-            console.warn(`⚠️ Index drop/recreate hatası (${collectionName}):`, dropError.message);
+            Logger.warn(`Index drop/recreate hatası (${collectionName}):`, dropError.message);
           }
         } else if (error.code === 11000) {
           // E11000: Duplicate key error - veritabanında duplicate data var
-          console.warn(`⚠️ Duplicate key hatası (${collectionName}):`, error.message);
-          console.warn(`ℹ️ Veritabanında duplicate değerler var, index oluşturulamadı`);
+          Logger.warn(`Duplicate key hatası (${collectionName}):`, error.message);
+          Logger.warn(`Veritabanında duplicate değerler var, index oluşturulamadı`);
         } else {
-          console.warn(`⚠️ Index oluşturma hatası (${collectionName}):`, error.message);
+          Logger.warn(`Index oluşturma hatası (${collectionName}):`, error.message);
         }
       }
     }
@@ -205,7 +206,7 @@ export class DatabaseOptimizationService {
           }))
         };
       } catch (error) {
-        console.error(`Index analizi hatası (${collectionName}):`, error);
+        Logger.error(`Index analizi hatası (${collectionName}):`, error);
       }
     }
 
@@ -216,11 +217,11 @@ export class DatabaseOptimizationService {
    * Kullanılmayan index'leri temizler
    */
   static async cleanupUnusedIndexes(): Promise<void> {
-    console.log('🧹 Kullanılmayan index\'ler temizleniyor...');
+    Logger.info('Kullanılmayan index\'ler temizleniyor...');
     
     // Bu method production'da dikkatli kullanılmalı
     // Şimdilik sadece log yazıyoruz
-    console.log('⚠️ Index temizleme işlemi production\'da manuel olarak yapılmalı');
+    Logger.warn('Index temizleme işlemi production\'da manuel olarak yapılmalı');
   }
 }
 
@@ -469,13 +470,13 @@ export class PerformanceMonitoringService {
         slowQueryData.avgTime = (slowQueryData.avgTime + executionTime) / 2;
         this.slowQueries.set(queryName, slowQueryData);
         
-        console.warn(`🐌 Slow query detected: ${queryName} took ${executionTime}ms`);
+        Logger.warn(`Slow query detected: ${queryName} took ${executionTime}ms`);
       }
       
       return result;
     } catch (error) {
       const executionTime = Date.now() - startTime;
-      console.error(`❌ Query failed: ${queryName} took ${executionTime}ms`, error);
+      Logger.error(`Query failed: ${queryName} took ${executionTime}ms`, error);
       throw error;
     }
   }

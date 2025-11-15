@@ -16,8 +16,8 @@ const router = Router();
 
 // Debug: Tüm parts route'larına log ekle
 router.use((req, res, next) => {
-  console.log('🔍 [PARTS ROUTER] İstek alındı:', req.method, req.path, 'URL:', req.url, 'OriginalUrl:', req.originalUrl);
-  console.log('🔍 [PARTS ROUTER] Headers:', JSON.stringify(req.headers, null, 2));
+  Logger.debug('[PARTS ROUTER] İstek alındı:', req.method, req.path, 'URL:', req.url, 'OriginalUrl:', req.originalUrl);
+  Logger.debug('[PARTS ROUTER] Headers:', JSON.stringify(req.headers, null, 2));
   next();
 });
 
@@ -29,11 +29,11 @@ router.use((req, res, next) => {
  */
 router.post('/', auth, validate(createPartSchema), async (req: Request, res: Response) => {
   try {
-    console.log('🔍 [PARTS ROUTE] POST /api/parts çağrıldı - İSTEK ALINDI');
-    console.log('🔍 [PARTS ROUTE] Request body:', JSON.stringify(req.body, null, 2));
+    Logger.debug('[PARTS ROUTE] POST /api/parts çağrıldı - İSTEK ALINDI');
+    Logger.debug('[PARTS ROUTE] Request body:', JSON.stringify(req.body, null, 2));
     
     const mechanicId = req.user?.userId;
-    console.log('🔍 [PARTS ROUTE] MechanicId:', mechanicId);
+    Logger.debug('[PARTS ROUTE] MechanicId:', mechanicId);
     
     if (!mechanicId) {
       return res.status(401).json({
@@ -42,17 +42,17 @@ router.post('/', auth, validate(createPartSchema), async (req: Request, res: Res
       });
     }
 
-    console.log('🔍 [PARTS ROUTE] PartsService.createPart çağrılıyor...');
+    Logger.debug('[PARTS ROUTE] PartsService.createPart çağrılıyor...');
     const result = await PartsService.createPart({
       ...req.body,
       mechanicId
     });
-    console.log('✅ [PARTS ROUTE] PartsService.createPart başarılı');
+    Logger.info('[PARTS ROUTE] PartsService.createPart başarılı');
 
     res.status(201).json(result);
   } catch (error: any) {
-    console.error('❌ [PARTS ROUTE] Hata:', error.message);
-    console.error('❌ [PARTS ROUTE] Error stack:', error.stack);
+    Logger.error('[PARTS ROUTE] Hata:', error.message);
+    Logger.error('[PARTS ROUTE] Error stack:', error.stack);
     res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || 'Parça oluşturulamadı'

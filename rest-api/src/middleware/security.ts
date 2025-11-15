@@ -85,8 +85,13 @@ function sanitizeString(str: string): string {
   // Trim whitespace
   sanitized = sanitized.trim();
   
-  // Remove potential MongoDB operators
-  sanitized = sanitized.replace(/\$[a-zA-Z]+/g, '');
+  // Remove potential MongoDB operators - BUT preserve $ in legitimate strings like "100$"
+  // Only remove MongoDB query operators like $gt, $lt, $ne, etc.
+  // This is safer - only removes operators that could be used in NoSQL injection
+  const mongoOperators = ['$gt', '$lt', '$gte', '$lte', '$ne', '$in', '$nin', '$exists', '$regex', '$or', '$and', '$not', '$nor', '$all', '$elemMatch', '$size', '$type', '$mod', '$text', '$where'];
+  for (const op of mongoOperators) {
+    sanitized = sanitized.replace(new RegExp(`\\${op}`, 'gi'), '');
+  }
   
   return sanitized;
 }
@@ -291,6 +296,30 @@ export const messageValidation = {
       .default('text')
   })
 };
+
+// ===== PAGINATION VALIDATION SCHEMA =====
+
+/**
+ * Standard pagination validation schema
+ * Used for query parameters: page, limit, sortBy, sortOrder
+ */
+export const paginationValidation = Joi.object({
+  page: Joi.number().integer().min(1).default(1).messages({
+    'number.base': 'Sayfa numarası bir sayı olmalıdır',
+    'number.integer': 'Sayfa numarası tam sayı olmalıdır',
+    'number.min': 'Sayfa numarası en az 1 olmalıdır'
+  }),
+  limit: Joi.number().integer().min(1).max(100).default(20).messages({
+    'number.base': 'Limit bir sayı olmalıdır',
+    'number.integer': 'Limit tam sayı olmalıdır',
+    'number.min': 'Limit en az 1 olmalıdır',
+    'number.max': 'Limit en fazla 100 olabilir'
+  }),
+  sortBy: Joi.string().optional(),
+  sortOrder: Joi.string().valid('asc', 'desc').default('desc').messages({
+    'any.only': 'Sıralama yönü "asc" veya "desc" olmalıdır'
+  })
+});
 
 // ===== VALIDATION MIDDLEWARE FACTORY =====
 

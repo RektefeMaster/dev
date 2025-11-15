@@ -1,4 +1,14 @@
 /**
+ * @deprecated Use '../../../shared/types/apiResponse' instead
+ * This file is kept for backward compatibility but will be removed
+ * All exports are re-exported from the canonical shared/types/apiResponse.ts
+ */
+
+// Re-export everything from canonical shared library
+export * from '../../../shared/types/apiResponse';
+
+// Legacy exports for backward compatibility
+/**
  * REKTEFE PROJESİ - STANDART API RESPONSE FORMATLARI
  * 
  * Bu dosya, tüm API endpoint'leri için standart response

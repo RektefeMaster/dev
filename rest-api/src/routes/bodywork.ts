@@ -8,6 +8,7 @@ import { BodyworkJob } from '../models/BodyworkJob';
 import mongoose from 'mongoose';
 import { Wallet } from '../models/Wallet';
 import { TefePointService } from '../services/tefePoint.service';
+import Logger from '../utils/logger';
 
 const router = Router();
 
@@ -49,7 +50,7 @@ router.get('/templates', auth, async (req: Request, res: Response) => {
       message: 'Şablonlar getirildi'
     });
   } catch (error: any) {
-    console.error('Get templates error:', error);
+    Logger.error('Get templates error:', error);
     res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || 'Şablonlar getirilirken hata oluştu'

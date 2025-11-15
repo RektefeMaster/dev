@@ -1465,7 +1465,7 @@ export class BodyworkService {
       const session = await mongoose.startSession();
       
       try {
-        session.startTransaction();
+        await session.startTransaction();
 
         // Wallet'tan para çek (eğer kart ile ödeme yapılıyorsa)
         if (paymentMethod === 'card') {

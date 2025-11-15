@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BaseApiService } from '../api/BaseApiService';
+import { BaseApiService } from '@shared/api/BaseApiService';
 
 // ===== SHARED TYPES =====
 

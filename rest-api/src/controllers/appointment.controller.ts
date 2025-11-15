@@ -9,10 +9,11 @@ import { AppointmentStatus, ServiceType, PaymentStatus } from '../../../shared/t
 import { createSuccessResponse, createErrorResponse, ErrorCode } from '../../../shared/types/apiResponse';
 
 import { sendAppointmentRequestNotification, sendAppointmentStatusNotification } from '../utils/notifications';
-import { CustomError } from '../utils/response';
+import { CustomError } from '../middleware/errorHandler';
 import pushNotificationService from '../services/pushNotification.service';
 import { NotificationTriggerService } from '../services/notificationTriggerService';
 import { OdometerService } from '../services/odometer.service';
+import Logger from '../utils/logger';
 const resolveTenantId = (req: Request) =>
   (req.tenantId as string) ||
   (req.headers['x-tenant-id'] as string) ||
@@ -86,7 +87,7 @@ export class AppointmentController {
         
       } catch (notificationError) {
         // Bildirim hatası randevu oluşturmayı engellemesin
-        console.error('❌ Bildirim gönderme hatası:', notificationError);
+        Logger.error('Bildirim gönderme hatası:', notificationError);
       }
 
       const successResponse = createSuccessResponse(
@@ -876,14 +877,14 @@ export class AppointmentController {
       const { paymentMethod = 'credit_card' } = req.body;
       const userId = req.user?.userId;
 
-      console.log(`💳 Ödeme oluşturma isteği:`, {
+      Logger.debug(`Ödeme oluşturma isteği:`, {
         appointmentId,
         paymentMethod,
         userId
       });
 
       if (!userId) {
-        console.error('❌ Kullanıcı doğrulanamadı');
+        Logger.warn('Kullanıcı doğrulanamadı');
         return res.status(401).json({
           success: false,
           message: 'Kullanıcı doğrulanamadı'
@@ -896,14 +897,14 @@ export class AppointmentController {
         .populate('mechanicId', 'name surname email phone');
 
       if (!appointment) {
-        console.error(`❌ Randevu bulunamadı: ${appointmentId}`);
+        Logger.warn(`Randevu bulunamadı: ${appointmentId}`);
         return res.status(404).json({
           success: false,
           message: 'Randevu bulunamadı'
         });
       }
 
-      console.log(`📋 Randevu durumu:`, {
+      Logger.debug(`Randevu durumu:`, {
         appointmentId: appointment._id,
         status: appointment.status,
         paymentStatus: appointment.paymentStatus,
@@ -915,7 +916,7 @@ export class AppointmentController {
 
       // Sadece randevu sahibi ödeme yapabilir
       if (appointment.userId._id.toString() !== userId) {
-        console.error(`❌ Yetki hatası: Randevu sahibi ${appointment.userId._id.toString()}, istek yapan ${userId}`);
+        Logger.warn(`Yetki hatası: Randevu sahibi ${appointment.userId._id.toString()}, istek yapan ${userId}`);
         return res.status(403).json({
           success: false,
           message: 'Bu randevu için ödeme yapma yetkiniz yok'
@@ -924,7 +925,7 @@ export class AppointmentController {
 
       // Sadece ODEME_BEKLIYOR durumunda ödeme yapılabilir (iş tamamlandıktan sonra)
       if (appointment.status !== 'ODEME_BEKLIYOR') {
-        console.error(`❌ Geçersiz durum: ${appointment.status}, Beklenen: ODEME_BEKLIYOR`);
+        Logger.warn(`Geçersiz durum: ${appointment.status}, Beklenen: ODEME_BEKLIYOR`);
         return res.status(400).json({
           success: false,
           message: `Ödeme yapabilmek için işin tamamlanması gerekiyor. Randevu durumu: ${appointment.status}`,
@@ -935,7 +936,7 @@ export class AppointmentController {
 
       // İndirim isteği pending ise ödeme yapılamaz
       if (appointment.discountRequest?.status === 'PENDING') {
-        console.error(`❌ Bekleyen indirim isteği var`);
+        Logger.warn(`Bekleyen indirim isteği var`);
         return res.status(400).json({
           success: false,
           message: 'Bekleyen bir indirim isteğiniz var. Lütfen ustanın yanıtını bekleyin.',
@@ -945,7 +946,7 @@ export class AppointmentController {
 
       // Fiyat onayı pending ise ödeme yapılamaz
       if (appointment.priceApproval?.status === 'PENDING') {
-        console.error(`❌ Fiyat onayı bekleniyor`);
+        Logger.warn(`Fiyat onayı bekleniyor`);
         return res.status(400).json({
           success: false,
           message: 'Fiyat onayınız bekleniyor. Lütfen önce fiyatı onaylayın.',
@@ -958,7 +959,7 @@ export class AppointmentController {
       // Status değiştirmeye gerek yok, sadece ödeme başlatma intent'i oluşturuluyor
       // paymentStatus zaten PENDING (completeAppointment'te set edildi)
 
-      console.log(`✅ Ödeme validasyonu başarılı:`, {
+      Logger.debug(`Ödeme validasyonu başarılı:`, {
         appointmentId: appointment._id,
         paymentStatus: appointment.paymentStatus,
         status: appointment.status,
@@ -979,7 +980,7 @@ export class AppointmentController {
       });
 
     } catch (error: any) {
-      console.error('❌ Ödeme oluşturma hatası:', {
+      Logger.error('Ödeme oluşturma hatası:', {
         error: error.message,
         stack: error.stack,
         appointmentId: req.params.appointmentId
@@ -1000,7 +1001,7 @@ export class AppointmentController {
       const { transactionId, amount } = req.body;
       const userId = req.user?.userId;
 
-      console.log(`💳 Ödeme onaylama isteği:`, {
+      Logger.debug(`Ödeme onaylama isteği:`, {
         appointmentId,
         transactionId,
         amount,
@@ -1008,7 +1009,7 @@ export class AppointmentController {
       });
 
       if (!userId) {
-        console.error('❌ Kullanıcı doğrulanamadı');
+        Logger.warn('Kullanıcı doğrulanamadı');
         return res.status(401).json({
           success: false,
           message: 'Kullanıcı doğrulanamadı'
@@ -1018,7 +1019,7 @@ export class AppointmentController {
       // Randevuyu bul - önce populate etmeden mechanicId'yi al
       const rawAppointment = await Appointment.findById(appointmentId).lean();
       if (!rawAppointment) {
-        console.error(`❌ Randevu bulunamadı: ${appointmentId}`);
+        Logger.warn(`Randevu bulunamadı: ${appointmentId}`);
         return res.status(404).json({
           success: false,
           message: 'Randevu bulunamadı'
@@ -1026,13 +1027,9 @@ export class AppointmentController {
       }
 
       // mechanicId'yi doğrudan database'den al (populate etmeden)
-      console.log('🔍 [DEBUG] Raw appointment mechanicId:', rawAppointment.mechanicId);
-      console.log('🔍 [DEBUG] Raw appointment keys:', Object.keys(rawAppointment));
-      
       const rawMechanicId = rawAppointment.mechanicId;
       if (!rawMechanicId) {
-        console.error(`❌ Randevuda usta bilgisi bulunamadı: ${appointmentId}`);
-        console.error(`❌ [DEBUG] Full raw appointment:`, JSON.stringify(rawAppointment, null, 2));
+        Logger.warn(`Randevuda usta bilgisi bulunamadı: ${appointmentId}`);
         return res.status(400).json({
           success: false,
           message: 'Randevuda usta bilgisi bulunamadı'
@@ -1040,7 +1037,6 @@ export class AppointmentController {
       }
 
       const mechanicId = new mongoose.Types.ObjectId(rawMechanicId.toString());
-      console.log('🔍 [DEBUG] Extracted mechanicId:', mechanicId.toString());
 
       // Şimdi populate edilmiş appointment'ı al
       const appointment = await Appointment.findById(appointmentId)
@@ -1048,7 +1044,7 @@ export class AppointmentController {
         .populate('mechanicId', 'name surname email phone');
 
       if (!appointment) {
-        console.error(`❌ Randevu bulunamadı (populate sonrası): ${appointmentId}`);
+        Logger.warn(`Randevu bulunamadı (populate sonrası): ${appointmentId}`);
         return res.status(404).json({
           success: false,
           message: 'Randevu bulunamadı'
@@ -1059,7 +1055,7 @@ export class AppointmentController {
       let appointmentUserId: mongoose.Types.ObjectId;
       if (Array.isArray(appointment.userId)) {
         if (appointment.userId.length === 0) {
-          console.error(`❌ Randevuda kullanıcı bilgisi bulunamadı: ${appointmentId}`);
+          Logger.warn(`Randevuda kullanıcı bilgisi bulunamadı: ${appointmentId}`);
           return res.status(400).json({
             success: false,
             message: 'Randevuda kullanıcı bilgisi bulunamadı'
@@ -1071,14 +1067,14 @@ export class AppointmentController {
       } else if (appointment.userId) {
         appointmentUserId = appointment.userId as any;
       } else {
-        console.error(`❌ Randevuda kullanıcı bilgisi bulunamadı: ${appointmentId}`);
+        Logger.warn(`Randevuda kullanıcı bilgisi bulunamadı: ${appointmentId}`);
         return res.status(400).json({
           success: false,
           message: 'Randevuda kullanıcı bilgisi bulunamadı'
         });
       }
 
-      console.log(`📋 Randevu durumu (onaylama):`, {
+      Logger.debug(`Randevu durumu (onaylama):`, {
         appointmentId: appointment._id,
         status: appointment.status,
         paymentStatus: appointment.paymentStatus,
@@ -1091,7 +1087,7 @@ export class AppointmentController {
 
       // Sadece randevu sahibi ödeme onaylayabilir
       if (appointmentUserId.toString() !== userId) {
-        console.error(`❌ Yetki hatası: Randevu sahibi ${appointmentUserId.toString()}, istek yapan ${userId}`);
+        Logger.warn(`Yetki hatası: Randevu sahibi ${appointmentUserId.toString()}, istek yapan ${userId}`);
         return res.status(403).json({
           success: false,
           message: 'Bu randevu için ödeme onaylama yetkiniz yok'
@@ -1100,7 +1096,7 @@ export class AppointmentController {
 
       // Sadece payment_pending durumundaki randevular için ödeme onaylanabilir
       if (appointment.status !== 'ODEME_BEKLIYOR') {
-        console.error(`❌ Geçersiz durum: ${appointment.status}, Beklenen: ODEME_BEKLIYOR`);
+        Logger.warn(`Geçersiz durum: ${appointment.status}, Beklenen: ODEME_BEKLIYOR`);
         return res.status(400).json({
           success: false,
           message: `Bu randevu için ödeme onaylanamaz. Randevu durumu: ${appointment.status}, Beklenen durum: ODEME_BEKLIYOR`,
@@ -1145,7 +1141,7 @@ export class AppointmentController {
             }
             
             await faultReport.save({ session });
-            console.log(`✅ FaultReport ${faultReport._id} durumu 'paid' olarak güncellendi`);
+            Logger.info(`FaultReport ${faultReport._id} durumu 'paid' olarak güncellendi`);
           }
         }
 
@@ -1219,11 +1215,11 @@ export class AppointmentController {
         
         // 5. Transaction commit
         await session.commitTransaction();
-        console.log('✅ Payment transaction başarıyla tamamlandı');
+        Logger.info('Payment transaction başarıyla tamamlandı');
         
       } catch (transactionError: any) {
         await session.abortTransaction();
-        console.error('❌ Payment transaction hatası:', {
+        Logger.error('Payment transaction hatası:', {
           error: transactionError.message,
           stack: transactionError.stack,
           errorName: transactionError.name,
@@ -1258,7 +1254,7 @@ export class AppointmentController {
         });
 
         if (customerTefePointResult.success && customerTefePointResult.earnedPoints) {
-          console.log(`✅ Müşteriye ${customerTefePointResult.earnedPoints} TefePuan kazandırıldı`);
+          Logger.info(`Müşteriye ${customerTefePointResult.earnedPoints} TefePuan kazandırıldı`);
         }
 
         const mechanicTefePointResult = await TefePointService.processPaymentTefePoints({
@@ -1272,10 +1268,10 @@ export class AppointmentController {
         });
 
         if (mechanicTefePointResult.success && mechanicTefePointResult.earnedPoints) {
-          console.log(`✅ Ustaya ${mechanicTefePointResult.earnedPoints} TefePuan kazandırıldı`);
+          Logger.info(`Ustaya ${mechanicTefePointResult.earnedPoints} TefePuan kazandırıldı`);
         }
       } catch (tefeError) {
-        console.error('❌ TefePuan hatası (ödeme etkilenmez):', tefeError);
+        Logger.error('TefePuan hatası (ödeme etkilenmez):', tefeError);
       }
 
       // Ustaya bildirim gönder
@@ -1298,9 +1294,9 @@ export class AppointmentController {
             transactionId
           }
         });
-        console.log(`✅ Ustaya ödeme bildirimi gönderildi: ${mechanicId}`);
+        Logger.info(`Ustaya ödeme bildirimi gönderildi: ${mechanicId}`);
       } catch (notificationError) {
-        console.error('❌ Usta bildirimi gönderme hatası:', notificationError);
+        Logger.error('Usta bildirimi gönderme hatası:', notificationError);
       }
 
       res.json({
@@ -1315,7 +1311,7 @@ export class AppointmentController {
       });
 
     } catch (error: any) {
-      console.error('❌ Ödeme onaylama hatası:', {
+      Logger.error('Ödeme onaylama hatası:', {
         error: error.message,
         stack: error.stack,
         appointmentId: req.params.appointmentId,
@@ -1332,18 +1328,16 @@ export class AppointmentController {
         });
       }
       
-      // Development, test veya production ortamında detaylı hata mesajı göster (debug için)
-      const showDetails = true; // Geçici olarak her zaman göster
+      // Development ortamında detaylı hata mesajı göster
+      const isDevelopment = process.env.NODE_ENV === 'development';
       
       res.status(500).json({
         success: false,
         message: 'Ödeme onaylanırken bir hata oluştu',
-        error: showDetails ? error.message : undefined,
-        errorType: showDetails ? error.name : undefined,
-        details: showDetails ? {
-          stack: error.stack?.split('\n').slice(0, 5),
-          appointmentId: req.params.appointmentId,
-          transactionId: req.body?.transactionId
+        error: isDevelopment ? error.message : undefined,
+        errorType: isDevelopment ? error.name : undefined,
+        details: isDevelopment ? {
+          stack: error.stack?.split('\n').slice(0, 3)
         } : undefined
       });
     }
@@ -1381,7 +1375,7 @@ export class AppointmentController {
           }
         });
       } catch (notificationError) {
-        console.error('Bildirim gönderme hatası:', notificationError);
+        Logger.error('Bildirim gönderme hatası:', notificationError);
       }
 
       res.json({
@@ -1390,7 +1384,7 @@ export class AppointmentController {
         data: appointment
       });
     } catch (error: any) {
-      console.error('❌ İndirim isteği hatası:', error);
+      Logger.error('İndirim isteği hatası:', error);
       res.status(error.statusCode || 500).json({
         success: false,
         message: error.message || 'İndirim isteği gönderilirken bir hata oluştu'
@@ -1458,7 +1452,7 @@ export class AppointmentController {
           });
         }
       } catch (notificationError) {
-        console.error('Bildirim gönderme hatası:', notificationError);
+        Logger.error('Bildirim gönderme hatası:', notificationError);
       }
 
       res.json({
@@ -1467,7 +1461,7 @@ export class AppointmentController {
         data: appointment
       });
     } catch (error: any) {
-      console.error('❌ İndirim yanıtı hatası:', error);
+      Logger.error('İndirim yanıtı hatası:', error);
       res.status(error.statusCode || 500).json({
         success: false,
         message: error.message || 'İndirim yanıtı verilirken bir hata oluştu'
@@ -1507,7 +1501,7 @@ export class AppointmentController {
           }
         });
       } catch (notificationError) {
-        console.error('Bildirim gönderme hatası:', notificationError);
+        Logger.error('Bildirim gönderme hatası:', notificationError);
       }
 
       res.json({
@@ -1516,7 +1510,7 @@ export class AppointmentController {
         data: appointment
       });
     } catch (error: any) {
-      console.error('❌ Fiyat onaylama hatası:', error);
+      Logger.error('Fiyat onaylama hatası:', error);
       res.status(error.statusCode || 500).json({
         success: false,
         message: error.message || 'Fiyat onaylanırken bir hata oluştu'

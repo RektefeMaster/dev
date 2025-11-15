@@ -1085,50 +1085,71 @@ export class ElectricalService {
         throw new CustomError(`Ödeme tutarı kalan tutardan (${remainingAmount.toFixed(2)}₺) fazla olamaz`, 400);
       }
 
-      // Wallet'tan para çek (eğer kart ile ödeme yapılıyorsa)
-      if (paymentMethod === 'card') {
-        // Gerçek kullanıcı deneyimi: Önce wallet bakiyesini kontrol et
-        const walletDoc = await Wallet.findOne({ userId: customerId });
-        if (!walletDoc) {
-          throw new CustomError('Cüzdan bulunamadı', 404);
-        }
-        
-        // Bakiye kontrolü
-        if (walletDoc.balance < amount) {
-          throw new CustomError(`Yetersiz bakiye. Mevcut bakiye: ${walletDoc.balance}₺, Gerekli: ${amount}₺`, 400);
+      // MongoDB transaction başlat - kritik işlem için atomicity garantisi
+      const session = await mongoose.startSession();
+      
+      try {
+        await session.startTransaction();
+
+        // Wallet'tan para çek (eğer kart ile ödeme yapılıyorsa)
+        if (paymentMethod === 'card') {
+          // Bakiye kontrolü ve atomik güncelleme
+          const walletUpdateResult = await Wallet.updateOne(
+            { 
+              userId: customerId,
+              balance: { $gte: amount } // Balance yeterli olmalı
+            },
+            {
+              $inc: { balance: -amount },
+              $push: { 
+                transactions: {
+                  type: 'debit' as const,
+                  amount: amount,
+                  description: `Elektrik işi ödemesi - İş #${jobId}`,
+                  date: new Date(),
+                  status: 'completed' as const,
+                  electricalJobId: jobId
+                }
+              }
+            },
+            { session }
+          );
+
+          if (walletUpdateResult.matchedCount === 0) {
+            await session.abortTransaction();
+            const walletDoc = await Wallet.findOne({ userId: customerId });
+            if (!walletDoc) {
+              throw new CustomError('Cüzdan bulunamadı', 404);
+            }
+            throw new CustomError(`Yetersiz bakiye. Mevcut bakiye: ${walletDoc.balance}₺, Gerekli: ${amount}₺`, 400);
+          }
         }
 
-        // Transaction kaydı oluştur
-        const transaction = {
-          type: 'debit' as const,
-          amount: amount,
-          description: `Elektrik işi ödemesi - İş #${jobId}`,
-          date: new Date(),
-          status: 'completed' as const,
-          electricalJobId: jobId
-        };
+        // Electrical job ödeme bilgilerini güncelle
+        const newPaidAmount = job.payment.paidAmount + amount;
+        // Hassas karşılaştırma için tolerance ekle
+        const tolerance = 0.01; // 1 kuruş tolerans
+        const paymentStatus = (job.payment.totalAmount - newPaidAmount) <= tolerance ? 'paid' : 'partial';
 
-        // Wallet'ı güncelle - doğrudan model üzerinden
-        walletDoc.balance -= amount;
-        walletDoc.transactions.push(transaction);
-        await walletDoc.save();
+        await ElectricalJob.findByIdAndUpdate(
+          jobId,
+          {
+            'payment.paidAmount': newPaidAmount,
+            'payment.paymentStatus': paymentStatus,
+            'payment.paymentMethod': paymentMethod,
+            'payment.paymentDate': new Date()
+          },
+          { session }
+        );
+
+        // Transaction'ı commit et
+        await session.commitTransaction();
+      } catch (transactionError: any) {
+        await session.abortTransaction();
+        throw transactionError;
+      } finally {
+        session.endSession();
       }
-
-      // Electrical job ödeme bilgilerini güncelle
-      const newPaidAmount = job.payment.paidAmount + amount;
-      // Hassas karşılaştırma için tolerance ekle
-      const tolerance = 0.01; // 1 kuruş tolerans
-      const paymentStatus = (job.payment.totalAmount - newPaidAmount) <= tolerance ? 'paid' : 'partial';
-
-      await ElectricalJob.findByIdAndUpdate(
-        jobId,
-        {
-          'payment.paidAmount': newPaidAmount,
-          'payment.paymentStatus': paymentStatus,
-          'payment.paymentMethod': paymentMethod,
-          'payment.paymentDate': new Date()
-        }
-      );
 
       // TEFE puan kazandır
       try {

@@ -89,7 +89,7 @@
     /* Type Checking */
     "strict": false,                                     /* Disable strict type-checking for production build. */
     "noImplicitAny": false,                            /* Disable error reporting for expressions and declarations with an implied 'any' type. */
-    "strictNullChecks": false,                         /* Disable null and undefined checking. */
+    "strictNullChecks": true,                          /* Enable null and undefined checking - kademeli olarak aktif edildi. */
     "strictFunctionTypes": false,                      /* Disable function type checking. */
     "strictBindCallApply": false,                      /* Disable bind, call, and apply method checking. */
     "strictPropertyInitialization": false,             /* Disable class property initialization checking. */

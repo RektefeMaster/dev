@@ -1,11 +1,40 @@
 import mongoose from 'mongoose';
-import { Appointment } from '../models/Appointment';
-import { User } from '../models/User';
-import { Mechanic } from '../models/Mechanic';
-import { CustomError } from '../utils/response';
-import { Vehicle } from '../models/Vehicle';
+import { Appointment, IAppointment } from '../models/Appointment';
+import { User, IUser } from '../models/User';
+import { Mechanic, IMechanic } from '../models/Mechanic';
+import { CustomError } from '../middleware/errorHandler';
+import { Vehicle, IVehicle } from '../models/Vehicle';
 import { AppointmentStatus, PaymentStatus } from '../../../shared/types/enums';
 import { sendNotification } from '../utils/notifications';
+import Logger from '../utils/logger';
+
+// Type definitions for aggregate results
+interface PopulatedVehicle {
+  _id: mongoose.Types.ObjectId;
+  brand?: string;
+  modelName?: string;
+  year?: number;
+  plateNumber?: string;
+  fuelType?: string;
+  engineType?: string;
+  transmission?: string;
+  package?: string;
+  color?: string;
+  mileage?: number;
+  lastMaintenanceDate?: Date;
+  nextMaintenanceDate?: Date;
+}
+
+interface PopulatedUser {
+  _id: mongoose.Types.ObjectId;
+  name?: string;
+  surname?: string;
+  email?: string;
+  phone?: string;
+  isAvailable?: boolean;
+}
+
+type MechanicOrUser = IMechanic | (IUser & { isAvailable?: boolean });
 
 // Mechanic model'ini dinamik olarak import et (circular dependency'den kaçınmak için)
 let MechanicModel: typeof Mechanic;
@@ -56,6 +85,30 @@ export interface UpdateAppointmentData {
   mechanicNotes?: string;
 }
 
+export interface AppointmentFilters {
+  status?: string;
+  serviceType?: string;
+  startDate?: Date;
+  endDate?: Date;
+  limit?: number;
+  skip?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface PaymentData {
+  paymentStatus: string;
+  paymentDate?: Date;
+  transactionId?: string;
+}
+
+export interface NotificationSettings {
+  oneDayBefore?: boolean;
+  oneHourBefore?: boolean;
+  twoHoursBefore?: boolean;
+  customTime?: number;
+}
+
 export class AppointmentService {
   /**
    * Yeni randevu oluştur
@@ -74,20 +127,24 @@ export class AppointmentService {
 
       // Önce Mechanic collection'ında ara (Appointment model'inde ref: 'Mechanic' olduğu için)
       const MechanicModel = await getMechanicModel();
-      let mechanic = await MechanicModel.findById(data.mechanicId);
+      let mechanic = await MechanicModel.findById(data.mechanicId)
+        .select('name surname email phone rating experience city shopName shopType availability')
+        .lean();
       
       // Eğer Mechanic collection'ında bulunamazsa, User collection'ında userType: 'mechanic' olanları kontrol et
       if (!mechanic) {
         const userAsMechanic = await User.findOne({ 
           _id: data.mechanicId, 
           userType: 'mechanic' 
-        });
+        })
+        .select('name surname email phone rating experience city shopName shopType availability')
+        .lean();
         
         if (userAsMechanic) {
           // User'ı mechanic olarak kabul et
-          mechanic = userAsMechanic as any;
+          mechanic = userAsMechanic as MechanicOrUser;
         } else {
-          console.error(`❌ Usta bulunamadı - mechanicId: ${data.mechanicId}`);
+          Logger.error(`Usta bulunamadı - mechanicId: ${data.mechanicId}`);
           throw new CustomError('Belirtilen usta bulunamadı. Lütfen geçerli bir usta seçin.', 404);
         }
       }
@@ -139,9 +196,12 @@ export class AppointmentService {
       // Eğer vehicleId gönderilmemişse, kullanıcının son kayıtlı aracını ata
       let resolvedVehicleId: mongoose.Types.ObjectId | undefined;
       if (!data.vehicleId) {
-        const lastVehicle = await Vehicle.findOne({ userId: userId }).sort({ createdAt: -1 }); // FIXED: updatedAt kaldırıldı
+        const lastVehicle = await Vehicle.findOne({ userId: userId })
+          .select('_id brand modelName year plateNumber')
+          .sort({ createdAt: -1 })
+          .lean(); // Memory optimization
         if (lastVehicle) {
-          resolvedVehicleId = new mongoose.Types.ObjectId((lastVehicle as any)._id.toString());
+          resolvedVehicleId = new mongoose.Types.ObjectId(lastVehicle._id.toString());
         }
       } else {
         resolvedVehicleId = new mongoose.Types.ObjectId(data.vehicleId);
@@ -154,7 +214,9 @@ export class AppointmentService {
       if (data.faultReportId) {
         try {
           const FaultReport = require('../models/FaultReport').default;
-          const faultReport = await FaultReport.findById(data.faultReportId);
+          const faultReport = await FaultReport.findById(data.faultReportId)
+            .select('_id status quotes selectedQuoteId')
+            .lean();
           
           if (faultReport) {
             // Seçilen teklif varsa onun fiyatını al
@@ -173,7 +235,7 @@ export class AppointmentService {
       }
 
       // Randevu oluştur - tüm servis-specific alanları dahil et
-      const appointmentData: any = {
+      const appointmentData: Partial<IAppointment> & Record<string, unknown> = {
         userId: new mongoose.Types.ObjectId(userId),
         mechanicId: new mongoose.Types.ObjectId(finalMechanicId),
         serviceType: data.serviceType,
@@ -210,7 +272,7 @@ export class AppointmentService {
       await appointment.save();
       
       // CRITICAL FIX: Dönen appointment'ta mechanicId'nin doğru olduğundan emin ol
-      console.log(`✅ Randevu oluşturuldu - appointmentId: ${appointment._id}, mechanicId: ${appointment.mechanicId}`);
+      Logger.info(`Randevu oluşturuldu - appointmentId: ${appointment._id}, mechanicId: ${appointment.mechanicId}`);
       
       return appointment;
     } catch (error) {
@@ -259,7 +321,9 @@ export class AppointmentService {
       const appointment = await Appointment.findOne({ faultReportId })
         .populate('mechanicId', 'name surname rating experience city shopName shopType')
         .populate('vehicleId', 'brand modelName year plateNumber fuelType engineType transmission package color mileage lastMaintenanceDate nextMaintenanceDate')
-        .sort({ appointmentDate: -1 });
+        .sort({ appointmentDate: -1 })
+        .select('-__v')
+        .lean(); // Memory optimization - populate ile birlikte kullanılabilir
 
       return appointment;
     } catch (error) {
@@ -270,11 +334,11 @@ export class AppointmentService {
   /**
    * Ustanın randevularını getir (Usta/Dükkan için)
    */
-  static async getMechanicAppointments(mechanicId: string, statusFilter?: string, filters?: any) {
+  static async getMechanicAppointments(mechanicId: string, statusFilter?: string, filters?: AppointmentFilters) {
     try {
       // CRITICAL FIX: mechanicId validation
       if (!mechanicId || !mongoose.Types.ObjectId.isValid(mechanicId)) {
-        console.error(`❌ Geçersiz mechanicId: ${mechanicId}`);
+        Logger.error(`Geçersiz mechanicId: ${mechanicId}`);
         return [];
       }
 
@@ -299,7 +363,7 @@ export class AppointmentService {
       };
 
       // CRITICAL FIX: mechanicId'yi ObjectId'ye dönüştür (MongoDB sorgusu için)
-      const query: any = { mechanicId: new mongoose.Types.ObjectId(mechanicId) };
+      const query: Record<string, unknown> = { mechanicId: new mongoose.Types.ObjectId(mechanicId) };
       
       if (statusFilter) {
         // İngilizce status'ları Türkçe'ye çevir
@@ -381,20 +445,21 @@ export class AppointmentService {
         // Vehicle bilgilerini formatla
         let vehicle = null;
         if (obj.vehicleId) {
+          const vehicleData = obj.vehicleId as PopulatedVehicle;
           vehicle = {
-            _id: obj.vehicleId._id,
-            brand: (obj.vehicleId as any).brand || 'Bilinmiyor',
-            modelName: (obj.vehicleId as any).modelName || 'Bilinmiyor',
-            year: (obj.vehicleId as any).year || 'Bilinmiyor',
-            plateNumber: (obj.vehicleId as any).plateNumber || 'Bilinmiyor',
-            fuelType: (obj.vehicleId as any).fuelType || 'Bilinmiyor',
-            engineType: (obj.vehicleId as any).engineType || 'Bilinmiyor',
-            transmission: (obj.vehicleId as any).transmission || 'Bilinmiyor',
-            package: (obj.vehicleId as any).package || 'Bilinmiyor',
-            color: (obj.vehicleId as any).color || undefined,
-            mileage: (obj.vehicleId as any).mileage || undefined,
-            lastMaintenanceDate: (obj.vehicleId as any).lastMaintenanceDate || undefined,
-            nextMaintenanceDate: (obj.vehicleId as any).nextMaintenanceDate || undefined
+            _id: vehicleData._id,
+            brand: vehicleData.brand || 'Bilinmiyor',
+            modelName: vehicleData.modelName || 'Bilinmiyor',
+            year: vehicleData.year || 'Bilinmiyor',
+            plateNumber: vehicleData.plateNumber || 'Bilinmiyor',
+            fuelType: vehicleData.fuelType || 'Bilinmiyor',
+            engineType: vehicleData.engineType || 'Bilinmiyor',
+            transmission: vehicleData.transmission || 'Bilinmiyor',
+            package: vehicleData.package || 'Bilinmiyor',
+            color: vehicleData.color || undefined,
+            mileage: vehicleData.mileage || undefined,
+            lastMaintenanceDate: vehicleData.lastMaintenanceDate || undefined,
+            nextMaintenanceDate: vehicleData.nextMaintenanceDate || undefined
           };
         } else {
           vehicle = {
@@ -410,11 +475,11 @@ export class AppointmentService {
         const q = (filters?.q || '').toString().toLowerCase();
         if (q) {
           const hay = [
-            ((obj.userId as any)?.name || '') + ' ' + ((obj.userId as any)?.surname || ''),
-            (obj as any).serviceType || '',
-            (obj.vehicleId as any)?.plateNumber || '',
-            (obj.vehicleId as any)?.brand || '',
-            (obj.vehicleId as any)?.modelName || ''
+            ((obj.userId as PopulatedUser)?.name || '') + ' ' + ((obj.userId as PopulatedUser)?.surname || ''),
+            (obj as { serviceType?: string }).serviceType || '',
+            (obj.vehicleId as PopulatedVehicle)?.plateNumber || '',
+            (obj.vehicleId as PopulatedVehicle)?.brand || '',
+            (obj.vehicleId as PopulatedVehicle)?.modelName || ''
           ].join(' ').toLowerCase();
           if (!hay.includes(q)) return null as any;
         }
@@ -425,10 +490,10 @@ export class AppointmentService {
           statusTR: raw.status,
           customer: {
             _id: obj.userId._id,
-            name: (obj.userId as any).name || 'Bilinmiyor',
-            surname: (obj.userId as any).surname || 'Bilinmiyor',
-            email: (obj.userId as any).email || 'Bilinmiyor',
-            phone: (obj.userId as any).phone || 'Bilinmiyor'
+            name: (obj.userId as PopulatedUser).name || 'Bilinmiyor',
+            surname: (obj.userId as PopulatedUser).surname || 'Bilinmiyor',
+            email: (obj.userId as PopulatedUser).email || 'Bilinmiyor',
+            phone: (obj.userId as PopulatedUser).phone || 'Bilinmiyor'
           },
           vehicle: vehicle
         };
@@ -446,7 +511,7 @@ export class AppointmentService {
   static async getShopAppointments(mechanicId: string, status?: string) {
     try {
       // Status filtreleme
-      let statusFilter: any = {};
+      let statusFilter: Record<string, unknown> = {};
       if (status) {
         switch (status) {
           case 'active':
@@ -477,35 +542,40 @@ export class AppointmentService {
       // Frontend formatına çevir
       const formattedAppointments = appointments.map(appointment => {
         // lean() kullanıldığı için obj zaten plain object, toObject() gerekmez
-        const obj = appointment as any;
+        const obj = appointment as Record<string, unknown> & {
+          userId?: PopulatedUser;
+          vehicleId?: PopulatedVehicle;
+          customer?: PopulatedUser;
+          vehicle?: PopulatedVehicle;
+        };
         
         // customer field'ını ekle (userId'den)
         if (obj.userId) {
-          (obj as any).customer = {
-            _id: (obj.userId as any)._id,
-            name: (obj.userId as any).name,
-            surname: (obj.userId as any).surname,
-            email: (obj.userId as any).email,
-            phone: (obj.userId as any).phone
+          obj.customer = {
+            _id: obj.userId._id,
+            name: obj.userId.name,
+            surname: obj.userId.surname,
+            email: obj.userId.email,
+            phone: obj.userId.phone
           };
         }
 
         // vehicle field'ını ekle (vehicleId'den)
         if (obj.vehicleId) {
-          (obj as any).vehicle = {
-            _id: (obj.vehicleId as any)._id,
-            brand: (obj.vehicleId as any).brand,
-            modelName: (obj.vehicleId as any).modelName,
-            year: (obj.vehicleId as any).year,
-            plateNumber: (obj.vehicleId as any).plateNumber,
-            fuelType: (obj.vehicleId as any).fuelType,
-            engineType: (obj.vehicleId as any).engineType,
-            transmission: (obj.vehicleId as any).transmission,
-            package: (obj.vehicleId as any).package,
-            color: (obj.vehicleId as any).color,
-            mileage: (obj.vehicleId as any).mileage,
-            lastMaintenanceDate: (obj.vehicleId as any).lastMaintenanceDate,
-            nextMaintenanceDate: (obj.vehicleId as any).nextMaintenanceDate
+          obj.vehicle = {
+            _id: obj.vehicleId._id,
+            brand: obj.vehicleId.brand,
+            modelName: obj.vehicleId.modelName,
+            year: obj.vehicleId.year,
+            plateNumber: obj.vehicleId.plateNumber,
+            fuelType: obj.vehicleId.fuelType,
+            engineType: obj.vehicleId.engineType,
+            transmission: obj.vehicleId.transmission,
+            package: obj.vehicleId.package,
+            color: obj.vehicleId.color,
+            mileage: obj.vehicleId.mileage,
+            lastMaintenanceDate: obj.vehicleId.lastMaintenanceDate,
+            nextMaintenanceDate: obj.vehicleId.nextMaintenanceDate
           };
         }
 
@@ -633,18 +703,11 @@ export class AppointmentService {
       const appointmentUserId = appointment.customer?._id?.toString();
       const appointmentMechanicId = appointment.mechanic?._id?.toString();
       
-      console.log(`🔍 Authorization check - userId: ${userId}, appointmentUserId: ${appointmentUserId}, appointmentMechanicId: ${appointmentMechanicId}`);
-      console.log(`🔍 Full appointment object:`, JSON.stringify(appointment, null, 2));
-      
-      // Geçici olarak yetki kontrolünü devre dışı bırak - debug için
-      console.log(`✅ Authorization check bypassed for debugging - userId: ${userId}`);
-      
-      // TODO: Yetki kontrolünü tekrar aktif et
-      // const isUserAuthorized = appointmentUserId === userId || appointmentMechanicId === userId;
-      // if (!isUserAuthorized) {
-      //   console.log(`❌ Authorization failed - userId: ${userId}, appointmentUserId: ${appointmentUserId}, appointmentMechanicId: ${appointmentMechanicId}`);
-      //   throw new CustomError('Bu randevuyu görme yetkiniz yok', 403);
-      // }
+      // Kullanıcının bu randevuyu görme yetkisi var mı kontrol et
+      const isUserAuthorized = appointmentUserId === userId || appointmentMechanicId === userId;
+      if (!isUserAuthorized) {
+        throw new CustomError('Bu randevuyu görme yetkiniz yok', 403);
+      }
 
       // Aggregate result is already in the correct format - no need for toObject() conversion
       // Customer, mechanic, and vehicle data are already joined and formatted
@@ -669,7 +732,9 @@ export class AppointmentService {
    */
   static async setAppointmentPrice(appointmentId: string, mechanicId: string, price: number, notes?: string) {
     try {
-      const appointment = await Appointment.findById(appointmentId);
+      const appointment = await Appointment.findById(appointmentId)
+        .select('-__v')
+        .lean();
       if (!appointment) {
         throw new CustomError('Randevu bulunamadı', 404);
       }
@@ -701,7 +766,9 @@ export class AppointmentService {
    */
   static async addPriceIncrease(appointmentId: string, mechanicId: string, additionalAmount: number, reason: string) {
     try {
-      const appointment = await Appointment.findById(appointmentId);
+      const appointment = await Appointment.findById(appointmentId)
+        .select('-__v')
+        .lean();
       if (!appointment) {
         throw new CustomError('Randevu bulunamadı', 404);
       }
@@ -767,7 +834,9 @@ export class AppointmentService {
         status = mapENtoTR[status];
       }
 
-      const appointment = await Appointment.findById(appointmentId);
+      const appointment = await Appointment.findById(appointmentId)
+        .select('-__v')
+        .lean();
       if (!appointment) {
         throw new CustomError('Randevu bulunamadı', 404);
       }
@@ -845,9 +914,9 @@ export class AppointmentService {
               status: 'SERVISTE'
             }
           );
-          console.log(`✅ Driver'a iş başladı bildirimi gönderildi: ${appointment.userId}`);
+          Logger.info(`Driver'a iş başladı bildirimi gönderildi: ${appointment.userId}`);
         } catch (notificationError) {
-          console.error('❌ İş başladı bildirimi gönderme hatası:', notificationError);
+          Logger.error('İş başladı bildirimi gönderme hatası:', notificationError);
         }
       }
 
@@ -866,7 +935,7 @@ export class AppointmentService {
       const faultReport = await FaultReport.findById(faultReportId);
       
       if (!faultReport) {
-        console.log('⚠️ FaultReport bulunamadı:', faultReportId);
+        Logger.warn('FaultReport bulunamadı:', faultReportId);
         return;
       }
 
@@ -895,10 +964,10 @@ export class AppointmentService {
       if (faultReport.status !== faultReportStatus) {
         faultReport.status = faultReportStatus;
         await faultReport.save();
-        console.log(`✅ FaultReport durumu güncellendi: ${faultReportId} -> ${faultReportStatus}`);
+        Logger.info(`FaultReport durumu güncellendi: ${faultReportId} -> ${faultReportStatus}`);
       }
     } catch (error) {
-      console.error('❌ FaultReport durumu güncellenirken hata:', error);
+      Logger.error('FaultReport durumu güncellenirken hata:', error);
       // FaultReport güncelleme hatası appointment işlemini engellemez
     }
   }
@@ -908,7 +977,9 @@ export class AppointmentService {
    */
   static async addExtraCharges(appointmentId: string, extraAmount: number, description: string) {
     try {
-      const appointment = await Appointment.findById(appointmentId);
+      const appointment = await Appointment.findById(appointmentId)
+        .select('-__v')
+        .lean();
       if (!appointment) {
         throw new CustomError('Randevu bulunamadı', 404);
       }
@@ -948,9 +1019,9 @@ export class AppointmentService {
             mechanicName
           }
         );
-        console.log(`✅ Driver'a ek ücret bildirimi gönderildi: ${appointment.userId}`);
+        Logger.info(`Driver'a ek ücret bildirimi gönderildi: ${appointment.userId}`);
       } catch (notificationError) {
-        console.error('❌ Ek ücret bildirimi gönderme hatası:', notificationError);
+        Logger.error('Ek ücret bildirimi gönderme hatası:', notificationError);
       }
 
       // Eğer appointment bir FaultReport'a bağlıysa, FaultReport'u da güncelle
@@ -976,7 +1047,9 @@ export class AppointmentService {
    */
   static async approveExtraCharges(appointmentId: string, approvalIndex: number, approve: boolean) {
     try {
-      const appointment = await Appointment.findById(appointmentId);
+      const appointment = await Appointment.findById(appointmentId)
+        .select('-__v')
+        .lean();
       if (!appointment) {
         throw new CustomError('Randevu bulunamadı', 404);
       }
@@ -1012,7 +1085,9 @@ export class AppointmentService {
   static async completeAppointment(appointmentId: string, completionNotes: string, price?: number, estimatedDuration?: number) {
     try {
 
-      const appointment = await Appointment.findById(appointmentId);
+      const appointment = await Appointment.findById(appointmentId)
+        .select('-__v')
+        .lean();
       if (!appointment) {
         throw new CustomError('Randevu bulunamadı', 404);
       }
@@ -1090,9 +1165,9 @@ export class AppointmentService {
             serviceType: serviceTypeName
           }
         );
-        console.log(`✅ Driver'a iş tamamlandı bildirimi gönderildi: ${appointment.userId}`);
+        Logger.info(`Driver'a iş tamamlandı bildirimi gönderildi: ${appointment.userId}`);
       } catch (notificationError) {
-        console.error('❌ İş tamamlandı bildirimi gönderme hatası:', notificationError);
+        Logger.error('İş tamamlandı bildirimi gönderme hatası:', notificationError);
       }
 
       // FaultReport durumunu ve payment bilgisini güncelle
@@ -1112,10 +1187,10 @@ export class AppointmentService {
               paymentDate: new Date()
             };
             await faultReport.save();
-            console.log(`✅ FaultReport ${faultReport._id} payment objesi oluşturuldu: ${appointment.finalPrice}₺`);
+            Logger.info(`FaultReport ${faultReport._id} payment objesi oluşturuldu: ${appointment.finalPrice}₺`);
           }
         } catch (paymentError) {
-          console.error('❌ FaultReport payment güncellenirken hata:', paymentError);
+          Logger.error('FaultReport payment güncellenirken hata:', paymentError);
         }
       }
 
@@ -1128,7 +1203,7 @@ export class AppointmentService {
   /**
    * Ödeme durumunu güncelle
    */
-  static async updatePaymentStatus(appointmentId: string, paymentData: any, userId: string) {
+  static async updatePaymentStatus(appointmentId: string, paymentData: PaymentData, userId: string) {
     try {
       const appointment = await Appointment.findOneAndUpdate(
         { _id: appointmentId, userId: new mongoose.Types.ObjectId(userId) },
@@ -1155,7 +1230,7 @@ export class AppointmentService {
    */
   static async cancelAppointment(appointmentId: string, userId: string) {
     try {
-      console.log(`[AppointmentService] Cancelling appointment ${appointmentId} for user ${userId}`);
+      Logger.debug(`Cancelling appointment ${appointmentId} for user ${userId}`);
       
       const appointment = await Appointment.findOneAndUpdate(
         { 
@@ -1169,16 +1244,16 @@ export class AppointmentService {
         { new: true }
       );
 
-      console.log(`[AppointmentService] Found appointment:`, appointment ? 'YES' : 'NO');
+      Logger.debug(`Found appointment:`, appointment ? 'YES' : 'NO');
 
       if (!appointment) {
-        console.log(`[AppointmentService] Appointment not found or user mismatch`);
+        Logger.warn(`Appointment not found or user mismatch`);
         throw new CustomError('Randevu bulunamadı veya iptal edilemez', 404);
       }
 
       return appointment;
     } catch (error) {
-      console.error(`[AppointmentService] Error cancelling appointment:`, error);
+      Logger.error(`Error cancelling appointment:`, error);
       throw error;
     }
   }
@@ -1186,7 +1261,7 @@ export class AppointmentService {
   /**
    * Bildirim ayarlarını güncelle
    */
-  static async updateNotificationSettings(appointmentId: string, settings: any, userId: string) {
+  static async updateNotificationSettings(appointmentId: string, settings: NotificationSettings, userId: string) {
     try {
       const appointment = await Appointment.findOneAndUpdate(
         { _id: appointmentId, userId: new mongoose.Types.ObjectId(userId) },
@@ -1214,7 +1289,9 @@ export class AppointmentService {
     try {
       const appointment = await Appointment.findById(appointmentId)
         .populate('userId', 'name surname phone email')
-        .populate('mechanicId', 'name surname phone email');
+        .populate('mechanicId', 'name surname phone email')
+        .select('-__v')
+        .lean(); // Memory optimization - populate ile birlikte kullanılabilir (select populate'dan sonra olmalı)
 
       if (!appointment) {
         throw new CustomError('Randevu bulunamadı', 404);
@@ -1478,7 +1555,7 @@ export class AppointmentService {
           notes: 'Otomatik iptal - İşlem Yok'
         };
 
-        const updatePayload: Record<string, any> = {
+        const updatePayload: Record<string, unknown> = {
           $set: {
             autoCancelled: true,
             rejectionReason: cancellationReason,
@@ -1486,9 +1563,9 @@ export class AppointmentService {
           }
         };
 
-        const hasSameHistory = Array.isArray((appointment as any).statusHistory)
-          ? (appointment as any).statusHistory.some(
-              (entry: any) =>
+        const hasSameHistory = Array.isArray(appointment.statusHistory)
+          ? appointment.statusHistory.some(
+              (entry) =>
                 entry?.status === 'IPTAL_EDILDI' &&
                 entry?.notes === statusHistoryEntry.notes
             )
@@ -1526,13 +1603,13 @@ export class AppointmentService {
             );
             notified++;
           } catch (notificationError) {
-            console.error('❌ Otomatik iptal bildirimi gönderilemedi:', notificationError);
+            Logger.error('Otomatik iptal bildirimi gönderilemedi:', notificationError);
           }
         }
 
         cancelled++;
       } catch (error) {
-        console.error('❌ Otomatik iptal sırasında hata oluştu:', error);
+        Logger.error('Otomatik iptal sırasında hata oluştu:', error);
       }
     }
 
@@ -1548,7 +1625,9 @@ export class AppointmentService {
    */
   static async requestDiscount(appointmentId: string, userId: string) {
     try {
-      const appointment = await Appointment.findById(appointmentId);
+      const appointment = await Appointment.findById(appointmentId)
+        .select('-__v')
+        .lean();
       if (!appointment) {
         throw new CustomError('Randevu bulunamadı', 404);
       }
@@ -1599,7 +1678,9 @@ export class AppointmentService {
     approve: boolean = true
   ) {
     try {
-      const appointment = await Appointment.findById(appointmentId);
+      const appointment = await Appointment.findById(appointmentId)
+        .select('-__v')
+        .lean();
       if (!appointment) {
         throw new CustomError('Randevu bulunamadı', 404);
       }
@@ -1657,7 +1738,9 @@ export class AppointmentService {
    */
   static async approveFinalPrice(appointmentId: string, userId: string) {
     try {
-      const appointment = await Appointment.findById(appointmentId);
+      const appointment = await Appointment.findById(appointmentId)
+        .select('-__v')
+        .lean();
       if (!appointment) {
         throw new CustomError('Randevu bulunamadı', 404);
       }

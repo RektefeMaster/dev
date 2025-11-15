@@ -9,6 +9,7 @@ import {
 } from '../models/OdometerEvent';
 import { OdometerAuditLog } from '../models/OdometerAuditLog';
 import { Vehicle } from '../models/Vehicle';
+import Logger from '../utils/logger';
 import {
   ABS_MAX_RATE_PER_DAY,
   BACKPRESSURE_MESSAGE,
@@ -629,7 +630,7 @@ export class OdometerService {
             
             // Debug logging
             if (process.env.NODE_ENV === 'development') {
-              console.log('[ODOMETER RATE] İlk 4 event ortalaması hesaplandı:', {
+              Logger.debug('[ODOMETER RATE] İlk 4 event ortalaması hesaplandı:', {
                 vehicleId: vehicleObjectId.toString(),
                 eventCount: rateCount,
                 avgRate: avgRate.toFixed(2),
@@ -663,7 +664,7 @@ export class OdometerService {
           
           // Debug logging
           if (process.env.NODE_ENV === 'development') {
-            console.log('[ODOMETER RATE] EWMA ile güncellendi:', {
+            Logger.debug('[ODOMETER RATE] EWMA ile güncellendi:', {
               vehicleId: vehicleObjectId.toString(),
               previousRate: mileageModel.rateKmPerDay.toFixed(2),
               observedRate: observedRate.toFixed(2),

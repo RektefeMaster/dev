@@ -68,3 +68,11 @@ railway run npm test -- tests/e2e/fault-report-payment-flow.test.ts
 - Test timeout'u 60 saniye olarak ayarlanmıştır
 - Railway'de test çalıştırırken network latency nedeniyle timeout'lar artırılabilir
 
+
+
+
+
+
+
+
+

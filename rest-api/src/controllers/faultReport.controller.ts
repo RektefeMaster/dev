@@ -17,6 +17,7 @@ import { BodyworkService } from '../services/bodywork.service';
 import { ElectricalService } from '../services/electrical.service';
 import { FAULT_CATEGORY_TO_SERVICE_CATEGORY } from '../../../shared/types/enums';
 import { OdometerService } from '../services/odometer.service';
+import Logger from '../utils/logger';
 
 const resolveTenantId = (req: Request) =>
   (req.tenantId as string) ||
@@ -141,7 +142,7 @@ export const createFaultReport = async (req: Request, res: Response) => {
       null // userCity kaldırıldı
     );
 
-    console.log(`[FAULT REPORT] Arıza bildirimi oluşturuldu:`, {
+    Logger.info(`[FAULT REPORT] Arıza bildirimi oluşturuldu:`, {
       faultReportId: faultReport._id,
       serviceCategory,
       normalizedServiceCategory,
@@ -193,9 +194,9 @@ export const createFaultReport = async (req: Request, res: Response) => {
               notification.message,
               notification.data
             );
-            console.log(`[FAULT REPORT] Push notification gönderildi - Usta: ${mechanicData.name} ${mechanicData.surname} (${mechanic._id})`);
+            Logger.debug(`[FAULT REPORT] Push notification gönderildi - Usta: ${mechanicData.name} ${mechanicData.surname} (${mechanic._id})`);
           } else {
-            console.log(`[FAULT REPORT] Push token yok - Usta: ${mechanicData.name} ${mechanicData.surname} (${mechanic._id})`);
+            Logger.debug(`[FAULT REPORT] Push token yok - Usta: ${mechanicData.name} ${mechanicData.surname} (${mechanic._id})`);
           }
 
           // Veritabanına bildirim kaydı oluştur
@@ -210,18 +211,18 @@ export const createFaultReport = async (req: Request, res: Response) => {
           );
 
           notificationsSent++;
-          console.log(`[FAULT REPORT] Bildirim gönderildi - Usta: ${mechanicData.name} ${mechanicData.surname} (${mechanic._id})`);
+          Logger.debug(`[FAULT REPORT] Bildirim gönderildi - Usta: ${mechanicData.name} ${mechanicData.surname} (${mechanic._id})`);
         } else {
-          console.log(`[FAULT REPORT] Usta bilgisi bulunamadı - ID: ${mechanic._id}`);
+          Logger.warn(`[FAULT REPORT] Usta bilgisi bulunamadı - ID: ${mechanic._id}`);
           notificationsFailed++;
         }
       } catch (error) {
-        console.error(`[FAULT REPORT] Bildirim gönderme hatası - Usta ID: ${mechanic._id}`, error);
+        Logger.error(`[FAULT REPORT] Bildirim gönderme hatası - Usta ID: ${mechanic._id}`, error);
         notificationsFailed++;
       }
     }
 
-    console.log(`[FAULT REPORT] Bildirim özeti:`, {
+    Logger.info(`[FAULT REPORT] Bildirim özeti:`, {
       totalMechanics: nearbyMechanics.length,
       notificationsSent,
       notificationsFailed
@@ -238,8 +239,8 @@ export const createFaultReport = async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('FaultReport creation error:', error);
-    console.error('Error details:', {
+    Logger.error('FaultReport creation error:', error);
+    Logger.error('Error details:', {
       message: error.message,
       stack: error.stack,
       name: error.name
@@ -320,8 +321,8 @@ export const getFaultReportById = async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('❌ getFaultReportById error:', error);
-    console.error('❌ Error details:', {
+    Logger.error('getFaultReportById error:', error);
+    Logger.error('Error details:', {
       message: error.message,
       stack: error.stack,
       name: error.name
@@ -376,8 +377,8 @@ export const getMechanicFaultReportById = async (req: Request, res: Response) =>
     });
 
   } catch (error: any) {
-    console.error('❌ getFaultReportById error:', error);
-    console.error('❌ Error details:', {
+    Logger.error('getFaultReportById error:', error);
+    Logger.error('Error details:', {
       message: error.message,
       stack: error.stack,
       name: error.name
@@ -848,7 +849,7 @@ export const selectQuote = async (req: Request, res: Response) => {
     const { quoteIndex } = req.body;
     const userId = req.user?.userId;
 
-    console.log(`🔍 selectQuote başlatıldı:`, {
+    Logger.debug(`selectQuote başlatıldı:`, {
       faultReportId: id,
       quoteIndex,
       userId
@@ -856,7 +857,7 @@ export const selectQuote = async (req: Request, res: Response) => {
 
     // Input validation
     if (quoteIndex === undefined || quoteIndex === null) {
-      console.log('❌ quoteIndex eksik');
+      Logger.warn('quoteIndex eksik');
       return res.status(400).json({
         success: false,
         message: 'Teklif indeksi gerekli'
@@ -864,7 +865,7 @@ export const selectQuote = async (req: Request, res: Response) => {
     }
 
     if (typeof quoteIndex !== 'number' || quoteIndex < 0 || !Number.isInteger(quoteIndex)) {
-      console.log('❌ Geçersiz quoteIndex:', quoteIndex);
+      Logger.warn('Geçersiz quoteIndex:', quoteIndex);
       return res.status(400).json({
         success: false,
         message: 'Geçersiz teklif indeksi'
@@ -877,14 +878,14 @@ export const selectQuote = async (req: Request, res: Response) => {
       .populate('vehicleId', 'brand modelName plateNumber');
     
     if (!faultReport) {
-      console.log('❌ Arıza bildirimi bulunamadı:', id);
+      Logger.warn('Arıza bildirimi bulunamadı:', id);
       return res.status(404).json({
         success: false,
         message: 'Arıza bildirimi bulunamadı'
       });
     }
 
-    console.log(`📋 Arıza bildirimi bulundu:`, {
+    Logger.debug(`Arıza bildirimi bulundu:`, {
       id: faultReport._id,
       status: faultReport.status,
       quotesCount: faultReport.quotes?.length || 0
@@ -892,7 +893,7 @@ export const selectQuote = async (req: Request, res: Response) => {
 
     // Durum kontrolü
     if (faultReport.status === 'accepted') {
-      console.log('❌ Arıza zaten kabul edilmiş');
+      Logger.warn('Arıza zaten kabul edilmiş');
       return res.status(400).json({
         success: false,
         message: 'Bu arıza için zaten bir teklif seçilmiş'
@@ -900,7 +901,7 @@ export const selectQuote = async (req: Request, res: Response) => {
     }
 
     if (faultReport.status === 'completed') {
-      console.log('❌ Arıza tamamlanmış');
+      Logger.warn('Arıza tamamlanmış');
       return res.status(400).json({
         success: false,
         message: 'Bu arıza işlemi tamamlanmış'
@@ -909,7 +910,7 @@ export const selectQuote = async (req: Request, res: Response) => {
 
     // Teklif kontrolü
     if (!faultReport.quotes || faultReport.quotes.length === 0) {
-      console.log('❌ Hiç teklif yok');
+      Logger.warn('Hiç teklif yok');
       return res.status(400).json({
         success: false,
         message: 'Bu arıza için hiç teklif bulunmuyor'
@@ -918,7 +919,7 @@ export const selectQuote = async (req: Request, res: Response) => {
 
     // Array bounds kontrolü
     if (quoteIndex >= faultReport.quotes.length) {
-      console.log('❌ Geçersiz quoteIndex:', quoteIndex, 'quotes length:', faultReport.quotes.length);
+      Logger.warn('Geçersiz quoteIndex:', quoteIndex, 'quotes length:', faultReport.quotes.length);
       return res.status(400).json({
         success: false,
         message: 'Geçersiz teklif indeksi'
@@ -929,14 +930,14 @@ export const selectQuote = async (req: Request, res: Response) => {
     
     // Teklif durumu kontrolü
     if (selectedQuote.status !== 'pending') {
-      console.log('❌ Teklif zaten işleme alınmış:', selectedQuote.status);
+      Logger.warn('Teklif zaten işleme alınmış:', selectedQuote.status);
       return res.status(400).json({
         success: false,
         message: 'Bu teklif zaten işleme alınmış'
       });
     }
 
-    console.log(`✅ Seçilen teklif:`, {
+    Logger.debug(`Seçilen teklif:`, {
       mechanicId: selectedQuote.mechanicId,
       mechanicName: selectedQuote.mechanicName,
       quoteAmount: selectedQuote.quoteAmount,
@@ -967,11 +968,11 @@ export const selectQuote = async (req: Request, res: Response) => {
     });
 
     await faultReport.save();
-    console.log('✅ FaultReport güncellendi - Teklif seçildi');
+    Logger.info('FaultReport güncellendi - Teklif seçildi');
     
     // Mechanic bilgisini manuel olarak çek
     const mechanic = await User.findById(selectedQuote.mechanicId).select('name surname phone');
-    console.log('✅ Mechanic bilgisi:', mechanic);
+    Logger.debug('Mechanic bilgisi:', mechanic);
 
     // Socket.io ile real-time bildirim gönder - RANDEVU OLUŞTURULMADI, SADECE TEKLİF SEÇİLDİ
     try {
@@ -997,7 +998,7 @@ export const selectQuote = async (req: Request, res: Response) => {
         });
       }
     } catch (socketError) {
-      console.log('⚠️ Socket bildirimi gönderilemedi:', socketError);
+      Logger.warn('Socket bildirimi gönderilemedi:', socketError);
     }
 
     // Ustaya veritabanı bildirimi gönder
@@ -1015,7 +1016,7 @@ export const selectQuote = async (req: Request, res: Response) => {
         }
       );
     } catch (notificationError) {
-      console.log('⚠️ Veritabanı bildirimi gönderilemedi:', notificationError);
+      Logger.warn('Veritabanı bildirimi gönderilemedi:', notificationError);
     }
 
     res.json({
@@ -1039,7 +1040,7 @@ export const selectQuote = async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('❌ selectQuote error:', error);
+    Logger.error('selectQuote error:', error);
     res.status(500).json({
       success: false,
       message: 'Teklif seçilirken bir hata oluştu',
@@ -1186,9 +1187,9 @@ export const getMechanicFaultReports = async (req: Request, res: Response) => {
 // Arıza bildirimi için randevu oluştur (mechanicId null olsa bile)
 export const createAppointmentFromFaultReport = async (req: Request, res: Response) => {
   try {
-    console.log('🔍 createAppointmentFromFaultReport çağrıldı');
-    console.log('🔍 Request params:', req.params);
-    console.log('🔍 Request body:', req.body);
+    Logger.debug('createAppointmentFromFaultReport çağrıldı');
+    Logger.debug('Request params:', req.params);
+    Logger.debug('Request body:', req.body);
     
     const { faultReportId, appointmentDate, timeSlot } = req.body;
     const userId = req.user?.userId;
@@ -1242,31 +1243,16 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
     // selectedQuote'dan mechanicId'yi al, null ise quotes array'inden bul
     let mechanicId: mongoose.Types.ObjectId | string | undefined | any = faultReport.selectedQuote?.mechanicId;
     
-    console.log('🔍 [DEBUG] selectedQuote.mechanicId:', {
-      raw: mechanicId,
-      type: typeof mechanicId,
-      isObject: typeof mechanicId === 'object',
-      hasId: mechanicId && typeof mechanicId === 'object' && '_id' in mechanicId,
-      isObjectId: mechanicId instanceof mongoose.Types.ObjectId
-    });
-    
     // mechanicId bir object ise (populate edilmiş), _id'yi al ve ObjectId'e çevir
     if (mechanicId) {
       if (typeof mechanicId === 'object' && '_id' in mechanicId) {
         mechanicId = new mongoose.Types.ObjectId(mechanicId._id);
-        console.log('🔍 [DEBUG] mechanicId extracted from _id:', mechanicId.toString());
       } else if (typeof mechanicId === 'object' && mechanicId.toString) {
         mechanicId = new mongoose.Types.ObjectId(String(mechanicId));
-        console.log('🔍 [DEBUG] mechanicId converted from object:', mechanicId.toString());
       } else if (typeof mechanicId === 'string') {
         mechanicId = new mongoose.Types.ObjectId(mechanicId);
-        console.log('🔍 [DEBUG] mechanicId converted from string:', mechanicId.toString());
-      } else if (mechanicId instanceof mongoose.Types.ObjectId) {
-        console.log('🔍 [DEBUG] mechanicId already ObjectId:', mechanicId.toString());
-        // Zaten ObjectId, değiştirme
       }
-    } else {
-      console.warn('⚠️ [DEBUG] selectedQuote.mechanicId is null/undefined');
+      // Zaten ObjectId ise değiştirme
     }
     
     if (!mechanicId) {
@@ -1317,7 +1303,7 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
     // Eğer hala mechanicId yoksa, geçici bir ID oluştur
     let finalMechanicId: mongoose.Types.ObjectId;
     if (!mechanicId) {
-      console.warn('⚠️ mechanicId bulunamadı, geçici ID oluşturuluyor');
+      Logger.warn('mechanicId bulunamadı, geçici ID oluşturuluyor');
       finalMechanicId = new mongoose.Types.ObjectId();
     } else {
       // mechanicId'yi ObjectId'e garanti et
@@ -1326,21 +1312,17 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
       } else {
         finalMechanicId = new mongoose.Types.ObjectId(String(mechanicId));
       }
-      console.log('✅ mechanicId bulundu:', finalMechanicId);
+      Logger.debug('mechanicId bulundu:', finalMechanicId);
     }
 
     // ServiceCategory'yi ServiceType'a çevir
-    console.log('🔍 faultReport.serviceCategory:', faultReport.serviceCategory);
+    Logger.debug('faultReport.serviceCategory:', faultReport.serviceCategory);
     const serviceCategory = getFaultReportServiceCategory(faultReport.serviceCategory);
-    console.log('🔍 serviceCategory:', serviceCategory);
+    Logger.debug('serviceCategory:', serviceCategory);
     const serviceType = getServiceTypeFromServiceCategory(serviceCategory);
-    console.log('🔍 serviceType:', serviceType);
+    Logger.debug('serviceType:', serviceType);
 
     // Randevu oluştur
-    console.log('🔍 Appointment oluşturuluyor...');
-    console.log('🔍 [DEBUG] finalMechanicId:', finalMechanicId.toString());
-    console.log('🔍 [DEBUG] finalMechanicId type:', finalMechanicId.constructor.name);
-    
     const appointment = new Appointment({
       userId: new mongoose.Types.ObjectId(userId),
       mechanicId: finalMechanicId,
@@ -1366,30 +1348,21 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
       createdAt: new Date()
     });
 
-    console.log('🔍 Appointment kaydediliyor...');
-    console.log('🔍 [DEBUG] Appointment mechanicId before save:', appointment.mechanicId);
-    console.log('🔍 [DEBUG] Appointment mechanicId type:', appointment.mechanicId?.constructor?.name);
     await appointment.save();
-    console.log('✅ Appointment kaydedildi:', appointment._id);
-    console.log('🔍 [DEBUG] Appointment mechanicId after save (from instance):', appointment.mechanicId);
-    
-    // Kayıt sonrası kontrol - lean() kullanarak populate olmadan al
-    const savedAppointment = await Appointment.findById(appointment._id).lean();
-    console.log('🔍 [DEBUG] Appointment mechanicId after save (from DB):', savedAppointment?.mechanicId);
-    console.log('🔍 [DEBUG] Full saved appointment (mechanicId field):', JSON.stringify({ mechanicId: savedAppointment?.mechanicId }, null, 2));
+    Logger.info('Appointment kaydedildi:', appointment._id);
 
     // FaultReport'u güncelle
-    console.log('🔍 FaultReport güncelleniyor...');
+    Logger.debug('FaultReport güncelleniyor...');
     faultReport.appointmentId = new mongoose.Types.ObjectId(appointment._id as string);
     await faultReport.save();
-    console.log('✅ FaultReport güncellendi');
+    Logger.info('FaultReport güncellendi');
 
     // Eğer Kaporta/Boya ise BodyworkJob oluştur
     const isBodyworkCategory = faultReport.serviceCategory === 'Kaporta/Boya' || 
                                 faultReport.serviceCategory === 'Kaporta & Boya' ||
                                 faultReport.serviceCategory === 'kaporta-boya';
     
-    console.log('🔍 BodyworkJob kontrolü:', {
+    Logger.debug('BodyworkJob kontrolü:', {
       serviceCategory: faultReport.serviceCategory,
       isBodyworkCategory,
       finalMechanicId: finalMechanicId?.toString(),
@@ -1399,8 +1372,8 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
     let bodyworkJob = null;
     if (isBodyworkCategory && finalMechanicId) {
       try {
-        console.log('🔍 Kaporta/Boya kategorisi tespit edildi, BodyworkJob oluşturuluyor...');
-        console.log('🔍 BodyworkJob parametreleri:', {
+        Logger.debug('Kaporta/Boya kategorisi tespit edildi, BodyworkJob oluşturuluyor...');
+        Logger.debug('BodyworkJob parametreleri:', {
           customerId: userId,
           vehicleId: faultReport.vehicleId.toString(),
           mechanicId: finalMechanicId.toString()
@@ -1423,7 +1396,6 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
           vehicleIdString = String(faultReport.vehicleId);
         }
         
-        console.log('🔍 [DEBUG] vehicleId extracted:', vehicleIdString);
         
         const bodyworkJobResponse = await BodyworkService.createBodyworkJob({
           customerId: userId,
@@ -1440,7 +1412,7 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
           }
         });
         
-        console.log('🔍 BodyworkJob response:', {
+        Logger.debug('BodyworkJob response:', {
           success: bodyworkJobResponse.success,
           hasData: !!bodyworkJobResponse.data,
           message: bodyworkJobResponse.message
@@ -1448,23 +1420,22 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
         
         if (bodyworkJobResponse.success && bodyworkJobResponse.data) {
           bodyworkJob = bodyworkJobResponse.data;
-          console.log('✅ BodyworkJob oluşturuldu:', bodyworkJob._id);
+          Logger.info('BodyworkJob oluşturuldu:', bodyworkJob._id);
           
           // FaultReport'a bodyworkJobId ekle (ileride referans için)
           (faultReport as any).bodyworkJobId = bodyworkJob._id;
           await faultReport.save();
-          console.log('✅ FaultReport bodyworkJobId güncellendi:', bodyworkJob._id.toString());
+          Logger.info('FaultReport bodyworkJobId güncellendi:', bodyworkJob._id.toString());
           
           // FaultReport'u yeniden yükle ve kontrol et
           const savedFaultReport = await FaultReport.findById(faultReport._id);
-          console.log('🔍 [DEBUG] Saved FaultReport bodyworkJobId:', (savedFaultReport as any)?.bodyworkJobId);
         } else {
-          console.warn('⚠️ BodyworkJob oluşturulamadı:', bodyworkJobResponse);
+          Logger.warn('BodyworkJob oluşturulamadı:', bodyworkJobResponse);
         }
         
       } catch (bodyworkError: any) {
-        console.error('❌ BodyworkJob oluşturulurken hata:', bodyworkError);
-        console.error('❌ Error details:', {
+        Logger.error('BodyworkJob oluşturulurken hata:', bodyworkError);
+        Logger.error('Error details:', {
           message: bodyworkError.message,
           stack: bodyworkError.stack,
           name: bodyworkError.name
@@ -1472,7 +1443,7 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
         // BodyworkJob hatası randevu oluşturmayı durdurmamalı
       }
     } else {
-      console.warn('⚠️ BodyworkJob oluşturulmadı:', {
+      Logger.warn('BodyworkJob oluşturulmadı:', {
         isBodyworkCategory,
         hasFinalMechanicId: !!finalMechanicId
       });
@@ -1481,7 +1452,7 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
     // Eğer Elektrik-Elektronik ise ElectricalJob oluştur
     const isElectricalCategory = faultReport.serviceCategory === 'Elektrik-Elektronik';
     
-    console.log('🔍 ElectricalJob kontrolü:', {
+    Logger.debug('ElectricalJob kontrolü:', {
       serviceCategory: faultReport.serviceCategory,
       isElectricalCategory,
       finalMechanicId: finalMechanicId?.toString(),
@@ -1491,7 +1462,7 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
     let electricalJob = null;
     if (isElectricalCategory && finalMechanicId) {
       try {
-        console.log('🔍 Elektrik-Elektronik kategorisi tespit edildi, ElectricalJob oluşturuluyor...');
+        Logger.debug('Elektrik-Elektronik kategorisi tespit edildi, ElectricalJob oluşturuluyor...');
         
         // Priority'yi urgencyLevel'e map et
         const urgencyLevel = (faultReport.priority === 'urgent' || faultReport.priority === 'high') ? 'acil' : 'normal';
@@ -1516,13 +1487,11 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
           customerIdString = String(faultReport.userId || userId);
         }
         
-        console.log('🔍 ElectricalJob parametreleri:', {
+        Logger.debug('ElectricalJob parametreleri:', {
           customerId: customerIdString,
           vehicleId: vehicleIdString,
           mechanicId: finalMechanicId.toString()
         });
-        console.log('🔍 [DEBUG] vehicleId extracted:', vehicleIdString);
-        console.log('🔍 [DEBUG] customerId extracted:', customerIdString);
         
         // FaultReport'dan electrical-specific fields'ları al (varsa), yoksa varsayılanlar kullan
         const electricalJobResponse = await ElectricalService.createElectricalJob({
@@ -1541,7 +1510,7 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
           }
         });
         
-        console.log('🔍 ElectricalJob response:', {
+        Logger.debug('ElectricalJob response:', {
           success: electricalJobResponse.success,
           hasData: !!electricalJobResponse.data,
           message: electricalJobResponse.message
@@ -1549,23 +1518,22 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
         
         if (electricalJobResponse.success && electricalJobResponse.data) {
           electricalJob = electricalJobResponse.data;
-          console.log('✅ ElectricalJob oluşturuldu:', electricalJob._id);
+          Logger.info('ElectricalJob oluşturuldu:', electricalJob._id);
           
           // FaultReport'a electricalJobId ekle (ileride referans için)
           (faultReport as any).electricalJobId = electricalJob._id;
           await faultReport.save();
-          console.log('✅ FaultReport electricalJobId güncellendi:', electricalJob._id.toString());
+          Logger.info('FaultReport electricalJobId güncellendi:', electricalJob._id.toString());
           
           // FaultReport'u yeniden yükle ve kontrol et
           const savedFaultReport = await FaultReport.findById(faultReport._id);
-          console.log('🔍 [DEBUG] Saved FaultReport electricalJobId:', (savedFaultReport as any)?.electricalJobId);
         } else {
-          console.warn('⚠️ ElectricalJob oluşturulamadı:', electricalJobResponse);
+          Logger.warn('ElectricalJob oluşturulamadı:', electricalJobResponse);
         }
         
       } catch (electricalError: any) {
-        console.error('❌ ElectricalJob oluşturulurken hata:', electricalError);
-        console.error('❌ Error details:', {
+        Logger.error('ElectricalJob oluşturulurken hata:', electricalError);
+        Logger.error('Error details:', {
           message: electricalError.message,
           stack: electricalError.stack,
           name: electricalError.name
@@ -1573,7 +1541,7 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
         // ElectricalJob hatası randevu oluşturmayı durdurmamalı
       }
     } else {
-      console.warn('⚠️ ElectricalJob oluşturulmadı:', {
+      Logger.warn('ElectricalJob oluşturulmadı:', {
         isElectricalCategory,
         hasFinalMechanicId: !!finalMechanicId
       });
@@ -1602,9 +1570,9 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
             price: appointment.price || 0
           }
         });
-        console.log(`✅ Usta'ya randevu bildirimi gönderildi: ${finalMechanicId}`);
+        Logger.info(`Usta'ya randevu bildirimi gönderildi: ${finalMechanicId}`);
       } catch (notificationError) {
-        console.error('❌ Usta bildirimi gönderme hatası:', notificationError);
+        Logger.error('Usta bildirimi gönderme hatası:', notificationError);
       }
     }
 
@@ -1635,11 +1603,11 @@ export const createAppointmentFromFaultReport = async (req: Request, res: Respon
     });
 
   } catch (error: any) {
-    console.error('❌ createAppointmentFromFaultReport error:', error);
-    console.error('❌ Error message:', error.message);
-    console.error('❌ Error stack:', error.stack);
+    Logger.error('createAppointmentFromFaultReport error:', error);
+    Logger.error('Error message:', error.message);
+    Logger.error('Error stack:', error.stack);
     if (error.name === 'ValidationError') {
-      console.error('❌ Validation errors:', error.errors);
+      Logger.error('Validation errors:', error.errors);
     }
     res.status(500).json({
       success: false,
@@ -1762,7 +1730,7 @@ export const convertToBodyworkJob = async (req: Request, res: Response) => {
     }
 
   } catch (error: any) {
-    console.error('❌ convertToBodyworkJob error:', error);
+    Logger.error('convertToBodyworkJob error:', error);
     res.status(500).json({
       success: false,
       message: 'Dönüştürme işlemi sırasında bir hata oluştu',
@@ -1900,7 +1868,7 @@ export const convertToElectricalJob = async (req: Request, res: Response) => {
     }
 
   } catch (error: any) {
-    console.error('❌ convertToElectricalJob error:', error);
+    Logger.error('convertToElectricalJob error:', error);
     res.status(500).json({
       success: false,
       message: 'Dönüştürme işlemi sırasında bir hata oluştu',
@@ -1922,7 +1890,7 @@ async function findNearbyMechanics(
     // O kategorinin tüm query değerlerini al (enum değeri + Türkçe alternatifleri)
     const matchingCategories = getCategoryQueryValues(normalizedServiceCategory);
 
-    console.log(`[FIND MECHANICS] Usta arama başladı:`, {
+    Logger.debug(`[FIND MECHANICS] Usta arama başladı:`, {
       serviceCategory,
       normalizedServiceCategory,
       matchingCategories,
@@ -1941,7 +1909,7 @@ async function findNearbyMechanics(
       ]
     }).lean();
 
-    console.log(`[FIND MECHANICS] Mechanic modelinde ${mechanics.length} usta bulundu`);
+    Logger.debug(`[FIND MECHANICS] Mechanic modelinde ${mechanics.length} usta bulundu`);
 
     // User modelinde de ara (rektefe-us uygulamasından gelen ustalar)
     const userMechanics = await User.find({
@@ -1956,7 +1924,7 @@ async function findNearbyMechanics(
       ]
     }).lean();
 
-    console.log(`[FIND MECHANICS] User modelinde ${userMechanics.length} usta bulundu`);
+    Logger.debug(`[FIND MECHANICS] User modelinde ${userMechanics.length} usta bulundu`);
 
     // User verilerini Mechanic formatına çevir
     const formattedUserMechanics = userMechanics.map(user => ({
@@ -1974,13 +1942,13 @@ async function findNearbyMechanics(
     // Tüm ustaları birleştir
     const allMechanics = [...mechanics, ...formattedUserMechanics];
 
-    console.log(`[FIND MECHANICS] Toplam ${allMechanics.length} usta bulundu (en fazla 20 dönecek)`);
+    Logger.debug(`[FIND MECHANICS] Toplam ${allMechanics.length} usta bulundu (en fazla 20 dönecek)`);
 
     // Konum sıralaması kaldırıldı - sadece hizmet kategorisine göre döndür
     return allMechanics.slice(0, 20); // En fazla 20 usta
 
   } catch (error) {
-    console.error(`[FIND MECHANICS] Usta arama hatası:`, error);
+    Logger.error(`[FIND MECHANICS] Usta arama hatası:`, error);
     return [];
   }
 }

@@ -15,15 +15,15 @@ const options = {
     servers: [
       {
         url: process.env.SERVER_URL || 'http://localhost:3000',
-        description: 'Development Server (Ortak IP)',
+        description: 'Development Server',
       },
       {
-        url: 'http://localhost:3000',
-        description: 'Local Development Server',
+        url: 'https://dev-production-8a3d.up.railway.app',
+        description: 'Railway Production Server',
       },
       {
         url: 'https://api.rektefe.com',
-        description: 'Production Server',
+        description: 'Production Server (Future)',
       }
     ],
     components: {

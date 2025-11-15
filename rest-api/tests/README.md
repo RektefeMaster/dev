@@ -49,3 +49,11 @@ Eğer timeout hatası alıyorsanız:
 Test verileri otomatik olarak temizlenir. Eğer temizlenmemiş veriler varsa:
 - Test dosyasındaki `beforeAll` ve `afterAll` hook'ları kontrol edin
 
+
+
+
+
+
+
+
+

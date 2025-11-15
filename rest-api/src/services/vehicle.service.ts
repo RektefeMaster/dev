@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import { CustomError } from '../middleware/errorHandler';
 import { MileageModel } from '../models/MileageModel';
 import { OdometerEvent, OdometerEventEvidenceType, OdometerEventSource } from '../models/OdometerEvent';
+import Logger from '../utils/logger';
 import {
   DEFAULT_CONFIDENCE,
   DEFAULT_RATE_KM_PER_DAY,
@@ -140,7 +141,7 @@ export class VehicleService {
       
       return vehicles;
     } catch (error) {
-      console.error('VehicleService.getUserVehicles hata:', error);
+      Logger.error('VehicleService.getUserVehicles hata:', error);
       throw new CustomError('Araçlar getirilirken hata oluştu', 500);
     }
   }

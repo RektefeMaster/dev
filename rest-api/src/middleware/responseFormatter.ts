@@ -1,14 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
-import { ResponseHelper } from '../types/ApiResponse';
+import { 
+  createSuccessResponse, 
+  createErrorResponse, 
+  createPaginatedResponse,
+  ErrorCode 
+} from '../../../shared/types/apiResponse';
 
 export const responseFormatter = (req: Request, res: Response, next: NextFunction) => {
   const requestId = req.headers['x-request-id'] as string;
   const startTime = Date.now();
 
-  // Success response formatter
+  // Success response formatter - shared/types/apiResponse.ts formatını kullan
   res.success = (data?: any, message?: string, statusCode: number = 200) => {
     const responseTime = Date.now() - startTime;
-    const response = ResponseHelper.success(data, message, requestId);
+    const response = createSuccessResponse(data, message, requestId);
     
     // Add response time to meta
     if (response.meta) {
@@ -18,17 +23,29 @@ export const responseFormatter = (req: Request, res: Response, next: NextFunctio
     return res.status(statusCode).json(response);
   };
 
-  // Error response formatter
+  // Error response formatter - shared/types/apiResponse.ts formatını kullan
   res.error = (error: string, message?: string, statusCode: number = 400) => {
-    return res.status(statusCode).json(ResponseHelper.error(error, message, statusCode, requestId));
+    const errorCode = statusCode === 400 ? ErrorCode.BAD_REQUEST :
+                     statusCode === 401 ? ErrorCode.UNAUTHORIZED :
+                     statusCode === 403 ? ErrorCode.FORBIDDEN :
+                     statusCode === 404 ? ErrorCode.NOT_FOUND :
+                     statusCode === 409 ? ErrorCode.RESOURCE_CONFLICT :
+                     statusCode === 429 ? ErrorCode.RATE_LIMIT_EXCEEDED :
+                     ErrorCode.INTERNAL_SERVER_ERROR;
+    return res.status(statusCode).json(createErrorResponse(errorCode, message || error, null, requestId));
   };
 
-  // Validation error formatter
+  // Validation error formatter - shared/types/apiResponse.ts formatını kullan
   res.validationError = (errors: Record<string, string[]>, statusCode: number = 400) => {
-    return res.status(statusCode).json(ResponseHelper.validationError(errors, requestId));
+    return res.status(statusCode).json(createErrorResponse(
+      ErrorCode.VALIDATION_FAILED, 
+      'Veri doğrulama hatası', 
+      { errors }, 
+      requestId
+    ));
   };
 
-  // Paginated response formatter
+  // Paginated response formatter - shared/types/apiResponse.ts formatını kullan
   res.paginated = (
     data: any[], 
     page: number, 
@@ -37,32 +54,33 @@ export const responseFormatter = (req: Request, res: Response, next: NextFunctio
     message?: string,
     statusCode: number = 200
   ) => {
-    return res.status(statusCode).json(ResponseHelper.paginated(data, page, limit, total, message, requestId));
+    return res.status(statusCode).json(createPaginatedResponse(data, page, limit, total, message, requestId));
   };
 
-  // Unauthorized response formatter
+  // Unauthorized response formatter - shared/types/apiResponse.ts formatını kullan
   res.unauthorized = (message?: string) => {
-    return res.status(401).json(ResponseHelper.unauthorized(message, requestId));
+    return res.status(401).json(createErrorResponse(ErrorCode.UNAUTHORIZED, message, null, requestId));
   };
 
-  // Forbidden response formatter
+  // Forbidden response formatter - shared/types/apiResponse.ts formatını kullan
   res.forbidden = (message?: string) => {
-    return res.status(403).json(ResponseHelper.forbidden(message, requestId));
+    return res.status(403).json(createErrorResponse(ErrorCode.FORBIDDEN, message, null, requestId));
   };
 
-  // Not found response formatter
+  // Not found response formatter - shared/types/apiResponse.ts formatını kullan
   res.notFound = (resource?: string) => {
-    return res.status(404).json(ResponseHelper.notFound(resource, requestId));
+    const message = resource ? `${resource} bulunamadı` : 'Kaynak bulunamadı';
+    return res.status(404).json(createErrorResponse(ErrorCode.NOT_FOUND, message, null, requestId));
   };
 
-  // Server error response formatter
+  // Server error response formatter - shared/types/apiResponse.ts formatını kullan
   res.serverError = (message?: string) => {
-    return res.status(500).json(ResponseHelper.serverError(message, requestId));
+    return res.status(500).json(createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, message, null, requestId));
   };
 
-  // Rate limit response formatter
+  // Rate limit response formatter - shared/types/apiResponse.ts formatını kullan
   res.rateLimit = () => {
-    return res.status(429).json(ResponseHelper.rateLimit(requestId));
+    return res.status(429).json(createErrorResponse(ErrorCode.RATE_LIMIT_EXCEEDED, undefined, null, requestId));
   };
 
   next();

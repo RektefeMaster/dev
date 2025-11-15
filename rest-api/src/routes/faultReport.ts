@@ -3,6 +3,7 @@ import { auth } from '../middleware/optimizedAuth';
 import { requireRole } from '../middleware/roleAuth';
 import { UserType } from '../../../shared/types/enums';
 import { validateSelectQuote } from '../validators/faultReport.validation';
+import Logger from '../utils/logger';
 // Dynamic import to avoid circular dependency issues
 const faultReportController = require('../controllers/faultReport.controller');
 const {
@@ -66,18 +67,18 @@ router.post('/:id/select-quote',
   auth,
   requireRole([UserType.DRIVER]),
   (req, res, next) => {
-    console.log('🔍 selectQuote middleware - Request body:', req.body);
-    console.log('🔍 selectQuote middleware - Request params:', req.params);
+    Logger.debug('selectQuote middleware - Request body:', req.body);
+    Logger.debug('selectQuote middleware - Request params:', req.params);
     
     const { error } = validateSelectQuote(req.body);
     if (error) {
-      console.log('❌ Validation error:', error.details);
+      Logger.warn('Validation error:', error.details);
       return res.status(400).json({
         success: false,
         message: error.details[0].message
       });
     }
-    console.log('✅ Validation passed');
+    Logger.debug('Validation passed');
     next();
   },
   selectQuote
@@ -137,9 +138,9 @@ router.post('/:id/create-appointment',
   auth,
   requireRole([UserType.DRIVER]),
   (req, res, next) => {
-    console.log('🔍 create-appointment route middleware çağrıldı');
-    console.log('🔍 Route params:', req.params);
-    console.log('🔍 Route body:', req.body);
+    Logger.debug('create-appointment route middleware çağrıldı');
+    Logger.debug('Route params:', req.params);
+    Logger.debug('Route body:', req.body);
     next();
   },
   createAppointmentFromFaultReport

@@ -6,27 +6,30 @@ import { AppointmentService } from '../services/appointment.service';
 import { Appointment } from '../models/Appointment';
 import { AppointmentController } from '../controllers/appointment.controller';
 import { AppointmentStatus } from '../../../shared/types/enums';
+import Logger from '../utils/logger';
 
 const router = Router();
 
-// Debug endpoint'leri (auth olmadan)
-router.get('/debug-all', async (req: Request, res: Response) => {
-  try {
-    const appointments = await AppointmentService.getAllAppointments();
-    res.json({ success: true, data: appointments });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+// Debug endpoint'leri - sadece development modunda aktif
+if (process.env.NODE_ENV !== 'production') {
+  router.get('/debug-all', async (req: Request, res: Response) => {
+    try {
+      const appointments = await AppointmentService.getAllAppointments();
+      res.json({ success: true, data: appointments });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
 
-router.get('/debug-user/:userId', async (req: Request, res: Response) => {
-  try {
-    const appointments = await AppointmentService.getAppointmentsByUserId(req.params.userId);
-    res.json({ success: true, data: appointments });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+  router.get('/debug-user/:userId', async (req: Request, res: Response) => {
+    try {
+      const appointments = await AppointmentService.getAppointmentsByUserId(req.params.userId);
+      res.json({ success: true, data: appointments });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+}
 
 // Basit GET endpoint'i (test için)
 router.get('/', auth, async (req: Request, res: Response) => {
@@ -70,18 +73,15 @@ router.get('/mechanic', auth, async (req: Request, res: Response) => {
   try {
     const mechanicId = (req.user as any)?.userId;
     const statusFilter = req.query.status as string;
-    console.log(`🔍 GET /appointments/mechanic - userId: ${mechanicId}, status: ${statusFilter}`);
+    Logger.debug(`GET /appointments/mechanic - userId: ${mechanicId}, status: ${statusFilter}`);
     
     const appointments = await AppointmentService.getMechanicAppointments(mechanicId, statusFilter, req.query);
     
-    console.log(`📊 Found ${Array.isArray(appointments) ? appointments.length : 'N/A'} appointments`);
-    if (appointments && Array.isArray(appointments) && appointments.length > 0) {
-      console.log(`📝 Sample appointment:`, JSON.stringify(appointments[0], null, 2).substring(0, 200));
-    }
+    Logger.debug(`Found ${Array.isArray(appointments) ? appointments.length : 'N/A'} appointments`);
     
     res.json({ success: true, data: appointments });
   } catch (error: any) {
-    console.error('❌ Get mechanic appointments error:', error);
+    Logger.error('Get mechanic appointments error:', error);
     
     // Detaylı hata bilgisi
     if (error.name === 'CastError') {
@@ -309,7 +309,7 @@ router.put('/:id/status', auth, async (req: Request, res: Response) => {
   try {
     const { status, rejectionReason, mechanicNotes, price } = req.body;
     
-    console.log(`📝 Status güncelleme isteği:`, {
+    Logger.debug(`Status güncelleme isteği:`, {
       appointmentId: req.params.id,
       status,
       price,
@@ -326,13 +326,13 @@ router.put('/:id/status', auth, async (req: Request, res: Response) => {
     // Eğer price verilmişse, fiyatı da güncelle
     if (price !== undefined && price !== null && price > 0) {
       const numericPrice = Number(price);
-      console.log(`💰 Fiyat güncelleniyor: ${numericPrice}₺ (appointmentId: ${req.params.id})`);
+      Logger.debug(`Fiyat güncelleniyor: ${numericPrice}₺ (appointmentId: ${req.params.id})`);
       
       appointment.price = numericPrice;
       appointment.finalPrice = numericPrice; // finalPrice'ı da güncelle
       const savedAppointment = await appointment.save();
       
-      console.log(`✅ Fiyat kaydedildi:`, {
+      Logger.debug(`Fiyat kaydedildi:`, {
         appointmentId: savedAppointment._id,
         price: savedAppointment.price,
         finalPrice: savedAppointment.finalPrice
@@ -343,7 +343,7 @@ router.put('/:id/status', auth, async (req: Request, res: Response) => {
     
     res.json({ success: true, data: appointment });
   } catch (error: any) {
-    console.error(`❌ Status güncelleme hatası:`, error);
+    Logger.error(`Status güncelleme hatası:`, error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

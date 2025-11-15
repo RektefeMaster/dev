@@ -4,6 +4,8 @@ import {
   ERROR_MESSAGES_TR, 
   ERROR_STATUS_MAPPING, 
   createErrorResponse,
+  createSuccessResponse,
+  createPaginatedResponse,
   ApiResponse 
 } from '../../../shared/types/apiResponse';
 import { logger } from '../utils/monitoring';
@@ -13,6 +15,10 @@ export interface ApiError extends Error {
   isOperational?: boolean;
 }
 
+/**
+ * Standardized Custom Error Class
+ * All errors should use this class for consistent error handling
+ */
 export class CustomError extends Error implements ApiError {
   public statusCode: number;
   public isOperational: boolean;
@@ -35,6 +41,7 @@ export { ErrorCode as ErrorCodes } from '../../../shared/types/apiResponse';
 export class ErrorHandler {
   /**
    * Create and send a standardized error response
+   * Uses shared/types/apiResponse.ts format for consistency
    */
   static sendError(
     res: Response,
@@ -44,26 +51,20 @@ export class ErrorHandler {
     req?: Request
   ): void {
     const statusCode = ERROR_STATUS_MAPPING[errorCode] || 500;
-    const message = customMessage || ERROR_MESSAGES_TR[errorCode];
     const requestId = req?.headers['x-request-id'] as string;
 
-    const errorResponse: ApiResponse = {
-      success: false,
-      timestamp: new Date().toISOString(),
-      version: '1.0.0',
-      error: {
-        code: errorCode,
-        message,
-        details,
-        requestId
-      }
-    };
+    const errorResponse = createErrorResponse(
+      errorCode,
+      customMessage,
+      details,
+      requestId
+    );
 
     // Log error for debugging (except client errors)
     if (statusCode >= 500) {
       logger.error('Server Error:', {
         errorCode,
-        message,
+        message: customMessage || ERROR_MESSAGES_TR[errorCode],
         details,
         timestamp: new Date().toISOString()
       });
@@ -74,6 +75,7 @@ export class ErrorHandler {
 
   /**
    * Create and send a standardized success response
+   * Uses shared/types/apiResponse.ts format for consistency
    */
   static sendSuccess<T>(
     res: Response,
@@ -83,22 +85,18 @@ export class ErrorHandler {
   ): void {
     const requestId = req?.headers['x-request-id'] as string;
     
-    const successResponse: ApiResponse = {
-      success: true,
+    const successResponse = createSuccessResponse(
       data,
       message,
-      timestamp: new Date().toISOString(),
-      version: '1.0.0',
-      meta: {
-        requestId
-      }
-    };
+      requestId
+    );
 
     res.json(successResponse);
   }
 
   /**
    * Create and send a created response (201)
+   * Uses shared/types/apiResponse.ts format for consistency
    */
   static sendCreated<T>(
     res: Response,
@@ -108,22 +106,18 @@ export class ErrorHandler {
   ): void {
     const requestId = req?.headers['x-request-id'] as string;
     
-    const successResponse: ApiResponse = {
-      success: true,
+    const successResponse = createSuccessResponse(
       data,
-      message: message || 'Kayıt başarıyla oluşturuldu',
-      timestamp: new Date().toISOString(),
-      version: '1.0.0',
-      meta: {
-        requestId
-      }
-    };
+      message || 'Kayıt başarıyla oluşturuldu',
+      requestId
+    );
 
     res.status(201).json(successResponse);
   }
 
   /**
    * Create and send a paginated response
+   * Uses shared/types/apiResponse.ts format for consistency
    */
   static sendPaginated<T>(
     res: Response,
@@ -135,26 +129,15 @@ export class ErrorHandler {
     req?: Request
   ): void {
     const requestId = req?.headers['x-request-id'] as string;
-    const totalPages = Math.ceil(total / limit);
     
-    const paginatedResponse: ApiResponse = {
-      success: true,
+    const paginatedResponse = createPaginatedResponse(
       data,
-      message: message || 'Veriler başarıyla getirildi',
-      timestamp: new Date().toISOString(),
-      version: '1.0.0',
-      meta: {
-        requestId,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages,
-          hasNext: page < totalPages,
-          hasPrev: page > 1
-        }
-      }
-    };
+      page,
+      limit,
+      total,
+      message || 'Veriler başarıyla getirildi',
+      requestId
+    );
 
     res.json(paginatedResponse);
   }
