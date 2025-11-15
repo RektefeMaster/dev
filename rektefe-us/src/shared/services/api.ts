@@ -24,6 +24,9 @@ import { CarWashService } from './api/wash.service';
 import { ReportService } from './api/report.service';
 import { PartsService } from './api/parts.service';
 import { TireService } from './api/tire.service';
+import { ServiceCatalogService } from './api/service-catalog.service';
+import { VehicleService } from './api/vehicle.service';
+import { SupplierService } from './api/supplier.service';
 
 // ===== FACADE - BACKWARD COMPATIBILITY =====
 
@@ -47,6 +50,9 @@ const apiService = {
   ReportService,
   PartsService,
   TireService,
+  ServiceCatalogService,
+  VehicleService,
+  SupplierService,
   
   // Spread all service methods to top level for backward compatibility
   ...AuthService,
@@ -66,6 +72,9 @@ const apiService = {
   ...ReportService,
   ...PartsService,
   ...TireService,
+  ...ServiceCatalogService,
+  ...VehicleService,
+  ...SupplierService,
   
   // Special methods
   handleError: AppointmentService.handleError,
@@ -96,4 +105,7 @@ export {
   ReportService,
   PartsService,
   TireService,
+  ServiceCatalogService,
+  VehicleService,
+  SupplierService,
 };
